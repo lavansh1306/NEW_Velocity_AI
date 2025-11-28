@@ -178,7 +178,7 @@ const ROIReport = () => {
         {/* Hero Section */}
         <Card className="mb-8 bg-gradient-hero p-8 text-center text-white shadow-2xl md:p-12">
           <h1 className="mb-4 text-3xl font-bold md:text-4xl">Velocity AI Impact Report</h1>
-          <div className="mb-4 text-5xl font-bold text-green-400 md:text-6xl">
+          <div className="mb-4 text-5xl font-bold text-[#77ff00] md:text-6xl">
             ${roi.toLocaleString()}
           </div>
           <p className="mb-2 text-lg">
@@ -188,7 +188,7 @@ const ROIReport = () => {
             Your teams are now moving faster, spending smarter, and delivering work that actually drives
             revenue.
           </p>
-          <div className="mb-6 text-xl font-semibold text-green-300">
+          <div className="mb-6 text-xl font-semibold" style={{ color: "#77ff00" }}>
             Forecasted Annual ROI: ${yearlyROI.toLocaleString()}
           </div>
           <Button size="lg" variant="secondary" className="shadow-lg">
