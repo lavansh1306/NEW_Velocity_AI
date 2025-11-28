@@ -161,9 +161,9 @@ const ROIReport = () => {
           </Link>
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-hero">
-              <span className="text-lg font-bold text-white">G</span>
+              <span className="text-lg font-bold text-white">V</span>
             </div>
-            <span className="text-xl font-bold">GainIQ</span>
+            <span className="text-xl font-bold">Velocity AI</span>
           </div>
           <Link to="/">
             <Button variant="ghost" size="sm">
@@ -177,7 +177,7 @@ const ROIReport = () => {
       <div className="container mx-auto px-4 py-8">
         {/* Hero Section */}
         <Card className="mb-8 bg-gradient-hero p-8 text-center text-white shadow-2xl md:p-12">
-          <h1 className="mb-4 text-3xl font-bold md:text-4xl">GainIQ Impact Report</h1>
+          <h1 className="mb-4 text-3xl font-bold md:text-4xl">Velocity AI Impact Report</h1>
           <div className="mb-4 text-5xl font-bold text-green-400 md:text-6xl">
             ${roi.toLocaleString()}
           </div>
@@ -249,7 +249,7 @@ const ROIReport = () => {
             ))}
           </div>
           <div className="rounded-lg border-l-4 border-green-500 bg-blue-50 p-4 font-semibold text-primary">
-            GainIQ mapped AI-freed hours to revenue-critical initiatives across teams.
+            Velocity AI mapped AI-freed hours to revenue-critical initiatives across teams.
           </div>
         </Card>
 

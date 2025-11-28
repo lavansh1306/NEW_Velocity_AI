@@ -25,9 +25,9 @@ const Demo = () => {
           </Link>
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-hero">
-              <span className="text-lg font-bold text-white">G</span>
+              <span className="text-lg font-bold text-white">V</span>
             </div>
-            <span className="text-xl font-bold">GainIQ Demo</span>
+            <span className="text-xl font-bold">Velocity AI Demo</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="h-2 w-2 animate-pulse rounded-full bg-green-500"></div>

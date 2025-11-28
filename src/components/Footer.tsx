@@ -11,11 +11,11 @@ export const Footer = () => {
       <div className="container mx-auto px-4">
         <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-5">
           <div className="lg:col-span-1">
-            <div className="mb-4 flex items-center gap-2">
+              <div className="mb-4 flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-hero">
-                <span className="text-lg font-bold text-white">G</span>
+                <span className="text-lg font-bold text-white">V</span>
               </div>
-              <span className="text-xl font-bold">GainIQ</span>
+              <span className="text-xl font-bold">Velocity AI</span>
             </div>
             <p className="text-sm text-muted-foreground">
               Turn AI time savings into strategic impact with enterprise-grade workforce intelligence.
@@ -38,8 +38,8 @@ export const Footer = () => {
           ))}
         </div>
         
-        <div className="mt-12 border-t pt-8 text-center text-sm text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} GainIQ. All rights reserved.</p>
+          <div className="mt-12 border-t pt-8 text-center text-sm text-muted-foreground">
+          <p>&copy; {new Date().getFullYear()} Velocity AI. All rights reserved.</p>
         </div>
       </div>
     </footer>

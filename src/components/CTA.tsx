@@ -13,7 +13,7 @@ export const CTA = () => {
               Ready to Transform Productivity Into Impact?
             </h2>
             <p className="mb-8 text-lg text-white/90 md:text-xl">
-              See how GainIQ helps leading enterprises measure, optimize, and prove the ROI of their AI investments.
+              See how Velocity AI helps leading enterprises measure, optimize, and prove the ROI of their AI investments.
             </p>
             <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
               <Button size="lg" variant="secondary" className="group gap-2 shadow-lg">

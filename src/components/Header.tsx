@@ -5,11 +5,11 @@ export const Header = () => {
   return (
     <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-md">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-hero">
-            <span className="text-lg font-bold text-white">G</span>
+            <span className="text-lg font-bold text-white">V</span>
           </div>
-          <span className="text-xl font-bold">GainIQ</span>
+          <span className="text-xl font-bold">Velocity AI</span>
         </div>
         
         <nav className="hidden items-center gap-8 md:flex">

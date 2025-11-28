@@ -22,7 +22,7 @@ export const Hero = () => {
           </h1>
           
           <p className="mb-10 text-lg text-white/90 md:text-xl">
-            GainIQ tracks productivity gains from AI tools, reallocates freed capacity to high-impact initiatives, 
+            Velocity AI tracks productivity gains from AI tools, reallocates freed capacity to high-impact initiatives,
             and proves ROI with causal attribution—giving CFOs and CHROs the clarity they need.
           </p>
           

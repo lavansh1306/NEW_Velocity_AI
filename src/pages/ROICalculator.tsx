@@ -69,9 +69,9 @@ const ROICalculator = () => {
           </Link>
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-hero">
-              <span className="text-lg font-bold text-white">G</span>
+              <span className="text-lg font-bold text-white">V</span>
             </div>
-            <span className="text-xl font-bold">GainIQ</span>
+            <span className="text-xl font-bold">Velocity AI</span>
           </div>
           <div className="w-24"></div>
         </div>
