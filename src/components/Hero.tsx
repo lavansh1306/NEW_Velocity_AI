@@ -35,7 +35,7 @@ export const Hero = () => {
             </Link>
             <Link to="/roi-calculator">
               <Button size="lg" variant="outline" className="border-white/30 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20">
-                SEE MY RESULT
+                ROI CHECKER
               </Button>
             </Link>
           </div>
