@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=0.75" />
+  <title>VelocityAI | ROI Executive Report</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      background-color: #f4f8fc;
+      color: #1c1c1c;
+      padding: 40px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    header a {
+      text-decoration: none;
+      color: #002c4e;
+      font-weight: 600;
+    }
+
+    .hero {
+      background: #002c4e;
+      color: white;
+      border-radius: 16px;
+      padding: 30px;
+      text-align: center;
+      margin-bottom: 20px;
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.15);
+    }
+
+    .hero h1 {
+      font-size: 2.8rem;
+      margin-bottom: 12px;
+    }
+
+    .hero .roi-highlight {
+      font-size: 3.2rem;
+      font-weight: 700;
+      margin: 12px 0;
+      color: #69d4a3;
+    }
+
+    .cta.hero-cta {
+      margin-top: 24px;
+    }
+
+    .cta a {
+      background-color: #00bfa6;
+      color: #002c4e;
+      padding: 14px 28px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 1.2rem;
+      border-radius: 8px;
+    }
+
+    .section {
+      background: white;
+      border-radius: 14px;
+      padding: 30px;
+      box-shadow: 0 10px 22px rgba(0, 0, 0, 0.08);
+      margin-top: 32px;
+    }
+
+    .tools-used-section {
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 40px;
+    }
+
+    .tools-used,
+    .departments-affected {
+      flex: 1;
+      min-width: 240px;
+    }
+
+   .tools-used ul {
+  list-style: none;
+  padding-left: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+    .tools-used li,
+    .departments-affected li {
+      background-color: #eef6fa;
+      padding: 8px 12px;
+      border-left: 5px solid #002c4e;
+      border-radius: 6px;
+      font-weight: 500;
+      margin-bottom: 8px;
+      transition: background-color 0.2s;
+      cursor: pointer;
+    }
+
+    .tools-used li.selected {
+      background-color: #c2f0e8;
+      border-left-color: #00bfa6;
+    }
+
+    .tools-used h3::after {
+      content: " (Select AI Tools Used)";
+      font-style: italic;
+      font-weight: normal;
+      font-size: 0.9rem;
+    }
+
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-top: 20px;
+    }
+
+    .card {
+      background-color: #e1f8ef;
+      border-left: 5px solid #00bfa6;
+      border-radius: 10px;
+      padding: 16px;
+      font-weight: 500;
+      min-height: 100px;
+    }
+
+    .highlight-box {
+      background: #eef6fa;
+      padding: 16px;
+      color: #002c4e;
+      border-left: 5px solid #00bfa6;
+      border-radius: 10px;
+      margin-top: 16px;
+      font-weight: 600;
+      font-size: 1rem;
+    }
+
+    .forecast-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .scenario-toggle {
+      display: flex;
+      gap: 10px;
+    }
+
+    .scenario-toggle button {
+      padding: 10px 20px;
+      font-weight: 600;
+      background-color: #002c4e;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .scenario-toggle button.active {
+      outline: 3px solid #00bfa6;
+      outline-offset: 2px;
+    }
+
+    #q4Flag {
+      text-align: center;
+      margin-top: 12px;
+      color: #00bfa6;
+      font-weight: 600;
+      font-size: 1.1rem;
+    }
+
+    .roi-flag {
+      text-align: center;
+      font-size: 1.3rem;
+      margin-top: 12px;
+      color: #00bfa6;
+      font-weight: bold;
+    }
+
+    .pdf-export {
+      text-align: center;
+      margin-top: 30px;
+    }
+
+    .pdf-export button {
+      padding: 10px 20px;
+      background-color: #6f89a4;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <a href="https://vivishay7.github.io/velocity-ai/">← Back to Home</a>
+  </header>
+
+  <div class="hero">
+    <h1>VelocityAI Impact Report</h1>
+    <div class="roi-highlight" id="totalROI"></div>
+    <p><strong>3-month value unlocked from AI-freed time:</strong> <span id="totalHours"></span> hours</p>
+    <p>Your teams are now moving faster, spending smarter, and delivering work that actually drives revenue.</p>
+    <div class="roi-flag" id="yearlyFlag"></div>
+    <div class="cta hero-cta">
+      <a href="#" onclick="alert('Redirect to demo booking flow')">Unlock ROI Value-Add Now</a>
+    </div>
+  </div>
+
+  <div class="section tools-used-section">
+    <div class="tools-used">
+      <h3>Tools Used</h3>
+      <ul id="toolsList"></ul>
+    </div>
+    <div class="departments-affected">
+      <h3>Departments Affected</h3>
+      <ul id="departmentsList"></ul>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Redeployment Initiatives</h2>
+    <div class="card-grid" id="initiativesGrid"></div>
+    <div class="highlight-box">
+      VelocityAI mapped AI-freed hours to revenue-critical initiatives across teams.
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="forecast-header">
+      <h2>Forecasted Value (12-Month Projection)</h2>
+      <div class="scenario-toggle">
+        <button onclick="updateScenario('conservative')">Conservative</button>
+        <button onclick="updateScenario('baseline')">Baseline</button>
+        <button onclick="updateScenario('aggressive')">Aggressive</button>
+      </div>
+    </div>
+    <canvas id="forecastChart" height="100"></canvas>
+    <div id="q4Flag"></div>
+  </div>
+
+  <div class="pdf-export">
+    <button onclick="window.print()">Download PDF</button>
+  </div>
+
+  <script>
+    const useCaseMappings = {
+      'Customer Success Ops': ['Customer Success', 'FreddyAI', 'HubSpot CRM'],
+      'GTMs / Product Launch': ['Marketing', 'Product', 'Custom RAG Stack'],
+      'Revenue Pipeline Support': ['RevOps', 'Zapier', 'HubSpot CRM'],
+      'Contractor Cost Reduction': ['Finance', 'UIPath', 'Blue Prism'],
+      'Engineering Backlog Acceleration': ['Engineering', 'UIPath'],
+      'Strategic Initiatives & Innovation': ['Engineering', 'Custom RAG Stack', 'FreddyAI']
+    };
+
+    const initiativeDescriptions = {
+      'Customer Success Ops': [
+        'Boosted resolution by triaging AI-freed hours.',
+        'Upsell targeting during renewal cycles.'
+      ],
+      'GTMs / Product Launch': [
+        'Deployed hours to close product delivery gaps.',
+        'Accelerated campaign content execution and messaging alignment.'
+      ],
+      'Revenue Pipeline Support': [
+        'Repurposed idle time into sales acceleration.',
+        'Enhanced pipeline hygiene and forecasting cadence.'
+      ],
+      'Contractor Cost Reduction': [
+        'Substituted internal delivery for outsourcing.',
+        'Reallocated budget from external vendors to internal capability uplift.'
+      ],
+      'Engineering Backlog Acceleration': [
+        'Cleared tech debt and advanced retention levers.',
+        'Accelerated roadmap commitments through bandwidth unlock.'
+      ],
+      'Strategic Initiatives & Innovation': [
+        'Invested time toward long-term AI and R&D bets.',
+        'Explored strategic pilots previously deprioritized.'
+      ]
+    };
+
+    const selectedUseCases = JSON.parse(localStorage.getItem('selectedUseCases') || '[]');
+    const toolsList = new Set();
+    const departmentsList = new Set();
+
+    selectedUseCases.forEach(useCase => {
+      (useCaseMappings[useCase] || []).forEach(entry => {
+        if (['Customer Success', 'Marketing', 'Product', 'Finance', 'Engineering', 'RevOps'].includes(entry)) {
+          departmentsList.add(entry);
+        } else {
+          toolsList.add(entry);
+        }
+      });
+    });
+
+    const allTools = [
+      'FreddyAI', 'HubSpot CRM', 'Custom RAG Stack', 'Zapier', 'UIPath',
+      'Blue Prism', 'Notion AI', 'ChatGPT Enterprise', 'Salesforce Einstein',
+      'Workato', 'DataRobot'
+    ];
+
+    const toolsContainer = document.getElementById('toolsList');
+    allTools.forEach(tool => {
+      const li = document.createElement('li');
+      li.textContent = tool;
+      if (toolsList.has(tool)) li.classList.add('selected');
+      li.addEventListener('click', () => {
+        li.classList.toggle('selected');
+        recalculateROI();
+      });
+      toolsContainer.appendChild(li);
+    });
+
+    document.getElementById('departmentsList').innerHTML = [...departmentsList].map(dep => `<li>${dep}</li>`).join('');
+
+    function updateInitiativesDisplay() {
+      const selectedToolNames = Array.from(document.querySelectorAll('#toolsList li.selected')).map(li => li.textContent);
+      const grid = document.getElementById('initiativesGrid');
+      grid.innerHTML = '';
+
+      const activeUseCases = selectedUseCases.filter(useCase =>
+        useCaseMappings[useCase]?.some(item => selectedToolNames.includes(item))
+      );
+
+      activeUseCases.forEach(useCase => {
+        const descList = initiativeDescriptions[useCase] || [];
+        descList.forEach(desc => {
+          grid.innerHTML += `<div class="card"><strong>${useCase}:</strong> ${desc}</div>`;
+        });
+      });
+    }
+
+    const toolHourValue = 12;
+    const baseHours = selectedUseCases.length * 51;
+    let roi = 0;
+
+    function recalculateROI() {
+      const selectedToolsCount = document.querySelectorAll('#toolsList li.selected').length;
+      const extraToolHours = selectedToolsCount * toolHourValue;
+      const totalHours = baseHours + extraToolHours;
+      roi = totalHours * 144;
+
+      document.getElementById('totalHours').textContent = totalHours;
+      document.getElementById('totalROI').textContent = `$${roi.toLocaleString()}`;
+      document.getElementById('yearlyFlag').textContent = `Forecasted Annual ROI: $${(roi * 4).toLocaleString()}`;
+      buildChart(currentScenario);
+      updateInitiativesDisplay();
+    }
+
+    const scenarios = {
+      conservative: [1, 1.7, 2.5, 3],
+      baseline: [1, 2.1, 3.3, 4.8],
+      aggressive: [1, 2.8, 4.4, 6.2]
+    };
+
+    const ctx = document.getElementById('forecastChart').getContext('2d');
+    let chartInstance = null;
+    let currentScenario = 'baseline';
+
+    function buildChart(type) {
+      const values = scenarios[type];
+      const forecastData = values.map(q => Math.round(roi * q));
+      const q4Value = forecastData[3];
+
+      if (chartInstance) chartInstance.destroy();
+
+      chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: ['Q1', 'Q2', 'Q3', 'Q4'],
+          datasets: [{
+            label: 'Projected Value ($)',
+            data: forecastData,
+            borderColor: '#00bfa6',
+            tension: 0.4,
+            fill: true,
+            backgroundColor: 'rgba(0, 191, 166, 0.1)',
+            pointBackgroundColor: '#00bfa6',
+            pointRadius: 6,
+            pointHoverRadius: 7
+          }]
+        },
+        options: {
+          plugins: {
+            tooltip: {
+              callbacks: {
+                label: function (context) {
+                  return `Value: $${context.raw.toLocaleString()}`;
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: false,
+              ticks: {
+                callback: value => `$${value.toLocaleString()}`
+              }
+            }
+          }
+        }
+      });
+
+      document.getElementById('q4Flag').textContent = `Q4 Forecasted Value Unlock: $${q4Value.toLocaleString()}`;
+    }
+
+    function updateScenario(type) {
+      currentScenario = type;
+      document.querySelectorAll('.scenario-toggle button').forEach(btn => btn.classList.remove('active'));
+      document.querySelector(`.scenario-toggle button[onclick*="${type}"]`).classList.add('active');
+      buildChart(type);
+    }
+
+    recalculateROI();
+    updateScenario('baseline');
+  </script>
+</body>
+</html>

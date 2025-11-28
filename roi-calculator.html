@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Velocity AI | ROI Calculator</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(to right, #f5f9ff, #e0ecff);
+      color: #0d1c2e;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 60px 20px;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 2.8rem;
+      margin-bottom: 10px;
+      color: #0b2c59;
+    }
+
+    p.subtitle {
+      font-size: 1.2rem;
+      margin-bottom: 40px;
+      color: #333;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+      justify-content: center;
+    }
+
+    .card {
+      background-color: white;
+      border-radius: 12px;
+      padding: 24px;
+      text-align: left;
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
+      border: 2px solid transparent;
+      transition: all 0.3s ease;
+      cursor: pointer;
+      min-height: 220px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+    }
+
+    .card.selected {
+      border-color: #0b2c59;
+      background-color: #eaf1ff;
+    }
+
+    .card h3 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #0b2c59;
+      min-height: 48px;
+      margin-bottom: 10px;
+    }
+
+    .card p {
+      font-size: 0.98rem;
+      margin: 0;
+      color: #333;
+    }
+
+    button.cta-btn {
+      margin-top: 40px;
+      padding: 14px 28px;
+      font-size: 1rem;
+      font-weight: 700;
+      color: white;
+      background-color: #0b2c59;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+
+    button.cta-btn:hover {
+      background-color: #09315e;
+    }
+
+    /* Modal */
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.5);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+
+    .modal-content {
+      background: #fff;
+      border-radius: 10px;
+      padding: 30px 40px;
+      max-width: 500px;
+      text-align: left;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+    }
+
+    .modal-content h2 {
+      margin-top: 0;
+      font-size: 1.4rem;
+      color: #0b2c59;
+    }
+
+    .modal-content ul {
+      padding-left: 20px;
+    }
+
+    .modal-content ul li {
+      margin-bottom: 8px;
+    }
+
+    .close-btn {
+      margin-top: 20px;
+      padding: 10px 20px;
+      background: #0b2c59;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .close-btn:hover {
+      background-color: #09315e;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>ROI Calculator</h1>
+    <p class="subtitle">Select where you'd like to redeploy AI-freed time. We'll calculate the real-world value based on your inputs.</p>
+
+    <div class="grid">
+      <div class="card" onclick="toggleSelect(this)">
+        <h3>Customer Success Ops</h3>
+        <p>Boost resolution rates by shifting AI-saved hours to triage and deep-dive support. Quantify deflection + upsell gains.</p>
+      </div>
+      <div class="card" onclick="toggleSelect(this)">
+        <h3>GTMs / Product Launch</h3>
+        <p>Accelerate time-to-market. Measure revenue pull-forward by applying freed time to unblock GTM delivery gaps.</p>
+      </div>
+      <div class="card" onclick="toggleSelect(this)">
+        <h3>Revenue Pipeline Support</h3>
+        <p>Deploy idle time toward sales prep, lead targeting, and follow-through. Show value through higher pipeline velocity.</p>
+      </div>
+      <div class="card" onclick="toggleSelect(this)">
+        <h3>Contractor Cost Reduction</h3>
+        <p>Reduce external spend by using internal time saved from AI for delivery work. We'll help quantify exact cost offsets.</p>
+      </div>
+      <div class="card" onclick="toggleSelect(this)">
+        <h3>Engineering Backlog Acceleration</h3>
+        <p>Use saved time to attack tech debt or fast-track high-priority product fixes that drive retention.</p>
+      </div>
+      <div class="card" onclick="toggleSelect(this)">
+        <h3>Strategic Initiatives & Innovation</h3>
+        <p>Fuel innovation by applying time toward long-range initiatives like R&D, integrations, or AI strategy execution.</p>
+      </div>
+    </div>
+
+    <button class="cta-btn" onclick="calculateROI()">Calculate My ROI</button>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal" id="resultModal">
+    <div class="modal-content">
+      <h2 id="modalTitle">You’re exploring ROI for:</h2>
+      <ul id="selectedAreasList"></ul>
+      <button class="close-btn" onclick="closeModal(); window.location.href='roi-report.html';">OK</button>
+    </div>
+  </div>
+
+  <script>
+    function toggleSelect(card) {
+      card.classList.toggle('selected');
+    }
+
+    function calculateROI() {
+      const selected = document.querySelectorAll('.card.selected');
+      const modal = document.getElementById('resultModal');
+      const title = document.getElementById('modalTitle');
+      const list = document.getElementById('selectedAreasList');
+
+      list.innerHTML = '';
+
+      if (selected.length === 0) {
+        title.textContent = 'Please select at least one area to calculate ROI.';
+        modal.style.display = 'flex';
+        return;
+      }
+
+      const useCases = [];
+      title.textContent = 'You’re exploring ROI for:';
+      selected.forEach(card => {
+        const useCase = card.querySelector('h3').innerText;
+        useCases.push(useCase);
+        const li = document.createElement('li');
+        li.textContent = useCase;
+        list.appendChild(li);
+      });
+
+      localStorage.setItem('selectedUseCases', JSON.stringify(useCases));
+      modal.style.display = 'flex';
+    }
+
+    function closeModal() {
+      document.getElementById('resultModal').style.display = 'none';
+    }
+  </script>
+</body>
+
+</html>
