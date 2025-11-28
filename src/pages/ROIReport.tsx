@@ -181,6 +181,9 @@ const ROIReport = () => {
           <div className="mb-4 text-5xl font-bold text-[#77ff00] md:text-6xl">
             ${roi.toLocaleString()}
           </div>
+          <div className="mb-6 text-xl font-semibold" style={{ color: "#77ff00" }}>
+            Forecasted Annual ROI: ${yearlyROI.toLocaleString()}
+          </div>
           <p className="mb-2 text-lg">
             <strong>3-month value unlocked from AI-freed time:</strong> {totalHours} hours
           </p>
@@ -188,9 +191,6 @@ const ROIReport = () => {
             Your teams are now moving faster, spending smarter, and delivering work that actually drives
             revenue.
           </p>
-          <div className="mb-6 text-xl font-semibold" style={{ color: "#77ff00" }}>
-            Forecasted Annual ROI: ${yearlyROI.toLocaleString()}
-          </div>
           <Button size="lg" variant="secondary" className="shadow-lg">
             Unlock ROI Value-Add Now
           </Button>
