@@ -181,14 +181,19 @@ const ROIReport = () => {
         {/* Hero Section */}
         <Card className="mb-8 bg-gradient-hero p-8 text-center text-white shadow-2xl md:p-12">
           <h1 className="mb-4 text-3xl font-bold md:text-4xl">Velocity AI Impact Report</h1>
-          <div className="mb-4 text-5xl font-bold text-[#77ff00] md:text-6xl">
-            ${roi.toLocaleString()}
+            <div className="mb-4 text-5xl font-bold text-[#77ff00] md:text-6xl">
+            ${yearlyROI.toLocaleString()}
           </div>
           <div className="mb-6 text-xl font-semibold" style={{ color: "#77ff00" }}>
-            Forecasted Annual ROI: ${yearlyROI.toLocaleString()}
+            Forecasted Annual ROI
           </div>
           <p className="mb-2 text-lg">
-            <strong>3-month value unlocked from AI-freed time:</strong> {totalHours} hours
+            <strong>
+              <span style={{ color: "#77ff00" }}>${roi.toLocaleString()}</span>
+              {' '}
+              3-month value unlocked from AI-freed time:
+            </strong>{' '}
+            {totalHours} hours
           </p>
           <p className="mb-4 text-white/90">
             Your teams are now moving faster, spending smarter, and delivering work that actually drives
