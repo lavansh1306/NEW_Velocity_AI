@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, CheckCircle2 } from "lucide-react";
 import { Line } from "recharts";
 import { LineChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 
@@ -70,6 +70,9 @@ const ROIReport = () => {
   const [scenario, setScenario] = useState<"conservative" | "baseline" | "aggressive">("baseline");
   const [roi, setRoi] = useState(0);
   const [totalHours, setTotalHours] = useState(0);
+  const [showFormModal, setShowFormModal] = useState(false);
+  const [formData, setFormData] = useState({ name: "", email: "", phone: "", company: "", message: "" });
+  const [formSubmitted, setFormSubmitted] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem("selectedUseCases");
@@ -191,10 +194,90 @@ const ROIReport = () => {
             Your teams are now moving faster, spending smarter, and delivering work that actually drives
             revenue.
           </p>
-          <Button size="lg" variant="secondary" className="shadow-lg">
+          <Button size="lg" variant="secondary" className="shadow-lg" onClick={() => { setShowFormModal(true); setFormSubmitted(false); }}>
             Unlock ROI Value-Add Now
           </Button>
         </Card>
+
+        {/* Form Modal */}
+        {showFormModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <Card className="mx-4 w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
+              {!formSubmitted ? (
+                <div>
+                  <h3 className="mb-4 text-xl font-semibold">Request a Callback</h3>
+                  <p className="mb-4 text-sm text-muted-foreground">Provide your details and we will call you within 24 hours.</p>
+
+                  <div className="space-y-3">
+                    <input
+                      className="w-full rounded-md border p-2"
+                      placeholder="Full name"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    />
+                    <input
+                      className="w-full rounded-md border p-2"
+                      placeholder="Company"
+                      value={formData.company}
+                      onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                    />
+                    <input
+                      className="w-full rounded-md border p-2"
+                      placeholder="Email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    />
+                    <input
+                      className="w-full rounded-md border p-2"
+                      placeholder="Phone"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    />
+                    <textarea
+                      className="w-full rounded-md border p-2"
+                      placeholder="Optional message"
+                      value={formData.message}
+                      onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="mt-4 flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        // simple validation: require name and phone or email
+                        if (!formData.name || (!formData.email && !formData.phone)) {
+                          alert("Please provide your name and either an email or phone number.");
+                          return;
+                        }
+                        // store data locally (optional)
+                        try { localStorage.setItem('roiContact', JSON.stringify(formData)); } catch(e) {}
+                        setFormSubmitted(true);
+                      }}
+                    >
+                      Submit
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setShowFormModal(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center">
+                  <CheckCircle2 className="mx-auto mb-3 h-10 w-10 text-green-500" />
+                  <h4 className="mb-2 text-lg font-semibold">Congratulations on Taking Step 1 to Unlocking your ROI</h4>
+                  <p className="mb-4 text-sm text-muted-foreground">You'll receive a callback within 24 hours.</p>
+                  <div className="flex justify-center">
+                    <Button onClick={() => { setShowFormModal(false); }}>
+                      Close
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </Card>
+          </div>
+        )}
 
         {/* Tools and Departments */}
         <div className="mb-8 grid gap-6 lg:grid-cols-2">
