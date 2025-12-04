@@ -8,7 +8,7 @@ const UseCases = () => {
       <Header />
 
       <main className="max-w-6xl mx-auto px-6 py-12">
-        <header className="text-center mb-10">
+        <header className="text-center mb-6">
           <h1 className="text-4xl font-bold mb-4">How VelocityAI Proves AI Value</h1>
           <p className="text-lg">
             VelocityAI integrates as a <strong>Layer 2</strong> across your existing workflows to convert
@@ -16,6 +16,8 @@ const UseCases = () => {
             accelerated innovation.
           </p>
         </header>
+
+        
 
         <section>
           <h2 className="text-2xl font-semibold text-center mb-6">Layered Value Creation: Core Use Cases</h2>
@@ -48,7 +50,7 @@ const UseCases = () => {
 
           
 
-          <h2 className="text-2xl font-semibold text-center mb-8">Embedded AI in Action</h2>
+          <h2 className="text-2xl font-semibold text-center mt-12 mb-8">Embedded AI in Action</h2>
           <div className="grid md:grid-cols-2 gap-8">
             <div className="bg-[#fefefe] p-8 rounded-2xl shadow-md border border-slate-200">
               <h3 className="text-xl font-bold mb-2">CS Team + ChatGPT Enterprise</h3>
