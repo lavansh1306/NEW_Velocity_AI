@@ -1,7 +1,10 @@
+import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
+
 const footerLinks = {
   Product: ["Features", "Architecture", "Security", "Integrations"],
   Company: ["About", "Careers", "Blog", "Press"],
-  Resources: ["Documentation", "API Reference", "Support", "Status"],
+  Resources: ["Documentation", "API Reference", "Support", "Status", ],
   Legal: ["Privacy", "Terms", "Compliance", "DPA"]
 };
 
@@ -20,6 +23,7 @@ export const Footer = () => {
             <p className="text-sm text-muted-foreground">
               Turn AI time savings into strategic impact with enterprise-grade workforce intelligence.
             </p>
+            {/* Use Cases button moved to header nav */}
           </div>
           
           {Object.entries(footerLinks).map(([category, links]) => (
