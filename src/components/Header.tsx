@@ -25,7 +25,7 @@ export const Header = () => {
           <a href="#docs" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
             Documentation
           </a>
-          <a href="/roi-calculator" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
+          <a href="/use-cases" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
             Use Cases
           </a>
         </nav>
