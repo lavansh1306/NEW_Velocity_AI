@@ -9,6 +9,7 @@ import CapacityLedgerTab from '../components/demo2/CapacityLedgerTab';
 import HotspotScoringTab from '../components/demo2/HotspotScoringTab';
 import RedeploymentTab from '../components/demo2/RedeploymentTab';
 import ROIVerificationTab from '../components/demo2/ROIVerificationTab';
+import CausalAttributionAnalysis from '../components/demo2/CausalAttributionAnalysis';
 import ProjectActivityTab from '../components/demo2/ProjectActivityTab';
 
 export default function VelocityAI() {
@@ -54,6 +55,11 @@ export default function VelocityAI() {
                 {activeTab === 'redeployment' && <RedeploymentTab />}
                 {activeTab === 'activity' && <ProjectActivityTab />}
                 {activeTab === 'roi' && <ROIVerificationTab />}
+
+                {/* Add causal attribution analysis for manager view */}
+                <div className="mt-8">
+                  <CausalAttributionAnalysis />
+                </div>
               </>
             )}
           </main>
