@@ -27,13 +27,13 @@ export const Hero = () => {
           </p>
           
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <Link to="/demo">
+            <Link to="/velocity-ai">
               <Button size="lg" variant="secondary" className="group gap-2 shadow-elevated">
                 Try Live Demo
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Button>
             </Link>
-            <Link to="/velocity-ai">
+            <Link to="/demo">
               <Button size="lg" variant="default" className="bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 shadow-elevated">
                 VelocityAI Dashboard
               </Button>
