@@ -9,6 +9,7 @@ import CapacityLedgerTab from '../components/demo2/CapacityLedgerTab';
 import HotspotScoringTab from '../components/demo2/HotspotScoringTab';
 import RedeploymentTab from '../components/demo2/RedeploymentTab';
 import ROIVerificationTab from '../components/demo2/ROIVerificationTab';
+import ProjectActivityTab from '../components/demo2/ProjectActivityTab';
 
 export default function VelocityAI() {
   const [currentView, setCurrentView] = useState<'manager' | 'vp'>('manager');
@@ -51,6 +52,7 @@ export default function VelocityAI() {
                 {activeTab === 'ledger' && <CapacityLedgerTab />}
                 {activeTab === 'hotspots' && <HotspotScoringTab />}
                 {activeTab === 'redeployment' && <RedeploymentTab />}
+                {activeTab === 'activity' && <ProjectActivityTab />}
                 {activeTab === 'roi' && <ROIVerificationTab />}
               </>
             )}

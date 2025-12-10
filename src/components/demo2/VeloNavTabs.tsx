@@ -7,6 +7,7 @@ const tabs = [
   { id: 'dashboard', label: 'Dashboard' },
   { id: 'integrations', label: 'Data Integrations' },
   { id: 'stc', label: 'Standard Time Catalog' },
+  { id: 'activity', label: 'Project Activity' },
   { id: 'ledger', label: 'Capacity Ledger' },
   { id: 'hotspots', label: 'Hotspot Scoring' },
   { id: 'redeployment', label: 'Redeployment' },
