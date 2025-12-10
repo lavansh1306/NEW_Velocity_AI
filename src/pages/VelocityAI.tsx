@@ -34,23 +34,29 @@ export default function VelocityAI() {
 
       <VeloHeader currentView={currentView} onViewChange={setCurrentView} />
 
-      {currentView === 'manager' && <VeloNavTabs activeTab={activeTab} onTabChange={setActiveTab} />}
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        <div className="flex gap-8">
+          {currentView === 'manager' && (
+            <VeloNavTabs activeTab={activeTab} onTabChange={setActiveTab} />
+          )}
 
-      <main className="max-w-7xl mx-auto px-6 py-8">
-        {currentView === 'vp' ? (
-          <VPDashboard />
-        ) : (
-          <>
-            {activeTab === 'dashboard' && <DashboardTab />}
-            {activeTab === 'integrations' && <IntegrationsTab />}
-            {activeTab === 'stc' && <StandardTimeCatalogTab />}
-            {activeTab === 'ledger' && <CapacityLedgerTab />}
-            {activeTab === 'hotspots' && <HotspotScoringTab />}
-            {activeTab === 'redeployment' && <RedeploymentTab />}
-            {activeTab === 'roi' && <ROIVerificationTab />}
-          </>
-        )}
-      </main>
+          <main className="flex-1">
+            {currentView === 'vp' ? (
+              <VPDashboard />
+            ) : (
+              <>
+                {activeTab === 'dashboard' && <DashboardTab />}
+                {activeTab === 'integrations' && <IntegrationsTab />}
+                {activeTab === 'stc' && <StandardTimeCatalogTab />}
+                {activeTab === 'ledger' && <CapacityLedgerTab />}
+                {activeTab === 'hotspots' && <HotspotScoringTab />}
+                {activeTab === 'redeployment' && <RedeploymentTab />}
+                {activeTab === 'roi' && <ROIVerificationTab />}
+              </>
+            )}
+          </main>
+        </div>
+      </div>
     </div>
   );
 }

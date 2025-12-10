@@ -15,25 +15,24 @@ const tabs = [
 
 export default function VeloNavTabs({ activeTab, onTabChange }: VeloNavTabsProps) {
   return (
-    <nav className="bg-white border-b border-gray-200">
-      <div className="max-w-7xl mx-auto px-6">
-        <div className="flex gap-8">
+    <aside className="w-56 h-screen sticky top-20 bg-white border-r border-gray-200">
+      <div className="flex flex-col py-6">
+        <div className="px-4">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
-              className={`px-4 py-4 font-semibold text-sm ${
+              className={`w-full text-left px-4 py-3 font-semibold text-sm transition-colors flex items-center gap-2 ${
                 activeTab === tab.id
-                  ? 'border-b-3 border-blue-600 text-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'border-l-4 border-blue-600 bg-blue-50 text-blue-600'
+                  : 'text-gray-600 hover:bg-gray-50'
               }`}
-              style={activeTab === tab.id ? { borderBottomWidth: '3px' } : {}}
             >
               {tab.label}
             </button>
           ))}
         </div>
       </div>
-    </nav>
+    </aside>
   );
 }
