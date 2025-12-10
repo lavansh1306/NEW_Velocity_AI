@@ -27,12 +27,17 @@ export const Hero = () => {
           </p>
           
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <a href="https://019ae67a-a447-7b46-824c-4265c3bd58e2.arena.site/" target="_blank" rel="noopener noreferrer">
+            <Link to="/demo">
               <Button size="lg" variant="secondary" className="group gap-2 shadow-elevated">
                 Try Live Demo
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Button>
-            </a>
+            </Link>
+            <Link to="/velocity-ai">
+              <Button size="lg" variant="default" className="bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 shadow-elevated">
+                VelocityAI Dashboard
+              </Button>
+            </Link>
             <Link to="/roi-calculator">
               <Button size="lg" variant="outline" className="border-white/30 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20">
                 ROI CHECKER
