@@ -6,7 +6,7 @@ export default function IntegrationsTab() {
         <p className="text-gray-600 mt-1">Read-only OAuth connections • Encrypted secrets • Event-driven ingestion</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-3 gap-6">
         {/* HubSpot */}
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
@@ -83,6 +83,46 @@ export default function IntegrationsTab() {
                 </span>
                 <span className="px-2 py-1 bg-blue-50 text-blue-700 text-xs font-semibold rounded">
                   project.created
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Jira */}
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center text-white font-bold">
+                J
+              </div>
+              <div>
+                <div className="font-bold text-gray-900">Jira</div>
+                <div className="text-xs text-green-600 font-semibold">Connected</div>
+              </div>
+            </div>
+            <button className="px-3 py-1 bg-red-50 text-red-600 rounded text-xs font-semibold hover:bg-red-100">
+              Disconnect
+            </button>
+          </div>
+          <div className="space-y-3">
+            <div className="text-sm">
+              <div className="font-semibold text-gray-700 mb-1">Scope</div>
+              <div className="text-gray-600">issues.read, sprints.read, projects.read</div>
+            </div>
+            <div className="text-sm">
+              <div className="font-semibold text-gray-700 mb-1">Last Sync</div>
+              <div className="text-gray-600">3 minutes ago</div>
+            </div>
+            <div className="pt-3 border-t border-gray-200">
+              <div className="text-xs text-gray-500 mb-2">Events Tracked</div>
+              <div className="flex flex-wrap gap-2">
+                <span className="px-2 py-1 bg-blue-50 text-blue-700 text-xs font-semibold rounded">
+                  issue.created
+                </span>
+                <span className="px-2 py-1 bg-blue-50 text-blue-700 text-xs font-semibold rounded">issue.updated</span>
+                <span className="px-2 py-1 bg-blue-50 text-blue-700 text-xs font-semibold rounded">
+                  sprint.completed
                 </span>
               </div>
             </div>

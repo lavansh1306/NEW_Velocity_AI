@@ -49,6 +49,7 @@ export default function Projects() {
   const [analyticsData, setAnalyticsData] = useState<Record<string, ProjectAnalytics | null>>({});
   const [loading, setLoading] = useState(true);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [csvConnected, setCsvConnected] = useState(false);
 
   // Load projects from CSV on mount
   useEffect(() => {
@@ -69,8 +70,10 @@ export default function Projects() {
         }));
 
         setProjects(loadedProjects);
+        setCsvConnected(loadedProjects.length > 0);
       } catch (error) {
         console.error('Failed to load projects:', error);
+        setCsvConnected(false);
       } finally {
         setLoading(false);
       }
@@ -100,6 +103,27 @@ export default function Projects() {
   return (
     <div className="bg-gray-50 min-h-screen py-12">
       <div className="max-w-7xl mx-auto px-6">
+        {/* Connection Status Banner */}
+        <div className={`mb-6 rounded-lg border p-4 flex items-center justify-between ${
+          csvConnected 
+            ? 'bg-green-50 border-green-200' 
+            : 'bg-red-50 border-red-200'
+        }`}>
+          <div className="flex items-center gap-3">
+            <div className={`w-3 h-3 rounded-full ${csvConnected ? 'bg-green-600' : 'bg-red-600'}`}></div>
+            <span className={`text-sm font-semibold ${csvConnected ? 'text-green-700' : 'text-red-700'}`}>
+              {csvConnected ? '✓ CSV Data Source Connected' : '✗ CSV Data Source Disconnected'}
+            </span>
+          </div>
+          <span className={`text-xs font-medium px-3 py-1 rounded ${
+            csvConnected
+              ? 'bg-green-100 text-green-700'
+              : 'bg-red-100 text-red-700'
+          }`}>
+            {csvConnected ? 'LIVE' : 'OFFLINE'}
+          </span>
+        </div>
+
         <h1 className="text-3xl font-bold mb-2">Projects</h1>
         <p className="text-gray-600 mb-8">Selected case studies and platform projects demonstrating impact and outcomes.</p>
 
@@ -164,6 +188,43 @@ export default function Projects() {
             {/* Analytics section rendered only when a project is selected */}
             {selectedProject && (
               <div className="mt-12">
+                {/* Analytics Connection Status */}
+                <div className={`mb-6 rounded-lg border p-4 flex items-center justify-between ${
+                  analyticsData[selectedProject.id] && !analyticsLoading
+                    ? 'bg-green-50 border-green-200'
+                    : analyticsLoading ? 'bg-blue-50 border-blue-200' : 'bg-red-50 border-red-200'
+                }`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-3 h-3 rounded-full ${
+                      analyticsData[selectedProject.id] && !analyticsLoading
+                        ? 'bg-green-600'
+                        : analyticsLoading ? 'bg-blue-600' : 'bg-red-600'
+                    }`}></div>
+                    <span className={`text-sm font-semibold ${
+                      analyticsData[selectedProject.id] && !analyticsLoading
+                        ? 'text-green-700'
+                        : analyticsLoading ? 'text-blue-700' : 'text-red-700'
+                    }`}>
+                      {analyticsLoading
+                        ? '⟳ Loading Analytics...'
+                        : analyticsData[selectedProject.id]
+                        ? '✓ Analytics Connected'
+                        : '✗ Analytics Failed to Load'}
+                    </span>
+                  </div>
+                  <span className={`text-xs font-medium px-3 py-1 rounded ${
+                    analyticsData[selectedProject.id] && !analyticsLoading
+                      ? 'bg-green-100 text-green-700'
+                      : analyticsLoading ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'
+                  }`}>
+                    {analyticsLoading
+                      ? 'LOADING'
+                      : analyticsData[selectedProject.id]
+                      ? 'CONNECTED'
+                      : 'DISCONNECTED'}
+                  </span>
+                </div>
+
                 {analyticsLoading ? (
                   <div className="text-center py-8">
                     <p className="text-gray-500">Loading analytics...</p>
