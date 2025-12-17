@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import AnalyticsPanel from '@/components/analytics/AnalyticsPanel';
 import { loadProjectAnalytics, fetchCSV, parseProjectCSV } from '@/lib/csvLoader';
+import { useToast } from '@/contexts/ToastContext';
 import type { ProjectAnalytics } from '@/components/analytics/types';
 
 interface ProjectItem {
@@ -48,12 +49,14 @@ const projectImages: Record<string, string> = {
 };
 
 export default function Projects({ jiraConnected = true }: ProjectsProps) {
+  const { addToast } = useToast();
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [selectedProject, setSelectedProject] = useState<ProjectItem | null>(null);
   const [analyticsData, setAnalyticsData] = useState<Record<string, ProjectAnalytics | null>>({});
   const [loading, setLoading] = useState(true);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [csvConnected, setCsvConnected] = useState(false);
+  const [toastShown, setToastShown] = useState(false);
 
   // Load projects from CSV on mount
   useEffect(() => {
@@ -75,16 +78,45 @@ export default function Projects({ jiraConnected = true }: ProjectsProps) {
 
         setProjects(loadedProjects);
         setCsvConnected(loadedProjects.length > 0);
+        
+        // Show success toast only once
+        if (loadedProjects.length > 0 && !toastShown) {
+          addToast({
+            type: 'success',
+            title: 'CSV Data Source Connected',
+            description: `Loaded ${loadedProjects.length} projects successfully`,
+            duration: 4000,
+          });
+          setToastShown(true);
+        }
       } catch (error) {
         console.error('Failed to load projects:', error);
         setCsvConnected(false);
+        addToast({
+          type: 'error',
+          title: 'Failed to Load Projects',
+          description: 'Could not load CSV data source. Please try again.',
+          duration: 5000,
+        });
       } finally {
         setLoading(false);
       }
     };
 
     loadProjects();
-  }, []);
+  }, [addToast, toastShown]);
+
+  // Show toast when Jira disconnected
+  useEffect(() => {
+    if (!jiraConnected && toastShown) {
+      addToast({
+        type: 'warning',
+        title: 'Jira Integration Disconnected',
+        description: 'Project analytics require Jira connection. Please reconnect in Data Integrations.',
+        duration: 5000,
+      });
+    }
+  }, [jiraConnected, addToast, toastShown]);
 
   const handleProjectSelect = async (project: ProjectItem) => {
     setSelectedProject(project);
@@ -107,47 +139,6 @@ export default function Projects({ jiraConnected = true }: ProjectsProps) {
   return (
     <div className="bg-gray-50 min-h-screen py-8 sm:py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        {/* Jira Integration Status Banner */}
-        {!jiraConnected && (
-          <div className="mb-6 rounded-lg border p-4 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-red-50 border-red-200">
-            <div className="flex items-center gap-3">
-              <div className="w-3 h-3 rounded-full flex-shrink-0 bg-red-600"></div>
-              <div>
-                <span className="text-xs sm:text-sm font-semibold text-red-700 block">
-                  ✗ Jira Integration Disconnected
-                </span>
-                <span className="text-xs text-red-600 mt-1 block">
-                  Project analytics require Jira connection. Please reconnect in Data Integrations to view project details.
-                </span>
-              </div>
-            </div>
-            <span className="text-xs font-medium px-3 py-1 rounded whitespace-nowrap bg-red-100 text-red-700">
-              DISCONNECTED
-            </span>
-          </div>
-        )}
-
-        {/* Connection Status Banner */}
-        <div className={`mb-6 rounded-lg border p-3 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
-          csvConnected 
-            ? 'bg-green-50 border-green-200' 
-            : 'bg-red-50 border-red-200'
-        }`}>
-          <div className="flex items-center gap-3">
-            <div className={`w-3 h-3 rounded-full flex-shrink-0 ${csvConnected ? 'bg-green-600' : 'bg-red-600'}`}></div>
-            <span className={`text-xs sm:text-sm font-semibold ${csvConnected ? 'text-green-700' : 'text-red-700'}`}>
-              {csvConnected ? '✓ CSV Data Source Connected' : '✗ CSV Data Source Disconnected'}
-            </span>
-          </div>
-          <span className={`text-xs font-medium px-3 py-1 rounded whitespace-nowrap ${
-            csvConnected
-              ? 'bg-green-100 text-green-700'
-              : 'bg-red-100 text-red-700'
-          }`}>
-            {csvConnected ? 'LIVE' : 'OFFLINE'}
-          </span>
-        </div>
-
         <h1 className="text-2xl sm:text-3xl font-bold mb-2">Projects</h1>
         <p className="text-gray-600 mb-8 text-sm sm:text-base">Selected case studies and platform projects demonstrating impact and outcomes.</p>
 
@@ -212,66 +203,6 @@ export default function Projects({ jiraConnected = true }: ProjectsProps) {
             {/* Analytics section rendered only when a project is selected */}
             {selectedProject && (
               <div className="mt-12">
-                {/* Jira Disconnected Warning */}
-                {!jiraConnected && (
-                  <div className="mb-6 rounded-lg border border-orange-200 bg-orange-50 p-4 flex items-center gap-3">
-                    <div className="w-3 h-3 rounded-full bg-orange-600 flex-shrink-0"></div>
-                    <div>
-                      <p className="text-sm font-semibold text-orange-900">Project analytics are unavailable</p>
-                      <p className="text-xs text-orange-700 mt-1">Jira integration is disconnected. Reconnect in Data Integrations to view project graphs and metrics.</p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Analytics Connection Status */}
-                <div className={`mb-6 rounded-lg border p-4 flex items-center justify-between ${
-                  !jiraConnected 
-                    ? 'bg-gray-50 border-gray-200'
-                    : analyticsData[selectedProject.id] && !analyticsLoading
-                    ? 'bg-green-50 border-green-200'
-                    : analyticsLoading ? 'bg-blue-50 border-blue-200' : 'bg-red-50 border-red-200'
-                }`}>
-                  <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${
-                      !jiraConnected 
-                        ? 'bg-gray-400'
-                        : analyticsData[selectedProject.id] && !analyticsLoading
-                        ? 'bg-green-600'
-                        : analyticsLoading ? 'bg-blue-600' : 'bg-red-600'
-                    }`}></div>
-                    <span className={`text-sm font-semibold ${
-                      !jiraConnected
-                        ? 'text-gray-600'
-                        : analyticsData[selectedProject.id] && !analyticsLoading
-                        ? 'text-green-700'
-                        : analyticsLoading ? 'text-blue-700' : 'text-red-700'
-                    }`}>
-                      {!jiraConnected
-                        ? '⊘ Analytics Unavailable'
-                        : analyticsLoading
-                        ? '⟳ Loading Analytics...'
-                        : analyticsData[selectedProject.id]
-                        ? '✓ Analytics Connected'
-                        : '✗ Analytics Failed to Load'}
-                    </span>
-                  </div>
-                  <span className={`text-xs font-medium px-3 py-1 rounded ${
-                    !jiraConnected
-                      ? 'bg-gray-100 text-gray-600'
-                      : analyticsData[selectedProject.id] && !analyticsLoading
-                      ? 'bg-green-100 text-green-700'
-                      : analyticsLoading ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'
-                  }`}>
-                    {!jiraConnected
-                      ? 'UNAVAILABLE'
-                      : analyticsLoading
-                      ? 'LOADING'
-                      : analyticsData[selectedProject.id]
-                      ? 'CONNECTED'
-                      : 'DISCONNECTED'}
-                  </span>
-                </div>
-
                 {!jiraConnected ? (
                   <div className="text-center py-16 bg-gray-50 rounded-lg border border-gray-200">
                     <div className="text-5xl mb-4">⊘</div>
