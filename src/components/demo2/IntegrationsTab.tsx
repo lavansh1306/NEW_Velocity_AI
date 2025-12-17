@@ -98,12 +98,20 @@ export default function IntegrationsTab() {
               </div>
               <div>
                 <div className="font-bold text-gray-900">Jira</div>
-                <div className="text-xs text-green-600 font-semibold">Connected</div>
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="w-2 h-2 bg-green-600 rounded-full"></div>
+                  <div className="text-xs text-green-600 font-semibold">Connected</div>
+                </div>
               </div>
             </div>
-            <button className="px-3 py-1 bg-red-50 text-red-600 rounded text-xs font-semibold hover:bg-red-100">
-              Disconnect
-            </button>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium px-2 py-1 bg-green-100 text-green-700 rounded">
+                LIVE
+              </span>
+              <button className="px-3 py-1 bg-red-50 text-red-600 rounded text-xs font-semibold hover:bg-red-100">
+                Disconnect
+              </button>
+            </div>
           </div>
           <div className="space-y-3">
             <div className="text-sm">
