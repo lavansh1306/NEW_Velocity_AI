@@ -36,9 +36,38 @@ export default function VelocityAI() {
       `}</style>
 
       <VeloHeader currentView={currentView} onViewChange={setCurrentView} />
+      <VeloNavTabs activeTab={activeTab} onTabChange={setActiveTab} />
 
       <div className="flex">
-        <VeloNavTabs activeTab={activeTab} onTabChange={setActiveTab} />
+        <aside className="hidden md:flex md:w-56 h-screen sticky top-20 bg-white border-r border-gray-200">
+          <div className="flex flex-col py-6 w-full">
+            <div className="px-4 space-y-1">
+              {[
+                { id: 'dashboard', label: 'Dashboard' },
+                { id: 'projects', label: 'Projects' },
+                { id: 'integrations', label: 'Data Integrations' },
+                { id: 'stc', label: 'Standard Time Catalog' },
+                { id: 'activity', label: 'Project Activity' },
+                { id: 'ledger', label: 'Capacity Ledger' },
+                { id: 'hotspots', label: 'Hotspot Scoring' },
+                { id: 'redeployment', label: 'Redeployment' },
+                { id: 'roi', label: 'ROI Verification' },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`w-full text-left px-4 py-3 font-semibold text-sm transition-colors flex items-center gap-2 ${
+                    activeTab === tab.id
+                      ? 'border-l-4 border-blue-600 bg-blue-50 text-blue-600'
+                      : 'text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </aside>
         <main className="flex-1 w-full">
           {currentView === 'vp' ? (
             <VPDashboard />
