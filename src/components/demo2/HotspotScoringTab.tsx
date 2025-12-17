@@ -97,11 +97,8 @@ export default function HotspotScoringTab() {
                   </span>
                 </div>
               </div>
-              <button className="px-4 sm:px-4 py-2.5 sm:py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 active:bg-blue-800 text-xs sm:text-sm flex-shrink-0 w-full sm:w-auto transition-colors\">
+              <button className="px-4 sm:px-4 py-2.5 sm:py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 active:bg-blue-800 text-xs sm:text-sm flex-shrink-0 w-full sm:w-auto transition-colors">
                 Investigate
-              </button>
-            </div>
-                Allocate Capacity
               </button>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-4 mb-4">

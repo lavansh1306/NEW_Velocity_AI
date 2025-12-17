@@ -172,29 +172,29 @@ export default function Projects({ jiraConnected = true }: ProjectsProps) {
                           <h2 className="text-base sm:text-lg lg:text-xl font-semibold text-gray-900 truncate\">{p.title}</h2>
                           <div className="text-xs sm:text-sm text-gray-500\">{p.category}</div>
                         </div>
-                        <div className="flex-shrink-0\">
-                          <span className="inline-block rounded-full px-3 py-1 text-xs sm:text-sm font-medium text-white whitespace-nowrap\" style={{ background: p.color }}>
+                        <div className="flex-shrink-0">
+                          <span className="inline-block rounded-full px-3 py-1 text-xs sm:text-sm font-medium text-white whitespace-nowrap" style={{ background: p.color }}>
                             #{p.id}
                           </span>
                         </div>
                       </div>
 
-                      <p className="text-xs sm:text-sm lg:text-base text-gray-700 line-clamp-2 sm:line-clamp-3\">{p.description}</p>
+                      <p className="text-xs sm:text-sm lg:text-base text-gray-700 line-clamp-2 sm:line-clamp-3">{p.description}</p>
 
-                      <div className=\"mt-3 flex flex-wrap items-center gap-2\">
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
                         {p.tags.slice(0, 2).map((t) => (
-                          <span key={t} className=\"text-xs px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full font-medium\">
+                          <span key={t} className="text-xs px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full font-medium">
                             {t}
                           </span>
                         ))}
                         {p.tags.length > 2 && (
-                          <span className=\"text-xs px-2 py-1 text-gray-600\">+{p.tags.length - 2}</span>
+                          <span className="text-xs px-2 py-1 text-gray-600">+{p.tags.length - 2}</span>
                         )}
                       </div>
 
-                      <div className=\"mt-auto pt-4\">
-                        <Button asChild className=\"w-full sm:w-auto text-xs sm:text-sm\">
-                          <a href={p.link} target=\"_blank\" rel=\"noreferrer\" className=\"inline-block\">
+                      <div className="mt-auto pt-4">
+                        <Button asChild className="w-full sm:w-auto text-xs sm:text-sm">
+                          <a href={p.link} target="_blank" rel="noreferrer" className="inline-block">
                             View Project
                           </a>
                         </Button>
@@ -207,24 +207,24 @@ export default function Projects({ jiraConnected = true }: ProjectsProps) {
 
             {/* Analytics section rendered only when a project is selected */}
             {selectedProject && (
-              <div className=\"mt-12 sm:mt-16\">
+              <div className="mt-12 sm:mt-16">
                 {!jiraConnected ? (
-                  <div className=\"text-center py-12 sm:py-16 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300\">
-                    <div className=\"text-4xl sm:text-6xl mb-4\">⊘</div>
-                    <p className=\"text-gray-800 font-semibold mb-2 text-base sm:text-lg\">Analytics Unavailable</p>
-                    <p className=\"text-gray-600 text-xs sm:text-sm max-w-md mx-auto leading-relaxed\">
+                  <div className="text-center py-12 sm:py-16 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300">
+                    <div className="text-4xl sm:text-6xl mb-4">⊘</div>
+                    <p className="text-gray-800 font-semibold mb-2 text-base sm:text-lg">Analytics Unavailable</p>
+                    <p className="text-gray-600 text-xs sm:text-sm max-w-md mx-auto leading-relaxed">
                       Jira is currently disconnected. Reconnect the Jira integration in Data Integrations to view project graphs, metrics, and analytics.
                     </p>
                   </div>
                 ) : analyticsLoading ? (
-                  <div className=\"text-center py-8\">
-                    <p className=\"text-gray-500\">Loading analytics...</p>
+                  <div className="text-center py-8">
+                    <p className="text-gray-500">Loading analytics...</p>
                   </div>
                 ) : analyticsData[selectedProject.id] ? (
                   <AnalyticsPanel project={selectedProject} analytics={analyticsData[selectedProject.id]!} />
                 ) : (
-                  <div className=\"text-center py-8\">
-                    <p className=\"text-red-500\">Failed to load analytics data</p>
+                  <div className="text-center py-8">
+                    <p className="text-red-500">Failed to load analytics data</p>
                   </div>
                 )}
               </div>
