@@ -15,6 +15,10 @@ interface ProjectItem {
   color: string;
 }
 
+interface ProjectsProps {
+  jiraConnected?: boolean;
+}
+
 const projectDescriptions: Record<string, string> = {
   '1': 'Built an integrated inventory management and demand forecasting system for a mid-market retail chain. Reduced stockouts by 32% and optimized warehouse operations, saving $450k annually in operational overhead.',
   '2': 'Designed a multi-tenant cloud infrastructure orchestration platform enabling real-time resource allocation, auto-scaling, and cost optimization across distributed systems.',
@@ -43,7 +47,7 @@ const projectImages: Record<string, string> = {
   '4': 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&h=800&fit=crop',
 };
 
-export default function Projects() {
+export default function Projects({ jiraConnected = true }: ProjectsProps) {
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [selectedProject, setSelectedProject] = useState<ProjectItem | null>(null);
   const [analyticsData, setAnalyticsData] = useState<Record<string, ProjectAnalytics | null>>({});
@@ -103,6 +107,26 @@ export default function Projects() {
   return (
     <div className="bg-gray-50 min-h-screen py-8 sm:py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
+        {/* Jira Integration Status Banner */}
+        {!jiraConnected && (
+          <div className="mb-6 rounded-lg border p-4 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-red-50 border-red-200">
+            <div className="flex items-center gap-3">
+              <div className="w-3 h-3 rounded-full flex-shrink-0 bg-red-600"></div>
+              <div>
+                <span className="text-xs sm:text-sm font-semibold text-red-700 block">
+                  ✗ Jira Integration Disconnected
+                </span>
+                <span className="text-xs text-red-600 mt-1 block">
+                  Project analytics require Jira connection. Please reconnect in Data Integrations to view project details.
+                </span>
+              </div>
+            </div>
+            <span className="text-xs font-medium px-3 py-1 rounded whitespace-nowrap bg-red-100 text-red-700">
+              DISCONNECTED
+            </span>
+          </div>
+        )}
+
         {/* Connection Status Banner */}
         <div className={`mb-6 rounded-lg border p-3 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
           csvConnected 
@@ -188,24 +212,43 @@ export default function Projects() {
             {/* Analytics section rendered only when a project is selected */}
             {selectedProject && (
               <div className="mt-12">
+                {/* Jira Disconnected Warning */}
+                {!jiraConnected && (
+                  <div className="mb-6 rounded-lg border border-orange-200 bg-orange-50 p-4 flex items-center gap-3">
+                    <div className="w-3 h-3 rounded-full bg-orange-600 flex-shrink-0"></div>
+                    <div>
+                      <p className="text-sm font-semibold text-orange-900">Project analytics are unavailable</p>
+                      <p className="text-xs text-orange-700 mt-1">Jira integration is disconnected. Reconnect in Data Integrations to view project graphs and metrics.</p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Analytics Connection Status */}
                 <div className={`mb-6 rounded-lg border p-4 flex items-center justify-between ${
-                  analyticsData[selectedProject.id] && !analyticsLoading
+                  !jiraConnected 
+                    ? 'bg-gray-50 border-gray-200'
+                    : analyticsData[selectedProject.id] && !analyticsLoading
                     ? 'bg-green-50 border-green-200'
                     : analyticsLoading ? 'bg-blue-50 border-blue-200' : 'bg-red-50 border-red-200'
                 }`}>
                   <div className="flex items-center gap-3">
                     <div className={`w-3 h-3 rounded-full ${
-                      analyticsData[selectedProject.id] && !analyticsLoading
+                      !jiraConnected 
+                        ? 'bg-gray-400'
+                        : analyticsData[selectedProject.id] && !analyticsLoading
                         ? 'bg-green-600'
                         : analyticsLoading ? 'bg-blue-600' : 'bg-red-600'
                     }`}></div>
                     <span className={`text-sm font-semibold ${
-                      analyticsData[selectedProject.id] && !analyticsLoading
+                      !jiraConnected
+                        ? 'text-gray-600'
+                        : analyticsData[selectedProject.id] && !analyticsLoading
                         ? 'text-green-700'
                         : analyticsLoading ? 'text-blue-700' : 'text-red-700'
                     }`}>
-                      {analyticsLoading
+                      {!jiraConnected
+                        ? '⊘ Analytics Unavailable'
+                        : analyticsLoading
                         ? '⟳ Loading Analytics...'
                         : analyticsData[selectedProject.id]
                         ? '✓ Analytics Connected'
@@ -213,11 +256,15 @@ export default function Projects() {
                     </span>
                   </div>
                   <span className={`text-xs font-medium px-3 py-1 rounded ${
-                    analyticsData[selectedProject.id] && !analyticsLoading
+                    !jiraConnected
+                      ? 'bg-gray-100 text-gray-600'
+                      : analyticsData[selectedProject.id] && !analyticsLoading
                       ? 'bg-green-100 text-green-700'
                       : analyticsLoading ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'
                   }`}>
-                    {analyticsLoading
+                    {!jiraConnected
+                      ? 'UNAVAILABLE'
+                      : analyticsLoading
                       ? 'LOADING'
                       : analyticsData[selectedProject.id]
                       ? 'CONNECTED'
@@ -225,7 +272,15 @@ export default function Projects() {
                   </span>
                 </div>
 
-                {analyticsLoading ? (
+                {!jiraConnected ? (
+                  <div className="text-center py-16 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="text-5xl mb-4">⊘</div>
+                    <p className="text-gray-700 font-semibold mb-2">Analytics Unavailable</p>
+                    <p className="text-gray-500 text-sm max-w-md mx-auto">
+                      Jira is currently disconnected. Reconnect the Jira integration in Data Integrations to view project graphs, metrics, and analytics.
+                    </p>
+                  </div>
+                ) : analyticsLoading ? (
                   <div className="text-center py-8">
                     <p className="text-gray-500">Loading analytics...</p>
                   </div>

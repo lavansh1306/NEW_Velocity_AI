@@ -13,9 +13,31 @@ import CausalAttributionAnalysis from '../components/demo2/CausalAttributionAnal
 import ProjectActivityTab from '../components/demo2/ProjectActivityTab';
 import Projects from './Projects';
 
+interface IntegrationState {
+  jira: boolean;
+  hubspot: boolean;
+  asana: boolean;
+  microsoft365: boolean;
+  zapier: boolean;
+}
+
 export default function VelocityAI() {
   const [currentView, setCurrentView] = useState<'manager' | 'vp'>('manager');
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [integrationStates, setIntegrationStates] = useState<IntegrationState>({
+    jira: true,
+    hubspot: true,
+    asana: true,
+    microsoft365: true,
+    zapier: false,
+  });
+
+  const handleIntegrationToggle = (integrationId: string) => {
+    setIntegrationStates(prev => ({
+      ...prev,
+      [integrationId]: !prev[integrationId]
+    }));
+  };
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -74,8 +96,8 @@ export default function VelocityAI() {
           ) : (
             <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-7xl mx-auto">
               {activeTab === 'dashboard' && <DashboardTab />}
-              {activeTab === 'integrations' && <IntegrationsTab />}
-              {activeTab === 'projects' && <Projects />}
+              {activeTab === 'integrations' && <IntegrationsTab integrationStates={integrationStates} onToggleIntegration={handleIntegrationToggle} />}
+              {activeTab === 'projects' && <Projects jiraConnected={integrationStates.jira} />}
               {activeTab === 'stc' && <StandardTimeCatalogTab />}
               {activeTab === 'ledger' && <CapacityLedgerTab />}
               {activeTab === 'hotspots' && <HotspotScoringTab />}

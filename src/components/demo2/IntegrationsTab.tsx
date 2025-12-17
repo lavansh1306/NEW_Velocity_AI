@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface Integration {
   id: string;
@@ -14,12 +14,25 @@ interface Integration {
   useCase?: string;
 }
 
-export default function IntegrationsTab() {
+interface IntegrationState {
+  jira?: boolean;
+  hubspot?: boolean;
+  asana?: boolean;
+  microsoft365?: boolean;
+  zapier?: boolean;
+}
+
+interface IntegrationsTabProps {
+  integrationStates?: IntegrationState;
+  onToggleIntegration?: (id: string) => void;
+}
+
+export default function IntegrationsTab({ integrationStates, onToggleIntegration }: IntegrationsTabProps) {
   const [integrations, setIntegrations] = useState<Integration[]>([
     {
       id: 'hubspot',
       name: 'HubSpot',
-      connected: true,
+      connected: integrationStates?.hubspot ?? true,
       icon: 'H',
       bgColor: 'bg-orange-500',
       status: 'LIVE',
@@ -30,7 +43,7 @@ export default function IntegrationsTab() {
     {
       id: 'asana',
       name: 'Asana',
-      connected: true,
+      connected: integrationStates?.asana ?? true,
       icon: 'A',
       bgColor: 'bg-pink-500',
       scope: ['tasks.read', 'projects.read'],
@@ -40,7 +53,7 @@ export default function IntegrationsTab() {
     {
       id: 'jira',
       name: 'Jira',
-      connected: true,
+      connected: integrationStates?.jira ?? true,
       icon: 'J',
       bgColor: 'bg-blue-500',
       status: 'LIVE',
@@ -51,7 +64,7 @@ export default function IntegrationsTab() {
     {
       id: 'microsoft365',
       name: 'Microsoft 365',
-      connected: true,
+      connected: integrationStates?.microsoft365 ?? true,
       icon: 'M',
       bgColor: 'bg-blue-600',
       scope: ['calendar.read', 'mail.read (metadata only)'],
@@ -61,7 +74,7 @@ export default function IntegrationsTab() {
     {
       id: 'zapier',
       name: 'Zapier',
-      connected: false,
+      connected: integrationStates?.zapier ?? false,
       icon: 'Z',
       bgColor: 'bg-orange-400',
       plannedScope: ['zaps.read', 'zap_runs.read'],
@@ -69,10 +82,20 @@ export default function IntegrationsTab() {
     }
   ]);
 
+  // Sync integrations with parent state
+  useEffect(() => {
+    if (integrationStates) {
+      setIntegrations(prev => prev.map(int => ({
+        ...int,
+        connected: integrationStates[int.id as keyof IntegrationState] ?? int.connected
+      })));
+    }
+  }, [integrationStates]);
+
   const handleToggleConnection = (id: string) => {
-    setIntegrations(integrations.map(int =>
-      int.id === id ? { ...int, connected: !int.connected } : int
-    ));
+    if (onToggleIntegration) {
+      onToggleIntegration(id);
+    }
   };
 
   return (
