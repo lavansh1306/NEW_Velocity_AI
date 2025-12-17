@@ -15,39 +15,30 @@ export async function parseProjectCSV(csvText: string): Promise<Record<string, R
   const lines = csvText.trim().split('\n');
   if (lines.length < 2) return {};
 
-  const headers = lines[0].split(',').map((h) => h.trim());
   const projectDataMap: Record<string, Record<string, any>> = {};
 
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i];
-    // Find the data column (last column contains JSON)
-    const commaCount = (line.match(/,/g) || []).length;
-    let parts: string[] = [];
     
-    if (commaCount === headers.length - 1) {
-      // Normal case: split by comma
-      parts = line.split(',').map((v) => v.trim());
-    } else {
-      // Data column contains commas, parse carefully
-      const firstCommaIndex = line.indexOf(',');
-      const secondCommaIndex = line.indexOf(',', firstCommaIndex + 1);
-      const thirdCommaIndex = line.indexOf(',', secondCommaIndex + 1);
-      
-      const project_id = line.substring(0, firstCommaIndex).trim();
-      const project_name = line.substring(firstCommaIndex + 1, secondCommaIndex).trim();
-      const category = line.substring(secondCommaIndex + 1, thirdCommaIndex).trim();
-      const data = line.substring(thirdCommaIndex + 1).trim();
-      
-      parts = [project_id, project_name, category, data];
+    // Parse CSV line with quoted JSON data
+    // Format: id,name,category,"json_data"
+    const match = line.match(/^([^,]+),([^,]+),([^,]+),"(.+)"$/);
+    
+    if (!match) {
+      console.warn(`Skipping invalid line ${i}: ${line}`);
+      continue;
     }
 
-    const project_id = parts[0];
-    const project_name = parts[1];
-    const category = parts[2];
-    const jsonData = parts[3];
+    const project_id = match[1].trim();
+    const project_name = match[2].trim();
+    const category = match[3].trim();
+    let jsonDataStr = match[4];
 
     try {
-      const parsedData = JSON.parse(jsonData);
+      // Replace escaped quotes with regular quotes for JSON parsing
+      jsonDataStr = jsonDataStr.replace(/""/g, '"');
+      const parsedData = JSON.parse(jsonDataStr);
+      
       projectDataMap[project_id] = {
         project_id,
         project_name,
@@ -55,7 +46,7 @@ export async function parseProjectCSV(csvText: string): Promise<Record<string, R
         ...parsedData,
       };
     } catch (error) {
-      console.error(`Failed to parse JSON for project ${project_id}:`, error);
+      console.error(`Failed to parse JSON for project ${project_id}:`, error, jsonDataStr);
     }
   }
 
