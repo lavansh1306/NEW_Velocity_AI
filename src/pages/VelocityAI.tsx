@@ -37,35 +37,30 @@ export default function VelocityAI() {
 
       <VeloHeader currentView={currentView} onViewChange={setCurrentView} />
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className="flex gap-8">
-          {currentView === 'manager' && (
-            <VeloNavTabs activeTab={activeTab} onTabChange={setActiveTab} />
+      <div className="flex">
+        <VeloNavTabs activeTab={activeTab} onTabChange={setActiveTab} />
+        <main className="flex-1 w-full">
+          {currentView === 'vp' ? (
+            <VPDashboard />
+          ) : (
+            <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-7xl mx-auto">
+              {activeTab === 'dashboard' && <DashboardTab />}
+              {activeTab === 'integrations' && <IntegrationsTab />}
+              {activeTab === 'projects' && <Projects />}
+              {activeTab === 'stc' && <StandardTimeCatalogTab />}
+              {activeTab === 'ledger' && <CapacityLedgerTab />}
+              {activeTab === 'hotspots' && <HotspotScoringTab />}
+              {activeTab === 'redeployment' && <RedeploymentTab />}
+              {activeTab === 'activity' && <ProjectActivityTab />}
+              {activeTab === 'roi' && <ROIVerificationTab />}
+
+              {/* Add causal attribution analysis for manager view */}
+              <div className="mt-8">
+                <CausalAttributionAnalysis />
+              </div>
+            </div>
           )}
-
-          <main className="flex-1">
-            {currentView === 'vp' ? (
-              <VPDashboard />
-            ) : (
-              <>
-                {activeTab === 'dashboard' && <DashboardTab />}
-                {activeTab === 'integrations' && <IntegrationsTab />}
-                {activeTab === 'projects' && <Projects />}
-                {activeTab === 'stc' && <StandardTimeCatalogTab />}
-                {activeTab === 'ledger' && <CapacityLedgerTab />}
-                {activeTab === 'hotspots' && <HotspotScoringTab />}
-                {activeTab === 'redeployment' && <RedeploymentTab />}
-                {activeTab === 'activity' && <ProjectActivityTab />}
-                {activeTab === 'roi' && <ROIVerificationTab />}
-
-                {/* Add causal attribution analysis for manager view */}
-                <div className="mt-8">
-                  <CausalAttributionAnalysis />
-                </div>
-              </>
-            )}
-          </main>
-        </div>
+        </main>
       </div>
     </div>
   );

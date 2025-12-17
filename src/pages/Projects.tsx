@@ -101,21 +101,21 @@ export default function Projects() {
   };
 
   return (
-    <div className="bg-gray-50 min-h-screen py-12">
-      <div className="max-w-7xl mx-auto px-6">
+    <div className="bg-gray-50 min-h-screen py-8 sm:py-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6">
         {/* Connection Status Banner */}
-        <div className={`mb-6 rounded-lg border p-4 flex items-center justify-between ${
+        <div className={`mb-6 rounded-lg border p-3 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
           csvConnected 
             ? 'bg-green-50 border-green-200' 
             : 'bg-red-50 border-red-200'
         }`}>
           <div className="flex items-center gap-3">
-            <div className={`w-3 h-3 rounded-full ${csvConnected ? 'bg-green-600' : 'bg-red-600'}`}></div>
-            <span className={`text-sm font-semibold ${csvConnected ? 'text-green-700' : 'text-red-700'}`}>
+            <div className={`w-3 h-3 rounded-full flex-shrink-0 ${csvConnected ? 'bg-green-600' : 'bg-red-600'}`}></div>
+            <span className={`text-xs sm:text-sm font-semibold ${csvConnected ? 'text-green-700' : 'text-red-700'}`}>
               {csvConnected ? '✓ CSV Data Source Connected' : '✗ CSV Data Source Disconnected'}
             </span>
           </div>
-          <span className={`text-xs font-medium px-3 py-1 rounded ${
+          <span className={`text-xs font-medium px-3 py-1 rounded whitespace-nowrap ${
             csvConnected
               ? 'bg-green-100 text-green-700'
               : 'bg-red-100 text-red-700'
@@ -124,8 +124,8 @@ export default function Projects() {
           </span>
         </div>
 
-        <h1 className="text-3xl font-bold mb-2">Projects</h1>
-        <p className="text-gray-600 mb-8">Selected case studies and platform projects demonstrating impact and outcomes.</p>
+        <h1 className="text-2xl sm:text-3xl font-bold mb-2">Projects</h1>
+        <p className="text-gray-600 mb-8 text-sm sm:text-base">Selected case studies and platform projects demonstrating impact and outcomes.</p>
 
         {loading ? (
           <div className="text-center py-12">
@@ -133,7 +133,7 @@ export default function Projects() {
           </div>
         ) : (
           <>
-            <div className="grid gap-6 sm:grid-cols-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               {projects.map((p) => (
                 <article
                   key={p.id}
@@ -145,26 +145,26 @@ export default function Projects() {
                     if (e.key === 'Enter') handleProjectSelect(p);
                   }}
                 >
-                  <div className="md:flex">
-                    <div className="md:w-1/3">
+                  <div className="flex flex-col sm:flex-row">
+                    <div className="w-full sm:w-1/3">
                       <img src={p.image} alt={p.title} className="w-full h-40 object-cover" />
                     </div>
-                    <div className="p-6 md:flex-1">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h2 className="text-xl font-semibold">{p.title}</h2>
-                          <div className="text-sm text-gray-500">{p.category}</div>
+                    <div className="p-4 sm:p-6 sm:flex-1">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-0">
+                        <div className="flex-1">
+                          <h2 className="text-lg sm:text-xl font-semibold">{p.title}</h2>
+                          <div className="text-xs sm:text-sm text-gray-500">{p.category}</div>
                         </div>
-                        <div className="ml-4">
-                          <span className="inline-block rounded-full px-3 py-1 text-sm font-medium text-white" style={{ background: p.color }}>
+                        <div className="flex-shrink-0">
+                          <span className="inline-block rounded-full px-3 py-1 text-xs sm:text-sm font-medium text-white whitespace-nowrap" style={{ background: p.color }}>
                             #{p.id}
                           </span>
                         </div>
                       </div>
 
-                      <p className="mt-4 text-gray-700">{p.description}</p>
+                      <p className="mt-3 sm:mt-4 text-sm sm:text-base text-gray-700">{p.description}</p>
 
-                      <div className="mt-4 flex items-center gap-3">
+                      <div className="mt-3 sm:mt-4 flex flex-wrap items-center gap-2">
                         {p.tags.map((t) => (
                           <span key={t} className="text-xs px-2 py-1 bg-gray-100 rounded-full text-gray-700">
                             {t}
@@ -172,8 +172,8 @@ export default function Projects() {
                         ))}
                       </div>
 
-                      <div className="mt-6">
-                        <Button asChild>
+                      <div className="mt-4 sm:mt-6">
+                        <Button asChild className="w-full sm:w-auto">
                           <a href={p.link} target="_blank" rel="noreferrer" className="inline-block">
                             View Project
                           </a>

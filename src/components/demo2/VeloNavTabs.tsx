@@ -17,7 +17,7 @@ const tabs = [
 
 export default function VeloNavTabs({ activeTab, onTabChange }: VeloNavTabsProps) {
   return (
-    <aside className="w-56 h-screen sticky top-20 bg-white border-r border-gray-200">
+    <aside className="hidden md:flex md:w-56 h-screen sticky top-20 bg-white border-r border-gray-200">
       <div className="flex flex-col py-6">
         <div className="px-4">
           {tabs.map((tab) => (

@@ -2,91 +2,92 @@ export default function VPDashboard() {
   return (
     <div>
       {/* Executive Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-3xl font-bold text-gray-900">AI & Automation Impact Dashboard</h2>
-            <p className="text-gray-600 mt-1">Enterprise-wide view of how AI tools are driving revenue growth & cost savings</p>
+      <div className="mb-6 sm:mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-0">
+          <div className="min-w-0">
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">AI & Automation Impact Dashboard</h2>
+            <p className="text-xs sm:text-sm text-gray-600 mt-1">Enterprise-wide view of how AI tools are driving revenue growth & cost savings</p>
           </div>
-          <div className="flex items-center gap-3">
-            <select className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-semibold">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 flex-shrink-0">
+            <select className="px-3 sm:px-4 py-2 border border-gray-300 rounded-lg text-xs sm:text-sm font-semibold">
               <option>Q4 2024</option>
               <option>Q3 2024</option>
               <option>YTD 2024</option>
             </select>
-            <button className="px-4 py-2 bg-gray-900 text-white rounded-lg font-semibold hover:bg-gray-800 flex items-center gap-2">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <button className="px-3 sm:px-4 py-2 bg-gray-900 text-white rounded-lg font-semibold hover:bg-gray-800 flex items-center justify-center gap-2 text-xs sm:text-sm">
+              <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
-              Export Report
+              <span className="hidden sm:inline">Export Report</span>
+              <span className="sm:hidden">Export</span>
             </button>
           </div>
         </div>
       </div>
 
       {/* Top-Line Executive KPIs */}
-      <div className="grid grid-cols-4 gap-6 mb-8">
-        <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-6 text-white shadow-lg">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
+        <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-4 sm:p-6 text-white shadow-lg">
           <div className="flex items-center justify-between mb-3">
-            <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
             <span className="text-xs font-bold bg-white bg-opacity-20 px-2 py-1 rounded">+47% vs LQ</span>
           </div>
-          <div className="text-sm opacity-90 mb-1">Total AI-Driven Value</div>
-          <div className="text-4xl font-bold">$847K</div>
-          <div className="text-sm mt-2 opacity-75">Verified ROI this quarter</div>
+          <div className="text-xs sm:text-sm opacity-90 mb-1">Total AI-Driven Value</div>
+          <div className="text-3xl sm:text-4xl font-bold">$847K</div>
+          <div className="text-xs sm:text-sm mt-2 opacity-75">Verified ROI this quarter</div>
         </div>
 
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 text-white shadow-lg">
+        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-4 sm:p-6 text-white shadow-lg">
           <div className="flex items-center justify-between mb-3">
-            <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
               </svg>
             </div>
             <span className="text-xs font-bold bg-white bg-opacity-20 px-2 py-1 rounded">+$312K</span>
           </div>
-          <div className="text-sm opacity-90 mb-1">Revenue Acceleration</div>
-          <div className="text-4xl font-bold">$1.2M</div>
-          <div className="text-sm mt-2 opacity-75">Deals closed faster via AI</div>
+          <div className="text-xs sm:text-sm opacity-90 mb-1">Revenue Acceleration</div>
+          <div className="text-3xl sm:text-4xl font-bold">$1.2M</div>
+          <div className="text-xs sm:text-sm mt-2 opacity-75">Deals closed faster via AI</div>
         </div>
 
-        <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-6 text-white shadow-lg">
+        <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-4 sm:p-6 text-white shadow-lg">
           <div className="flex items-center justify-between mb-3">
-            <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
               </svg>
             </div>
             <span className="text-xs font-bold bg-white bg-opacity-20 px-2 py-1 rounded">-23%</span>
           </div>
-          <div className="text-sm opacity-90 mb-1">Cost Savings</div>
-          <div className="text-4xl font-bold">$485K</div>
-          <div className="text-sm mt-2 opacity-75">Reduced operational spend</div>
+          <div className="text-xs sm:text-sm opacity-90 mb-1">Cost Savings</div>
+          <div className="text-3xl sm:text-4xl font-bold">$485K</div>
+          <div className="text-xs sm:text-sm mt-2 opacity-75">Reduced operational spend</div>
         </div>
 
-        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white shadow-lg">
+        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-4 sm:p-6 text-white shadow-lg">
           <div className="flex items-center justify-between mb-3">
-            <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
             <span className="text-xs font-bold bg-white bg-opacity-20 px-2 py-1 rounded">12,400 hrs</span>
           </div>
-          <div className="text-sm opacity-90 mb-1">Time Recaptured</div>
-          <div className="text-4xl font-bold">6.2 FTEs</div>
-          <div className="text-sm mt-2 opacity-75">Equivalent capacity freed</div>
+          <div className="text-xs sm:text-sm opacity-90 mb-1">Time Recaptured</div>
+          <div className="text-3xl sm:text-4xl font-bold">6.2 FTEs</div>
+          <div className="text-xs sm:text-sm mt-2 opacity-75">Equivalent capacity freed</div>
         </div>
       </div>
 
       {/* AI Investment ROI Section */}
-      <div className="grid grid-cols-3 gap-6 mb-8">
-        <div className="col-span-2 bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-8">
+        <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-6">
             <h3 className="text-lg font-bold text-gray-900">AI Tool Investment vs. Returns</h3>
             <div className="flex items-center gap-4 text-sm">
               <span className="flex items-center gap-2">

@@ -6,7 +6,7 @@ export default function IntegrationsTab() {
         <p className="text-gray-600 mt-1">Read-only OAuth connections • Encrypted secrets • Event-driven ingestion</p>
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* HubSpot */}
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">

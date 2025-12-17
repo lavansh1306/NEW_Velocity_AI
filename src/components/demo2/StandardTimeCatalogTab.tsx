@@ -37,39 +37,39 @@ export default function StandardTimeCatalogTab() {
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Standard Time Catalog (STC)</h2>
-        <p className="text-gray-600 mt-1">Admin Configuration Panel • Define standard minutes for repeatable tasks</p>
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Standard Time Catalog (STC)</h2>
+        <p className="text-xs sm:text-sm text-gray-600 mt-1">Admin Configuration Panel • Define standard minutes for repeatable tasks</p>
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold text-gray-900">Add New Standard Task</h3>
+      <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-4">
+          <h3 className="text-base sm:text-lg font-bold text-gray-900">Add New Standard Task</h3>
           <button
             onClick={addEntry}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700"
+            className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 text-xs sm:text-sm flex-shrink-0"
           >
             + Add Entry
           </button>
         </div>
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <input
             type="text"
             placeholder="Task Name"
             value={formData.taskName}
             onChange={(e) => setFormData({ ...formData, taskName: e.target.value })}
-            className="px-4 py-2 border border-gray-300 rounded-lg"
+            className="px-3 sm:px-4 py-2 border border-gray-300 rounded-lg text-xs sm:text-sm"
           />
           <input
             type="number"
             placeholder="Standard Minutes"
             value={formData.minutes}
             onChange={(e) => setFormData({ ...formData, minutes: e.target.value })}
-            className="px-4 py-2 border border-gray-300 rounded-lg"
+            className="px-3 sm:px-4 py-2 border border-gray-300 rounded-lg text-xs sm:text-sm"
           />
           <select
             value={formData.category}
             onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-            className="px-4 py-2 border border-gray-300 rounded-lg"
+            className="px-3 sm:px-4 py-2 border border-gray-300 rounded-lg text-xs sm:text-sm"
           >
             <option>Marketing</option>
             <option>Sales</option>
@@ -81,41 +81,41 @@ export default function StandardTimeCatalogTab() {
             placeholder="Source System"
             value={formData.source}
             onChange={(e) => setFormData({ ...formData, source: e.target.value })}
-            className="px-4 py-2 border border-gray-300 rounded-lg"
+            className="px-3 sm:px-4 py-2 border border-gray-300 rounded-lg text-xs sm:text-sm"
           />
         </div>
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200">
-        <table className="w-full">
+      <div className="bg-white rounded-lg border border-gray-200 overflow-x-auto">
+        <table className="w-full text-xs sm:text-sm">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">Task Name</th>
-              <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">Standard Time</th>
-              <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">Category</th>
-              <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">Source</th>
-              <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">Executions</th>
-              <th className="px-6 py-3 text-right text-xs font-bold text-gray-700 uppercase">Actions</th>
+              <th className="px-3 sm:px-6 py-2 sm:py-3 text-left font-bold text-gray-700 uppercase">Task Name</th>
+              <th className="px-3 sm:px-6 py-2 sm:py-3 text-left font-bold text-gray-700 uppercase">Standard Time</th>
+              <th className="px-3 sm:px-6 py-2 sm:py-3 text-left font-bold text-gray-700 uppercase">Category</th>
+              <th className="px-3 sm:px-6 py-2 sm:py-3 text-left font-bold text-gray-700 uppercase">Source</th>
+              <th className="px-3 sm:px-6 py-2 sm:py-3 text-left font-bold text-gray-700 uppercase hidden sm:table-cell">Executions</th>
+              <th className="px-3 sm:px-6 py-2 sm:py-3 text-right font-bold text-gray-700 uppercase">Actions</th>
             </tr>
           </thead>
           <tbody>
             {entries.map((entry, index) => (
               <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
-                <td className="px-6 py-4 text-sm font-semibold text-gray-900">{entry.taskName}</td>
-                <td className="px-6 py-4 text-sm text-gray-600">
-                  {entry.minutes} {entry.minutes === 1 ? 'minute' : 'minutes'}
+                <td className="px-3 sm:px-6 py-2 sm:py-4 font-semibold text-gray-900">{entry.taskName}</td>
+                <td className="px-3 sm:px-6 py-2 sm:py-4 text-gray-600">
+                  {entry.minutes} {entry.minutes === 1 ? 'min' : 'min'}
                 </td>
-                <td className="px-6 py-4">
-                  <span className="inline-flex items-center gap-2 px-3 py-1 bg-gray-100 text-gray-700 rounded-md text-xs font-semibold">
+                <td className="px-3 sm:px-6 py-2 sm:py-4">
+                  <span className="inline-flex items-center gap-2 px-2 sm:px-3 py-1 bg-gray-100 text-gray-700 rounded-md text-xs font-semibold">
                     {entry.category}
                   </span>
                 </td>
-                <td className="px-6 py-4 text-sm text-gray-600">{entry.source}</td>
-                <td className="px-6 py-4 text-sm font-semibold text-gray-500">
-                  {entry.executions.toLocaleString()} executions
+                <td className="px-3 sm:px-6 py-2 sm:py-4 text-gray-600 text-xs sm:text-sm">{entry.source}</td>
+                <td className="px-3 sm:px-6 py-2 sm:py-4 font-semibold text-gray-500 hidden sm:table-cell">
+                  {entry.executions.toLocaleString()}
                 </td>
-                <td className="px-6 py-4 text-right">
-                  <button className="text-blue-600 hover:text-blue-800 text-sm font-semibold">Edit</button>
+                <td className="px-3 sm:px-6 py-2 sm:py-4 text-right">
+                  <button className="text-blue-600 hover:text-blue-800 text-xs sm:text-sm font-semibold">Edit</button>
                 </td>
               </tr>
             ))}
