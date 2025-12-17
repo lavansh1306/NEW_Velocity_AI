@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import AnalyticsPanel from '@/components/analytics/AnalyticsPanel';
+import { loadProjectAnalytics } from '@/lib/csvLoader';
 import type { ProjectItem, ProjectAnalytics } from '@/components/analytics/types';
 
 const projects: ProjectItem[] = [
@@ -29,67 +30,28 @@ const projects: ProjectItem[] = [
   },
 ];
 
-// MOCKED analytics data per project id (shaped per requirements)
-const analyticsData: Record<string, ProjectAnalytics> = {
-  '01': {
-    planned_hours: 240,
-    actual_hours: 200,
-    tasks: [
-      { task_name: 'Design', start_date: '2025-01-01', end_date: '2025-01-10', planned_hours: 40, actual_hours: 36 },
-      { task_name: 'Implementation', start_date: '2025-01-11', end_date: '2025-02-15', planned_hours: 120, actual_hours: 110 },
-      { task_name: 'QA', start_date: '2025-02-16', end_date: '2025-02-28', planned_hours: 80, actual_hours: 54 },
-    ],
-    ai_usage: [
-      { tool: 'Copilot', hours: 30 },
-      { tool: 'GPT-Assist', hours: 24 },
-      { tool: 'AutoTest', hours: 12 },
-    ],
-    jira_tickets: [
-      { type: 'bug' },
-      { type: 'bug' },
-      { type: 'non-bug' },
-      { type: 'non-bug' },
-      { type: 'bug' },
-    ],
-    time_logs: [
-      { date: '2025-01-01', hours_logged: 8 },
-      { date: '2025-01-05', hours_logged: 6 },
-      { date: '2025-01-15', hours_logged: 10 },
-      { date: '2025-01-25', hours_logged: 12 },
-      { date: '2025-02-05', hours_logged: 14 },
-      { date: '2025-02-15', hours_logged: 30 },
-    ],
-  },
-  '02': {
-    planned_hours: 360,
-    actual_hours: 310,
-    tasks: [
-      { task_name: 'Discovery', start_date: '2025-02-01', end_date: '2025-02-07', planned_hours: 40, actual_hours: 36 },
-      { task_name: 'Integrations', start_date: '2025-02-08', end_date: '2025-03-15', planned_hours: 200, actual_hours: 180 },
-      { task_name: 'Verification', start_date: '2025-03-16', end_date: '2025-04-10', planned_hours: 120, actual_hours: 94 },
-    ],
-    ai_usage: [
-      { tool: 'Velocity Assist', hours: 60 },
-      { tool: 'DataMapper', hours: 28 },
-    ],
-    jira_tickets: [
-      { type: 'non-bug' },
-      { type: 'non-bug' },
-      { type: 'bug' },
-      { type: 'non-bug' },
-    ],
-    time_logs: [
-      { date: '2025-02-01', hours_logged: 5 },
-      { date: '2025-02-10', hours_logged: 12 },
-      { date: '2025-02-20', hours_logged: 20 },
-      { date: '2025-03-05', hours_logged: 40 },
-      { date: '2025-03-20', hours_logged: 60 },
-    ],
-  },
-};
-
 export default function Projects() {
   const [selectedProject, setSelectedProject] = useState<ProjectItem | null>(null);
+  const [analyticsData, setAnalyticsData] = useState<Record<string, ProjectAnalytics | null>>({});
+  const [loading, setLoading] = useState(false);
+
+  const handleProjectSelect = async (project: ProjectItem) => {
+    setSelectedProject(project);
+    
+    // Load analytics if not already cached
+    if (!analyticsData[project.id]) {
+      setLoading(true);
+      try {
+        const data = await loadProjectAnalytics(project.id);
+        setAnalyticsData((prev) => ({ ...prev, [project.id]: data }));
+      } catch (error) {
+        console.error(`Error loading analytics for project ${project.id}:`, error);
+        setAnalyticsData((prev) => ({ ...prev, [project.id]: null }));
+      } finally {
+        setLoading(false);
+      }
+    }
+  }
 
   return (
     <div className="bg-gray-50 min-h-screen py-12">
@@ -102,11 +64,11 @@ export default function Projects() {
             <article
               key={p.id}
               className="rounded-lg bg-white shadow-sm overflow-hidden border hover:shadow-md transition cursor-pointer"
-              onClick={() => setSelectedProject(p)}
+              onClick={() => handleProjectSelect(p)}
               role="button"
               tabIndex={0}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') setSelectedProject(p);
+                if (e.key === 'Enter') handleProjectSelect(p);
               }}
             >
               <div className="md:flex">
@@ -151,8 +113,18 @@ export default function Projects() {
 
         {/* Analytics section rendered only when a project is selected */}
         {selectedProject && (
-          <div>
-            <AnalyticsPanel project={selectedProject} analytics={analyticsData[selectedProject.id] || analyticsData['01']} />
+          <div className="mt-12">
+            {loading ? (
+              <div className="text-center py-8">
+                <p className="text-gray-500">Loading analytics...</p>
+              </div>
+            ) : analyticsData[selectedProject.id] ? (
+              <AnalyticsPanel project={selectedProject} analytics={analyticsData[selectedProject.id]!} />
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-red-500">Failed to load analytics data</p>
+              </div>
+            )}
           </div>
         )}
       </div>
