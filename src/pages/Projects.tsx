@@ -137,10 +137,12 @@ export default function Projects({ jiraConnected = true }: ProjectsProps) {
   };
 
   return (
-    <div className="bg-gray-50 min-h-screen py-8 sm:py-12">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        <h1 className="text-2xl sm:text-3xl font-bold mb-2">Projects</h1>
-        <p className="text-gray-600 mb-8 text-sm sm:text-base">Selected case studies and platform projects demonstrating impact and outcomes.</p>
+    <div className="bg-gray-50 min-h-screen py-6 sm:py-8 lg:py-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="mb-8">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-3">Projects</h1>
+          <p className="text-gray-600 text-sm sm:text-base leading-relaxed">Selected case studies and platform projects demonstrating impact and outcomes.</p>
+        </div>
 
         {loading ? (
           <div className="text-center py-12">
@@ -148,11 +150,11 @@ export default function Projects({ jiraConnected = true }: ProjectsProps) {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-12">
               {projects.map((p) => (
                 <article
                   key={p.id}
-                  className="rounded-lg bg-white shadow-sm overflow-hidden border hover:shadow-md transition cursor-pointer"
+                  className="rounded-lg bg-white shadow-sm border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
                   onClick={() => handleProjectSelect(p)}
                   role="button"
                   tabIndex={0}
@@ -161,35 +163,38 @@ export default function Projects({ jiraConnected = true }: ProjectsProps) {
                   }}
                 >
                   <div className="flex flex-col sm:flex-row">
-                    <div className="w-full sm:w-1/3">
-                      <img src={p.image} alt={p.title} className="w-full h-40 object-cover" />
+                    <div className="w-full sm:w-1/3 flex-shrink-0">
+                      <img src={p.image} alt={p.title} className="w-full h-40 sm:h-full object-cover" />
                     </div>
-                    <div className="p-4 sm:p-6 sm:flex-1">
-                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-0">
-                        <div className="flex-1">
-                          <h2 className="text-lg sm:text-xl font-semibold">{p.title}</h2>
-                          <div className="text-xs sm:text-sm text-gray-500">{p.category}</div>
+                    <div className="p-4 sm:p-5 lg:p-6 flex-1 flex flex-col">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-2">
+                        <div className="flex-1 min-w-0">
+                          <h2 className="text-base sm:text-lg lg:text-xl font-semibold text-gray-900 truncate\">{p.title}</h2>
+                          <div className="text-xs sm:text-sm text-gray-500\">{p.category}</div>
                         </div>
-                        <div className="flex-shrink-0">
-                          <span className="inline-block rounded-full px-3 py-1 text-xs sm:text-sm font-medium text-white whitespace-nowrap" style={{ background: p.color }}>
+                        <div className="flex-shrink-0\">
+                          <span className="inline-block rounded-full px-3 py-1 text-xs sm:text-sm font-medium text-white whitespace-nowrap\" style={{ background: p.color }}>
                             #{p.id}
                           </span>
                         </div>
                       </div>
 
-                      <p className="mt-3 sm:mt-4 text-sm sm:text-base text-gray-700">{p.description}</p>
+                      <p className="text-xs sm:text-sm lg:text-base text-gray-700 line-clamp-2 sm:line-clamp-3\">{p.description}</p>
 
-                      <div className="mt-3 sm:mt-4 flex flex-wrap items-center gap-2">
-                        {p.tags.map((t) => (
-                          <span key={t} className="text-xs px-2 py-1 bg-gray-100 rounded-full text-gray-700">
+                      <div className=\"mt-3 flex flex-wrap items-center gap-2\">
+                        {p.tags.slice(0, 2).map((t) => (
+                          <span key={t} className=\"text-xs px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full font-medium\">
                             {t}
                           </span>
                         ))}
+                        {p.tags.length > 2 && (
+                          <span className=\"text-xs px-2 py-1 text-gray-600\">+{p.tags.length - 2}</span>
+                        )}
                       </div>
 
-                      <div className="mt-4 sm:mt-6">
-                        <Button asChild className="w-full sm:w-auto">
-                          <a href={p.link} target="_blank" rel="noreferrer" className="inline-block">
+                      <div className=\"mt-auto pt-4\">
+                        <Button asChild className=\"w-full sm:w-auto text-xs sm:text-sm\">
+                          <a href={p.link} target=\"_blank\" rel=\"noreferrer\" className=\"inline-block\">
                             View Project
                           </a>
                         </Button>
@@ -202,24 +207,24 @@ export default function Projects({ jiraConnected = true }: ProjectsProps) {
 
             {/* Analytics section rendered only when a project is selected */}
             {selectedProject && (
-              <div className="mt-12">
+              <div className=\"mt-12 sm:mt-16\">
                 {!jiraConnected ? (
-                  <div className="text-center py-16 bg-gray-50 rounded-lg border border-gray-200">
-                    <div className="text-5xl mb-4">⊘</div>
-                    <p className="text-gray-700 font-semibold mb-2">Analytics Unavailable</p>
-                    <p className="text-gray-500 text-sm max-w-md mx-auto">
+                  <div className=\"text-center py-12 sm:py-16 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300\">
+                    <div className=\"text-4xl sm:text-6xl mb-4\">⊘</div>
+                    <p className=\"text-gray-800 font-semibold mb-2 text-base sm:text-lg\">Analytics Unavailable</p>
+                    <p className=\"text-gray-600 text-xs sm:text-sm max-w-md mx-auto leading-relaxed\">
                       Jira is currently disconnected. Reconnect the Jira integration in Data Integrations to view project graphs, metrics, and analytics.
                     </p>
                   </div>
                 ) : analyticsLoading ? (
-                  <div className="text-center py-8">
-                    <p className="text-gray-500">Loading analytics...</p>
+                  <div className=\"text-center py-8\">
+                    <p className=\"text-gray-500\">Loading analytics...</p>
                   </div>
                 ) : analyticsData[selectedProject.id] ? (
                   <AnalyticsPanel project={selectedProject} analytics={analyticsData[selectedProject.id]!} />
                 ) : (
-                  <div className="text-center py-8">
-                    <p className="text-red-500">Failed to load analytics data</p>
+                  <div className=\"text-center py-8\">
+                    <p className=\"text-red-500\">Failed to load analytics data</p>
                   </div>
                 )}
               </div>

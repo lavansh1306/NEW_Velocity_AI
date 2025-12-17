@@ -36,17 +36,17 @@ export default function StandardTimeCatalogTab() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Standard Time Catalog (STC)</h2>
-        <p className="text-xs sm:text-sm text-gray-600 mt-1">Admin Configuration Panel • Define standard minutes for repeatable tasks</p>
+      <div className="mb-6 sm:mb-8">
+        <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">Standard Time Catalog (STC)</h2>
+        <p className="text-xs sm:text-sm text-gray-600 mt-2 leading-relaxed">Admin Configuration Panel • Define standard minutes for repeatable tasks</p>
       </div>
 
       <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6 mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4">
           <h3 className="text-base sm:text-lg font-bold text-gray-900">Add New Standard Task</h3>
           <button
             onClick={addEntry}
-            className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 text-xs sm:text-sm flex-shrink-0"
+            className="px-4 sm:px-4 py-2.5 sm:py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 active:bg-blue-800 text-xs sm:text-sm flex-shrink-0 w-full sm:w-auto transition-colors"
           >
             + Add Entry
           </button>
@@ -57,19 +57,19 @@ export default function StandardTimeCatalogTab() {
             placeholder="Task Name"
             value={formData.taskName}
             onChange={(e) => setFormData({ ...formData, taskName: e.target.value })}
-            className="px-3 sm:px-4 py-2 border border-gray-300 rounded-lg text-xs sm:text-sm"
+            className="px-3 sm:px-4 py-2.5 sm:py-2 border border-gray-300 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <input
             type="number"
             placeholder="Standard Minutes"
             value={formData.minutes}
             onChange={(e) => setFormData({ ...formData, minutes: e.target.value })}
-            className="px-3 sm:px-4 py-2 border border-gray-300 rounded-lg text-xs sm:text-sm"
+            className="px-3 sm:px-4 py-2.5 sm:py-2 border border-gray-300 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <select
             value={formData.category}
             onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-            className="px-3 sm:px-4 py-2 border border-gray-300 rounded-lg text-xs sm:text-sm"
+            className="px-3 sm:px-4 py-2.5 sm:py-2 border border-gray-300 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option>Marketing</option>
             <option>Sales</option>
@@ -81,21 +81,21 @@ export default function StandardTimeCatalogTab() {
             placeholder="Source System"
             value={formData.source}
             onChange={(e) => setFormData({ ...formData, source: e.target.value })}
-            className="px-3 sm:px-4 py-2 border border-gray-300 rounded-lg text-xs sm:text-sm"
+            className="px-3 sm:px-4 py-2.5 sm:py-2 border border-gray-300 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
       </div>
 
       <div className="bg-white rounded-lg border border-gray-200 overflow-x-auto">
-        <table className="w-full text-xs sm:text-sm">
-          <thead className="bg-gray-50 border-b border-gray-200">
+        <table className="w-full text-xs sm:text-sm\">
+          <thead className="bg-gray-50 border-b border-gray-200\">
             <tr>
-              <th className="px-3 sm:px-6 py-2 sm:py-3 text-left font-bold text-gray-700 uppercase">Task Name</th>
-              <th className="px-3 sm:px-6 py-2 sm:py-3 text-left font-bold text-gray-700 uppercase">Standard Time</th>
-              <th className="px-3 sm:px-6 py-2 sm:py-3 text-left font-bold text-gray-700 uppercase">Category</th>
-              <th className="px-3 sm:px-6 py-2 sm:py-3 text-left font-bold text-gray-700 uppercase">Source</th>
-              <th className="px-3 sm:px-6 py-2 sm:py-3 text-left font-bold text-gray-700 uppercase hidden sm:table-cell">Executions</th>
-              <th className="px-3 sm:px-6 py-2 sm:py-3 text-right font-bold text-gray-700 uppercase">Actions</th>
+              <th className="px-3 sm:px-6 py-3 sm:py-4 text-left font-bold text-gray-700 uppercase text-xs\">Task Name</th>
+              <th className="px-3 sm:px-6 py-3 sm:py-4 text-left font-bold text-gray-700 uppercase text-xs\">Standard Time</th>
+              <th className="px-3 sm:px-6 py-3 sm:py-4 text-left font-bold text-gray-700 uppercase text-xs\">Category</th>
+              <th className="px-3 sm:px-6 py-3 sm:py-4 text-left font-bold text-gray-700 uppercase text-xs\">Source</th>
+              <th className="px-3 sm:px-6 py-3 sm:py-4 text-left font-bold text-gray-700 uppercase text-xs hidden sm:table-cell\">Executions</th>
+              <th className="px-3 sm:px-6 py-3 sm:py-4 text-right font-bold text-gray-700 uppercase text-xs\">Actions</th>
             </tr>
           </thead>
           <tbody>

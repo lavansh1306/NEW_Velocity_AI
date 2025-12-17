@@ -44,15 +44,15 @@ export default function HotspotScoringTab() {
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Task Hotspot Scoring</h2>
-        <p className="text-xs sm:text-sm text-gray-600 mt-1">Ranked by slack, proximity, and Cost of Delay (CoD)</p>
+        <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">Task Hotspot Scoring</h2>
+        <p className="text-xs sm:text-sm text-gray-600 mt-2">Ranked by slack, proximity, and Cost of Delay (CoD)</p>
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 mb-6">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+      <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 mb-6 overflow-x-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 min-w-full sm:min-w-0">
           <div className="flex-1">
             <label className="text-xs sm:text-sm font-semibold text-gray-700 mb-2 block">Filter by Priority</label>
-            <select className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg text-xs sm:text-sm">
+            <select className="w-full px-3 sm:px-4 py-2.5 sm:py-2 border border-gray-300 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
               <option>All Hotspots</option>
               <option>Critical Only</option>
               <option>At Risk</option>
@@ -61,7 +61,7 @@ export default function HotspotScoringTab() {
           </div>
           <div className="flex-1">
             <label className="text-xs sm:text-sm font-semibold text-gray-700 mb-2 block">Team</label>
-            <select className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg text-xs sm:text-sm">
+            <select className="w-full px-3 sm:px-4 py-2.5 sm:py-2 border border-gray-300 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
               <option>All Teams</option>
               <option>Marketing</option>
               <option>Sales</option>
@@ -70,7 +70,7 @@ export default function HotspotScoringTab() {
           </div>
           <div className="flex-1">
             <label className="text-xs sm:text-sm font-semibold text-gray-700 mb-2 block">Time Horizon</label>
-            <select className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg text-xs sm:text-sm">
+            <select className="w-full px-3 sm:px-4 py-2.5 sm:py-2 border border-gray-300 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
               <option>Next 30 Days</option>
               <option>Next 7 Days</option>
               <option>Next 90 Days</option>
@@ -83,13 +83,13 @@ export default function HotspotScoringTab() {
         {hotspots.map((hotspot, index) => (
           <div
             key={index}
-            className={`bg-white rounded-lg border ${hotspot.borderColor} border-l-4 p-3 sm:p-6 hover:shadow-lg transition-all`}
+            className={`bg-white rounded-lg border ${hotspot.borderColor} border-l-4 p-4 sm:p-6 hover:shadow-lg transition-shadow`}
           >
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-0 mb-3">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-3">
               <div className="flex-1 min-w-0">
-                <div className="font-bold text-gray-900 text-base sm:text-lg mb-1">{hotspot.title}</div>
+                <div className="font-bold text-gray-900 text-base sm:text-lg mb-2">{hotspot.title}</div>
                 <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs sm:text-sm">
-                  <span className="text-gray-600">{hotspot.team}</span>
+                  <span className="text-gray-600 truncate">{hotspot.team}</span>
                   <span className="hidden sm:inline text-gray-400">•</span>
                   <span className="text-gray-600">Due: {hotspot.dueDate}</span>
                   <span className="px-2 py-1 bg-red-100 text-red-700 text-xs font-bold rounded flex-shrink-0">
@@ -97,7 +97,10 @@ export default function HotspotScoringTab() {
                   </span>
                 </div>
               </div>
-              <button className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 text-xs sm:text-sm flex-shrink-0 w-full sm:w-auto">
+              <button className="px-4 sm:px-4 py-2.5 sm:py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 active:bg-blue-800 text-xs sm:text-sm flex-shrink-0 w-full sm:w-auto transition-colors\">
+                Investigate
+              </button>
+            </div>
                 Allocate Capacity
               </button>
             </div>

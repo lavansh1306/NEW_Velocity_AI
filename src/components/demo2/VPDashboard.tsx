@@ -1,21 +1,21 @@
 export default function VPDashboard() {
   return (
-    <div>
+    <div className="px-4 sm:px-6 lg:px-8">
       {/* Executive Header */}
       <div className="mb-6 sm:mb-8">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-0">
           <div className="min-w-0">
-            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">AI & Automation Impact Dashboard</h2>
-            <p className="text-xs sm:text-sm text-gray-600 mt-1">Enterprise-wide view of how AI tools are driving revenue growth & cost savings</p>
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900">AI & Automation Impact Dashboard</h2>
+            <p className="text-xs sm:text-sm text-gray-600 mt-2 leading-relaxed">Enterprise-wide view of how AI tools are driving revenue growth & cost savings</p>
           </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 flex-shrink-0">
-            <select className="px-3 sm:px-4 py-2 border border-gray-300 rounded-lg text-xs sm:text-sm font-semibold">
+            <select className="px-3 sm:px-4 py-2.5 sm:py-2 border border-gray-300 rounded-lg text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500">
               <option>Q4 2024</option>
               <option>Q3 2024</option>
               <option>YTD 2024</option>
             </select>
-            <button className="px-3 sm:px-4 py-2 bg-gray-900 text-white rounded-lg font-semibold hover:bg-gray-800 flex items-center justify-center gap-2 text-xs sm:text-sm">
-              <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <button className="px-4 sm:px-4 py-2.5 sm:py-2 bg-gray-900 text-white rounded-lg font-semibold hover:bg-gray-800 active:bg-gray-700 flex items-center justify-center gap-2 text-xs sm:text-sm transition-colors">
+              <svg className="w-4 h-4 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
               <span className="hidden sm:inline">Export Report</span>
@@ -27,7 +27,7 @@ export default function VPDashboard() {
 
       {/* Top-Line Executive KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
-        <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-4 sm:p-6 text-white shadow-lg">
+        <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-4 sm:p-6 text-white shadow-lg hover:shadow-xl transition-shadow">
           <div className="flex items-center justify-between mb-3">
             <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center flex-shrink-0">
               <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -37,11 +37,11 @@ export default function VPDashboard() {
             <span className="text-xs font-bold bg-white bg-opacity-20 px-2 py-1 rounded">+47% vs LQ</span>
           </div>
           <div className="text-xs sm:text-sm opacity-90 mb-1">Total AI-Driven Value</div>
-          <div className="text-3xl sm:text-4xl font-bold">$847K</div>
+          <div className="text-3xl sm:text-4xl lg:text-5xl font-bold">$847K</div>
           <div className="text-xs sm:text-sm mt-2 opacity-75">Verified ROI this quarter</div>
         </div>
 
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-4 sm:p-6 text-white shadow-lg">
+        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-4 sm:p-6 text-white shadow-lg hover:shadow-xl transition-shadow">
           <div className="flex items-center justify-between mb-3">
             <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center flex-shrink-0">
               <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -51,11 +51,11 @@ export default function VPDashboard() {
             <span className="text-xs font-bold bg-white bg-opacity-20 px-2 py-1 rounded">+$312K</span>
           </div>
           <div className="text-xs sm:text-sm opacity-90 mb-1">Revenue Acceleration</div>
-          <div className="text-3xl sm:text-4xl font-bold">$1.2M</div>
+          <div className="text-3xl sm:text-4xl lg:text-5xl font-bold">$1.2M</div>
           <div className="text-xs sm:text-sm mt-2 opacity-75">Deals closed faster via AI</div>
         </div>
 
-        <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-4 sm:p-6 text-white shadow-lg">
+        <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-4 sm:p-6 text-white shadow-lg hover:shadow-xl transition-shadow">
           <div className="flex items-center justify-between mb-3">
             <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center flex-shrink-0">
               <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -65,11 +65,11 @@ export default function VPDashboard() {
             <span className="text-xs font-bold bg-white bg-opacity-20 px-2 py-1 rounded">-23%</span>
           </div>
           <div className="text-xs sm:text-sm opacity-90 mb-1">Cost Savings</div>
-          <div className="text-3xl sm:text-4xl font-bold">$485K</div>
+          <div className="text-3xl sm:text-4xl lg:text-5xl font-bold">$485K</div>
           <div className="text-xs sm:text-sm mt-2 opacity-75">Reduced operational spend</div>
         </div>
 
-        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-4 sm:p-6 text-white shadow-lg">
+        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-4 sm:p-6 text-white shadow-lg hover:shadow-xl transition-shadow">
           <div className="flex items-center justify-between mb-3">
             <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center flex-shrink-0">
               <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -79,7 +79,7 @@ export default function VPDashboard() {
             <span className="text-xs font-bold bg-white bg-opacity-20 px-2 py-1 rounded">12,400 hrs</span>
           </div>
           <div className="text-xs sm:text-sm opacity-90 mb-1">Time Recaptured</div>
-          <div className="text-3xl sm:text-4xl font-bold">6.2 FTEs</div>
+          <div className="text-3xl sm:text-4xl lg:text-5xl font-bold">6.2 FTEs</div>
           <div className="text-xs sm:text-sm mt-2 opacity-75">Equivalent capacity freed</div>
         </div>
       </div>
@@ -88,8 +88,8 @@ export default function VPDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-8">
         <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-6">
-            <h3 className="text-lg font-bold text-gray-900">AI Tool Investment vs. Returns</h3>
-            <div className="flex items-center gap-4 text-sm">
+            <h3 className="text-lg sm:text-xl font-bold text-gray-900">AI Tool Investment vs. Returns</h3>
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs sm:text-sm">
               <span className="flex items-center gap-2">
                 <span className="w-3 h-3 bg-blue-500 rounded"></span> Investment
               </span>

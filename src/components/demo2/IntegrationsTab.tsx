@@ -100,32 +100,30 @@ export default function IntegrationsTab({ integrationStates, onToggleIntegration
 
   return (
     <div>
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Secure Data Integrations</h2>
-        <p className="text-gray-600 mt-1">Read-only OAuth connections • Encrypted secrets • Event-driven ingestion</p>
+      <div className="mb-6 sm:mb-8">
+        <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">Secure Data Integrations</h2>
+        <p className="text-xs sm:text-sm text-gray-600 mt-2 leading-relaxed">Read-only OAuth connections • Encrypted secrets • Event-driven ingestion</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         {integrations.map((integration) => (
           <div
             key={integration.id}
-            className={`bg-white rounded-lg border border-gray-200 p-6 transition-opacity ${
-              !integration.connected ? 'opacity-75' : ''
-            }`}
+            className={`bg-white rounded-lg border border-gray-200 p-4 sm:p-6 transition-opacity hover:shadow-lg`}
           >
             <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 ${integration.bgColor} rounded-lg flex items-center justify-center text-white font-bold`}>
+              <div className="flex items-center gap-3 min-w-0">
+                <div className={`w-10 h-10 sm:w-12 sm:h-12 ${integration.bgColor} rounded-lg flex items-center justify-center text-white font-bold flex-shrink-0`}>
                   {integration.icon}
                 </div>
-                <div>
-                  <div className="font-bold text-gray-900">{integration.name}</div>
+                <div className="min-w-0">
+                  <div className="font-bold text-gray-900 text-sm sm:text-base truncate">{integration.name}</div>
                   {integration.connected ? (
                     <div className="flex items-center gap-2 mt-1">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0"></div>
                       <div className="text-xs text-green-600 font-semibold">Connected</div>
                       {integration.status && (
-                        <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-bold rounded">
+                        <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-bold rounded flex-shrink-0">
                           {integration.status}
                         </span>
                       )}
@@ -137,13 +135,13 @@ export default function IntegrationsTab({ integrationStates, onToggleIntegration
               </div>
               <button
                 onClick={() => handleToggleConnection(integration.id)}
-                className={`px-3 py-1 rounded text-xs font-semibold transition-colors ${
+                className={`px-2 sm:px-3 py-1.5 sm:py-2 rounded text-xs font-semibold transition-colors flex-shrink-0 whitespace-nowrap ${
                   integration.connected
-                    ? 'bg-red-50 text-red-600 hover:bg-red-100'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                    ? 'bg-red-50 text-red-600 hover:bg-red-100 active:bg-red-200'
+                    : 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800'
                 }`}
               >
-                {integration.connected ? 'Disconnect' : 'Connect OAuth'}
+                {integration.connected ? 'Disconnect' : 'Connect'}
               </button>
             </div>
             <div className="space-y-3">

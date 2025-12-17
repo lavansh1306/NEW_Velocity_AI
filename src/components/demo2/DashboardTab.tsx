@@ -1,31 +1,31 @@
 export default function DashboardTab() {
   return (
     <div>
-      <div className="mb-6">
-        <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Pilot Overview</h2>
-        <p className="text-xs sm:text-sm text-gray-600 mt-1">Marketing Operations • 90-Day Pilot • Integration: Asana + HubSpot</p>
+      <div className="mb-6 sm:mb-8">
+        <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">Pilot Overview</h2>
+        <p className="text-xs sm:text-sm text-gray-600 mt-2 leading-relaxed">Marketing Operations • 90-Day Pilot • Integration: Asana + HubSpot</p>
       </div>
 
       {/* ROI Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
-        <div className="bg-gradient-to-br from-purple-500 to-violet-600 text-white rounded-xl p-4 sm:p-6">
+        <div className="bg-gradient-to-br from-purple-500 to-violet-600 text-white rounded-xl p-4 sm:p-6 hover:shadow-lg transition-shadow">
           <div className="text-xs sm:text-sm opacity-90 mb-1">Total Realized Value</div>
-          <div className="text-2xl sm:text-3xl font-bold">$127,450</div>
+          <div className="text-2xl sm:text-3xl lg:text-4xl font-bold">$127,450</div>
           <div className="text-xs sm:text-sm mt-2 opacity-75">3.2x Platform Fee ROI</div>
         </div>
-        <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
+        <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6 hover:shadow-lg transition-shadow">
           <div className="text-xs sm:text-sm text-gray-600 mb-1">Operational ROI (Tier A)</div>
-          <div className="text-2xl sm:text-3xl font-bold text-green-600">$68,200</div>
+          <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-green-600">$68,200</div>
           <div className="text-xs text-gray-500 mt-2">12 verified accelerations</div>
         </div>
-        <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
+        <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6 hover:shadow-lg transition-shadow">
           <div className="text-xs sm:text-sm text-gray-600 mb-1">Cost Avoidance (Tier B)</div>
-          <div className="text-2xl sm:text-3xl font-bold text-orange-600">$42,500</div>
+          <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-orange-600">$42,500</div>
           <div className="text-xs text-gray-500 mt-2">8 harvest tasks completed</div>
         </div>
-        <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
+        <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6 hover:shadow-lg transition-shadow">
           <div className="text-xs sm:text-sm text-gray-600 mb-1">Revenue Impact (Tier C)</div>
-          <div className="text-2xl sm:text-3xl font-bold text-purple-600">$16,750</div>
+          <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-purple-600">$16,750</div>
           <div className="text-xs text-gray-500 mt-2">3 deal accelerations</div>
         </div>
       </div>
