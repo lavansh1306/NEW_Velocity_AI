@@ -11,6 +11,7 @@ import RedeploymentTab from '../components/demo2/RedeploymentTab';
 import ROIVerificationTab from '../components/demo2/ROIVerificationTab';
 import CausalAttributionAnalysis from '../components/demo2/CausalAttributionAnalysis';
 import ProjectActivityTab from '../components/demo2/ProjectActivityTab';
+import Projects from './Projects';
 
 export default function VelocityAI() {
   const [currentView, setCurrentView] = useState<'manager' | 'vp'>('manager');
@@ -49,6 +50,7 @@ export default function VelocityAI() {
               <>
                 {activeTab === 'dashboard' && <DashboardTab />}
                 {activeTab === 'integrations' && <IntegrationsTab />}
+                {activeTab === 'projects' && <Projects />}
                 {activeTab === 'stc' && <StandardTimeCatalogTab />}
                 {activeTab === 'ledger' && <CapacityLedgerTab />}
                 {activeTab === 'hotspots' && <HotspotScoringTab />}

@@ -5,6 +5,7 @@ interface VeloNavTabsProps {
 
 const tabs = [
   { id: 'dashboard', label: 'Dashboard' },
+  { id: 'projects', label: 'Projects' },
   { id: 'integrations', label: 'Data Integrations' },
   { id: 'stc', label: 'Standard Time Catalog' },
   { id: 'activity', label: 'Project Activity' },

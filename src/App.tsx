@@ -9,6 +9,7 @@ import ROICalculator from "./pages/ROICalculator";
 import ROIReport from "./pages/ROIReport";
 import UseCases from "./pages/UseCases";
 import VelocityAI from "./pages/VelocityAI";
+import Projects from "./pages/Projects";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => (
           <Route path="/use-cases" element={<UseCases />} />
           <Route path="/roi-report" element={<ROIReport />} />
           <Route path="/velocity-ai" element={<VelocityAI />} />
+          <Route path="/projects" element={<Projects />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
