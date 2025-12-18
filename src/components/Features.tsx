@@ -49,7 +49,7 @@ export const Features = () => {
             The Complete Productivity Intelligence Platform
           </h2>
           <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
-            From tracking AI-generated time savings to strategic resource allocation and proven ROI measurement.
+            From traackking AI-generated time savings to strategic resource allocation and proven ROI measurement.
           </p>
         </div>
         
