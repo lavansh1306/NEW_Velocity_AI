@@ -40,9 +40,9 @@ export default function GanttChart({ data }: Props) {
   };
 
   return (
-    <div className="bg-white rounded-lg border p-4 h-64">
+    <div className="bg-white rounded-lg border p-4 h-80">
       <h4 className="text-sm font-semibold mb-2">Gantt (timeline)</h4>
-      <div className="h-40">
+      <div className="h-64">
         <Bar data={chartData} options={options} />
       </div>
     </div>

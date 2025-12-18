@@ -42,9 +42,9 @@ export default function BurndownChart({ data }: Props) {
   };
 
   return (
-    <div className="bg-white rounded-lg border p-4 h-64">
+    <div className="bg-white rounded-lg border p-4 h-80">
       <h4 className="text-sm font-semibold mb-2">Burndown</h4>
-      <div className="h-44">
+      <div className="h-64">
         <Line data={chartData} options={options} />
       </div>
     </div>
