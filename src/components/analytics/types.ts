@@ -29,6 +29,45 @@ export interface ProjectAnalytics {
   time_logs: TimeLog[];
 }
 
+// Optional integration-specific summaries (added so analytics can include multiple sources)
+export interface HubSpotSummary {
+  contacts_count?: number;
+  deals_count?: number;
+  closed_revenue?: number;
+  deals_by_stage?: Array<{ stage: string; count: number }>;
+  last_sync?: string;
+}
+
+export interface AsanaSummary {
+  projects_count?: number;
+  tasks_count?: number;
+  completed_last_30_days?: number;
+  last_sync?: string;
+}
+
+export interface Microsoft365Summary {
+  mail_count?: number;
+  calendar_meetings_count?: number;
+  meeting_duration_minutes?: number;
+  last_sync?: string;
+}
+
+export interface ZapierSummary {
+  zaps_count?: number;
+  active_zaps?: number;
+  runs_last_30_days?: number;
+  success_rate?: number;
+  last_sync?: string;
+}
+
+// Extend ProjectAnalytics with optional integration summaries
+export interface ProjectAnalyticsWithIntegrations extends ProjectAnalytics {
+  hubspot?: HubSpotSummary;
+  asana?: AsanaSummary;
+  microsoft365?: Microsoft365Summary;
+  zapier?: ZapierSummary;
+}
+
 export interface ProjectItem {
   id: string;
   title: string;

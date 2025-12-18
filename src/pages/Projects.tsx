@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import AnalyticsPanel from '@/components/analytics/AnalyticsPanel';
-import { loadProjectAnalytics, fetchCSV, parseProjectCSV } from '@/lib/csvLoader';
+import { loadProjectAnalyticsWithIntegrations, fetchCSV, parseProjectCSV } from '@/lib/csvLoader';
+import type { ProjectAnalyticsWithIntegrations } from '@/components/analytics/types';
 import { useToast } from '@/contexts/ToastContext';
 import type { ProjectAnalytics } from '@/components/analytics/types';
 
@@ -52,7 +53,7 @@ export default function Projects({ jiraConnected = true }: ProjectsProps) {
   const { addToast } = useToast();
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [selectedProject, setSelectedProject] = useState<ProjectItem | null>(null);
-  const [analyticsData, setAnalyticsData] = useState<Record<string, ProjectAnalytics | null>>({});
+  const [analyticsData, setAnalyticsData] = useState<Record<string, ProjectAnalyticsWithIntegrations | null>>({});
   const [loading, setLoading] = useState(true);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [csvConnected, setCsvConnected] = useState(false);
@@ -139,7 +140,7 @@ export default function Projects({ jiraConnected = true }: ProjectsProps) {
     if (!analyticsData[project.id]) {
       setAnalyticsLoading(true);
       try {
-        const data = await loadProjectAnalytics(project.id);
+        const data = await loadProjectAnalyticsWithIntegrations(project.id);
         setAnalyticsData((prev) => ({ ...prev, [project.id]: data }));
       } catch (error) {
         console.error(`Error loading analytics for project ${project.id}:`, error);

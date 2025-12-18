@@ -77,3 +77,68 @@ export async function loadProjectAnalytics(projectId: string) {
     throw error;
   }
 }
+
+// Helper to try loading additional integration CSVs with the same format
+async function tryLoadIntegrationCSV(path: string, projectId: string) {
+  try {
+    const csvText = await fetchCSV(path);
+    const map = await parseProjectCSV(csvText);
+    return map[projectId] || null;
+  } catch (e) {
+    // non-fatal if integration file missing or parse fails
+    console.warn(`Integration CSV not available or failed to parse: ${path}`, e);
+    return null;
+  }
+}
+
+// New loader that returns analytics plus possible integration summaries
+export async function loadProjectAnalyticsWithIntegrations(projectId: string) {
+  const base = await loadProjectAnalytics(projectId);
+
+  // Attempt to load per-integration files (these are optional)
+  const [hubspotData, asanaData, msData, zapierData] = await Promise.all([
+    tryLoadIntegrationCSV('/data/projects-hubspot.csv', projectId),
+    tryLoadIntegrationCSV('/data/projects-asana.csv', projectId),
+    tryLoadIntegrationCSV('/data/projects-microsoft365.csv', projectId),
+    tryLoadIntegrationCSV('/data/projects-zapier.csv', projectId),
+  ]);
+
+  // Map to minimal summaries to keep shape stable
+  return {
+    ...base,
+    hubspot: hubspotData
+      ? {
+          contacts_count: hubspotData.contacts_count,
+          deals_count: hubspotData.deals_count,
+          closed_revenue: hubspotData.closed_revenue,
+          deals_by_stage: hubspotData.deals_by_stage,
+          last_sync: hubspotData.last_sync,
+        }
+      : undefined,
+    asana: asanaData
+      ? {
+          projects_count: asanaData.projects_count,
+          tasks_count: asanaData.tasks_count,
+          completed_last_30_days: asanaData.completed_last_30_days,
+          last_sync: asanaData.last_sync,
+        }
+      : undefined,
+    microsoft365: msData
+      ? {
+          mail_count: msData.mail_count,
+          calendar_meetings_count: msData.calendar_meetings_count,
+          meeting_duration_minutes: msData.meeting_duration_minutes,
+          last_sync: msData.last_sync,
+        }
+      : undefined,
+    zapier: zapierData
+      ? {
+          zaps_count: zapierData.zaps_count,
+          active_zaps: zapierData.active_zaps,
+          runs_last_30_days: zapierData.runs_last_30_days,
+          success_rate: zapierData.success_rate,
+          last_sync: zapierData.last_sync,
+        }
+      : undefined,
+  };
+}
