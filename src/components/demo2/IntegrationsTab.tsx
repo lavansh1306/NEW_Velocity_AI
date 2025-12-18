@@ -93,6 +93,12 @@ export default function IntegrationsTab({ integrationStates, onToggleIntegration
   }, [integrationStates]);
 
   const handleToggleConnection = (id: string) => {
+    // Update local state
+    setIntegrations(prev => prev.map(int => 
+      int.id === id ? { ...int, connected: !int.connected } : int
+    ));
+    
+    // Call parent callback if provided
     if (onToggleIntegration) {
       onToggleIntegration(id);
     }
@@ -102,7 +108,7 @@ export default function IntegrationsTab({ integrationStates, onToggleIntegration
     <div>
       <div className="mb-6 sm:mb-8">
         <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">Secure Data Integrations</h2>
-        <p className="text-xs sm:text-sm text-gray-600 mt-2 leading-relaxed">Read-only OAuth connections • Encrypted secrets • Event-driven ingestion</p>
+        <p className="text-xs sm:text-sm texut-gray-600 mt-2 leading-relaxed">Read-only OAuth connections • Encrypted secrets • Event-driven ingestion</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">

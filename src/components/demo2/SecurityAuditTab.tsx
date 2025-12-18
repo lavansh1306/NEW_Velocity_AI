@@ -33,8 +33,7 @@ interface SecurityEvent {
 
 export default function SecurityAuditTab() {
   const [expandedIntegration, setExpandedIntegration] = useState<string | null>(null);
-
-  const integrations: Record<string, Integration> = {
+  const [integrations, setIntegrations] = useState<Record<string, Integration>>({
     hubspot: {
       name: 'HubSpot',
       status: 'active',
@@ -108,6 +107,16 @@ export default function SecurityAuditTab() {
       plannedScope: ['zaps.read', 'zap_runs.read'],
       useCase: 'Track automation executions for capacity calculation'
     },
+  });
+
+  const handleToggleIntegration = (id: string) => {
+    setIntegrations(prev => ({
+      ...prev,
+      [id]: {
+        ...prev[id],
+        connected: !prev[id].connected
+      }
+    }));
   };
 
   const securityEvents: SecurityEvent[] = [
@@ -339,6 +348,7 @@ export default function SecurityAuditTab() {
                     </div>
                   </div>
                   <button
+                    onClick={() => handleToggleIntegration(key)}
                     className={`px-2 sm:px-3 py-1.5 sm:py-2 rounded text-xs font-semibold transition-colors flex-shrink-0 whitespace-nowrap ${
                       integration.connected
                         ? 'bg-red-50 text-red-600 hover:bg-red-100 active:bg-red-200'
