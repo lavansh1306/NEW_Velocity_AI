@@ -17,25 +17,32 @@ export default function AsanaTasksChart({ analytics }: Props) {
     );
   }
 
-  const labels = ['Total Tasks', 'Completed (30d)'];
-  const values = [asana.tasks_count ?? 0, asana.completed_last_30_days ?? 0];
+  // Use stacked bar: Completed vs Remaining (based on tasks_count and completed_last_30_days)
+  const total = asana.tasks_count ?? 0;
+  const completed = Math.min(asana.completed_last_30_days ?? 0, total);
+  const remaining = Math.max(total - completed, 0);
 
+  const labels = ['Tasks'];
   const chartData = {
     labels,
     datasets: [
-      {
-        label: 'Count',
-        data: values,
-        backgroundColor: ['#60A5FA', '#34D399'],
-      },
+      { label: 'Completed (30d)', data: [completed], backgroundColor: '#34D399' },
+      { label: 'Remaining', data: [remaining], backgroundColor: '#60A5FA' },
     ],
+  };
+
+  const options = {
+    plugins: { legend: { position: 'bottom' as const } },
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } },
   };
 
   return (
     <div className="bg-white rounded-lg border p-4 h-56">
-      <h4 className="text-sm font-semibold mb-2">Asana Tasks</h4>
+      <h4 className="text-sm font-semibold mb-2">Asana Tasks (completed vs remaining)</h4>
       <div className="h-40">
-        <Bar data={chartData} options={{ plugins: { legend: { display: false } }, maintainAspectRatio: false }} />
+        <Bar data={chartData} options={options} />
       </div>
     </div>
   );

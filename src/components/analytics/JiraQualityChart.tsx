@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bar } from 'react-chartjs-2';
+import { Doughnut } from 'react-chartjs-2';
 import type { ProjectAnalytics } from './types';
 
 interface Props {
@@ -11,10 +11,13 @@ export default function JiraQualityChart({ data }: Props) {
   const nonBug = data.jira_tickets.length - bugCount;
 
   const chartData = {
-    labels: ['Tickets'],
+    labels: ['Bugs', 'Non-bug'],
     datasets: [
-      { label: 'Bugs', data: [bugCount], backgroundColor: '#EF4444' },
-      { label: 'Non-bug', data: [nonBug], backgroundColor: '#60A5FA' },
+      {
+        data: [bugCount, nonBug],
+        backgroundColor: ['#EF4444', '#60A5FA'],
+        hoverOffset: 6,
+      },
     ],
   };
 
@@ -22,14 +25,13 @@ export default function JiraQualityChart({ data }: Props) {
     plugins: { legend: { position: 'bottom' as const } },
     responsive: true,
     maintainAspectRatio: false,
-    scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } },
   };
 
   return (
     <div className="bg-white rounded-lg border p-4 h-56">
       <h4 className="text-sm font-semibold mb-2">Jira Quality (bug vs non-bug)</h4>
       <div className="h-36">
-        <Bar data={chartData} options={options} />
+        <Doughnut data={chartData} options={options} />
       </div>
     </div>
   );
