@@ -31,10 +31,10 @@ export default function AIUsageChart({ data }: Props) {
   };
 
   return (
-    <div className="bg-white rounded-lg border p-4 h-48">
+    <div className="bg-white rounded-lg border p-4 h-48 overflow-hidden">
       <h4 className="text-sm font-semibold mb-2">AI Tool Usage (hours)</h4>
       <div className="text-xs text-gray-500 mb-2">Source: Internal AI telemetry · shows hours spent using AI tools</div>
-      <div className="h-36">
+      <div className="h-36 overflow-hidden">
         <Bar data={chartData} options={options} />
       </div>
     </div>

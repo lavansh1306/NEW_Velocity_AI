@@ -39,10 +39,10 @@ export default function AsanaTasksChart({ analytics }: Props) {
   };
 
   return (
-    <div className="bg-white rounded-lg border p-4 h-56">
+    <div className="bg-white rounded-lg border p-4 h-56 overflow-hidden">
       <h4 className="text-sm font-semibold mb-2">Asana Tasks (completed vs remaining)</h4>
       <div className="text-xs text-gray-500 mb-2">Source: Asana — percent complete based on task counts and recent completions</div>
-      <div className="h-40">
+      <div className="h-40 overflow-hidden">
         <Bar data={chartData} options={options} />
       </div>
     </div>

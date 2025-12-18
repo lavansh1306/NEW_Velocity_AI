@@ -36,10 +36,10 @@ export default function Microsoft365MeetingsChart({ analytics }: Props) {
   };
 
   return (
-    <div className="bg-white rounded-lg border p-4 h-56">
+    <div className="bg-white rounded-lg border p-4 h-56 overflow-hidden">
       <h4 className="text-sm font-semibold mb-2">Microsoft 365 Meeting Load</h4>
       <div className="text-xs text-gray-500 mb-2">Total meeting minutes (approx) · Source: Microsoft Graph metadata</div>
-      <div className="h-40">
+      <div className="h-40 overflow-hidden">
         <Line data={chartData} options={{ plugins: { legend: { display: false } }, maintainAspectRatio: false }} />
       </div>
     </div>

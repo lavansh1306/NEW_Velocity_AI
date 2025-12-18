@@ -38,7 +38,7 @@ export default function ZapierRunsChart({ analytics }: Props) {
   const failuresEst = Math.round((1 - successRate) * (z.runs_last_30_days ?? 0));
 
   return (
-    <div className="bg-white rounded-lg border p-4 h-56">
+    <div className="bg-white rounded-lg border p-4 h-56 overflow-hidden">
       <div className="flex items-start justify-between mb-2">
         <div>
           <h4 className="text-sm font-semibold">Zapier — Automations (30d)</h4>
@@ -50,7 +50,7 @@ export default function ZapierRunsChart({ analytics }: Props) {
         </div>
       </div>
 
-      <div className="h-40">
+      <div className="h-40 overflow-hidden">
         <Line data={chartData} options={{ plugins: { legend: { display: false } }, maintainAspectRatio: false }} />
       </div>
     </div>

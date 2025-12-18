@@ -42,10 +42,10 @@ export default function PlannedVsActualChart({ data }: Props) {
   } as const;
 
   return (
-    <div className="bg-white rounded-lg border p-4 h-48">
+    <div className="bg-white rounded-lg border p-4 h-48 overflow-hidden">
       <h4 className="text-sm font-semibold mb-2">Planned vs Actual (hours)</h4>
       <div className="text-xs text-gray-500 mb-3">Source: JIRA estimates & worklogs · shows total planned vs logged effort</div>
-      <div className="h-36">
+      <div className="h-36 overflow-hidden">
         <Bar data={chartData} options={options} />
       </div>
     </div>
