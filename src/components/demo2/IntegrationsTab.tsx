@@ -7,7 +7,7 @@ interface Integration {
   icon: string;
   bgColor: string;
   status?: string;
-  scope: string[];
+  scope?: string[];
   lastSync?: string;
   events?: string[];
   plannedScope?: string[];

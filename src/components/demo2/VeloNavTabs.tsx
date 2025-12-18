@@ -8,7 +8,6 @@ interface VeloNavTabsProps {
 const tabs = [
   { id: 'dashboard', label: 'Dashboard', icon: '📊' },
   { id: 'projects', label: 'Projects', icon: '📁' },
-  { id: 'integrations', label: 'Data Integrations', icon: '🔗' },
   { id: 'stc', label: 'Standard Time Catalog', icon: '⏱️' },
   { id: 'activity', label: 'Project Activity', icon: '📝' },
   { id: 'ledger', label: 'Capacity Ledger', icon: '📊' },

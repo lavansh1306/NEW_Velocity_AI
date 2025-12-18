@@ -7,11 +7,19 @@ import { Button } from '@/components/ui/button';
 interface Integration {
   name: string;
   status: 'active' | 'pending' | 'disabled';
-  scope: string[];
+  scope?: string[];
   accessLevel: 'read-only' | 'read-write';
   lastVerified: string;
   approvedBy?: string;
   approvedDate?: string;
+  id: string;
+  icon: string;
+  bgColor: string;
+  connected: boolean;
+  lastSync?: string;
+  events?: string[];
+  plannedScope?: string[];
+  useCase?: string;
 }
 
 interface SecurityEvent {
@@ -35,6 +43,12 @@ export default function SecurityAuditTab() {
       lastVerified: '2025-12-01',
       approvedBy: 'John Smith',
       approvedDate: '2025-11-01',
+      id: 'hubspot',
+      icon: 'H',
+      bgColor: 'bg-orange-500',
+      connected: true,
+      lastSync: '2 minutes ago',
+      events: ['contact.created', 'deal.closed', 'company.updated']
     },
     jira: {
       name: 'Jira',
@@ -44,6 +58,12 @@ export default function SecurityAuditTab() {
       lastVerified: '2025-12-01',
       approvedBy: 'John Smith',
       approvedDate: '2025-11-01',
+      id: 'jira',
+      icon: 'J',
+      bgColor: 'bg-blue-500',
+      connected: true,
+      lastSync: '3 minutes ago',
+      events: ['issue.created', 'issue.updated', 'sprint.completed']
     },
     asana: {
       name: 'Asana',
@@ -53,6 +73,12 @@ export default function SecurityAuditTab() {
       lastVerified: '2025-12-01',
       approvedBy: 'John Smith',
       approvedDate: '2025-11-01',
+      id: 'asana',
+      icon: 'A',
+      bgColor: 'bg-pink-500',
+      connected: true,
+      lastSync: '4 minutes ago',
+      events: ['task.completed', 'project.updated']
     },
     microsoft365: {
       name: 'Microsoft 365',
@@ -62,13 +88,25 @@ export default function SecurityAuditTab() {
       lastVerified: '2025-12-01',
       approvedBy: 'John Smith',
       approvedDate: '2025-11-01',
+      id: 'microsoft365',
+      icon: 'M',
+      bgColor: 'bg-blue-600',
+      connected: true,
+      lastSync: '1 minute ago',
+      events: ['meeting.created', 'meeting.duration', 'email.sent']
     },
     zapier: {
       name: 'Zapier',
       status: 'pending',
-      scope: ['zaps.read', 'zap_runs.read'],
+      scope: [],
       accessLevel: 'read-only',
       lastVerified: '2025-12-15',
+      id: 'zapier',
+      icon: 'Z',
+      bgColor: 'bg-orange-400',
+      connected: false,
+      plannedScope: ['zaps.read', 'zap_runs.read'],
+      useCase: 'Track automation executions for capacity calculation'
     },
   };
 
@@ -270,63 +308,116 @@ export default function SecurityAuditTab() {
 
         {/* Integrations Tab */}
         <TabsContent value="integrations" className="space-y-4">
-          {Object.entries(integrations).map(([key, integration]) => (
-            <Card key={key} className="p-4 sm:p-6">
-              <button
-                onClick={() => setExpandedIntegration(expandedIntegration === key ? null : key)}
-                className="w-full text-left"
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            {Object.entries(integrations).map(([key, integration]) => (
+              <div
+                key={key}
+                className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6 transition-all hover:shadow-lg"
               >
-                <div className="flex items-center justify-between gap-3 sm:gap-4">
-                  <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
-                    {getStatusIcon(integration.status)}
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`w-10 h-10 sm:w-12 sm:h-12 ${integration.bgColor} rounded-lg flex items-center justify-center text-white font-bold flex-shrink-0`}>
+                      {integration.icon}
+                    </div>
                     <div className="min-w-0">
-                      <h4 className="text-base sm:text-lg font-bold text-gray-900">{integration.name}</h4>
-                      <p className="text-xs sm:text-sm text-gray-600">
-                        {integration.status === 'active' ? '✓ Connected' : integration.status === 'pending' ? '⏳ Pending Approval' : '✗ Disabled'}
-                      </p>
+                      <div className="font-bold text-gray-900 text-sm sm:text-base truncate">{integration.name}</div>
+                      {integration.connected ? (
+                        <div className="flex items-center gap-2 mt-1">
+                          <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0"></div>
+                          <div className="text-xs text-green-600 font-semibold">Connected</div>
+                          {integration.status === 'active' && (
+                            <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-bold rounded flex-shrink-0">
+                              LIVE
+                            </span>
+                          )}
+                        </div>
+                      ) : integration.status === 'pending' ? (
+                        <div className="text-xs text-yellow-600 font-semibold">⏳ Pending Approval</div>
+                      ) : (
+                        <div className="text-xs text-gray-500 font-semibold">Not Connected</div>
+                      )}
                     </div>
                   </div>
-                  <div className="text-right flex-shrink-0">
-                    <span className={`text-xs sm:text-sm font-bold px-2 sm:px-3 py-1 rounded-full ${integration.accessLevel === 'read-only' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
-                      {integration.accessLevel === 'read-only' ? '🔒 Read-only' : '✏️ Read-Write'}
-                    </span>
-                  </div>
+                  <button
+                    className={`px-2 sm:px-3 py-1.5 sm:py-2 rounded text-xs font-semibold transition-colors flex-shrink-0 whitespace-nowrap ${
+                      integration.connected
+                        ? 'bg-red-50 text-red-600 hover:bg-red-100 active:bg-red-200'
+                        : 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800'
+                    }`}
+                  >
+                    {integration.connected ? 'Disconnect' : 'Connect'}
+                  </button>
                 </div>
-              </button>
 
-              {expandedIntegration === key && (
-                <div className="mt-4 pt-4 border-t border-gray-200 space-y-3">
-                  <div>
-                    <p className="text-xs sm:text-sm font-semibold text-gray-600 mb-2">API Scopes</p>
-                    <div className="flex flex-wrap gap-2">
-                      {integration.scope.map((scope, idx) => (
-                        <span key={idx} className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">
-                          {scope}
-                        </span>
-                      ))}
+                <div className="space-y-3">
+                  <div className="text-sm">
+                    <div className="font-semibold text-gray-700 mb-1">
+                      {integration.connected ? 'Scope' : 'Planned Scope'}
+                    </div>
+                    <div className="text-gray-600 text-xs">
+                      {(integration.scope || integration.plannedScope || []).join(', ')}
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <p className="text-xs sm:text-sm font-semibold text-gray-600">Last Verified</p>
-                      <p className="text-sm sm:text-base font-bold text-gray-900">{integration.lastVerified}</p>
+
+                  {integration.connected && integration.lastSync && (
+                    <div className="text-sm">
+                      <div className="font-semibold text-gray-700 mb-1">Last Sync</div>
+                      <div className="text-gray-600 text-xs">{integration.lastSync}</div>
                     </div>
-                    {integration.approvedBy && (
-                      <div>
-                        <p className="text-xs sm:text-sm font-semibold text-gray-600">Approved By</p>
-                        <p className="text-sm sm:text-base font-bold text-gray-900">{integration.approvedBy}</p>
+                  )}
+
+                  {integration.useCase && (
+                    <div className="text-sm">
+                      <div className="font-semibold text-gray-700 mb-1">Use Case</div>
+                      <div className="text-gray-600 text-xs">{integration.useCase}</div>
+                    </div>
+                  )}
+
+                  {integration.approvedBy && (
+                    <div className="text-sm">
+                      <div className="font-semibold text-gray-700 mb-1">Approved By</div>
+                      <div className="text-gray-600 text-xs">{integration.approvedBy}</div>
+                    </div>
+                  )}
+
+                  {integration.connected && integration.events && integration.events.length > 0 && (
+                    <div className="pt-3 border-t border-gray-200">
+                      <div className="text-xs text-gray-500 mb-2">Events Tracked</div>
+                      <div className="flex flex-wrap gap-2">
+                        {integration.events.map((event) => (
+                          <span
+                            key={event}
+                            className="px-2 py-1 bg-blue-50 text-blue-700 text-xs font-semibold rounded"
+                          >
+                            {event}
+                          </span>
+                        ))}
                       </div>
-                    )}
-                  </div>
-                  {integration.status === 'pending' && (
-                    <div className="mt-4">
-                      <Button className="w-full text-xs sm:text-sm">Request Approval</Button>
                     </div>
                   )}
                 </div>
-              )}
-            </Card>
-          ))}
+              </div>
+            ))}
+          </div>
+
+          {/* Security Info */}
+          <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4 sm:p-6">
+            <h3 className="text-base sm:text-lg font-bold text-blue-900 mb-3">Security & Compliance</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs sm:text-sm">
+              <div>
+                <div className="font-semibold text-blue-900">Authentication</div>
+                <div className="text-blue-700">SSO/SCIM via WorkOS</div>
+              </div>
+              <div>
+                <div className="font-semibold text-blue-900">API Key Storage</div>
+                <div className="text-blue-700">Encrypted in Supabase Vault</div>
+              </div>
+              <div>
+                <div className="font-semibold text-blue-900">Connection Scope</div>
+                <div className="text-blue-700">Read-Only OAuth Only</div>
+              </div>
+            </div>
+          </div>
         </TabsContent>
 
         {/* Access Control Tab */}

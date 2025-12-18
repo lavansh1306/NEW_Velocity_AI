@@ -3,7 +3,6 @@ import VeloHeader from '../components/demo2/VeloHeader';
 import VeloNavTabs from '../components/demo2/VeloNavTabs';
 import VPDashboard from '../components/demo2/VPDashboard';
 import DashboardTab from '../components/demo2/DashboardTab';
-import IntegrationsTab from '../components/demo2/IntegrationsTab';
 import StandardTimeCatalogTab from '../components/demo2/StandardTimeCatalogTab';
 import CapacityLedgerTab from '../components/demo2/CapacityLedgerTab';
 import HotspotScoringTab from '../components/demo2/HotspotScoringTab';
@@ -14,31 +13,9 @@ import ProjectActivityTab from '../components/demo2/ProjectActivityTab';
 import SecurityAuditTab from '../components/demo2/SecurityAuditTab';
 import Projects from './Projects';
 
-interface IntegrationState {
-  jira: boolean;
-  hubspot: boolean;
-  asana: boolean;
-  microsoft365: boolean;
-  zapier: boolean;
-}
-
 export default function VelocityAI() {
   const [currentView, setCurrentView] = useState<'manager' | 'vp'>('manager');
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [integrationStates, setIntegrationStates] = useState<IntegrationState>({
-    jira: true,
-    hubspot: true,
-    asana: true,
-    microsoft365: true,
-    zapier: false,
-  });
-
-  const handleIntegrationToggle = (integrationId: string) => {
-    setIntegrationStates(prev => ({
-      ...prev,
-      [integrationId]: !prev[integrationId]
-    }));
-  };
 
   const handleSecurityAuditClick = () => {
     setActiveTab('security');
@@ -78,8 +55,7 @@ export default function VelocityAI() {
                   </div>
                 </>
               )}
-              {activeTab === 'integrations' && <IntegrationsTab integrationStates={integrationStates} onToggleIntegration={handleIntegrationToggle} />}
-              {activeTab === 'projects' && <Projects jiraConnected={integrationStates.jira} />}
+              {activeTab === 'projects' && <Projects jiraConnected={true} />}
               {activeTab === 'stc' && <StandardTimeCatalogTab />}
               {activeTab === 'ledger' && <CapacityLedgerTab />}
               {activeTab === 'hotspots' && <HotspotScoringTab />}
