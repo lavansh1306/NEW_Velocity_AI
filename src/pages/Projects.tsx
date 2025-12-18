@@ -59,24 +59,10 @@ export default function Projects({ jiraConnected = true }: ProjectsProps) {
   const [csvConnected, setCsvConnected] = useState(false);
   const [toastShown, setToastShown] = useState(false);
 
-  // Load projects from CSV on mount - only if Jira is connected
+  // Load projects from CSV on mount (always load project list)
   useEffect(() => {
     const loadProjects = async () => {
       try {
-        // Don't load if Jira is not connected
-        if (!jiraConnected) {
-          setProjects([]);
-          setCsvConnected(false);
-          addToast({
-            type: 'warning',
-            title: 'Jira Integration Required',
-            description: 'Reconnect Jira in the Security Audit to load project data.',
-            duration: 5000,
-          });
-          setLoading(false);
-          return;
-        }
-
         const csvText = await fetchCSV('/data/projects-analytics.csv');
         const projectDataMap = await parseProjectCSV(csvText);
 
@@ -93,7 +79,7 @@ export default function Projects({ jiraConnected = true }: ProjectsProps) {
 
         setProjects(loadedProjects);
         setCsvConnected(loadedProjects.length > 0);
-        
+
         // Show success toast only once
         if (loadedProjects.length > 0 && !toastShown) {
           addToast({
@@ -121,14 +107,14 @@ export default function Projects({ jiraConnected = true }: ProjectsProps) {
     loadProjects();
   }, [addToast, toastShown, jiraConnected]);
 
-  // Show toast when Jira disconnected
+  // Warn once if Jira is disconnected — analytics may be limited
   useEffect(() => {
     if (!jiraConnected && toastShown) {
       addToast({
         type: 'warning',
         title: 'Jira Integration Disconnected',
-        description: 'Project analytics require Jira connection. Please reconnect in Data Integrations.',
-        duration: 5000,
+        description: 'Some analytics may be limited while Jira is disconnected. Reconnect any integrations in Security Audit to restore full data.',
+        duration: 6000,
       });
     }
   }, [jiraConnected, addToast, toastShown]);
@@ -218,15 +204,7 @@ export default function Projects({ jiraConnected = true }: ProjectsProps) {
             {/* Analytics section rendered only when a project is selected */}
             {selectedProject && (
               <div className="mt-12 sm:mt-16">
-                {!jiraConnected ? (
-                  <div className="text-center py-12 sm:py-16 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300">
-                    <div className="text-4xl sm:text-6xl mb-4">⊘</div>
-                    <p className="text-gray-800 font-semibold mb-2 text-base sm:text-lg">Analytics Unavailable</p>
-                    <p className="text-gray-600 text-xs sm:text-sm max-w-md mx-auto leading-relaxed">
-                      Jira is currently disconnected. Reconnect the Jira integration in Data Integrations to view project graphs, metrics, and analytics.
-                    </p>
-                  </div>
-                ) : analyticsLoading ? (
+                {analyticsLoading ? (
                   <div className="text-center py-8">
                     <p className="text-gray-500">Loading analytics...</p>
                   </div>

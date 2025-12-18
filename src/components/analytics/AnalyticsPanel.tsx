@@ -28,13 +28,13 @@ export default function AnalyticsPanel({ project, analytics }: Props) {
 
         
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 items-start">
           <PlannedVsActualChart data={analytics} />
           <AIUsageChart data={analytics} />
           <JiraQualityChart data={analytics} />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mt-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mt-4 items-start">
           <HubSpotDealsChart analytics={analytics} />
           <AsanaTasksChart analytics={analytics} />
           <Microsoft365MeetingsChart analytics={analytics} />

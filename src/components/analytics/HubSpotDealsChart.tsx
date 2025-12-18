@@ -33,6 +33,7 @@ export default function HubSpotDealsChart({ analytics }: Props) {
   return (
     <div className="bg-white rounded-lg border p-4 h-56">
       <h4 className="text-sm font-semibold mb-2">HubSpot Deals by Stage</h4>
+      <div className="text-xs text-gray-500 mb-2">Closed revenue: ${hub.closed_revenue ?? '—'} · Source: HubSpot (deals)</div>
       <div className="h-40">
         <Doughnut data={chartData} />
       </div>

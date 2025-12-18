@@ -9,6 +9,9 @@ interface Props {
 export default function JiraQualityChart({ data }: Props) {
   const bugCount = data.jira_tickets.filter((t) => t.type === 'bug').length;
   const nonBug = data.jira_tickets.length - bugCount;
+  const total = Math.max(1, bugCount + nonBug);
+  const bugPct = Math.round((bugCount / total) * 100);
+  const nonBugPct = 100 - bugPct;
 
   const chartData = {
     labels: ['Bugs', 'Non-bug'],
@@ -28,8 +31,9 @@ export default function JiraQualityChart({ data }: Props) {
   };
 
   return (
-    <div className="bg-white rounded-lg border p-4 h-56">
+    <div className="bg-white rounded-lg border p-4 h-64">
       <h4 className="text-sm font-semibold mb-2">Jira Quality (bug vs non-bug)</h4>
+      <div className="text-xs text-gray-500 mb-2">Bugs: {bugCount} ({bugPct}%) · Non-bug: {nonBug} ({nonBugPct}%) · Source: JIRA issues</div>
       <div className="h-36">
         <Doughnut data={chartData} options={options} />
       </div>

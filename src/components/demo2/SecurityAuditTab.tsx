@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { setIntegrationConnected } from '@/lib/storage';
 import { AlertCircle, CheckCircle, Clock, AlertTriangle, Lock, Shield, Eye, Key } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
@@ -114,18 +115,28 @@ export default function SecurityAuditTab({ onJiraConnectionChange }: SecurityAud
   });
 
   const handleToggleIntegration = (id: string) => {
-    setIntegrations(prev => ({
-      ...prev,
-      [id]: {
-        ...prev[id],
-        connected: !prev[id].connected
+    // Toggle state and persist connection to localStorage
+    setIntegrations(prev => {
+      const newConnected = !prev[id].connected;
+      try {
+        setIntegrationConnected(id as any, newConnected);
+      } catch (err) {
+        console.error('Failed to persist integration connection state', err);
       }
-    }));
-    
-    // Notify parent when Jira connection changes
-    if (id === 'jira' && onJiraConnectionChange) {
-      onJiraConnectionChange(!integrations[id].connected);
-    }
+
+      // Notify parent when Jira connection changes
+      if (id === 'jira' && onJiraConnectionChange) {
+        onJiraConnectionChange(newConnected);
+      }
+
+      return {
+        ...prev,
+        [id]: {
+          ...prev[id],
+          connected: newConnected,
+        }
+      };
+    });
   };
 
   const securityEvents: SecurityEvent[] = [

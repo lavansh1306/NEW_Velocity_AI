@@ -3,6 +3,8 @@
  * Expects CSV with project_id and JSON data column
  */
 
+import { getIntegrationConnected } from './storage';
+
 export async function fetchCSV(path: string): Promise<string> {
   const response = await fetch(path);
   if (!response.ok) {
@@ -79,7 +81,15 @@ export async function loadProjectAnalytics(projectId: string) {
 }
 
 // Helper to try loading additional integration CSVs with the same format
-async function tryLoadIntegrationCSV(path: string, projectId: string) {
+async function tryLoadIntegrationCSV(path: string, projectId: string, integrationName: 'hubspot' | 'asana' | 'microsoft365' | 'zapier') {
+  // check whether the integration is connected in local storage
+  try {
+    const connected = getIntegrationConnected(integrationName);
+    if (!connected) return null;
+  } catch (err) {
+    // ignore and attempt load if storage fails
+  }
+
   try {
     const csvText = await fetchCSV(path);
     const map = await parseProjectCSV(csvText);
@@ -97,10 +107,10 @@ export async function loadProjectAnalyticsWithIntegrations(projectId: string) {
 
   // Attempt to load per-integration files (these are optional)
   const [hubspotData, asanaData, msData, zapierData] = await Promise.all([
-    tryLoadIntegrationCSV('/data/projects-hubspot.csv', projectId),
-    tryLoadIntegrationCSV('/data/projects-asana.csv', projectId),
-    tryLoadIntegrationCSV('/data/projects-microsoft365.csv', projectId),
-    tryLoadIntegrationCSV('/data/projects-zapier.csv', projectId),
+    tryLoadIntegrationCSV('/data/projects-hubspot.csv', projectId, 'hubspot'),
+    tryLoadIntegrationCSV('/data/projects-asana.csv', projectId, 'asana'),
+    tryLoadIntegrationCSV('/data/projects-microsoft365.csv', projectId, 'microsoft365'),
+    tryLoadIntegrationCSV('/data/projects-zapier.csv', projectId, 'zapier'),
   ]);
 
   // Map to minimal summaries to keep shape stable
