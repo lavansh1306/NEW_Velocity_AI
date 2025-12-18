@@ -13,9 +13,10 @@ import { Settings } from 'lucide-react';
 interface VeloHeaderProps {
   currentView: 'manager' | 'vp';
   onViewChange: (view: 'manager' | 'vp') => void;
+  onSecurityAuditClick?: () => void;
 }
 
-export default function VeloHeader({ currentView, onViewChange }: VeloHeaderProps) {
+export default function VeloHeader({ currentView, onViewChange, onSecurityAuditClick }: VeloHeaderProps) {
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-50" style={{ maxHeight: '60px' }} >
       <style>{`
@@ -147,7 +148,7 @@ export default function VeloHeader({ currentView, onViewChange }: VeloHeaderProp
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <button className="h-8 sm:h-10 px-2 sm:px-4 text-xs sm:text-sm bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition velo-button">
+            <button onClick={onSecurityAuditClick} className="h-8 sm:h-10 px-2 sm:px-4 text-xs sm:text-sm bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition velo-button">
               <span className="hidden sm:inline">Security Audit</span>
               <span className="sm:hidden velo-audit-text">Audit</span>
             </button>

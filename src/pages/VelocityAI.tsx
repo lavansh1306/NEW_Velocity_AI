@@ -11,6 +11,7 @@ import RedeploymentTab from '../components/demo2/RedeploymentTab';
 import ROIVerificationTab from '../components/demo2/ROIVerificationTab';
 import CausalAttributionAnalysis from '../components/demo2/CausalAttributionAnalysis';
 import ProjectActivityTab from '../components/demo2/ProjectActivityTab';
+import SecurityAuditTab from '../components/demo2/SecurityAuditTab';
 import Projects from './Projects';
 
 interface IntegrationState {
@@ -39,6 +40,10 @@ export default function VelocityAI() {
     }));
   };
 
+  const handleSecurityAuditClick = () => {
+    setActiveTab('security');
+  };
+
   return (
     <div className="bg-gray-50 min-h-screen">
       <style>{`
@@ -57,7 +62,7 @@ export default function VelocityAI() {
         }
       `}</style>
 
-      <VeloHeader currentView={currentView} onViewChange={setCurrentView} />
+      <VeloHeader currentView={currentView} onViewChange={setCurrentView} onSecurityAuditClick={handleSecurityAuditClick} />
       <div className="flex">
         <VeloNavTabs activeTab={activeTab} onTabChange={setActiveTab} />
         <main className="flex-1 w-full">
@@ -74,11 +79,14 @@ export default function VelocityAI() {
               {activeTab === 'redeployment' && <RedeploymentTab />}
               {activeTab === 'activity' && <ProjectActivityTab />}
               {activeTab === 'roi' && <ROIVerificationTab />}
+              {activeTab === 'security' && <SecurityAuditTab />}
 
-              {/* Add causal attribution analysis for manager view */}
-              <div className="mt-8">
-                <CausalAttributionAnalysis />
-              </div>
+              {/* Add causal attribution analysis for manager view (not for security tab) */}
+              {activeTab !== 'security' && (
+                <div className="mt-8">
+                  <CausalAttributionAnalysis />
+                </div>
+              )}
             </div>
           )}
         </main>
