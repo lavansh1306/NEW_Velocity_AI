@@ -103,7 +103,30 @@ async function tryLoadIntegrationCSV(path: string, projectId: string, integratio
 
 // New loader that returns analytics plus possible integration summaries
 export async function loadProjectAnalyticsWithIntegrations(projectId: string) {
-  const base = await loadProjectAnalytics(projectId);
+  // Check Jira connection — if disconnected, skip loading Jira CSV (projects-analytics)
+  let base: any;
+  try {
+    const jiraConnected = getIntegrationConnected('jira');
+    if (jiraConnected) {
+      base = await loadProjectAnalytics(projectId);
+      base.jira_available = true;
+    } else {
+      // Return minimal base structure without Jira-derived data
+      base = {
+        planned_hours: 0,
+        actual_hours: 0,
+        tasks: [],
+        ai_usage: [],
+        jira_tickets: [],
+        time_logs: [],
+        jira_available: false,
+      };
+    }
+  } catch (err) {
+    // If storage check fails, fall back to attempting load
+    base = await loadProjectAnalytics(projectId);
+    base.jira_available = true;
+  }
 
   // Attempt to load per-integration files (these are optional)
   const [hubspotData, asanaData, msData, zapierData] = await Promise.all([

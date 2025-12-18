@@ -66,6 +66,8 @@ export interface ProjectAnalyticsWithIntegrations extends ProjectAnalytics {
   asana?: AsanaSummary;
   microsoft365?: Microsoft365Summary;
   zapier?: ZapierSummary;
+  // Whether Jira-derived analytics were available for this project
+  jira_available?: boolean;
 }
 
 export interface ProjectItem {

@@ -7,6 +7,13 @@ interface Props {
 }
 
 export default function BurndownChart({ data }: Props) {
+  if ((data as any).jira_available === false) {
+    return (
+      <div className="bg-white rounded-lg border p-4 h-64 flex items-center justify-center">
+        <div className="text-sm text-gray-500">No Jira data available</div>
+      </div>
+    );
+  }
   // time_logs is assumed to be ordered by date
   const labels = data.time_logs.map((t) => t.date);
   // total remaining work: planned_hours minus cumulative logged hours

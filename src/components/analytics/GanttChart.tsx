@@ -8,6 +8,13 @@ interface Props {
 
 // We'll render a horizontal stacked bar where each task is a row.
 export default function GanttChart({ data }: Props) {
+  if ((data as any).jira_available === false) {
+    return (
+      <div className="bg-white rounded-lg border p-4 h-64 flex items-center justify-center">
+        <div className="text-sm text-gray-500">No Jira data available</div>
+      </div>
+    );
+  }
   const labels = data.tasks.map((t) => t.task_name);
 
   // Start offsets (days since project start) and durations

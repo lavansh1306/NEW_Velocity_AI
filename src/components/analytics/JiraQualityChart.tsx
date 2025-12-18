@@ -7,6 +7,13 @@ interface Props {
 }
 
 export default function JiraQualityChart({ data }: Props) {
+  if ((data as any).jira_available === false) {
+    return (
+      <div className="bg-white rounded-lg border p-4 h-64 flex items-center justify-center">
+        <div className="text-sm text-gray-500">No Jira data available</div>
+      </div>
+    );
+  }
   const bugCount = data.jira_tickets.filter((t) => t.type === 'bug').length;
   const nonBug = data.jira_tickets.length - bugCount;
   const total = Math.max(1, bugCount + nonBug);
