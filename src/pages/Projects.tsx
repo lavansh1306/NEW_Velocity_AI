@@ -184,13 +184,8 @@ export default function Projects({ jiraConnected = true }: ProjectsProps) {
                     <div className="p-4 sm:p-5 lg:p-6 flex-1 flex flex-col">
                       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-2">
                         <div className="flex-1 min-w-0">
-                          <h2 className="text-base sm:text-lg lg:text-xl font-semibold text-gray-900 truncate\">{p.title}</h2>
-                          <div className="text-xs sm:text-sm text-gray-500\">{p.category}</div>
-                        </div>
-                        <div className="flex-shrink-0">
-                          <span className="inline-block rounded-full px-3 py-1 text-xs sm:text-sm font-medium text-white whitespace-nowrap" style={{ background: p.color }}>
-                            #{p.id}
-                          </span>
+                          <h2 className="text-base sm:text-lg lg:text-xl font-semibold text-gray-900 truncate">{p.title}</h2>
+                          <div className="text-xs sm:text-sm text-gray-500">{p.category}</div>
                         </div>
                       </div>
 
