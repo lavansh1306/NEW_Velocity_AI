@@ -16,6 +16,7 @@ import Projects from './Projects';
 export default function VelocityAI() {
   const [currentView, setCurrentView] = useState<'manager' | 'vp'>('manager');
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [jiraConnected, setJiraConnected] = useState(true);
 
   const handleSecurityAuditClick = () => {
     setActiveTab('security');
@@ -55,14 +56,14 @@ export default function VelocityAI() {
                   </div>
                 </>
               )}
-              {activeTab === 'projects' && <Projects jiraConnected={true} />}
+              {activeTab === 'projects' && <Projects jiraConnected={jiraConnected} />}
               {activeTab === 'stc' && <StandardTimeCatalogTab />}
               {activeTab === 'ledger' && <CapacityLedgerTab />}
               {activeTab === 'hotspots' && <HotspotScoringTab />}
               {activeTab === 'redeployment' && <RedeploymentTab />}
               {activeTab === 'activity' && <ProjectActivityTab />}
               {activeTab === 'roi' && <ROIVerificationTab />}
-              {activeTab === 'security' && <SecurityAuditTab />}
+              {activeTab === 'security' && <SecurityAuditTab onJiraConnectionChange={setJiraConnected} />}
             </div>
           )}
         </main>

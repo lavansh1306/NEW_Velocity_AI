@@ -58,10 +58,24 @@ export default function Projects({ jiraConnected = true }: ProjectsProps) {
   const [csvConnected, setCsvConnected] = useState(false);
   const [toastShown, setToastShown] = useState(false);
 
-  // Load projects from CSV on mount
+  // Load projects from CSV on mount - only if Jira is connected
   useEffect(() => {
     const loadProjects = async () => {
       try {
+        // Don't load if Jira is not connected
+        if (!jiraConnected) {
+          setProjects([]);
+          setCsvConnected(false);
+          addToast({
+            type: 'warning',
+            title: 'Jira Integration Required',
+            description: 'Reconnect Jira in the Security Audit to load project data.',
+            duration: 5000,
+          });
+          setLoading(false);
+          return;
+        }
+
         const csvText = await fetchCSV('/data/projects-analytics.csv');
         const projectDataMap = await parseProjectCSV(csvText);
 
@@ -104,7 +118,7 @@ export default function Projects({ jiraConnected = true }: ProjectsProps) {
     };
 
     loadProjects();
-  }, [addToast, toastShown]);
+  }, [addToast, toastShown, jiraConnected]);
 
   // Show toast when Jira disconnected
   useEffect(() => {

@@ -31,7 +31,11 @@ interface SecurityEvent {
   user?: string;
 }
 
-export default function SecurityAuditTab() {
+interface SecurityAuditTabProps {
+  onJiraConnectionChange?: (connected: boolean) => void;
+}
+
+export default function SecurityAuditTab({ onJiraConnectionChange }: SecurityAuditTabProps) {
   const [expandedIntegration, setExpandedIntegration] = useState<string | null>(null);
   const [integrations, setIntegrations] = useState<Record<string, Integration>>({
     hubspot: {
@@ -117,6 +121,11 @@ export default function SecurityAuditTab() {
         connected: !prev[id].connected
       }
     }));
+    
+    // Notify parent when Jira connection changes
+    if (id === 'jira' && onJiraConnectionChange) {
+      onJiraConnectionChange(!integrations[id].connected);
+    }
   };
 
   const securityEvents: SecurityEvent[] = [
