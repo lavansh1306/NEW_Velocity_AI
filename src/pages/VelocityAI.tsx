@@ -70,7 +70,14 @@ export default function VelocityAI() {
             <VPDashboard />
           ) : (
             <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-7xl mx-auto">
-              {activeTab === 'dashboard' && <DashboardTab />}
+              {activeTab === 'dashboard' && (
+                <>
+                  <DashboardTab />
+                  <div className="mt-8">
+                    <CausalAttributionAnalysis />
+                  </div>
+                </>
+              )}
               {activeTab === 'integrations' && <IntegrationsTab integrationStates={integrationStates} onToggleIntegration={handleIntegrationToggle} />}
               {activeTab === 'projects' && <Projects jiraConnected={integrationStates.jira} />}
               {activeTab === 'stc' && <StandardTimeCatalogTab />}
@@ -80,13 +87,6 @@ export default function VelocityAI() {
               {activeTab === 'activity' && <ProjectActivityTab />}
               {activeTab === 'roi' && <ROIVerificationTab />}
               {activeTab === 'security' && <SecurityAuditTab />}
-
-              {/* Add causal attribution analysis for manager view (not for security tab) */}
-              {activeTab !== 'security' && (
-                <div className="mt-8">
-                  <CausalAttributionAnalysis />
-                </div>
-              )}
             </div>
           )}
         </main>
