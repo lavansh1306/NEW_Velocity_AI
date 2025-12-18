@@ -17,7 +17,7 @@ const features = [
   {
     icon: TrendingUp,
     title: "ROI Attribution",
-    description: "Prove business impact with causal inference, attributing KPI improvements to redeployed hours using diff-in-diff analysis.",
+    description: "Prove business impacts with causal inference, attributing KPI improvements to redeployed hours using diff-in-diff analysis.",
     color: "text-primary"
   },
   {
