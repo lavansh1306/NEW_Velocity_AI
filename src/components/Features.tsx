@@ -4,7 +4,7 @@ import { Clock, Target, TrendingUp, Users, Zap, Network } from "lucide-react";
 const features = [
   {
     icon: Clock,
-    title: "Time-Saved Engine",
+    title: "Time-Saved Engines",
     description: "Automatically track productivity gains from AI tools across M365, Jira, HubSpot, and more with ML-powered validation.",
     color: "text-primary"
   },
