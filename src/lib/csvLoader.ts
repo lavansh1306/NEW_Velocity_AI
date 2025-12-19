@@ -65,14 +65,19 @@ export async function loadProjectAnalytics(projectId: string) {
       throw new Error(`No data found for project ${projectId}`);
     }
 
-    // Extract analytics with defaults
+    // Extract analytics with defaults (AI-focused fields)
     return {
       planned_hours: projectData.planned_hours || 0,
       actual_hours: projectData.actual_hours || 0,
       tasks: projectData.tasks || [],
       ai_usage: projectData.ai_usage || [],
+      ai_tool_usage: projectData.ai_tool_usage || projectData.ai_usage || [],
+      ai_hours_used: projectData.ai_hours_used || 0,
+      ai_time_saved_hours: projectData.ai_time_saved_hours || 0,
+      ai_time_saved_percent: projectData.ai_time_saved_percent || 0,
       jira_tickets: projectData.jira_tickets || [],
       time_logs: projectData.time_logs || [],
+      integration_savings: projectData.integration_savings || {},
     };
   } catch (error) {
     console.error(`Failed to load analytics for project ${projectId}:`, error);
@@ -117,6 +122,11 @@ export async function loadProjectAnalyticsWithIntegrations(projectId: string) {
         actual_hours: 0,
         tasks: [],
         ai_usage: [],
+        ai_tool_usage: [],
+        ai_hours_used: 0,
+        ai_time_saved_hours: 0,
+        ai_time_saved_percent: 0,
+        integration_savings: {},
         jira_tickets: [],
         time_logs: [],
         jira_available: false,
@@ -137,41 +147,48 @@ export async function loadProjectAnalyticsWithIntegrations(projectId: string) {
   ]);
 
   // Map to minimal summaries to keep shape stable
-  return {
-    ...base,
-    hubspot: hubspotData
-      ? {
-          contacts_count: hubspotData.contacts_count,
-          deals_count: hubspotData.deals_count,
-          closed_revenue: hubspotData.closed_revenue,
-          deals_by_stage: hubspotData.deals_by_stage,
-          last_sync: hubspotData.last_sync,
-        }
-      : undefined,
-    asana: asanaData
-      ? {
-          projects_count: asanaData.projects_count,
-          tasks_count: asanaData.tasks_count,
-          completed_last_30_days: asanaData.completed_last_30_days,
-          last_sync: asanaData.last_sync,
-        }
-      : undefined,
-    microsoft365: msData
-      ? {
-          mail_count: msData.mail_count,
-          calendar_meetings_count: msData.calendar_meetings_count,
-          meeting_duration_minutes: msData.meeting_duration_minutes,
-          last_sync: msData.last_sync,
-        }
-      : undefined,
-    zapier: zapierData
-      ? {
-          zaps_count: zapierData.zaps_count,
-          active_zaps: zapierData.active_zaps,
-          runs_last_30_days: zapierData.runs_last_30_days,
-          success_rate: zapierData.success_rate,
-          last_sync: zapierData.last_sync,
-        }
-      : undefined,
-  };
+    return {
+      ...base,
+      hubspot: hubspotData
+        ? {
+            contacts_count: hubspotData.contacts_enriched ?? hubspotData.contacts_count,
+            deals_count: hubspotData.deals_automated ?? hubspotData.deals_count,
+            closed_revenue: hubspotData.closed_revenue,
+            deals_by_stage: hubspotData.deals_by_stage,
+            hubspot_time_saved_hours: hubspotData.hubspot_time_saved_hours,
+            examples: hubspotData.examples,
+            last_sync: hubspotData.last_sync,
+          }
+        : undefined,
+      asana: asanaData
+        ? {
+            projects_count: asanaData.projects_count,
+            tasks_total: asanaData.tasks_total ?? asanaData.tasks_count,
+            tasks_automated_count: asanaData.tasks_automated_count,
+            asana_time_saved_hours: asanaData.asana_time_saved_hours,
+            last_sync: asanaData.last_sync,
+          }
+        : undefined,
+      microsoft365: msData
+        ? {
+            mail_count: msData.mail_count,
+            calendar_meetings_count: msData.calendar_meetings_count,
+            meeting_duration_minutes: msData.meeting_duration_minutes,
+            meeting_minutes_saved: msData.meeting_minutes_saved,
+            microsoft365_time_saved_hours: msData.microsoft365_time_saved_hours,
+            last_sync: msData.last_sync,
+          }
+        : undefined,
+      zapier: zapierData
+        ? {
+            zaps_count: zapierData.zaps_count,
+            active_zaps: zapierData.active_zaps,
+            runs_last_30_days: zapierData.runs_last_30_days,
+            runs_automated_by_ai: zapierData.runs_automated_by_ai,
+            zapier_time_saved_hours: zapierData.zapier_time_saved_hours,
+            success_rate: zapierData.success_rate,
+            last_sync: zapierData.last_sync,
+          }
+        : undefined,
+    };
 }

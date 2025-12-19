@@ -8,7 +8,7 @@ interface Props {
 
 export default function HubSpotDealsChart({ analytics }: Props) {
   const hub = analytics.hubspot;
-  if (!hub || !hub.deals_by_stage) {
+  if (!hub) {
     return (
       <div className="bg-white rounded-lg border p-4 h-56 min-h-0 min-w-0 overflow-hidden">
         <h4 className="text-sm font-semibold mb-2">HubSpot Deals</h4>
@@ -17,15 +17,19 @@ export default function HubSpotDealsChart({ analytics }: Props) {
     );
   }
 
-  const labels = hub.deals_by_stage.map((d) => d.stage);
-  const data = hub.deals_by_stage.map((d) => d.count);
+  // Use hubspot_time_saved_hours compared to other integration savings if available
+  const hubSaved = hub.hubspot_time_saved_hours ?? analytics.integration_savings?.hubspot ?? 0;
+  const integrationTotals = analytics.integration_savings
+    ? Object.values(analytics.integration_savings).reduce((s, v) => s + (v || 0), 0)
+    : hubSaved;
+  const other = Math.max(0, integrationTotals - hubSaved);
 
   const chartData = {
-    labels,
+    labels: ['HubSpot', 'Other integrations'],
     datasets: [
       {
-        data,
-        backgroundColor: ['#60A5FA', '#F97316', '#34D399', '#FCA5A5'],
+        data: [hubSaved, other],
+        backgroundColor: ['#34D399', '#60A5FA'],
       },
     ],
   };
@@ -37,10 +41,11 @@ export default function HubSpotDealsChart({ analytics }: Props) {
   };
 
   return (
-    <div className="bg-white rounded-lg border p-4 h-56 min-h-0 min-w-0 overflow-hidden">
+    <div className="bg-white rounded-lg border p-4 h-56 min-h-0 min-w-0 flex flex-col overflow-hidden">
       <h4 className="text-sm font-semibold mb-2">HubSpot Deals by Stage</h4>
       <div className="text-xs text-gray-500 mb-2">Closed revenue: ${hub.closed_revenue ?? '—'} · Source: HubSpot (deals)</div>
-      <div className="h-40 overflow-hidden">
+      <div className="text-xs text-gray-700 mb-3">HubSpot time saved: {hubSaved}h</div>
+      <div className="flex-1 min-h-0">
         <Doughnut data={chartData} options={options} />
       </div>
     </div>

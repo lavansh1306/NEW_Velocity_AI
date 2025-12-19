@@ -115,28 +115,31 @@ export default function SecurityAuditTab({ onJiraConnectionChange }: SecurityAud
   });
 
   const handleToggleIntegration = (id: string) => {
-    // Toggle state and persist connection to localStorage
-    setIntegrations(prev => {
-      const newConnected = !prev[id].connected;
-      try {
-        setIntegrationConnected(id as any, newConnected);
-      } catch (err) {
-        console.error('Failed to persist integration connection state', err);
-      }
+    // Compute new connected state from current integrations, then update state
+    const current = integrations[id];
+    if (!current) return;
+    const newConnected = !current.connected;
 
-      // Notify parent when Jira connection changes
-      if (id === 'jira' && onJiraConnectionChange) {
-        onJiraConnectionChange(newConnected);
-      }
+    // Update local component state
+    setIntegrations(prev => ({
+      ...prev,
+      [id]: {
+        ...prev[id],
+        connected: newConnected,
+      },
+    }));
 
-      return {
-        ...prev,
-        [id]: {
-          ...prev[id],
-          connected: newConnected,
-        }
-      };
-    });
+    // Persist connection to localStorage (side-effect outside render/state-updater)
+    try {
+      setIntegrationConnected(id as any, newConnected);
+    } catch (err) {
+      console.error('Failed to persist integration connection state', err);
+    }
+
+    // Notify parent when Jira connection changes (outside state updater)
+    if (id === 'jira' && onJiraConnectionChange) {
+      onJiraConnectionChange(newConnected);
+    }
   };
 
   const securityEvents: SecurityEvent[] = [

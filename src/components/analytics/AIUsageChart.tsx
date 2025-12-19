@@ -7,8 +7,11 @@ interface Props {
 }
 
 export default function AIUsageChart({ data }: Props) {
-  const labels = data.ai_usage.map((a) => a.tool);
-  const values = data.ai_usage.map((a) => a.hours);
+  const usage = data.ai_tool_usage ?? data.ai_usage ?? [];
+  const labels = usage.map((a) => a.tool);
+  const values = usage.map((a) => a.hours);
+  const totalAiHours = data.ai_hours_used ?? values.reduce((s, v) => s + v, 0);
+  const timeSaved = data.ai_time_saved_hours ?? null;
 
   const chartData = {
     labels,
@@ -31,10 +34,11 @@ export default function AIUsageChart({ data }: Props) {
   };
 
   return (
-    <div className="bg-white rounded-lg border p-4 h-48 overflow-hidden">
+    <div className="bg-white rounded-lg border p-4 h-48 flex flex-col overflow-hidden">
       <h4 className="text-sm font-semibold mb-2">AI Tool Usage (hours)</h4>
       <div className="text-xs text-gray-500 mb-2">Source: Internal AI telemetry · shows hours spent using AI tools</div>
-      <div className="h-36 overflow-hidden">
+      <div className="text-xs text-gray-700 mb-3">Total AI hours: {totalAiHours}{timeSaved ? ` · Time saved: ${timeSaved}h (${Math.round((timeSaved / Math.max(1, totalAiHours)) * 100)}%)` : ''}</div>
+      <div className="flex-1 min-h-0">
         <Bar data={chartData} options={options} />
       </div>
     </div>

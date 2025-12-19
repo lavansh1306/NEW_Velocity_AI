@@ -38,10 +38,10 @@ export default function JiraQualityChart({ data }: Props) {
   };
 
   return (
-    <div className="bg-white rounded-lg border p-4 h-48 overflow-hidden">
+    <div className="bg-white rounded-lg border p-4 h-48 flex flex-col overflow-hidden">
       <h4 className="text-sm font-semibold mb-2">Jira Quality (bug vs non-bug)</h4>
       <div className="text-xs text-gray-500 mb-2">Bugs: {bugCount} ({bugPct}%) · Non-bug: {nonBug} ({nonBugPct}%) · Source: JIRA issues</div>
-      <div className="h-36 overflow-hidden">
+      <div className="flex-1 min-h-0">
         <Doughnut data={chartData} options={options} />
       </div>
     </div>

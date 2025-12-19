@@ -40,9 +40,9 @@ export default function GanttChart({ data }: Props) {
   };
 
   return (
-    <div className="bg-white rounded-lg border p-4 h-80 overflow-hidden">
+    <div className="bg-white rounded-lg border p-4 h-80 flex flex-col overflow-hidden">
       <h4 className="text-sm font-semibold mb-2">Gantt (timeline)</h4>
-      <div className="h-64 overflow-hidden">
+      <div className="flex-1 min-h-0">
         <Bar data={chartData} options={options} />
       </div>
     </div>

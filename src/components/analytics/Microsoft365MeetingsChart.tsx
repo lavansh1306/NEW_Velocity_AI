@@ -17,9 +17,9 @@ export default function Microsoft365MeetingsChart({ analytics }: Props) {
     );
   }
 
-  // For the fake dataset we only have aggregates; create a small synthetic timeseries for the chart
+  // For the fake dataset we have aggregates; create a small synthetic timeseries for the chart
   const labels = ['-30d', '-20d', '-10d', '0d'];
-  const base = ms.meeting_duration_minutes ?? 0;
+  const base = ms.meeting_duration_minutes ?? (ms.meeting_duration_minutes ?? 0);
   const values = [Math.round(base * 0.6), Math.round(base * 0.8), Math.round(base * 0.9), Math.round(base)];
 
   const chartData = {
@@ -36,10 +36,11 @@ export default function Microsoft365MeetingsChart({ analytics }: Props) {
   };
 
   return (
-    <div className="bg-white rounded-lg border p-4 h-56 overflow-hidden">
+    <div className="bg-white rounded-lg border p-4 h-56 flex flex-col overflow-hidden">
       <h4 className="text-sm font-semibold mb-2">Microsoft 365 Meeting Load</h4>
       <div className="text-xs text-gray-500 mb-2">Total meeting minutes (approx) · Source: Microsoft Graph metadata</div>
-      <div className="h-40 overflow-hidden">
+      <div className="text-xs text-gray-700 mb-3">Meeting minutes saved: {ms.meeting_minutes_saved ?? '—'} · Time saved: {ms.microsoft365_time_saved_hours ?? '—'}h</div>
+      <div className="flex-1 min-h-0">
         <Line data={chartData} options={{ plugins: { legend: { display: false } }, maintainAspectRatio: false }} />
       </div>
     </div>

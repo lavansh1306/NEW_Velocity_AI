@@ -1,4 +1,11 @@
 project_id,project_name,category,data
+1,RetailFlow Analytics,Retail Operations,"{""zaps_count"":3,""active_zaps"":2,""runs_last_30_days"":420,""runs_automated_by_ai"":300,""zapier_time_saved_hours"":12,""examples"":""Order normalization; Auto-notify PM"",""last_sync"":""2025-12-18T11:00:00Z""}"
+2,CloudSync Enterprise,Infrastructure Platform,"{""zaps_count"":5,""active_zaps"":4,""runs_last_30_days"":2100,""runs_automated_by_ai"":900,""zapier_time_saved_hours"":10,""examples"":""S3 archival automation"",""last_sync"":""2025-12-18T11:00:00Z""}"
+3,MedTrack Pro,Healthcare SaaS,"{""zaps_count"":4,""active_zaps"":3,""runs_last_30_days"":760,""runs_automated_by_ai"":500,""zapier_time_saved_hours"":17,""examples"":""Form -> EHR sync"",""last_sync"":""2025-12-18T11:00:00Z""}"
+4,FinPulse Risk Engine,Fintech Platform,"{""zaps_count"":2,""active_zaps"":2,""runs_last_30_days"":180,""runs_automated_by_ai"":160,""zapier_time_saved_hours"":6,""examples"":""Alert forwarding"",""last_sync"":""2025-12-18T11:00:00Z""}"
+5,LogiChain Optimizer,Supply Chain Tech,"{""zaps_count"":6,""active_zaps"":5,""runs_last_30_days"":3200,""runs_automated_by_ai"":1800,""zapier_time_saved_hours"":30,""examples"":""Shipment status updates"",""last_sync"":""2025-12-18T11:00:00Z""}"
+6,InsightHR Suite,Enterprise HR Tech,"{""zaps_count"":3,""active_zaps"":3,""runs_last_30_days"":620,""runs_automated_by_ai"":420,""zapier_time_saved_hours"":20,""examples"":""New hire onboarding steps"",""last_sync"":""2025-12-18T11:00:00Z""}"
+project_id,project_name,category,data
 1,RetailFlow Analytics,Retail Operations,"{""zaps_count"": 3, ""active_zaps"": 2, ""runs_last_30_days"": 420, ""success_rate"": 0.995, ""top_zaps"": [{""name"": "Order -> RetailFlow", ""runs"": 300, ""successes"": 299, ""failures"": 1}], ""last_sync"": "2025-12-18T11:00:00Z"}"
 2,CloudSync Enterprise,Infrastructure Platform,"{""zaps_count"": 5, ""active_zaps"": 4, ""runs_last_30_days"": 2100, ""success_rate"": 0.982, ""top_zaps"": [{""name"": "S3 -> CloudSync", ""runs"": 900, ""successes"": 885, ""failures"": 15}], ""last_sync"": "2025-12-18T11:00:00Z"}"
 3,MedTrack Pro,Healthcare SaaS,"{""zaps_count"": 4, ""active_zaps"": 3, ""runs_last_30_days"": 760, ""success_rate"": 0.99, ""top_zaps"": [{""name"": "Form -> MedTrack", ""runs"": 500, ""successes"": 495, ""failures"": 5}], ""last_sync"": "2025-12-18T11:00:00Z"}"
