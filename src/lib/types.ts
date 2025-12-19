@@ -121,6 +121,14 @@ export interface MetricsResponse {
   automationCoverage: number;
   totalAutomations: number;
   estimatedTimeSavedHours: number;
+  /** Estimated cost saved in USD based on assumed hourly rate */
+  estimatedCostSavedUSD?: number;
+  /** Hourly rate (USD) used to compute cost */
+  hourlyRateUsedUSD?: number;
+  /** Previous-period automation coverage (ratio 0-1) used as a baseline */
+  automationCoveragePrevious?: number;
+  /** Difference between current and previous coverage (ratio 0-1). current - previous */
+  automationCoverageDelta?: number;
   automationTrend: AutomationTrendPoint[];
   manualVsAutomated: ManualVsAutomatedByApp[];
 }

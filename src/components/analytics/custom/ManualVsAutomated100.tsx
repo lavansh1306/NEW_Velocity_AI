@@ -26,7 +26,22 @@ export default function ManualVsAutomated100({ metrics }: { metrics: MetricsResp
 
   const options: any = {
     maintainAspectRatio: false,
-    plugins: { legend: { position: 'top' }, tooltip: { callbacks: { label: (ctx: any) => ctx.dataset.label + ': ' + ctx.parsed + '%' } } },
+    plugins: {
+      legend: { position: 'top' },
+      tooltip: {
+        callbacks: {
+          label: (ctx: any) => {
+            // ctx.parsed can be a number or an object (for stacked/chart types).
+            let value: number | string = ctx.parsed;
+            if (value && typeof value === 'object') {
+              // prefer the y value when parsed is an object
+              value = (value as any).y ?? (value as any).value ?? JSON.stringify(value);
+            }
+            return `${ctx.dataset.label}: ${value}%`;
+          },
+        },
+      },
+    },
     scales: { x: { stacked: true }, y: { stacked: true, ticks: { callback: (v: any) => v + '%' } } },
   };
 

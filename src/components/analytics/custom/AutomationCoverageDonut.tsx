@@ -8,6 +8,8 @@ ChartJS.register(ArcElement, Tooltip);
 export default function AutomationCoverageDonut({ metrics }: { metrics: MetricsResponse | null }) {
   // automationCoverage is a ratio (0-1); convert to percentage
   const percent = Math.round((metrics?.automationCoverage ?? 0) * 100);
+  const prevPercent = Math.round((metrics?.automationCoveragePrevious ?? 0) * 100);
+  const delta = percent - prevPercent;
   // For the donut we show automated vs manual as complementary slices
   const automated = percent;
   const manual = 100 - percent;
@@ -43,7 +45,15 @@ export default function AutomationCoverageDonut({ metrics }: { metrics: MetricsR
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="text-center">
             <div className="text-2xl font-semibold">{percent}%</div>
-            <div className="text-xs text-muted-foreground">Automated</div>
+              <div className="text-xs text-muted-foreground">Automated</div>
+              {typeof metrics?.automationCoveragePrevious === 'number' && (
+                <div className="text-xs text-muted-foreground mt-1">
+                  <span className={`mr-1 ${delta >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    {delta >= 0 ? '↑' : '↓'} {Math.abs(delta)}%
+                  </span>
+                  <span className="text-xs text-muted-foreground">from {prevPercent}%</span>
+                </div>
+              )}
           </div>
         </div>
       </div>

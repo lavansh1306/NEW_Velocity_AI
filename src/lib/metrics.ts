@@ -90,3 +90,45 @@ export function manualVsAutomatedByApp(events: NormalizedEvent[]): ManualVsAutom
   }
   return result;
 }
+
+/**
+ * estimatedCostSavedUSD
+ * Multiply estimatedTimeSavedHours by an hourly rate (USD).
+ */
+export function estimatedCostSavedUSD(events: NormalizedEvent[], hourlyRateUSD = 30): number {
+  const hours = estimatedTimeSavedHours(events);
+  return Math.round(hours * hourlyRateUSD * 100) / 100; // round to cents
+}
+
+/**
+ * automationCoverageForWindow
+ * Returns coverage (0-1) for events that fall within [start, end).
+ */
+export function automationCoverageForWindow(events: NormalizedEvent[], start: Date, end: Date): number {
+  const windowEvents = events.filter((e) => {
+    const t = new Date(e.timestamp);
+    return t >= start && t < end;
+  });
+  if (windowEvents.length === 0) return 0;
+  const automated = windowEvents.filter((e) => e.actionType === 'automation').length;
+  return automated / windowEvents.length;
+}
+
+/**
+ * automationCoveragePrevious
+ * Compute previous-period coverage using a sliding window anchored to latest event.
+ * By default, uses 30-day windows: current = last 30 days, previous = 30-60 days ago.
+ */
+export function automationCoveragePrevious(events: NormalizedEvent[], windowDays = 30): { previous: number; current: number } {
+  if (events.length === 0) return { previous: 0, current: 0 };
+  // anchor to the latest event timestamp if available
+  const latest = events.reduce((acc, e) => (new Date(e.timestamp) > acc ? new Date(e.timestamp) : acc), new Date(events[0].timestamp));
+  const currentEnd = new Date(latest);
+  const currentStart = new Date(currentEnd.getTime() - windowDays * 24 * 60 * 60 * 1000);
+  const prevStart = new Date(currentStart.getTime() - windowDays * 24 * 60 * 60 * 1000);
+  const prevEnd = new Date(currentStart);
+
+  const current = automationCoverageForWindow(events, currentStart, currentEnd);
+  const previous = automationCoverageForWindow(events, prevStart, prevEnd);
+  return { previous, current };
+}

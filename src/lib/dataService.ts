@@ -28,6 +28,7 @@ import {
   automationGrowthTrend,
   manualVsAutomatedByApp,
 } from './metrics';
+import { estimatedCostSavedUSD, automationCoveragePrevious } from './metrics';
 
 // ========================================
 // CSV Parser (browser-compatible)
@@ -202,10 +203,19 @@ export async function loadMetrics(projectId: string): Promise<MetricsResponse> {
   const events = allEvents.filter((e) => e.projectId === projectId);
 
   // Compute metrics from filtered events
+  const HOURLY_RATE_USD = 30; // assumption used for cost estimates
+  const estHours = estimatedTimeSavedHours(events);
+  const estCost = estimatedCostSavedUSD(events, HOURLY_RATE_USD);
+  const { previous: prevCoverage, current: currentCoverage } = automationCoveragePrevious(events, 30);
+
   return {
     automationCoverage: automationCoverage(events),
     totalAutomations: totalAutomations(events),
-    estimatedTimeSavedHours: estimatedTimeSavedHours(events),
+    estimatedTimeSavedHours: estHours,
+    estimatedCostSavedUSD: estCost,
+    hourlyRateUsedUSD: HOURLY_RATE_USD,
+    automationCoveragePrevious: prevCoverage,
+    automationCoverageDelta: automationCoverage(events) - prevCoverage,
     automationTrend: automationGrowthTrend(events),
     manualVsAutomated: manualVsAutomatedByApp(events),
   };
