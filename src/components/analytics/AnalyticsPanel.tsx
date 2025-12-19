@@ -1,21 +1,22 @@
 import React from 'react';
-import type { ProjectItem, ProjectAnalyticsWithIntegrations } from './types';
-import PlannedVsActualChart from './PlannedVsActualChart';
-import GanttChart from './GanttChart';
-import AIUsageChart from './AIUsageChart';
-import JiraQualityChart from './JiraQualityChart';
-import BurndownChart from './BurndownChart';
-import HubSpotDealsChart from './HubSpotDealsChart';
-import AsanaTasksChart from './AsanaTasksChart';
-import Microsoft365MeetingsChart from './Microsoft365MeetingsChart';
-import ZapierRunsChart from './ZapierRunsChart';
+import type { MetricsResponse } from '@/lib/types';
+import AutomationCoverageDonut from './custom/AutomationCoverageDonut';
+import TotalAutomationsStacked from './custom/TotalAutomationsStacked';
+import EstimatedTimeSavedBar from './custom/EstimatedTimeSavedBar';
+import AutomationGrowthTrend from './custom/AutomationGrowthTrend';
+import ManualVsAutomated100 from './custom/ManualVsAutomated100';
+
+interface ProjectItem {
+  id: string;
+  title: string;
+}
 
 interface Props {
   project: ProjectItem;
-  analytics: ProjectAnalyticsWithIntegrations;
+  metrics: MetricsResponse;
 }
 
-export default function AnalyticsPanel({ project, analytics }: Props) {
+export default function AnalyticsPanel({ project, metrics }: Props) {
   return (
     <section className="mt-8">
       <div className="max-w-7xl mx-auto px-6">
@@ -29,21 +30,14 @@ export default function AnalyticsPanel({ project, analytics }: Props) {
         
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 items-start">
-          <PlannedVsActualChart data={analytics} />
-          <AIUsageChart data={analytics} />
-          <JiraQualityChart data={analytics} />
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mt-4 items-start">
-          <HubSpotDealsChart analytics={analytics} />
-          <AsanaTasksChart analytics={analytics} />
-          <Microsoft365MeetingsChart analytics={analytics} />
-          <ZapierRunsChart analytics={analytics} />
+          <AutomationCoverageDonut metrics={metrics} />
+          <TotalAutomationsStacked metrics={metrics} />
+          <EstimatedTimeSavedBar metrics={metrics} />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-          <GanttChart data={analytics} />
-          <BurndownChart data={analytics} />
+          <AutomationGrowthTrend metrics={metrics} />
+          <ManualVsAutomated100 metrics={metrics} />
         </div>
       </div>
     </section>

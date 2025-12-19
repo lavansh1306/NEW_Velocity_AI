@@ -1,90 +1,38 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import AnalyticsPanel from '@/components/analytics/AnalyticsPanel';
-import { loadProjectAnalyticsWithIntegrations, fetchCSV, parseProjectCSV } from '@/lib/csvLoader';
-import type { ProjectAnalyticsWithIntegrations } from '@/components/analytics/types';
+import type { MetricsResponse } from '@/lib/types';
+import { loadProjects as fetchProjects, loadMetrics, type ProjectItem } from '@/lib/dataService';
 import { useToast } from '@/contexts/ToastContext';
-import type { ProjectAnalytics } from '@/components/analytics/types';
-
-interface ProjectItem {
-  id: string;
-  title: string;
-  category: string;
-  description: string;
-  image: string;
-  link: string;
-  tags: string[];
-  color: string;
-}
 
 interface ProjectsProps {
   jiraConnected?: boolean;
 }
 
-const projectDescriptions: Record<string, string> = {
-  '1': 'Built an integrated inventory management and demand forecasting system for a mid-market retail chain. Reduced stockouts by 32% and optimized warehouse operations, saving $450k annually in operational overhead.',
-  '2': 'Designed a multi-tenant cloud infrastructure orchestration platform enabling real-time resource allocation, auto-scaling, and cost optimization across distributed systems.',
-  '3': 'Developed a comprehensive healthcare tracking platform with HIPAA compliance, real-time patient monitoring, and predictive analytics for better clinical outcomes.',
-  '4': 'Built an advanced risk assessment engine for fintech with machine learning models for market volatility prediction and portfolio optimization.',
-};
-
-const projectColors: Record<string, string> = {
-  '1': '#d97706',
-  '2': '#2563EB',
-  '3': '#059669',
-  '4': '#7c3aed',
-};
-
-const projectTags: Record<string, string[]> = {
-  '1': ['Inventory', 'Analytics', 'Operations'],
-  '2': ['Cloud', 'Infrastructure', 'DevOps'],
-  '3': ['Healthcare', 'Compliance', 'Real-time'],
-  '4': ['Fintech', 'AI/ML', 'Risk Analysis'],
-};
-
-const projectImages: Record<string, string> = {
-  '1': 'https://images.unsplash.com/photo-1556740738-b6a63e27c4df?w=1200&h=800&fit=crop',
-  '2': 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1200&h=800&fit=crop',
-  '3': 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=1200&h=800&fit=crop',
-  '4': 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&h=800&fit=crop',
-};
-
 export default function Projects({ jiraConnected = true }: ProjectsProps) {
   const { addToast } = useToast();
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [selectedProject, setSelectedProject] = useState<ProjectItem | null>(null);
-  const [analyticsData, setAnalyticsData] = useState<Record<string, ProjectAnalyticsWithIntegrations | null>>({});
+  const [metricsData, setMetricsData] = useState<Record<string, MetricsResponse | null>>({});
   const [loading, setLoading] = useState(true);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
-  const [csvConnected, setCsvConnected] = useState(false);
+  const [dataConnected, setDataConnected] = useState(false);
   const [toastShown, setToastShown] = useState(false);
 
-  // Load projects from CSV on mount (always load project list)
+  // Load projects from CSV via dataService on mount
   useEffect(() => {
-    const loadProjects = async () => {
+    const doLoadProjects = async () => {
       try {
-        const csvText = await fetchCSV('/data/projects-analytics.csv');
-        const projectDataMap = await parseProjectCSV(csvText);
-
-        const loadedProjects: ProjectItem[] = Object.entries(projectDataMap).map(([id, data]) => ({
-          id,
-          title: data.project_name,
-          category: data.category,
-          description: projectDescriptions[id] || 'Project details not available.',
-          image: projectImages[id] || 'https://images.unsplash.com/photo-1556740738-b6a63e27c4df?w=1200&h=800&fit=crop',
-          link: '#',
-          tags: projectTags[id] || [],
-          color: projectColors[id] || '#6366f1',
-        }));
+        const loadedProjects = await fetchProjects();
 
         setProjects(loadedProjects);
-        setCsvConnected(loadedProjects.length > 0);
+        setDataConnected(loadedProjects.length > 0);
 
         // Show success toast only once
         if (loadedProjects.length > 0 && !toastShown) {
           addToast({
             type: 'success',
-            title: 'CSV Data Source Connected',
+            title: 'Data Source Connected',
             description: `Loaded ${loadedProjects.length} projects successfully`,
             duration: 4000,
           });
@@ -92,11 +40,11 @@ export default function Projects({ jiraConnected = true }: ProjectsProps) {
         }
       } catch (error) {
         console.error('Failed to load projects:', error);
-        setCsvConnected(false);
+        setDataConnected(false);
         addToast({
           type: 'error',
           title: 'Failed to Load Projects',
-          description: 'Could not load CSV data source. Please try again.',
+          description: 'Could not load project data. Please try again.',
           duration: 5000,
         });
       } finally {
@@ -104,8 +52,8 @@ export default function Projects({ jiraConnected = true }: ProjectsProps) {
       }
     };
 
-    loadProjects();
-  }, [addToast, toastShown, jiraConnected]);
+    doLoadProjects();
+  }, [addToast, toastShown]);
 
   // Warn once if Jira is disconnected — analytics may be limited
   useEffect(() => {
@@ -122,15 +70,15 @@ export default function Projects({ jiraConnected = true }: ProjectsProps) {
   const handleProjectSelect = async (project: ProjectItem) => {
     setSelectedProject(project);
     
-    // Load analytics if not already cached
-    if (!analyticsData[project.id]) {
+    // Load metrics if not already cached
+    if (!metricsData[project.id]) {
       setAnalyticsLoading(true);
       try {
-        const data = await loadProjectAnalyticsWithIntegrations(project.id);
-        setAnalyticsData((prev) => ({ ...prev, [project.id]: data }));
+        const data = await loadMetrics(project.id);
+        setMetricsData((prev) => ({ ...prev, [project.id]: data }));
       } catch (error) {
         console.error(`Error loading analytics for project ${project.id}:`, error);
-        setAnalyticsData((prev) => ({ ...prev, [project.id]: null }));
+        setMetricsData((prev) => ({ ...prev, [project.id]: null }));
       } finally {
         setAnalyticsLoading(false);
       }
@@ -208,8 +156,8 @@ export default function Projects({ jiraConnected = true }: ProjectsProps) {
                   <div className="text-center py-8">
                     <p className="text-gray-500">Loading analytics...</p>
                   </div>
-                ) : analyticsData[selectedProject.id] ? (
-                  <AnalyticsPanel project={selectedProject} analytics={analyticsData[selectedProject.id]!} />
+                ) : metricsData[selectedProject.id] ? (
+                  <AnalyticsPanel project={selectedProject} metrics={metricsData[selectedProject.id]!} />
                 ) : (
                   <div className="text-center py-8">
                     <p className="text-red-500">Failed to load analytics data</p>
