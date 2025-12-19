@@ -6,14 +6,14 @@ interface VeloNavTabsProps {
 }
 
 const tabs = [
-  { id: 'dashboard', label: 'Dashboard', icon: '📊' },
-  { id: 'projects', label: 'Projects', icon: '📁' },
-  { id: 'stc', label: 'Standard Time Catalog', icon: '⏱️' },
-  { id: 'activity', label: 'Project Activity', icon: '📝' },
-  { id: 'ledger', label: 'Capacity Ledger', icon: '📊' },
-  { id: 'hotspots', label: 'Hotspot Scoring', icon: '🎯' },
-  { id: 'redeployment', label: 'Redeployment', icon: '🔄' },
-  { id: 'roi', label: 'ROI Verification', icon: '💰' },
+  { id: 'dashboard', label: 'Dashboard', icon: '' },
+  { id: 'projects', label: 'Projects', icon: '' },
+  { id: 'stc', label: 'Standard Time Catalog', icon: '' },
+  { id: 'activity', label: 'Project Activity', icon: '' },
+  { id: 'ledger', label: 'Capacity Ledger', icon: '' },
+  { id: 'hotspots', label: 'Hotspot Scoring', icon: '' },
+  { id: 'redeployment', label: 'Redeployment', icon: '' },
+  { id: 'roi', label: 'ROI Verification', icon: '' },
 ];
 
 export default function VeloNavTabs({ activeTab, onTabChange }: VeloNavTabsProps) {
@@ -25,7 +25,7 @@ export default function VeloNavTabs({ activeTab, onTabChange }: VeloNavTabsProps
   };
 
   const currentTabLabel = tabs.find(t => t.id === activeTab)?.label || 'Dashboard';
-  const currentTabIcon = tabs.find(t => t.id === activeTab)?.icon || '📊';
+  const currentTabIcon = tabs.find(t => t.id === activeTab)?.icon || '';
 
   return (
     <div className="flex">
