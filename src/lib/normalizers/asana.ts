@@ -24,8 +24,27 @@ const DEFAULT_MANUAL_MINUTES = 2;
  *  - If created_by contains 'bot' or 'automation', treat as automated.
  */
 function isAutomation(row: RawAsanaRow): boolean {
-  const actor = (row.created_by ?? '').toLowerCase();
-  return actor.includes('bot') || actor.includes('automation');
+  const actor = (row.created_by ?? '').toLowerCase().trim();
+  // Stricter bot detection: only treat known service/bot names as automation
+  const knownBots = new Set(['automation_bot', 'service-bot', 'system', 'automation']);
+  if (knownBots.has(actor)) return true;
+
+  // If actor looks like a numeric user id, treat as human
+  if (/^\d+$/.test(actor)) return false;
+
+  // Inspect details for explicit workflow/rule triggers or created_from markers
+  const details = (row.details ?? '').toLowerCase();
+  if (
+    details.includes('workflow') ||
+    details.includes('rule:') ||
+    details.includes('trigger_rule') ||
+    details.includes('created_from') ||
+    details.includes('auto-')
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 /**
