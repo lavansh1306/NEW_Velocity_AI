@@ -30,7 +30,12 @@ export default function AIUsageChart({ data }: Props) {
     plugins: { legend: { display: false } },
     responsive: true,
     maintainAspectRatio: false,
-    scales: { x: { beginAtZero: true }, y: { grid: { display: false } } },
+    scales: {
+      x: { beginAtZero: true },
+      y: { grid: { display: false }, ticks: { autoSkip: false, maxRotation: 0, align: 'start' as const } },
+    },
+    layout: { padding: { left: 8, right: 8, top: 4, bottom: 4 } },
+    datasets: { bar: { maxBarThickness: 18, borderRadius: 6 } },
   };
 
   return (
