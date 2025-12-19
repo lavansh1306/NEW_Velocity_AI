@@ -359,8 +359,9 @@ const ROIReport = () => {
             </div>
           </div>
 
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={chartData}>
+          <div className="w-full h-56 sm:h-72 md:h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="quarter" />
               <YAxis
@@ -376,8 +377,9 @@ const ROIReport = () => {
                 strokeWidth={3}
                 dot={{ fill: "hsl(var(--primary))", r: 6 }}
               />
-            </LineChart>
-          </ResponsiveContainer>
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
 
           <div className="mt-4 text-center text-lg font-semibold text-green-600">
             Q4 Forecasted Value Unlock: ${q4Value.toLocaleString()}
