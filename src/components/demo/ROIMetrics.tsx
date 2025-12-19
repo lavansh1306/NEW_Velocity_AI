@@ -87,8 +87,9 @@ export const ROIMetrics = () => {
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="p-6">
           <h3 className="mb-4 text-lg font-semibold">Cost Savings vs Investment</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={savingsData}>
+          <div className="w-full h-48 sm:h-56 md:h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={savingsData}>
               <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
               <YAxis stroke="hsl(var(--muted-foreground))" />
               <Tooltip
@@ -114,7 +115,9 @@ export const ROIMetrics = () => {
                 dot={{ fill: "hsl(var(--secondary))", r: 4 }}
               />
             </LineChart>
-          </ResponsiveContainer>
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
           <div className="mt-4 flex gap-6 text-sm">
             <div className="flex items-center gap-2">
               <div className="h-3 w-3 rounded-full bg-primary"></div>
@@ -129,8 +132,9 @@ export const ROIMetrics = () => {
 
         <Card className="p-6">
           <h3 className="mb-4 text-lg font-semibold">Key Performance Improvements</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={impactData} layout="vertical">
+          <div className="w-full h-48 sm:h-56 md:h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={impactData} layout="vertical">
               <XAxis type="number" stroke="hsl(var(--muted-foreground))" />
               <YAxis dataKey="metric" type="category" width={100} stroke="hsl(var(--muted-foreground))" />
               <Tooltip
@@ -142,7 +146,9 @@ export const ROIMetrics = () => {
               />
               <Bar dataKey="improvement" fill="hsl(var(--primary))" radius={[0, 8, 8, 0]} />
             </BarChart>
-          </ResponsiveContainer>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
           <div className="mt-4 text-xs text-muted-foreground">% improvement after redeployment</div>
         </Card>
       </div>

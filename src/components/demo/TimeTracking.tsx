@@ -28,8 +28,9 @@ export const TimeTracking = ({ detailed = false }: { detailed?: boolean }) => {
           <h3 className="text-lg font-semibold">Time Saved Trend</h3>
           <Badge variant="secondary">Last 6 Months</Badge>
         </div>
-        <ResponsiveContainer width="100%" height={300}>
-          <AreaChart data={timeData}>
+        <div className="w-full h-48 sm:h-56 md:h-72">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={timeData}>
             <defs>
               <linearGradient id="colorHours" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
@@ -66,7 +67,9 @@ export const TimeTracking = ({ detailed = false }: { detailed?: boolean }) => {
               strokeWidth={2}
             />
           </AreaChart>
-        </ResponsiveContainer>
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
         <div className="mt-4 flex gap-6 text-sm">
           <div className="flex items-center gap-2">
             <div className="h-3 w-3 rounded-full bg-primary"></div>
