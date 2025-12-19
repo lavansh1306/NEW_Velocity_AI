@@ -16,7 +16,6 @@ export default function DebugNormalization() {
     if (!selected) return;
     getNormalizedEventsForProject(selected).then((ev) => {
       setEvents(ev);
-      // compute simple manual/automated breakdown per app
       const apps = ['Asana', 'Jira', 'Zapier', 'HubSpot', 'Microsoft365'] as const;
       const result = apps.map((app) => ({ app, manual: 0, automated: 0 })) as ManualVsAutomatedByApp[];
       const lookup = new Map(result.map((r) => [r.app, r]));
@@ -31,11 +30,16 @@ export default function DebugNormalization() {
   }, [selected]);
 
   return (
-    <div style={{ padding: 24 }}>
-      <h2>Debug: Normalized events</h2>
-      <div style={{ marginBottom: 12 }}>
-        <label>Project: </label>
-        <select value={selected} onChange={(e) => setSelected(e.target.value)}>
+    <div className="p-6 md:p-8">
+      <h2 className="text-lg font-semibold mb-4">Debug: Normalized events</h2>
+
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+        <label className="text-sm">Project:</label>
+        <select
+          className="rounded border px-3 py-2 text-sm"
+          value={selected}
+          onChange={(e) => setSelected(e.target.value)}
+        >
           {projects.map((p) => (
             <option key={p.id} value={p.id}>
               {p.id} - {p.title}
@@ -44,34 +48,36 @@ export default function DebugNormalization() {
         </select>
       </div>
 
-      <h3>Summary</h3>
+      <h3 className="text-md font-medium mt-2 mb-2">Summary</h3>
       {breakdown ? (
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left' }}>App</th>
-              <th style={{ textAlign: 'right' }}>Manual</th>
-              <th style={{ textAlign: 'right' }}>Automated</th>
-            </tr>
-          </thead>
-          <tbody>
-            {breakdown.map((b) => (
-              <tr key={b.app}>
-                <td>{b.app}</td>
-                <td style={{ textAlign: 'right' }}>{b.manual}</td>
-                <td style={{ textAlign: 'right' }}>{b.automated}</td>
+        <div className="overflow-x-auto bg-white rounded-lg border p-2">
+          <table className="w-full text-sm">
+            <thead>
+              <tr>
+                <th className="text-left">App</th>
+                <th className="text-right">Manual</th>
+                <th className="text-right">Automated</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {breakdown.map((b) => (
+                <tr key={b.app} className="border-t">
+                  <td className="py-2">{b.app}</td>
+                  <td className="py-2 text-right">{b.manual}</td>
+                  <td className="py-2 text-right">{b.automated}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       ) : (
         <div>Loading...</div>
       )}
 
-      <h3 style={{ marginTop: 18 }}>Sample normalized events (first 50)</h3>
-      <pre style={{ maxHeight: 320, overflow: 'auto', background: '#f6f8fa', padding: 12 }}>
-        {JSON.stringify(events.slice(0, 50), null, 2)}
-      </pre>
+      <h3 className="text-md font-medium mt-4 mb-2">Sample normalized events (first 50)</h3>
+      <div className="max-h-80 overflow-auto rounded bg-gray-50 p-3">
+        <pre className="whitespace-pre-wrap text-xs">{JSON.stringify(events.slice(0, 50), null, 2)}</pre>
+      </div>
     </div>
   );
 }
