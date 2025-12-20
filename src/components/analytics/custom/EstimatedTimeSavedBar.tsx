@@ -37,17 +37,12 @@ export default function EstimatedTimeSavedBar({ metrics }: { metrics: MetricsRes
       <div className="p-4">
         <h3 className="text-sm font-medium">Estimated Human Hours Saved</h3>
         <p className="text-xs text-muted-foreground">By integration (hours)</p>
-        <div className="mt-2 text-sm">
-          <strong>{`$${metrics?.estimatedCostSavedUSD?.toLocaleString() ?? '0.00'}`}</strong>
-          <span className="text-xs text-muted-foreground ml-2">Estimated Cost Saved (USD)</span>
-        </div>
+        {/* Cost display intentionally removed — cost will be shown elsewhere when needed */}
       </div>
       <div className="flex-1 min-h-0 p-4">
         <Bar data={data} options={options} />
       </div>
-      <div className="p-2 px-4 text-xs text-muted-foreground">
-        Based on standard task-time assumptions. Hourly rate used: {`$${metrics?.hourlyRateUsedUSD ?? 30}`}/hr.
-      </div>
+      
     </div>
   );
 }

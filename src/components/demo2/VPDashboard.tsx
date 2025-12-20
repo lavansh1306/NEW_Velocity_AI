@@ -1,4 +1,43 @@
+import React, { useEffect, useState } from 'react';
+import { loadAllMetrics } from '@/lib/dataService';
+
 export default function VPDashboard() {
+  const [costSavingsUSD, setCostSavingsUSD] = useState<number | null>(null);
+  const [totalHours, setTotalHours] = useState<number | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    loadAllMetrics()
+      .then((m) => {
+        if (!mounted) return;
+        setCostSavingsUSD(m.estimatedCostSavedUSD ?? null);
+        setTotalHours(m.estimatedTimeSavedHours ?? null);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setCostSavingsUSD(null);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  function formatLargeUSD(v: number | null | undefined) {
+    if (v == null) return '—';
+    if (v >= 1_000_000) return `$${Math.round(v / 100000) / 10}M`;
+    if (v >= 1000) return `$${Math.round(v / 1000)}K`;
+    return `$${v}`;
+  }
+  function formatNumberWithCommas(n: number | null | undefined) {
+    if (n == null) return '—';
+    return n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  }
+
+  function formatFTEs(hours: number | null | undefined) {
+    if (hours == null) return '—';
+    const ftes = hours / 8;
+    return `${ftes.toFixed(1)} FTEs`;
+  }
   return (
     <div className="px-4 sm:px-6 lg:px-8">
       {/* Executive Header */}
@@ -65,7 +104,7 @@ export default function VPDashboard() {
             <span className="text-xs font-bold bg-white bg-opacity-20 px-2 py-1 rounded">-23%</span>
           </div>
           <div className="text-xs sm:text-sm opacity-90 mb-1">Cost Savings</div>
-          <div className="text-3xl sm:text-4xl lg:text-5xl font-bold">$485K</div>
+          <div className="text-3xl sm:text-4xl lg:text-5xl font-bold">{formatLargeUSD(costSavingsUSD)}</div>
           <div className="text-xs sm:text-sm mt-2 opacity-75">Reduced operational spend</div>
         </div>
 
@@ -76,10 +115,10 @@ export default function VPDashboard() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <span className="text-xs font-bold bg-white bg-opacity-20 px-2 py-1 rounded">12,400 hrs</span>
+            <span className="text-xs font-bold bg-white bg-opacity-20 px-2 py-1 rounded">{totalHours != null ? `${formatNumberWithCommas(totalHours)} hrs` : '—'}</span>
           </div>
           <div className="text-xs sm:text-sm opacity-90 mb-1">Time Recaptured</div>
-          <div className="text-3xl sm:text-4xl lg:text-5xl font-bold">6.2 FTEs</div>
+          <div className="text-3xl sm:text-4xl lg:text-5xl font-bold">{formatFTEs(totalHours)}</div>
           <div className="text-xs sm:text-sm mt-2 opacity-75">Equivalent capacity freed</div>
         </div>
       </div>

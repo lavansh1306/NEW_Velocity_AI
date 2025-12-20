@@ -67,7 +67,6 @@ export const TimeTracking = ({ detailed = false }: { detailed?: boolean }) => {
               strokeWidth={2}
             />
           </AreaChart>
-            </AreaChart>
           </ResponsiveContainer>
         </div>
         <div className="mt-4 flex gap-6 text-sm">

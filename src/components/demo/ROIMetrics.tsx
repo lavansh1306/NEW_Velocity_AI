@@ -115,7 +115,6 @@ export const ROIMetrics = () => {
                 dot={{ fill: "hsl(var(--secondary))", r: 4 }}
               />
             </LineChart>
-              </LineChart>
             </ResponsiveContainer>
           </div>
           <div className="mt-4 flex gap-6 text-sm">
@@ -146,7 +145,6 @@ export const ROIMetrics = () => {
               />
               <Bar dataKey="improvement" fill="hsl(var(--primary))" radius={[0, 8, 8, 0]} />
             </BarChart>
-              </BarChart>
             </ResponsiveContainer>
           </div>
           <div className="mt-4 text-xs text-muted-foreground">% improvement after redeployment</div>

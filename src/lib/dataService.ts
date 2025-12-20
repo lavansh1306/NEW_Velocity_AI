@@ -196,6 +196,44 @@ export async function loadMetrics(projectId: string): Promise<MetricsResponse> {
 }
 
 /**
+ * Load overall metrics across all projects (aggregated).
+ * This avoids re-fetching CSVs per-project when we only need a global number.
+ */
+export async function loadAllMetrics(): Promise<Partial<MetricsResponse>> {
+  const [asanaCsv, jiraCsv, zapierCsv, hubspotCsv, m365Csv] = await Promise.all([
+    fetchCSV('/data/asana_events.csv').catch(() => ''),
+    fetchCSV('/data/jira_events.csv').catch(() => ''),
+    fetchCSV('/data/zapier_events.csv').catch(() => ''),
+    fetchCSV('/data/hubspot_events.csv').catch(() => ''),
+    fetchCSV('/data/microsoft365_events.csv').catch(() => ''),
+  ]);
+
+  const asanaRows = parseCSV<RawAsanaRow>(asanaCsv);
+  const jiraRows = parseCSV<RawJiraRow>(jiraCsv);
+  const zapierRows = parseCSV<RawZapierRow>(zapierCsv);
+  const hubspotRows = parseCSV<RawHubSpotRow>(hubspotCsv);
+  const m365Rows = parseCSV<RawMicrosoft365Row>(m365Csv);
+
+  const allEvents: NormalizedEvent[] = [
+    ...normalizeAsana(asanaRows),
+    ...normalizeJira(jiraRows),
+    ...normalizeZapier(zapierRows),
+    ...normalizeHubSpot(hubspotRows),
+    ...normalizeMicrosoft365(m365Rows),
+  ];
+
+  const HOURLY_RATE_USD = 30;
+  const totalHours = estimatedTimeSavedHours(allEvents);
+  const totalCost = estimatedCostSavedUSD(allEvents, HOURLY_RATE_USD);
+
+  return {
+    estimatedTimeSavedHours: totalHours,
+    estimatedCostSavedUSD: totalCost,
+    hourlyRateUsedUSD: HOURLY_RATE_USD,
+  };
+}
+
+/**
  * getNormalizedEventsForProject
  * Fetch raw CSVs, normalize them and return NormalizedEvent[] filtered by projectId.
  */
