@@ -101,7 +101,7 @@ const projectDescriptions: Record<string, string> = {
   '1': 'Built an integrated inventory management and demand forecasting system for a mid-market retail chain. Reduced stockouts by 32% and optimized warehouse operations.',
   '2': 'Designed a multi-tenant cloud infrastructure orchestration platform enabling real-time resource allocation and auto-scaling.',
   '3': 'Developed a comprehensive healthcare tracking platform with HIPAA compliance and real-time patient monitoring.',
-  '4': 'Built an advanced risk assessment engine for fintech with machine learning models for market volatility prediction.',
+  '4': 'Developed an advanced quantitative analytics platform for portfolio optimization with ML-driven market risk prediction and real-time scenario modeling.',
   '5': 'Optimized supply chain logistics using advanced algorithms, reducing delivery times and costs significantly.',
   '6': 'Created an enterprise HR analytics suite for workforce planning, engagement tracking, and talent management.',
 };
