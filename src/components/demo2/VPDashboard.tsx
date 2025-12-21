@@ -47,6 +47,28 @@ export default function VPDashboard() {
     const ftes = hours / 8;
     return `${ftes.toFixed(1)} FTEs`;
   }
+  // Tools and blended-scale calculations (used by chart and footer)
+  const tools = [
+    { name: 'JIRA', investment: 10 },
+    { name: 'HubSpot AI', investment: 10 },
+    { name: 'Zapier Auto', investment: 10 },
+    { name: 'Asana', investment: 10 },
+    { name: 'Microsoft 365', investment: 10 },
+  ];
+
+  const rows = tools.map((tool) => {
+    const appKey = tool.name === 'JIRA' ? 'Jira' : tool.name === 'Zapier Auto' ? 'Zapier' : tool.name === 'HubSpot AI' ? 'HubSpot' : tool.name === 'Microsoft 365' ? 'Microsoft365' : tool.name;
+    const hours = perAppHours?.[appKey] ?? 0;
+    const returnsUSD = perAppReturns?.[appKey] ?? 0;
+    const investmentUSD = tool.investment * 1000; // K -> USD
+    const hoursUSD = (hourlyRateUsedUSD ?? 100) * hours;
+    return { tool, appKey, hours, returnsUSD, investmentUSD, hoursUSD };
+  });
+
+  const maxVal = Math.max(...rows.map((r) => Math.max(r.investmentUSD, r.returnsUSD, r.hoursUSD)), 1);
+  const totalInvestmentUSD = rows.reduce((acc, r) => acc + r.investmentUSD, 0);
+  const totalReturnsUSD = totalReturns != null ? totalReturns : Object.values(perAppReturns ?? {}).reduce((s, v) => s + (v ?? 0), 0);
+  const blendedROI = totalInvestmentUSD > 0 ? totalReturnsUSD / totalInvestmentUSD : null;
   return (
     <div className="px-4 sm:px-6 lg:px-8">
       {/* Executive Header */}
@@ -167,80 +189,55 @@ export default function VPDashboard() {
 
           {/* Chart Visualization */}
           <div className="space-y-4">
-            {(() => {
-              // Prepare a common USD scale so investment, returns and hours (converted to USD)
-              // are comparable across tools and visible even when values are small.
-              const tools = [
-                { name: 'JIRA', investment: 10 },
-                { name: 'HubSpot AI', investment: 10 },
-                { name: 'Zapier Auto', investment: 10 },
-                { name: 'Asana', investment: 10 },
-                { name: 'Microsoft 365', investment: 10 },
-              ];
+            {rows.map(({ tool, appKey, hours, returnsUSD, investmentUSD, hoursUSD }) => {
+              const invPercent = Math.round((investmentUSD / maxVal) * 100);
+              const retPercent = Math.round((returnsUSD / maxVal) * 100);
+              const hrsPercent = Math.round((hoursUSD / maxVal) * 100);
+              const returnsRounded = Math.round(returnsUSD);
+              const hoursDisplay = Number.isFinite(hours) ? (Math.round(hours * 10) / 10).toFixed(1) : '0.0';
 
-              // Build arrays of USD values per tool
-              const rows = tools.map((tool) => {
-                const appKey = tool.name === 'JIRA' ? 'Jira' : tool.name === 'Zapier Auto' ? 'Zapier' : tool.name === 'HubSpot AI' ? 'HubSpot' : tool.name === 'Microsoft 365' ? 'Microsoft365' : tool.name;
-                const hours = perAppHours?.[appKey] ?? 0;
-                const returnsUSD = perAppReturns?.[appKey] ?? 0;
-                const investmentUSD = tool.investment * 1000; // K -> USD
-                const hoursUSD = (hourlyRateUsedUSD ?? 100) * hours;
-                return { tool, appKey, hours, returnsUSD, investmentUSD, hoursUSD };
-              });
-
-              const maxVal = Math.max(...rows.map((r) => Math.max(r.investmentUSD, r.returnsUSD, r.hoursUSD)), 1);
-
-              return rows.map(({ tool, appKey, hours, returnsUSD, investmentUSD, hoursUSD }) => {
-                const invPercent = Math.round((investmentUSD / maxVal) * 100);
-                const retPercent = Math.round((returnsUSD / maxVal) * 100);
-                const hrsPercent = Math.round((hoursUSD / maxVal) * 100);
-                const roi = hours > 0 ? (returnsUSD / 10000).toFixed(1) : '0';
-                const returnsRounded = Math.round(returnsUSD);
-                const hoursDisplay = Number.isFinite(hours) ? (Math.round(hours * 10) / 10).toFixed(1) : '0.0';
-
-                return (
-                  <div key={tool.name} className="flex items-center gap-4">
-                    <div className="w-32 text-sm font-semibold text-gray-700">{tool.name}</div>
-                    <div className="flex-1 relative">
-                      <div className="h-8 bg-gray-100 rounded-lg overflow-hidden flex">
-                        <div
-                          className="bg-blue-500 flex items-center justify-center text-white text-xs font-bold"
-                          style={{ width: `${invPercent}%` }}
-                        >
-                          ${tool.investment}K
-                        </div>
-                        <div
-                          className="bg-green-500"
-                          style={{ width: `${retPercent}%` }}
-                        />
-                        <div
-                          className="bg-red-500"
-                          style={{ width: `${hrsPercent}%` }}
-                        />
+              return (
+                <div key={tool.name} className="flex items-center gap-4">
+                  <div className="w-32 text-sm font-semibold text-gray-700">{tool.name}</div>
+                  <div className="flex-1 relative">
+                    <div className="h-8 bg-gray-100 rounded-lg overflow-hidden flex">
+                      <div
+                        className="bg-blue-500 flex items-center justify-center text-white text-xs font-bold"
+                        style={{ width: `${invPercent}%` }}
+                      >
+                        ${tool.investment}K
                       </div>
-                    </div>
-                    <div className="w-36 text-right">
-                      <div className="text-sm font-bold text-green-600">{formatLargeUSD(returnsRounded)}</div>
-                      <div className="text-xs text-red-600">{hoursDisplay}h</div>
+                      <div
+                        className="bg-green-500"
+                        style={{ width: `${retPercent}%` }}
+                      />
+                      <div
+                        className="bg-red-500"
+                        style={{ width: `${hrsPercent}%` }}
+                      />
                     </div>
                   </div>
-                );
-              });
-            })()}
+                  <div className="w-36 text-right">
+                    <div className="text-sm font-bold text-green-600">{formatLargeUSD(returnsRounded)}</div>
+                    <div className="text-xs text-red-600">{hoursDisplay}h</div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           <div className="mt-6 pt-4 border-t border-gray-200 flex justify-between items-center">
             <div>
               <span className="text-sm text-gray-600">Total AI Investment:</span>
-              <span className="ml-2 text-lg font-bold text-gray-900">$199K</span>
+              <span className="ml-2 text-lg font-bold text-gray-900">{formatLargeUSD(totalInvestmentUSD)}</span>
             </div>
             <div>
               <span className="text-sm text-gray-600">Total Returns:</span>
-              <span className="ml-2 text-lg font-bold text-green-600">$847K</span>
+              <span className="ml-2 text-lg font-bold text-green-600">{formatLargeUSD(totalReturnsUSD)}</span>
             </div>
             <div className="text-right">
               <span className="text-sm text-gray-600">Blended ROI:</span>
-              <span className="ml-2 text-2xl font-bold text-green-600">4.3x</span>
+              <span className="ml-2 text-2xl font-bold text-green-600">{blendedROI != null ? `${(Math.round((blendedROI) * 10) / 10).toFixed(1)}x` : '—'}</span>
             </div>
           </div>
 
