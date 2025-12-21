@@ -114,7 +114,7 @@ export function manualVsAutomatedByApp(events: NormalizedEvent[]): ManualVsAutom
  * estimatedCostSavedUSD
  * Multiply estimatedTimeSavedHours by an hourly rate (USD).
  */
-export function estimatedCostSavedUSD(events: NormalizedEvent[], hourlyRateUSD = 30): number {
+export function estimatedCostSavedUSD(events: NormalizedEvent[], hourlyRateUSD = 100): number {
   const hours = estimatedTimeSavedHours(events);
   return Math.round(hours * hourlyRateUSD * 100) / 100; // round to cents
 }
@@ -126,7 +126,7 @@ export function estimatedCostSavedUSD(events: NormalizedEvent[], hourlyRateUSD =
  */
 export function estimatedReturnsByApp(
   events: NormalizedEvent[],
-  hourlyRateUSD = 30,
+  hourlyRateUSD = 100,
   investmentCosts: Record<string, number> = {}
 ): Record<string, number> {
   const apps: AppName[] = ['Asana', 'Jira', 'Zapier', 'HubSpot', 'Microsoft365'];
@@ -136,8 +136,7 @@ export function estimatedReturnsByApp(
   for (const app of apps) {
     const hours = hoursPerApp[app] ?? 0;
     const saved = Math.round(hours * hourlyRateUSD * 100) / 100;
-    const investment = investmentCosts[app] ?? 0;
-    returns[app] = Math.max(0, saved - investment); // returns can't be negative
+    returns[app] = Math.max(0, saved); // returns can't be negative
   }
 
   return returns;
@@ -148,11 +147,7 @@ export function estimatedReturnsByApp(
  * Calculate total returns as: (sum of all platform hours * hourlyRate) - total investment.
  * This allows negative returns.
  */
-export function estimatedTotalReturnsUSD(
-  events: NormalizedEvent[],
-  hourlyRateUSD = 30,
-  totalInvestmentUSD = 0
-): number {
+export function estimatedTotalReturnsUSD(events: NormalizedEvent[], hourlyRateUSD = 100, totalInvestmentUSD = 0): number {
   const totalHours = estimatedTimeSavedHours(events);
   const totalCostSaved = Math.round(totalHours * hourlyRateUSD * 100) / 100;
   return totalCostSaved - totalInvestmentUSD;
