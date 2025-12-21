@@ -7,6 +7,7 @@ export default function VPDashboard() {
   const [perAppHours, setPerAppHours] = useState<Record<string, number> | null>(null);
   const [perAppReturns, setPerAppReturns] = useState<Record<string, number> | null>(null);
   const [totalReturns, setTotalReturns] = useState<number | null>(null);
+  const [hourlyRateUsedUSD, setHourlyRateUsedUSD] = useState<number | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -17,7 +18,8 @@ export default function VPDashboard() {
         setTotalHours(m.estimatedTimeSavedHours ?? null);
         setPerAppHours((m as any).perAppHours ?? null);
         setPerAppReturns((m as any).perAppReturns ?? null);
-        setTotalReturns((m as any).totalReturns ?? null);
+            setTotalReturns((m as any).totalReturns ?? null);
+            setHourlyRateUsedUSD((m as any).hourlyRateUsedUSD ?? null);
       })
       .catch(() => {
         if (!mounted) return;
@@ -165,50 +167,66 @@ export default function VPDashboard() {
 
           {/* Chart Visualization */}
           <div className="space-y-4">
-            {[
-              { name: 'JIRA', investment: 10 },
-              { name: 'HubSpot AI', investment: 10 },
-              { name: 'Zapier Auto', investment: 10 },
-              { name: 'Asana', investment: 10 },
-              { name: 'Microsoft 365', investment: 10 },
-            ].map((tool) => {
-              const appKey = tool.name === 'JIRA' ? 'Jira' : tool.name === 'Zapier Auto' ? 'Zapier' : tool.name === 'HubSpot AI' ? 'HubSpot' : tool.name === 'Microsoft 365' ? 'Microsoft365' : tool.name;
-              const hours = perAppHours?.[appKey] ? Math.round(perAppHours[appKey]) : 0;
-              const returnsUSD = perAppReturns?.[appKey] ?? 0;
-              const returnsK = Math.round(returnsUSD / 1000);
-              const roi = hours > 0 ? (returnsUSD / 10000).toFixed(1) : '0';
-              return (
-              <div key={tool.name} className="flex items-center gap-4">
-                <div className="w-32 text-sm font-semibold text-gray-700">{tool.name}</div>
-                <div className="flex-1 relative">
-                  <div className="h-8 bg-gray-100 rounded-lg overflow-hidden flex">
-                    <div
-                      className="bg-blue-500 flex items-center justify-center text-white text-xs font-bold"
-                      style={{ width: `${tool.investment}%` }}
-                    >
-                      ${tool.investment}K
+            {(() => {
+              // Prepare a common USD scale so investment, returns and hours (converted to USD)
+              // are comparable across tools and visible even when values are small.
+              const tools = [
+                { name: 'JIRA', investment: 10 },
+                { name: 'HubSpot AI', investment: 10 },
+                { name: 'Zapier Auto', investment: 10 },
+                { name: 'Asana', investment: 10 },
+                { name: 'Microsoft 365', investment: 10 },
+              ];
+
+              // Build arrays of USD values per tool
+              const rows = tools.map((tool) => {
+                const appKey = tool.name === 'JIRA' ? 'Jira' : tool.name === 'Zapier Auto' ? 'Zapier' : tool.name === 'HubSpot AI' ? 'HubSpot' : tool.name === 'Microsoft 365' ? 'Microsoft365' : tool.name;
+                const hours = perAppHours?.[appKey] ?? 0;
+                const returnsUSD = perAppReturns?.[appKey] ?? 0;
+                const investmentUSD = tool.investment * 1000; // K -> USD
+                const hoursUSD = (hourlyRateUsedUSD ?? 100) * hours;
+                return { tool, appKey, hours, returnsUSD, investmentUSD, hoursUSD };
+              });
+
+              const maxVal = Math.max(...rows.map((r) => Math.max(r.investmentUSD, r.returnsUSD, r.hoursUSD)), 1);
+
+              return rows.map(({ tool, appKey, hours, returnsUSD, investmentUSD, hoursUSD }) => {
+                const invPercent = Math.round((investmentUSD / maxVal) * 100);
+                const retPercent = Math.round((returnsUSD / maxVal) * 100);
+                const hrsPercent = Math.round((hoursUSD / maxVal) * 100);
+                const roi = hours > 0 ? (returnsUSD / 10000).toFixed(1) : '0';
+                const returnsRounded = Math.round(returnsUSD);
+                const hoursDisplay = Number.isFinite(hours) ? (Math.round(hours * 10) / 10).toFixed(1) : '0.0';
+
+                return (
+                  <div key={tool.name} className="flex items-center gap-4">
+                    <div className="w-32 text-sm font-semibold text-gray-700">{tool.name}</div>
+                    <div className="flex-1 relative">
+                      <div className="h-8 bg-gray-100 rounded-lg overflow-hidden flex">
+                        <div
+                          className="bg-blue-500 flex items-center justify-center text-white text-xs font-bold"
+                          style={{ width: `${invPercent}%` }}
+                        >
+                          ${tool.investment}K
+                        </div>
+                        <div
+                          className="bg-green-500"
+                          style={{ width: `${retPercent}%` }}
+                        />
+                        <div
+                          className="bg-red-500"
+                          style={{ width: `${hrsPercent}%` }}
+                        />
+                      </div>
                     </div>
-                    <div
-                      className="bg-green-500 flex items-center justify-center text-white text-xs font-bold"
-                      style={{ width: `${returnsK}%` }}
-                    >
-                      ${returnsK}K
-                    </div>
-                    <div
-                      className="bg-red-500 flex items-center justify-center text-white text-xs font-bold"
-                      style={{ width: `${hours}%` }}
-                    >
-                      {hours}h
+                    <div className="w-36 text-right">
+                      <div className="text-sm font-bold text-green-600">{formatLargeUSD(returnsRounded)}</div>
+                      <div className="text-xs text-red-600">{hoursDisplay}h</div>
                     </div>
                   </div>
-                </div>
-                <div className="w-24 text-right">
-                  <div className="text-sm font-bold text-green-600">{roi}x</div>
-                  <div className="text-xs text-red-600">{hours}h</div>
-                </div>
-              </div>
-            );
-            })}
+                );
+              });
+            })()}
           </div>
 
           <div className="mt-6 pt-4 border-t border-gray-200 flex justify-between items-center">

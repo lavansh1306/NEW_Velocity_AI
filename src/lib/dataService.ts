@@ -178,7 +178,7 @@ export async function loadMetrics(projectId: string): Promise<MetricsResponse> {
   const events = await getNormalizedEventsForProject(projectId);
 
   // Compute metrics from filtered events
-  const HOURLY_RATE_USD = 30; // assumption used for cost estimates
+  const HOURLY_RATE_USD = 100; // assumption used for cost estimates
   const estHours = estimatedTimeSavedHours(events);
   const estCost = estimatedCostSavedUSD(events, HOURLY_RATE_USD);
   const { previous: prevCoverage, current: currentCoverage } = automationCoveragePrevious(events, 30);
@@ -223,7 +223,7 @@ export async function loadAllMetrics(): Promise<Partial<MetricsResponse>> {
     ...normalizeMicrosoft365(m365Rows),
   ];
 
-  const HOURLY_RATE_USD = 30;
+  const HOURLY_RATE_USD = 100;
   const totalHours = estimatedTimeSavedHours(allEvents);
   const totalCost = estimatedCostSavedUSD(allEvents, HOURLY_RATE_USD);
   const perAppHours = estimatedTimeSavedHoursByApp(allEvents);
