@@ -28,6 +28,7 @@ import {
   automationGrowthTrend,
   manualVsAutomatedByApp,
 } from './metrics';
+import { estimatedTimeSavedHoursByApp, estimatedReturnsByApp, estimatedTotalReturnsUSD } from './metrics';
 import { estimatedCostSavedUSD, automationCoveragePrevious } from './metrics';
 
 // ========================================
@@ -225,12 +226,31 @@ export async function loadAllMetrics(): Promise<Partial<MetricsResponse>> {
   const HOURLY_RATE_USD = 30;
   const totalHours = estimatedTimeSavedHours(allEvents);
   const totalCost = estimatedCostSavedUSD(allEvents, HOURLY_RATE_USD);
+  const perAppHours = estimatedTimeSavedHoursByApp(allEvents);
+  
+  // Investment costs per app (in USD) — adjust as needed
+  const investmentCosts: Record<string, number> = {
+    Asana: 10000,
+    Jira: 10000,
+    Zapier: 10000,
+    HubSpot: 10000,
+    Microsoft365: 10000,
+  };
+  
+  const perAppReturns = estimatedReturnsByApp(allEvents, HOURLY_RATE_USD, investmentCosts);
+  
+  // Total investment across all platforms (50K total)
+  const TOTAL_INVESTMENT_USD = 50000;
+  const totalReturns = estimatedTotalReturnsUSD(allEvents, HOURLY_RATE_USD, TOTAL_INVESTMENT_USD);
 
   return {
     estimatedTimeSavedHours: totalHours,
     estimatedCostSavedUSD: totalCost,
     hourlyRateUsedUSD: HOURLY_RATE_USD,
-  };
+    perAppHours,
+    perAppReturns,
+    totalReturns,
+  } as Partial<MetricsResponse> & { perAppHours: Record<string, number>; perAppReturns: Record<string, number>; totalReturns: number };
 }
 
 /**

@@ -39,6 +39,25 @@ export function estimatedTimeSavedHours(events: NormalizedEvent[]): number {
 }
 
 /**
+ * estimatedTimeSavedHoursByApp
+ * Returns a mapping of app name => total hours saved (number) across provided events.
+ */
+export function estimatedTimeSavedHoursByApp(events: NormalizedEvent[]): Record<AppName, number> {
+  const apps: AppName[] = ['Asana', 'Jira', 'Zapier', 'HubSpot', 'Microsoft365'];
+  const totals: Record<AppName, number> = Object.fromEntries(apps.map((a) => [a, 0])) as Record<AppName, number>;
+
+  for (const e of events) {
+    if (e.actionType !== 'automation') continue;
+    const minutes = e.avgManualMinutes * e.units;
+    const key = e.app as AppName;
+    if (!totals[key] && totals[key] !== 0) continue;
+    totals[key] = (totals[key] ?? 0) + minutes / 60;
+  }
+
+  return totals;
+}
+
+/**
  * getWeekStart
  * Returns ISO date string of the Monday (start of week) for a given timestamp.
  */
@@ -98,6 +117,45 @@ export function manualVsAutomatedByApp(events: NormalizedEvent[]): ManualVsAutom
 export function estimatedCostSavedUSD(events: NormalizedEvent[], hourlyRateUSD = 30): number {
   const hours = estimatedTimeSavedHours(events);
   return Math.round(hours * hourlyRateUSD * 100) / 100; // round to cents
+}
+
+/**
+ * estimatedReturnsByApp
+ * Returns per-app ROI returns: (hours saved * hourlyRate) - investmentCost.
+ * investmentCosts is a map of app name to investment cost (in USD).
+ */
+export function estimatedReturnsByApp(
+  events: NormalizedEvent[],
+  hourlyRateUSD = 30,
+  investmentCosts: Record<string, number> = {}
+): Record<string, number> {
+  const apps: AppName[] = ['Asana', 'Jira', 'Zapier', 'HubSpot', 'Microsoft365'];
+  const hoursPerApp = estimatedTimeSavedHoursByApp(events);
+  const returns: Record<string, number> = {};
+
+  for (const app of apps) {
+    const hours = hoursPerApp[app] ?? 0;
+    const saved = Math.round(hours * hourlyRateUSD * 100) / 100;
+    const investment = investmentCosts[app] ?? 0;
+    returns[app] = Math.max(0, saved - investment); // returns can't be negative
+  }
+
+  return returns;
+}
+
+/**
+ * estimatedTotalReturnsUSD
+ * Calculate total returns as: (sum of all platform hours * hourlyRate) - total investment.
+ * This allows negative returns.
+ */
+export function estimatedTotalReturnsUSD(
+  events: NormalizedEvent[],
+  hourlyRateUSD = 30,
+  totalInvestmentUSD = 0
+): number {
+  const totalHours = estimatedTimeSavedHours(events);
+  const totalCostSaved = Math.round(totalHours * hourlyRateUSD * 100) / 100;
+  return totalCostSaved - totalInvestmentUSD;
 }
 
 /**

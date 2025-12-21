@@ -4,6 +4,9 @@ import { loadAllMetrics } from '@/lib/dataService';
 export default function VPDashboard() {
   const [costSavingsUSD, setCostSavingsUSD] = useState<number | null>(null);
   const [totalHours, setTotalHours] = useState<number | null>(null);
+  const [perAppHours, setPerAppHours] = useState<Record<string, number> | null>(null);
+  const [perAppReturns, setPerAppReturns] = useState<Record<string, number> | null>(null);
+  const [totalReturns, setTotalReturns] = useState<number | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -12,6 +15,9 @@ export default function VPDashboard() {
         if (!mounted) return;
         setCostSavingsUSD(m.estimatedCostSavedUSD ?? null);
         setTotalHours(m.estimatedTimeSavedHours ?? null);
+        setPerAppHours((m as any).perAppHours ?? null);
+        setPerAppReturns((m as any).perAppReturns ?? null);
+        setTotalReturns((m as any).totalReturns ?? null);
       })
       .catch(() => {
         if (!mounted) return;
@@ -24,9 +30,10 @@ export default function VPDashboard() {
 
   function formatLargeUSD(v: number | null | undefined) {
     if (v == null) return '—';
-    if (v >= 1_000_000) return `$${Math.round(v / 100000) / 10}M`;
-    if (v >= 1000) return `$${Math.round(v / 1000)}K`;
-    return `$${v}`;
+    const isNegative = v < 0;
+    const absVal = Math.abs(v);
+    const formatted = `$${Math.round(absVal).toLocaleString()}`;
+    return isNegative ? `-${formatted}` : formatted;
   }
   function formatNumberWithCommas(n: number | null | undefined) {
     if (n == null) return '—';
@@ -103,9 +110,11 @@ export default function VPDashboard() {
             </div>
             <span className="text-xs font-bold bg-white bg-opacity-20 px-2 py-1 rounded">-23%</span>
           </div>
-          <div className="text-xs sm:text-sm opacity-90 mb-1">Cost Savings</div>
-          <div className="text-3xl sm:text-4xl lg:text-5xl font-bold">{formatLargeUSD(costSavingsUSD)}</div>
-          <div className="text-xs sm:text-sm mt-2 opacity-75">Reduced operational spend</div>
+          <div className="text-xs sm:text-sm opacity-90 mb-1">Total Returns</div>
+          <div className="text-3xl sm:text-4xl lg:text-5xl font-bold">
+            {totalReturns != null ? formatLargeUSD(totalReturns) : '—'}
+          </div>
+          <div className="text-xs sm:text-sm mt-2 opacity-75">Across all platforms</div>
         </div>
 
         <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-4 sm:p-6 text-white shadow-lg hover:shadow-xl transition-shadow">
@@ -144,12 +153,18 @@ export default function VPDashboard() {
           {/* Chart Visualization */}
           <div className="space-y-4">
             {[
-              { name: 'JIRA', investment: 15, returns: 69, hours: 22, roi: '3.2x' },
-              { name: 'HubSpot AI', investment: 45, returns: 75, hours: 35, roi: '2.1x' },
-              { name: 'Zapier Auto', investment: 25, returns: 88, hours: 18, roi: '8.7x' },
-              { name: 'Asana', investment: 8, returns: 95, hours: 12, roi: '13.6x' },
-              { name: 'Microsoft 365', investment: 85, returns: 92, hours: 48, roi: '1.8x' },
-            ].map((tool) => (
+              { name: 'JIRA', investment: 10 },
+              { name: 'HubSpot AI', investment: 10 },
+              { name: 'Zapier Auto', investment: 10 },
+              { name: 'Asana', investment: 10 },
+              { name: 'Microsoft 365', investment: 10 },
+            ].map((tool) => {
+              const appKey = tool.name === 'JIRA' ? 'Jira' : tool.name === 'Zapier Auto' ? 'Zapier' : tool.name === 'HubSpot AI' ? 'HubSpot' : tool.name === 'Microsoft 365' ? 'Microsoft365' : tool.name;
+              const hours = perAppHours?.[appKey] ? Math.round(perAppHours[appKey]) : 0;
+              const returnsUSD = perAppReturns?.[appKey] ?? 0;
+              const returnsK = Math.round(returnsUSD / 1000);
+              const roi = hours > 0 ? (returnsUSD / 10000).toFixed(1) : '0';
+              return (
               <div key={tool.name} className="flex items-center gap-4">
                 <div className="w-32 text-sm font-semibold text-gray-700">{tool.name}</div>
                 <div className="flex-1 relative">
@@ -162,24 +177,25 @@ export default function VPDashboard() {
                     </div>
                     <div
                       className="bg-green-500 flex items-center justify-center text-white text-xs font-bold"
-                      style={{ width: `${tool.returns - tool.investment}%` }}
+                      style={{ width: `${returnsK}%` }}
                     >
-                      ${tool.returns}K
+                      ${returnsK}K
                     </div>
                     <div
                       className="bg-red-500 flex items-center justify-center text-white text-xs font-bold"
-                      style={{ width: `${tool.hours}%` }}
+                      style={{ width: `${hours}%` }}
                     >
-                      {tool.hours}h
+                      {hours}h
                     </div>
                   </div>
                 </div>
                 <div className="w-24 text-right">
-                  <div className="text-sm font-bold text-green-600">{tool.roi}</div>
-                  <div className="text-xs text-red-600">{tool.hours}h</div>
+                  <div className="text-sm font-bold text-green-600">{roi}x</div>
+                  <div className="text-xs text-red-600">{hours}h</div>
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
 
           <div className="mt-6 pt-4 border-t border-gray-200 flex justify-between items-center">
