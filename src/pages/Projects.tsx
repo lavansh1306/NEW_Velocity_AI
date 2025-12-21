@@ -112,8 +112,8 @@ export default function Projects({ jiraConnected = true }: ProjectsProps) {
                   }}
                 >
                   <div className="flex flex-col sm:flex-row">
-                    <div className="w-full sm:w-1/3 flex-shrink-0">
-                      <img src={p.image} alt={p.title} className="w-full h-40 sm:h-full object-cover" />
+                    <div className="w-full sm:w-1/2 md:w-2/5 flex-shrink-0">
+                      <img src={p.image} alt={p.title} className="w-full h-56 sm:h-full object-cover" />
                     </div>
                     <div className="p-4 sm:p-5 lg:p-6 flex-1 flex flex-col">
                       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-2">
@@ -147,6 +147,82 @@ export default function Projects({ jiraConnected = true }: ProjectsProps) {
                   </div>
                 </article>
               ))}
+            </div>
+
+            {/* Upcoming Projects Section */}
+            <div className="mt-16 sm:mt-20">
+              <div className="mb-8">
+                <h2 className="text-2xl sm:text-3xl font-bold mb-2">Upcoming Projects</h2>
+                <p className="text-gray-600 text-sm sm:text-base">New initiatives and platform expansions launching soon.</p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                {/* Upcoming Project 1 */}
+                <article className="rounded-lg bg-white shadow-sm border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow">
+                  <div className="flex flex-col sm:flex-row">
+                    <div className="w-full sm:w-1/2 md:w-2/5 flex-shrink-0 bg-gradient-to-br from-purple-400 to-indigo-500 h-56 sm:h-full flex items-center justify-center">
+                      <svg className="w-20 h-20 text-white opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                    </div>
+                    <div className="p-4 sm:p-5 lg:p-6 flex-1 flex flex-col">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-2">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-base sm:text-lg lg:text-xl font-semibold text-gray-900 truncate">AI Workflow Automation</h3>
+                          <div className="text-xs sm:text-sm text-gray-500">Enterprise Automation</div>
+                        </div>
+                        <span className="text-xs font-bold bg-purple-100 text-purple-700 px-2.5 py-1 rounded-full whitespace-nowrap">Q1 2025</span>
+                      </div>
+
+                      <p className="text-xs sm:text-sm lg:text-base text-gray-700 line-clamp-2 sm:line-clamp-3">End-to-end workflow automation platform leveraging AI to reduce manual process execution by 80%.</p>
+
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <span className="text-xs px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full font-medium">Workflow</span>
+                        <span className="text-xs px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full font-medium">Automation</span>
+                      </div>
+
+                      <div className="mt-auto pt-4">
+                        <button className="w-full sm:w-auto text-xs sm:text-sm px-4 py-2 bg-gray-100 text-gray-600 rounded-lg font-semibold hover:bg-gray-200 transition cursor-not-allowed opacity-75">
+                          Coming Soon
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </article>
+
+                {/* Upcoming Project 2 */}
+                <article className="rounded-lg bg-white shadow-sm border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow">
+                  <div className="flex flex-col sm:flex-row">
+                    <div className="w-full sm:w-1/2 md:w-2/5 flex-shrink-0 bg-gradient-to-br from-green-400 to-emerald-500 h-56 sm:h-full flex items-center justify-center">
+                      <svg className="w-20 h-20 text-white opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      </svg>
+                    </div>
+                    <div className="p-4 sm:p-5 lg:p-6 flex-1 flex flex-col">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-2">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-base sm:text-lg lg:text-xl font-semibold text-gray-900 truncate">Predictive Resource Planning</h3>
+                          <div className="text-xs sm:text-sm text-gray-500">Resource Optimization</div>
+                        </div>
+                        <span className="text-xs font-bold bg-green-100 text-green-700 px-2.5 py-1 rounded-full whitespace-nowrap">Q1 2025</span>
+                      </div>
+
+                      <p className="text-xs sm:text-sm lg:text-base text-gray-700 line-clamp-2 sm:line-clamp-3">ML-powered resource allocation engine that forecasts demand and optimizes team capacity planning.</p>
+
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <span className="text-xs px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full font-medium">Forecast</span>
+                        <span className="text-xs px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full font-medium">Planning</span>
+                      </div>
+
+                      <div className="mt-auto pt-4">
+                        <button className="w-full sm:w-auto text-xs sm:text-sm px-4 py-2 bg-gray-100 text-gray-600 rounded-lg font-semibold hover:bg-gray-200 transition cursor-not-allowed opacity-75">
+                          Coming Soon
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              </div>
             </div>
 
             {/* Analytics section rendered only when a project is selected */}
