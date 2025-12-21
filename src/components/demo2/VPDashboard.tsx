@@ -144,11 +144,11 @@ export default function VPDashboard() {
           {/* Chart Visualization */}
           <div className="space-y-4">
             {[
-              { name: 'VelocityAI', investment: 15, returns: 69, hours: 22, roi: '3.2x' },
+              { name: 'JIRA', investment: 15, returns: 69, hours: 22, roi: '3.2x' },
               { name: 'HubSpot AI', investment: 45, returns: 75, hours: 35, roi: '2.1x' },
               { name: 'Zapier Auto', investment: 25, returns: 88, hours: 18, roi: '8.7x' },
-              { name: 'Claude/GPT', investment: 8, returns: 95, hours: 12, roi: '13.6x' },
-              { name: 'RPA/UiPath', investment: 85, returns: 92, hours: 48, roi: '1.8x' },
+              { name: 'Asana', investment: 8, returns: 95, hours: 12, roi: '13.6x' },
+              { name: 'Microsoft 365', investment: 85, returns: 92, hours: 48, roi: '1.8x' },
             ].map((tool) => (
               <div key={tool.name} className="flex items-center gap-4">
                 <div className="w-32 text-sm font-semibold text-gray-700">{tool.name}</div>
