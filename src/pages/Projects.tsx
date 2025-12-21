@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import AnalyticsPanel from '@/components/analytics/AnalyticsPanel';
 import type { MetricsResponse } from '@/lib/types';
@@ -138,9 +139,9 @@ export default function Projects({ jiraConnected = true }: ProjectsProps) {
 
                       <div className="mt-auto pt-4">
                         <Button asChild className="w-full sm:w-auto text-xs sm:text-sm">
-                          <a href={p.link} target="_blank" rel="noreferrer" className="inline-block">
+                          <Link to={`/projects/${p.id}`} className="inline-block">
                             View Project
-                          </a>
+                          </Link>
                         </Button>
                       </div>
                     </div>
