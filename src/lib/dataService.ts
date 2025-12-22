@@ -51,7 +51,14 @@ function parseCSV<T>(csvText: string): T[] {
     // Simple CSV parser that handles quoted fields
     for (let j = 0; j < line.length; j++) {
       const char = line[j];
-      if (char === '"') {
+      const nextChar = line[j + 1];
+      
+      if (char === '"' && nextChar === '"' && inQuotes) {
+        // Double quote escape - add one quote to output
+        current += '"';
+        j++; // Skip next quote
+      } else if (char === '"') {
+        // Toggle quote mode, don't add quote to output
         inQuotes = !inQuotes;
       } else if (char === ',' && !inQuotes) {
         values.push(current.trim());
@@ -281,4 +288,764 @@ export async function getNormalizedEventsForProject(projectId: string): Promise<
   ];
 
   return allEvents.filter((e) => e.projectId === projectId);
+}
+
+// ========================================
+// Project Detail Data Loaders
+// ========================================
+
+export interface GitHubEvent {
+  event_id: string;
+  occurred_at: string;
+  event_type: string;
+  actor: string;
+  project_id: string;
+  repo: string;
+  properties: string;
+}
+
+export interface Commit {
+  sha: string;
+  message: string;
+  author: string;
+  date: string;
+  files_changed?: number;
+  additions?: number;
+  deletions?: number;
+}
+
+export interface PullRequest {
+  pr_id: string;
+  title: string;
+  author: string;
+  status: 'pending-review' | 'approved' | 'changes-requested';
+  created_at: string;
+  reviewers: string[];
+}
+
+export interface TeamMember {
+  project_id: string;
+  member_id: string;
+  name: string;
+  role: string;
+  avatar: string;
+  tasks_assigned: number;
+  tasks_completed: number;
+  tasks_due_today: number;
+  current_task: string;
+  prs_pending: number;
+  reviews_pending: number;
+}
+
+export interface WeeklyCommit {
+  project_id: string;
+  week_start: string;
+  week_end: string;
+  commits_count: number;
+}
+
+export interface BurndownData {
+  project_id: string;
+  sprint_name: string;
+  day: string;
+  date: string;
+  total_tasks: number;
+  remaining_tasks: number;
+}
+
+/**
+ * Load commits for a specific project from github_events.csv
+ */
+export async function loadCommitsByProject(projectId: string): Promise<Commit[]> {
+  const csvText = await fetchCSV('/data/github_events.csv');
+  const allEvents = parseCSV<GitHubEvent>(csvText);
+  
+  const commitEvents = allEvents.filter(
+    (e) => e.project_id === projectId && e.event_type === 'commit'
+  );
+  
+  return commitEvents.map((e) => {
+    try {
+      const propsStr = e.properties || '{}';
+      const props = JSON.parse(propsStr);
+      return {
+        sha: props.sha || '',
+        message: props.message || '',
+        author: e.actor,
+        date: e.occurred_at,
+        files_changed: props.files_changed,
+        additions: props.additions,
+        deletions: props.deletions,
+      };
+    } catch (err) {
+      console.error('Failed to parse commit properties:', e.properties, err);
+      return {
+        sha: '',
+        message: '',
+        author: e.actor,
+        date: e.occurred_at,
+      };
+    }
+  });
+}
+
+/**
+ * Load pull requests for a specific project from github_events.csv
+ */
+export async function loadPullRequestsByProject(projectId: string): Promise<PullRequest[]> {
+  const csvText = await fetchCSV('/data/github_events.csv');
+  const allEvents = parseCSV<GitHubEvent>(csvText);
+  
+  const prEvents = allEvents.filter(
+    (e) => e.project_id === projectId && e.event_type === 'pull_request'
+  );
+  
+  return prEvents.map((e) => {
+    try {
+      const propsStr = e.properties || '{}';
+      const props = JSON.parse(propsStr);
+      return {
+        pr_id: props.pr_id || e.event_id,
+        title: props.title || '',
+        author: e.actor,
+        status: props.status || 'pending-review',
+        created_at: e.occurred_at,
+        reviewers: props.reviewers ? props.reviewers.split('|') : [],
+      };
+    } catch (err) {
+      console.error('Failed to parse PR properties:', e.properties, err);
+      return {
+        pr_id: e.event_id,
+        title: 'Unknown PR',
+        author: e.actor,
+        status: 'pending-review' as const,
+        created_at: e.occurred_at,
+        reviewers: [],
+      };
+    }
+  });
+}
+
+/**
+ * Load team members for a specific project
+ */
+export async function loadTeamMembersByProject(projectId: string): Promise<TeamMember[]> {
+  const csvText = await fetchCSV('/data/github_events.csv');
+  const allEvents = parseCSV<GitHubEvent>(csvText);
+  
+  const memberEvents = allEvents.filter(
+    (e) => e.project_id === projectId && e.event_type === 'team_member'
+  );
+  
+  return memberEvents.map((e) => {
+    try {
+      const propsStr = e.properties || '{}';
+      const props = JSON.parse(propsStr);
+      return {
+        project_id: projectId,
+        member_id: props.member_id || '',
+        name: props.name || '',
+        role: props.role || '',
+        avatar: props.avatar || '',
+        tasks_assigned: Number(props.tasks_assigned) || 0,
+        tasks_completed: Number(props.tasks_completed) || 0,
+        tasks_due_today: Number(props.tasks_due_today) || 0,
+        current_task: props.current_task || '',
+        prs_pending: Number(props.prs_pending) || 0,
+        reviews_pending: Number(props.reviews_pending) || 0,
+      };
+    } catch (err) {
+      console.error('Failed to parse team member properties:', e.properties, err);
+      return {
+        project_id: projectId,
+        member_id: '',
+        name: '',
+        role: '',
+        avatar: '',
+        tasks_assigned: 0,
+        tasks_completed: 0,
+        tasks_due_today: 0,
+        current_task: '',
+        prs_pending: 0,
+        reviews_pending: 0,
+      };
+    }
+  });
+}
+
+/**
+ * Load weekly commit counts for a specific project
+ */
+export async function loadWeeklyCommitsByProject(projectId: string): Promise<WeeklyCommit[]> {
+  const csvText = await fetchCSV('/data/github_events.csv');
+  const allEvents = parseCSV<GitHubEvent>(csvText);
+  
+  const weeklyEvents = allEvents.filter(
+    (e) => e.project_id === projectId && e.event_type === 'weekly_commits'
+  );
+  
+  return weeklyEvents.map((e) => {
+    try {
+      const propsStr = e.properties || '{}';
+      const props = JSON.parse(propsStr);
+      return {
+        project_id: projectId,
+        week_start: props.week_start || '',
+        week_end: props.week_end || '',
+        commits_count: Number(props.commits_count) || 0,
+      };
+    } catch (err) {
+      console.error('Failed to parse weekly commits properties:', e.properties, err);
+      return {
+        project_id: projectId,
+        week_start: '',
+        week_end: '',
+        commits_count: 0,
+      };
+    }
+  });
+}
+
+/**
+ * Load burndown data for a specific project
+ */
+export async function loadBurndownByProject(projectId: string): Promise<BurndownData[]> {
+  const csvText = await fetchCSV('/data/github_events.csv');
+  const allEvents = parseCSV<GitHubEvent>(csvText);
+  
+  const burndownEvents = allEvents.filter(
+    (e) => e.project_id === projectId && e.event_type === 'burndown'
+  );
+  
+  return burndownEvents.map((e) => {
+    try {
+      const propsStr = e.properties || '{}';
+      const props = JSON.parse(propsStr);
+      return {
+        project_id: projectId,
+        sprint_name: props.sprint_name || '',
+        day: props.day || '',
+        date: props.date || '',
+        total_tasks: Number(props.total_tasks) || 0,
+        remaining_tasks: Number(props.remaining_tasks) || 0,
+      };
+    } catch (err) {
+      console.error('Failed to parse burndown properties:', e.properties, err);
+      // Return empty object to avoid breaking the app
+      return {
+        project_id: projectId,
+        sprint_name: '',
+        day: '',
+        date: '',
+        total_tasks: 0,
+        remaining_tasks: 0,
+      };
+    }
+  }).filter(item => item.day !== ''); // Filter out failed parses
+}
+
+// ========================================
+// Asana Data Loaders
+// ========================================
+
+export interface AsanaTask {
+  gid: string;
+  created_at: string;
+  resource_type: string;
+  action: string;
+  created_by: string;
+  project_id: string;
+  task_name?: string;
+  assignee?: string;
+  status?: string;
+  from_status?: string;
+  to_status?: string;
+  is_automation: boolean;
+}
+
+export async function loadAsanaTasksByProject(projectId: string): Promise<AsanaTask[]> {
+  const csvText = await fetchCSV('/data/asana_events.csv');
+  const allEvents = parseCSV<{ gid: string; created_at: string; resource_type: string; action: string; created_by: string; project_id: string; details: string }>(csvText);
+  
+  const projectEvents = allEvents.filter((e) => e.project_id === projectId);
+  
+  return projectEvents.map((e) => {
+    try {
+      let detailsStr = e.details || '{}';
+      
+      // Fix common JSON issues in the CSV data
+      // First, unescape any escaped quotes
+      detailsStr = detailsStr.replace(/\\"/g, '"');
+      
+      // Handle property names that might be missing quotes
+      detailsStr = detailsStr.replace(/([{,])\s*\\?([a-zA-Z_][a-zA-Z0-9_]*)\\?\s*:/g, '$1"$2":');
+      
+      // Handle unquoted values (but not if already quoted or if it's a number/boolean/null)
+      detailsStr = detailsStr.replace(/:\s*([^,}\[\]"\s][^,}\[\]]*?)\s*([,}])/g, (match, value, ending) => {
+        const trimmed = value.trim();
+        // Don't quote numbers, booleans, null, or already quoted strings
+        if (trimmed.match(/^(\d+(\.\d+)?|true|false|null)$/)) return `: ${trimmed}${ending}`;
+        if (trimmed.startsWith('"') && trimmed.endsWith('"')) return `: ${trimmed}${ending}`;
+        // Escape any internal quotes and wrap in quotes
+        const escaped = trimmed.replace(/"/g, '\\"');
+        return `: "${escaped}"${ending}`;
+      });
+      
+      const details = JSON.parse(detailsStr);
+      return {
+        gid: e.gid,
+        created_at: e.created_at,
+        resource_type: e.resource_type,
+        action: e.action,
+        created_by: e.created_by,
+        project_id: e.project_id,
+        task_name: details.task_name || details.name,
+        assignee: details.assignee,
+        status: details.status || details.new_status,
+        from_status: details.from_status,
+        to_status: details.to_status,
+        is_automation: e.created_by.toLowerCase().includes('bot'),
+      };
+    } catch (err) {
+      console.error('Failed to parse Asana task details:', e.details, err);
+      return {
+        gid: e.gid,
+        created_at: e.created_at,
+        resource_type: e.resource_type,
+        action: e.action,
+        created_by: e.created_by,
+        project_id: e.project_id,
+        is_automation: e.created_by.toLowerCase().includes('bot'),
+      };
+    }
+  });
+}
+
+// ========================================
+// Jira Data Loaders
+// ========================================
+
+export interface JiraIssue {
+  issue_id: string;
+  issue_key: string;
+  created_at: string;
+  event_type: string;
+  actor: string;
+  from_status: string;
+  to_status: string;
+  project_id: string;
+  summary?: string;
+  severity?: string;
+  priority?: string;
+  comment?: string;
+  resolution?: string;
+  is_automation: boolean;
+}
+
+export async function loadJiraIssuesByProject(projectId: string): Promise<JiraIssue[]> {
+  const csvText = await fetchCSV('/data/jira_events.csv');
+  const allEvents = parseCSV<{ issue_id: string; issue_key: string; created_at: string; event_type: string; actor: string; from_status: string; to_status: string; project_id: string; fields: string }>(csvText);
+  
+  const projectEvents = allEvents.filter((e) => e.project_id === projectId);
+  
+  return projectEvents.map((e) => {
+    try {
+      let fieldsStr = e.fields || '{}';
+      
+      // Fix common JSON issues in the CSV data
+      // First, unescape any escaped quotes
+      fieldsStr = fieldsStr.replace(/\\"/g, '"');
+      
+      // Handle property names that might be missing quotes
+      fieldsStr = fieldsStr.replace(/([{,])\s*\\?([a-zA-Z_][a-zA-Z0-9_]*)\\?\s*:/g, '$1"$2":');
+      
+      // Handle unquoted values (but not if already quoted or if it's a number/boolean/null)
+      fieldsStr = fieldsStr.replace(/:\s*([^,}\[\]"\s][^,}\[\]]*?)\s*([,}])/g, (match, value, ending) => {
+        const trimmed = value.trim();
+        // Don't quote numbers, booleans, null, or already quoted strings
+        if (trimmed.match(/^(\d+(\.\d+)?|true|false|null)$/)) return `: ${trimmed}${ending}`;
+        if (trimmed.startsWith('"') && trimmed.endsWith('"')) return `: ${trimmed}${ending}`;
+        // Escape any internal quotes and wrap in quotes
+        const escaped = trimmed.replace(/"/g, '\\"');
+        return `: "${escaped}"${ending}`;
+      });
+      
+      const fields = JSON.parse(fieldsStr);
+      return {
+        issue_id: e.issue_id,
+        issue_key: e.issue_key,
+        created_at: e.created_at,
+        event_type: e.event_type,
+        actor: e.actor,
+        from_status: e.from_status,
+        to_status: e.to_status,
+        project_id: e.project_id,
+        summary: fields.summary,
+        severity: fields.severity,
+        priority: fields.priority,
+        comment: fields.comment,
+        resolution: fields.resolution,
+        is_automation: e.actor.toLowerCase().includes('automation'),
+      };
+    } catch (err) {
+      console.error('Failed to parse Jira issue fields:', e.fields, err);
+      return {
+        issue_id: e.issue_id,
+        issue_key: e.issue_key,
+        created_at: e.created_at,
+        event_type: e.event_type,
+        actor: e.actor,
+        from_status: e.from_status,
+        to_status: e.to_status,
+        project_id: e.project_id,
+        is_automation: e.actor.toLowerCase().includes('automation'),
+      };
+    }
+  });
+}
+
+// ========================================
+// Zapier Data Loaders
+// ========================================
+
+export interface ZapierWorkflow {
+  id: string;
+  created_at: string;
+  zap_name: string;
+  trigger_app: string;
+  action_app: string;
+  status: 'success' | 'failure';
+  task_usage: number;
+  project_id: string;
+  execution_time_ms?: number;
+  error_message?: string;
+}
+
+export async function loadZapierWorkflowsByProject(projectId: string): Promise<ZapierWorkflow[]> {
+  const csvText = await fetchCSV('/data/zapier_events.csv');
+  const allEvents = parseCSV<{ id: string; created_at: string; zap_name: string; trigger_app: string; action_app: string; status: string; task_usage: string; project_id: string; metadata: string }>(csvText);
+  
+  const projectEvents = allEvents.filter((e) => e.project_id === projectId);
+  
+  return projectEvents.map((e) => {
+    try {
+      let metadataStr = e.metadata || '{}';
+      
+      // Fix common JSON issues in the CSV data
+      // First, unescape any escaped quotes
+      metadataStr = metadataStr.replace(/\\"/g, '"');
+      
+      // Handle property names that might be missing quotes
+      metadataStr = metadataStr.replace(/([{,])\s*\\?([a-zA-Z_][a-zA-Z0-9_]*)\\?\s*:/g, '$1"$2":');
+      
+      // Handle unquoted values (but not if already quoted or if it's a number/boolean/null)
+      metadataStr = metadataStr.replace(/:\s*([^,}\[\]"\s][^,}\[\]]*?)\s*([,}])/g, (match, value, ending) => {
+        const trimmed = value.trim();
+        // Don't quote numbers, booleans, null, or already quoted strings
+        if (trimmed.match(/^(\d+(\.\d+)?|true|false|null)$/)) return `: ${trimmed}${ending}`;
+        if (trimmed.startsWith('"') && trimmed.endsWith('"')) return `: ${trimmed}${ending}`;
+        // Escape any internal quotes and wrap in quotes
+        const escaped = trimmed.replace(/"/g, '\\"');
+        return `: "${escaped}"${ending}`;
+      });
+      
+      const metadata = JSON.parse(metadataStr);
+      return {
+        id: e.id,
+        created_at: e.created_at,
+        zap_name: e.zap_name,
+        trigger_app: e.trigger_app,
+        action_app: e.action_app,
+        status: e.status as 'success' | 'failure',
+        task_usage: Number(e.task_usage) || 0,
+        project_id: e.project_id,
+        execution_time_ms: metadata.execution_time_ms,
+        error_message: metadata.error_message,
+      };
+    } catch (err) {
+      console.error('Failed to parse Zapier workflow metadata:', e.metadata, err);
+      return {
+        id: e.id,
+        created_at: e.created_at,
+        zap_name: e.zap_name,
+        trigger_app: e.trigger_app,
+        action_app: e.action_app,
+        status: e.status as 'success' | 'failure',
+        task_usage: Number(e.task_usage) || 0,
+        project_id: e.project_id,
+      };
+    }
+  });
+}
+
+// ========================================
+// HubSpot Data Loaders
+// ========================================
+
+export interface HubSpotEvent {
+  event_id: string;
+  occurred_at: string;
+  object_type: string;
+  event_action: string;
+  source: 'workflow' | 'manual';
+  object_id: string;
+  project_id: string;
+  workflow_name?: string;
+  template?: string;
+  company_size?: string;
+  device?: string;
+  subject?: string;
+  link?: string;
+  role?: string;
+  tags_added?: number;
+  status?: string;
+}
+
+export async function loadHubSpotEventsByProject(projectId: string): Promise<HubSpotEvent[]> {
+  const csvText = await fetchCSV('/data/hubspot_events.csv');
+  const allEvents = parseCSV<{ event_id: string; occurred_at: string; object_type: string; event_action: string; source: string; object_id: string; project_id: string; properties: string }>(csvText);
+  
+  const projectEvents = allEvents.filter((e) => e.project_id === projectId);
+  
+  return projectEvents.map((e) => {
+    try {
+      let propsStr = e.properties || '{}';
+      
+      // Fix common JSON issues in the CSV data
+      // First, unescape any escaped quotes
+      propsStr = propsStr.replace(/\\"/g, '"');
+      
+      // Handle property names that might be missing quotes
+      propsStr = propsStr.replace(/([{,])\s*\\?([a-zA-Z_][a-zA-Z0-9_]*)\\?\s*:/g, '$1"$2":');
+      
+      // Handle unquoted values (but not if already quoted or if it's a number/boolean/null)
+      propsStr = propsStr.replace(/:\s*([^,}\[\]"\s][^,}\[\]]*?)\s*([,}])/g, (match, value, ending) => {
+        const trimmed = value.trim();
+        // Don't quote numbers, booleans, null, or already quoted strings
+        if (trimmed.match(/^(\d+(\.\d+)?|true|false|null)$/)) return `: ${trimmed}${ending}`;
+        if (trimmed.startsWith('"') && trimmed.endsWith('"')) return `: ${trimmed}${ending}`;
+        // Escape any internal quotes and wrap in quotes
+        const escaped = trimmed.replace(/"/g, '\\"');
+        return `: "${escaped}"${ending}`;
+      });
+      
+      const props = JSON.parse(propsStr);
+      return {
+        event_id: e.event_id,
+        occurred_at: e.occurred_at,
+        object_type: e.object_type,
+        event_action: e.event_action,
+        source: e.source as 'workflow' | 'manual',
+        object_id: e.object_id,
+        project_id: e.project_id,
+        workflow_name: props.workflow_name,
+        template: props.template,
+        company_size: props.company_size,
+        device: props.device,
+        subject: props.subject,
+        link: props.link,
+        role: props.role,
+        tags_added: props.tags_added,
+        status: props.status,
+      };
+    } catch (err) {
+      console.error('Failed to parse HubSpot event properties:', e.properties, err);
+      return {
+        event_id: e.event_id,
+        occurred_at: e.occurred_at,
+        object_type: e.object_type,
+        event_action: e.event_action,
+        source: e.source as 'workflow' | 'manual',
+        object_id: e.object_id,
+        project_id: e.project_id,
+      };
+    }
+  });
+}
+
+// ========================================
+// Microsoft 365 Data Loaders
+// ========================================
+
+export interface M365Activity {
+  activity_id: string;
+  activity_time: string;
+  workload: 'Teams' | 'Outlook' | 'OneDrive';
+  activity_type: string;
+  user_type: 'user' | 'service';
+  resource_id: string;
+  project_id: string;
+  participant_count?: number;
+  duration_minutes?: number;
+  subject?: string;
+  recipients?: string[];
+  file_name?: string;
+  file_size_mb?: number;
+  action?: string;
+}
+
+export async function loadM365ActivitiesByProject(projectId: string): Promise<M365Activity[]> {
+  const csvText = await fetchCSV('/data/microsoft365_events.csv');
+  const allEvents = parseCSV<{ activity_id: string; activity_time: string; workload: string; activity_type: string; user_type: string; resource_id: string; project_id: string; additional_data: string }>(csvText);
+  
+  const projectEvents = allEvents.filter((e) => e.project_id === projectId);
+  
+  return projectEvents.map((e) => {
+    try {
+      let dataStr = e.additional_data || '{}';
+      
+      // Fix common JSON issues in the CSV data
+      // First, unescape any escaped quotes
+      dataStr = dataStr.replace(/\\"/g, '"');
+      
+      // Handle property names that might be missing quotes
+      dataStr = dataStr.replace(/([{,])\s*\\?([a-zA-Z_][a-zA-Z0-9_]*)\\?\s*:/g, '$1"$2":');
+      
+      // Handle unquoted values (but not if already quoted or if it's a number/boolean/null)
+      dataStr = dataStr.replace(/:\s*([^,}\[\]"\s][^,}\[\]]*?)\s*([,}])/g, (match, value, ending) => {
+        const trimmed = value.trim();
+        // Don't quote numbers, booleans, null, or already quoted strings
+        if (trimmed.match(/^(\d+(\.\d+)?|true|false|null)$/)) return `: ${trimmed}${ending}`;
+        if (trimmed.startsWith('"') && trimmed.endsWith('"')) return `: ${trimmed}${ending}`;
+        // Escape any internal quotes and wrap in quotes
+        const escaped = trimmed.replace(/"/g, '\\"');
+        return `: "${escaped}"${ending}`;
+      });
+      
+      const data = JSON.parse(dataStr);
+      return {
+        activity_id: e.activity_id,
+        activity_time: e.activity_time,
+        workload: e.workload as 'Teams' | 'Outlook' | 'OneDrive',
+        activity_type: e.activity_type,
+        user_type: e.user_type as 'user' | 'service',
+        resource_id: e.resource_id,
+        project_id: e.project_id,
+        participant_count: data.participant_count,
+        duration_minutes: data.duration_minutes,
+        subject: data.subject,
+        recipients: data.recipients ? data.recipients.split('|') : undefined,
+        file_name: data.file_name,
+        file_size_mb: data.file_size_mb,
+        action: data.action,
+      };
+    } catch (err) {
+      console.error('Failed to parse M365 activity data:', e.additional_data, err);
+      return {
+        activity_id: e.activity_id,
+        activity_time: e.activity_time,
+        workload: e.workload as 'Teams' | 'Outlook' | 'OneDrive',
+        activity_type: e.activity_type,
+        user_type: e.user_type as 'user' | 'service',
+        resource_id: e.resource_id,
+        project_id: e.project_id,
+      };
+    }
+  });
+}
+
+// ========================================
+// Project Analytics Loader
+// ========================================
+
+export interface AIToolUsage {
+  tool: string;
+  hours: number;
+}
+
+export interface IntegrationSavings {
+  hubspot: number;
+  asana: number;
+  microsoft365: number;
+  zapier: number;
+}
+
+export interface Task {
+  task_name: string;
+  start_date: string;
+  end_date: string;
+}
+
+export interface JiraTicket {
+  type: 'bug' | 'non-bug';
+}
+
+export interface TimeLog {
+  date: string;
+  hours_logged: number;
+}
+
+export interface ProjectAnalytics {
+  project_id: string;
+  project_name: string;
+  category: string;
+  planned_hours: number;
+  actual_hours: number;
+  ai_hours_used: number;
+  ai_time_saved_hours: number;
+  ai_time_saved_percent: number;
+  tasks_automated_count: number;
+  ai_tool_usage: AIToolUsage[];
+  integration_savings: IntegrationSavings;
+  tasks: Task[];
+  jira_tickets: JiraTicket[];
+  time_logs: TimeLog[];
+  notes: string;
+}
+
+export async function loadProjectAnalytics(projectId: string): Promise<ProjectAnalytics | null> {
+  const csvText = await fetchCSV('/data/projects-analytics.csv');
+  const lines = csvText.trim().split('\n');
+  
+  if (lines.length < 2) return null;
+  
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i];
+    // Format: id,name,category,"json_data"
+    const match = line.match(/^([^,]+),([^,]+),([^,]+),(.+)$/);
+    if (!match) continue;
+    
+    const id = match[1].trim();
+    if (id !== projectId) continue;
+    
+    const name = match[2].trim();
+    const category = match[3].trim();
+    const jsonData = match[4].trim();
+    
+    try {
+      // Remove outer quotes if present
+      let cleanJson = jsonData.startsWith('"') && jsonData.endsWith('"') 
+        ? jsonData.slice(1, -1) 
+        : jsonData;
+      
+      // Unescape double quotes
+      cleanJson = cleanJson.replace(/""/g, '"');
+      
+      // Parse the JSON data
+      const data = JSON.parse(cleanJson);
+      
+      return {
+        project_id: id,
+        project_name: name,
+        category,
+        planned_hours: data.planned_hours || 0,
+        actual_hours: data.actual_hours || 0,
+        ai_hours_used: data.ai_hours_used || 0,
+        ai_time_saved_hours: data.ai_time_saved_hours || 0,
+        ai_time_saved_percent: data.ai_time_saved_percent || 0,
+        tasks_automated_count: data.tasks_automated_count || 0,
+        ai_tool_usage: data.ai_tool_usage || [],
+        integration_savings: data.integration_savings || { hubspot: 0, asana: 0, microsoft365: 0, zapier: 0 },
+        tasks: data.tasks || [],
+        jira_tickets: data.jira_tickets || [],
+        time_logs: data.time_logs || [],
+        notes: data.notes || '',
+      };
+    } catch (err) {
+      console.error('Failed to parse project analytics JSON:', err);
+      return null;
+    }
+  }
+  
+  return null;
 }

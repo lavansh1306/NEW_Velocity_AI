@@ -1,9 +1,39 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { loadProjects, loadMetrics } from '@/lib/dataService';
-import type { ProjectItem } from '@/lib/dataService';
+import { 
+  loadProjects, 
+  loadMetrics, 
+  loadCommitsByProject, 
+  loadPullRequestsByProject, 
+  loadTeamMembersByProject, 
+  loadWeeklyCommitsByProject, 
+  loadBurndownByProject,
+  loadAsanaTasksByProject,
+  loadJiraIssuesByProject,
+  loadZapierWorkflowsByProject,
+  loadHubSpotEventsByProject,
+  loadM365ActivitiesByProject,
+  loadProjectAnalytics,
+} from '@/lib/dataService';
+import type { 
+  ProjectItem, 
+  Commit, 
+  PullRequest, 
+  TeamMember, 
+  WeeklyCommit, 
+  BurndownData,
+  AsanaTask,
+  JiraIssue,
+  ZapierWorkflow,
+  HubSpotEvent,
+  M365Activity,
+  ProjectAnalytics,
+} from '@/lib/dataService';
+import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Calendar, GitBranch, Users, TrendingUp, Clock, CheckCircle, AlertCircle, Activity, Zap, Mail, MessageSquare, FileText, Settings } from 'lucide-react';
 
-interface TeamMember {
+// Remove old interfaces - now using exported types from dataService
+interface TeamMemberDisplay {
   id: string;
   name: string;
   role: string;
@@ -16,7 +46,7 @@ interface TeamMember {
   reviewsPending: number;
 }
 
-interface PR {
+interface PRDisplay {
   id: string;
   title: string;
   author: string;
@@ -32,7 +62,7 @@ interface CommitLog {
   date: string;
 }
 
-interface WeeklyCommit {
+interface WeeklyCommitDisplay {
   week: string;
   commits: number;
 }
@@ -53,157 +83,13 @@ export default function ProjectDetail() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editValues, setEditValues] = useState({ name: '', value: '' });
 
-  // Hardcoded team members with realistic data
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([
-    {
-      id: '1',
-      name: 'John Doe',
-      role: 'Lead Engineer',
-      avatar: '👨‍💼',
-      tasksAssigned: 12,
-      tasksCompleted: 8,
-      tasksDueToday: 3,
-      currentTask: 'Integrate inventory sync with ERP',
-      prsPending: 2,
-      reviewsPending: 1,
-    },
-    {
-      id: '2',
-      name: 'Alice Smith',
-      role: 'Backend Engineer',
-      avatar: '👩‍💻',
-      tasksAssigned: 10,
-      tasksCompleted: 7,
-      tasksDueToday: 2,
-      currentTask: 'Add retry logic to webhook handler',
-      prsPending: 1,
-      reviewsPending: 0,
-    },
-    {
-      id: '3',
-      name: 'Bob Johnson',
-      role: 'Frontend Engineer',
-      avatar: '👨‍💻',
-      tasksAssigned: 14,
-      tasksCompleted: 11,
-      tasksDueToday: 1,
-      currentTask: 'Build inventory dashboard UI',
-      prsPending: 0,
-      reviewsPending: 2,
-    },
-    {
-      id: '4',
-      name: 'Carol Davis',
-      role: 'QA Engineer',
-      avatar: '👩‍🔬',
-      tasksAssigned: 16,
-      tasksCompleted: 13,
-      tasksDueToday: 2,
-      currentTask: 'Test sync module for edge cases',
-      prsPending: 0,
-      reviewsPending: 0,
-    },
-    {
-      id: '5',
-      name: 'David Lee',
-      role: 'DevOps Engineer',
-      avatar: '👨‍🔧',
-      tasksAssigned: 8,
-      tasksCompleted: 6,
-      tasksDueToday: 1,
-      currentTask: 'Deploy staging environment',
-      prsPending: 1,
-      reviewsPending: 0,
-    },
-  ]);
-
-  // Pull requests and code reviews
-  const [pullRequests, setPullRequests] = useState<PR[]>([
-    {
-      id: 'PR-1',
-      title: 'Fix: handle null product ids in sync worker',
-      author: 'John Doe',
-      status: 'pending-review',
-      createdAt: '2025-12-18T14:23:00Z',
-      reviewers: ['Alice Smith', 'Bob Johnson'],
-    },
-    {
-      id: 'PR-2',
-      title: 'Feat: add backoff and retry for webhook',
-      author: 'Alice Smith',
-      status: 'approved',
-      createdAt: '2025-12-17T09:15:00Z',
-      reviewers: ['John Doe'],
-    },
-    {
-      id: 'PR-3',
-      title: 'UI: Inventory dashboard redesign',
-      author: 'Bob Johnson',
-      status: 'changes-requested',
-      createdAt: '2025-12-16T11:30:00Z',
-      reviewers: ['Carol Davis'],
-    },
-    {
-      id: 'PR-4',
-      title: 'Infra: Update CI/CD pipeline',
-      author: 'David Lee',
-      status: 'pending-review',
-      createdAt: '2025-12-15T16:45:00Z',
-      reviewers: ['John Doe'],
-    },
-  ]);
-
-  // Recent commits
-  const recentCommits: CommitLog[] = [
-    {
-      sha: 'a1b2c3d',
-      message: 'Fix: handle null product ids in sync worker',
-      author: 'John Doe',
-      date: '2025-12-18T14:23:00Z',
-    },
-    {
-      sha: 'd4e5f6a',
-      message: 'Feat: add backoff and retry for webhook',
-      author: 'Alice Smith',
-      date: '2025-12-17T09:15:00Z',
-    },
-    {
-      sha: 'b7c8d9e',
-      message: 'Chore: bump deps and update CI',
-      author: 'David Lee',
-      date: '2025-12-16T08:00:00Z',
-    },
-    {
-      sha: 'c8d9e0f',
-      message: 'Feat: inventory dashboard v1',
-      author: 'Bob Johnson',
-      date: '2025-12-15T15:30:00Z',
-    },
-  ];
-
-  // Weekly commit data for chart
-  const weeklyCommits: WeeklyCommit[] = [
-    { week: 'Dec 2-8', commits: 4 },
-    { week: 'Dec 9-15', commits: 7 },
-    { week: 'Dec 16-22', commits: 9 },
-  ];
-
-  // Velocity trend data
-  const velocityData: VelocityData[] = [
-    { sprint: 'Sprint 1', planned: 20, completed: 18 },
-    { sprint: 'Sprint 2', planned: 25, completed: 22 },
-    { sprint: 'Sprint 3', planned: 30, completed: 28 },
-  ];
-
-  // Burndown data (days vs tasks remaining)
-  const burndownData = [
-    { day: 'Day 1', remaining: 30 },
-    { day: 'Day 3', remaining: 25 },
-    { day: 'Day 5', remaining: 18 },
-    { day: 'Day 7', remaining: 12 },
-    { day: 'Day 9', remaining: 6 },
-    { day: 'Day 10', remaining: 3 },
-  ];
+  // Dynamic data loading
+  const [teamMembers, setTeamMembers] = useState<TeamMemberDisplay[]>([]);
+  const [pullRequests, setPullRequests] = useState<PRDisplay[]>([]);
+  const [recentCommits, setRecentCommits] = useState<CommitLog[]>([]);
+  const [weeklyCommits, setWeeklyCommits] = useState<WeeklyCommitDisplay[]>([]);
+  const [burndownData, setBurndownData] = useState<{ day: string; remaining: number }[]>([]);
+  const [velocityData, setVelocityData] = useState<VelocityData[]>([]);
 
   useEffect(() => {
     let mounted = true;
@@ -232,6 +118,88 @@ export default function ProjectDetail() {
       .finally(() => setMetricsLoading(false));
   }, [id]);
 
+  // Load all project-specific data
+  useEffect(() => {
+    if (!id) return;
+
+    const loadProjectData = async () => {
+      try {
+        // Load all CSV data in parallel
+        const [commits, prs, members, weekly, burndown] = await Promise.all([
+          loadCommitsByProject(id),
+          loadPullRequestsByProject(id),
+          loadTeamMembersByProject(id),
+          loadWeeklyCommitsByProject(id),
+          loadBurndownByProject(id),
+        ]);
+
+        // Transform commits for display (take most recent 4)
+        const recentCommitsList = commits
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+          .slice(0, 4);
+        setRecentCommits(recentCommitsList);
+
+        // Transform PRs for display
+        const prList = prs.map((pr) => ({
+          id: pr.pr_id,
+          title: pr.title,
+          author: pr.author,
+          status: pr.status,
+          createdAt: pr.created_at,
+          reviewers: pr.reviewers,
+        }));
+        setPullRequests(prList);
+
+        // Transform team members for display
+        const memberList = members.map((m) => ({
+          id: m.member_id,
+          name: m.name,
+          role: m.role,
+          avatar: m.avatar,
+          tasksAssigned: Number(m.tasks_assigned),
+          tasksCompleted: Number(m.tasks_completed),
+          tasksDueToday: Number(m.tasks_due_today),
+          currentTask: m.current_task,
+          prsPending: Number(m.prs_pending),
+          reviewsPending: Number(m.reviews_pending),
+        }));
+        setTeamMembers(memberList);
+
+        // Transform weekly commits for chart
+        const weeklyList = weekly.map((w) => {
+          const start = new Date(w.week_start);
+          const end = new Date(w.week_end);
+          const monthStart = start.toLocaleDateString('en-US', { month: 'short' });
+          const dayStart = start.getDate();
+          const dayEnd = end.getDate();
+          return {
+            week: `${monthStart} ${dayStart}-${dayEnd}`,
+            commits: Number(w.commits_count),
+          };
+        });
+        setWeeklyCommits(weeklyList);
+
+        // Transform burndown data
+        const burndownList = burndown.map((b) => ({
+          day: b.day,
+          remaining: Number(b.remaining_tasks),
+        }));
+        setBurndownData(burndownList);
+
+        // Mock velocity data (could be computed from sprint data if available)
+        setVelocityData([
+          { sprint: 'Sprint 1', planned: 20, completed: 18 },
+          { sprint: 'Sprint 2', planned: 25, completed: 22 },
+          { sprint: 'Sprint 3', planned: 30, completed: 28 },
+        ]);
+      } catch (error) {
+        console.error('Failed to load project data:', error);
+      }
+    };
+
+    loadProjectData();
+  }, [id]);
+
   const getProgressColor = (completed: number, total: number): string => {
     const percent = (completed / total) * 100;
     if (percent >= 80) return 'bg-green-500';
@@ -240,13 +208,13 @@ export default function ProjectDetail() {
     return 'bg-orange-500';
   };
 
-  const getPRBadgeColor = (status: PR['status']): string => {
+  const getPRBadgeColor = (status: PRDisplay['status']): string => {
     if (status === 'approved') return 'bg-green-100 text-green-800';
     if (status === 'changes-requested') return 'bg-red-100 text-red-800';
     return 'bg-yellow-100 text-yellow-800';
   };
 
-  const getPRBadgeLabel = (status: PR['status']): string => {
+  const getPRBadgeLabel = (status: PRDisplay['status']): string => {
     if (status === 'approved') return 'Approved';
     if (status === 'changes-requested') return 'Changes Requested';
     return 'Pending Review';
@@ -326,8 +294,14 @@ export default function ProjectDetail() {
 
           <div className="bg-white rounded-lg border border-gray-200 p-4">
             <div className="text-xs text-gray-500 font-semibold">LAST COMMIT</div>
-            <div className="text-sm font-mono text-gray-900 mt-2">{recentCommits[0].sha.slice(0, 7)}</div>
-            <div className="text-xs text-gray-600 mt-1">{recentCommits[0].author}</div>
+            {recentCommits.length > 0 ? (
+              <>
+                <div className="text-sm font-mono text-gray-900 mt-2">{recentCommits[0].sha.slice(0, 7)}</div>
+                <div className="text-xs text-gray-600 mt-1">{recentCommits[0].author}</div>
+              </>
+            ) : (
+              <div className="text-xs text-gray-500 mt-2">No commits yet</div>
+            )}
           </div>
         </div>
 
