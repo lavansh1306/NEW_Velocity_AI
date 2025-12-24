@@ -616,6 +616,15 @@ export async function loadAsanaTasksByProject(projectId: string): Promise<AsanaT
       });
       
       const details = JSON.parse(detailsStr);
+      
+      // Handle different status field formats in CSV:
+      // - direct: { "status": "in_progress" }
+      // - field update: { "field": "status", "new": "in_progress" }
+      let status = details.status || details.new_status;
+      if (!status && details.field === 'status' && details.new) {
+        status = details.new;
+      }
+      
       return {
         gid: e.gid,
         created_at: e.created_at,
@@ -625,9 +634,9 @@ export async function loadAsanaTasksByProject(projectId: string): Promise<AsanaT
         project_id: e.project_id,
         task_name: details.task_name || details.name,
         assignee: details.assignee,
-        status: details.status || details.new_status,
+        status: status,
         from_status: details.from_status,
-        to_status: details.to_status,
+        to_status: details.to_status || (details.field === 'status' ? details.new : undefined),
         is_automation: e.created_by.toLowerCase().includes('bot'),
       };
     } catch (err) {
