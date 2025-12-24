@@ -7,6 +7,7 @@ export default function VPDashboard() {
   const [perAppHours, setPerAppHours] = useState<Record<string, number> | null>(null);
   const [perAppReturns, setPerAppReturns] = useState<Record<string, number> | null>(null);
   const [totalReturns, setTotalReturns] = useState<number | null>(null);
+  const [savingsTrend, setSavingsTrend] = useState<{ label: string; investmentUSD: number; savingsUSD: number }[] | null>(null);
   const [hourlyRateUsedUSD, setHourlyRateUsedUSD] = useState<number | null>(null);
 
   useEffect(() => {
@@ -19,6 +20,7 @@ export default function VPDashboard() {
         setPerAppHours((m as any).perAppHours ?? null);
         setPerAppReturns((m as any).perAppReturns ?? null);
             setTotalReturns((m as any).totalReturns ?? null);
+            setSavingsTrend((m as any).savingsInvestmentTrend ?? null);
             setHourlyRateUsedUSD((m as any).hourlyRateUsedUSD ?? null);
       })
       .catch(() => {
@@ -125,7 +127,7 @@ export default function VPDashboard() {
           <div className="text-xs mt-1 opacity-75">Deals closed faster via AI</div>
         </div>
 
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg p-3 sm:p-4 text-white shadow-lg hover:shadow-xl transition-shadow">
+        <div className="rounded-lg p-3 sm:p-4 text-white shadow-lg hover:shadow-xl transition-shadow" style={{ background: 'linear-gradient(135deg, #ef4444, #ef4444)' }}>
           <div className="flex items-center justify-between mb-2">
             <div className="w-8 h-8 bg-white bg-opacity-20 rounded-lg flex items-center justify-center flex-shrink-0">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -147,7 +149,7 @@ export default function VPDashboard() {
             </div>
             <span className="text-xs font-bold bg-white bg-opacity-20 px-2 py-0.5 rounded">-23%</span>
           </div>
-          <div className="text-xs opacity-90 mb-1">Total Returns</div>
+          <div className="text-xs opacity-90 mb-1">ROI</div>
           <div className="text-xl sm:text-2xl font-bold">
             {totalReturns != null ? formatLargeUSD(totalReturns) : '—'}
           </div>
@@ -233,7 +235,7 @@ export default function VPDashboard() {
             </div>
             <div>
               <span className="text-sm text-gray-600">Total Returns:</span>
-              <span className="ml-2 text-lg font-bold text-green-600">{formatLargeUSD(totalReturnsUSD)}</span>
+              <span className="ml-2 text-lg font-bold text-green-600">{formatLargeUSD(costSavingsUSD)}</span>
             </div>
             <div className="text-right">
               <span className="text-sm text-gray-600">Blended ROI:</span>
@@ -287,64 +289,89 @@ export default function VPDashboard() {
               </text>
             ))}
             
-            {/* Investment Area */}
-            <polygon
-              points="100,215 200,195 300,185 400,180 500,175 600,170 600,250 100,250"
-              fill="url(#investmentGradient)"
-            />
-            
-            {/* Savings Area */}
-            <polygon
-              points="100,200 200,175 300,160 400,155 500,135 600,115 600,250 100,250"
-              fill="url(#savingsGradient)"
-            />
-            
-            {/* Investment Line */}
-            <polyline
-              fill="none"
-              stroke="#3b82f6"
-              strokeWidth="3"
-              points="100,215 200,195 300,185 400,180 500,175 600,170"
-            />
-            
-            {/* Savings Line */}
-            <polyline
-              fill="none"
-              stroke="#10b981"
-              strokeWidth="3"
-              points="100,200 200,175 300,160 400,155 500,135 600,115"
-            />
-            
-            {/* Data points and labels */}
-            {[
-              { x: 100, yInv: 215, ySav: 200, label: 'Jan', inv: '$38K', sav: '$42K' },
-              { x: 200, yInv: 195, ySav: 175, label: 'Feb', inv: '$42K', sav: '$51K' },
-              { x: 300, yInv: 185, ySav: 160, label: 'Mar', inv: '$45K', sav: '$58K' },
-              { x: 400, yInv: 180, ySav: 155, label: 'Apr', inv: '$47K', sav: '$62K' },
-              { x: 500, yInv: 175, ySav: 135, label: 'May', inv: '$49K', sav: '$71K' },
-              { x: 600, yInv: 170, ySav: 115, label: 'Jun', inv: '$51K', sav: '$79K' },
-            ].map((point, idx) => (
-              <g key={point.label}>
-                {/* Investment point */}
-                <circle cx={point.x} cy={point.yInv} r="5" fill="#3b82f6" />
-                
-                {/* Savings point */}
-                <circle cx={point.x} cy={point.ySav} r="5" fill="#10b981" />
-                
-                {/* Month label */}
-                <text x={point.x} y="270" textAnchor="middle" fontSize="12" fill="#6b7280" fontWeight="600">
-                  {point.label}
-                </text>
-                
-                {/* Value labels on hover */}
-                <g className="opacity-0 hover:opacity-100 transition-opacity">
-                  <rect x={point.x - 25} y={point.ySav - 35} width="50" height="28" fill="white" stroke="#10b981" strokeWidth="1" rx="4" />
-                  <text x={point.x} y={point.ySav - 18} textAnchor="middle" fontSize="10" fill="#10b981" fontWeight="700">
-                    {point.sav}
-                  </text>
-                </g>
-              </g>
-            ))}
+            {/* Dynamic Investment/Savings Area and Lines */}
+            {savingsTrend && savingsTrend.length > 0 ? (
+              (() => {
+                const pts = savingsTrend;
+                const startX = 100;
+                const endX = 600;
+                const count = pts.length;
+                const step = count > 1 ? (endX - startX) / (count - 1) : 0;
+                const allValues = pts.flatMap((p) => [p.investmentUSD, p.savingsUSD]);
+                const maxValChart = Math.max(...allValues, 1);
+                const yTop = 50;
+                const yBottom = 250;
+                const height = yBottom - yTop;
+
+                const invPoints: string[] = [];
+                const savPoints: string[] = [];
+                for (let i = 0; i < count; i++) {
+                  const x = Math.round(startX + step * i);
+                  const invY = Math.round(yBottom - (pts[i].investmentUSD / maxValChart) * height);
+                  const savY = Math.round(yBottom - (pts[i].savingsUSD / maxValChart) * height);
+                  invPoints.push(`${x},${invY}`);
+                  savPoints.push(`${x},${savY}`);
+                }
+
+                const invPolygon = `${invPoints.join(' ')} ${endX},250 ${startX},250`;
+                const savPolygon = `${savPoints.join(' ')} ${endX},250 ${startX},250`;
+
+                return (
+                  <>
+                    <polygon points={invPolygon} fill="url(#investmentGradient)" />
+                    <polygon points={savPolygon} fill="url(#savingsGradient)" />
+
+                    <polyline fill="none" stroke="#3b82f6" strokeWidth="3" points={invPoints.join(' ')} />
+                    <polyline fill="none" stroke="#10b981" strokeWidth="3" points={savPoints.join(' ')} />
+
+                    {pts.map((point, idx) => {
+                      const x = Math.round(startX + step * idx);
+                      const invY = Math.round(yBottom - (point.investmentUSD / maxValChart) * height);
+                      const savY = Math.round(yBottom - (point.savingsUSD / maxValChart) * height);
+                      return (
+                        <g key={`${point.label}-${idx}`}>
+                          <circle cx={x} cy={invY} r="5" fill="#3b82f6" />
+                          <circle cx={x} cy={savY} r="5" fill="#10b981" />
+                          <text x={x} y="270" textAnchor="middle" fontSize="12" fill="#6b7280" fontWeight="600">
+                            {point.label}
+                          </text>
+                          <g className="opacity-0 hover:opacity-100 transition-opacity">
+                            <rect x={x - 30} y={Math.min(invY, savY) - 40} width="60" height="32" fill="white" stroke="#e5e7eb" strokeWidth="1" rx="4" />
+                            <text x={x} y={Math.min(invY, savY) - 22} textAnchor="middle" fontSize="10" fill="#6b7280" fontWeight="700">
+                              {`Inv ${formatLargeUSD(point.investmentUSD)} / Sav ${formatLargeUSD(point.savingsUSD)}`}
+                            </text>
+                          </g>
+                        </g>
+                      );
+                    })}
+                  </>
+                );
+              })()
+            ) : (
+              /* fallback to original static visualization */
+              <>
+                <polygon
+                  points="100,215 200,195 300,185 400,180 500,175 600,170 600,250 100,250"
+                  fill="url(#investmentGradient)"
+                />
+                <polygon
+                  points="100,200 200,175 300,160 400,155 500,135 600,115 600,250 100,250"
+                  fill="url(#savingsGradient)"
+                />
+                <polyline
+                  fill="none"
+                  stroke="#3b82f6"
+                  strokeWidth="3"
+                  points="100,215 200,195 300,185 400,180 500,175 600,170"
+                />
+                <polyline
+                  fill="none"
+                  stroke="#10b981"
+                  strokeWidth="3"
+                  points="100,200 200,175 300,160 400,155 500,135 600,115"
+                />
+              </>
+            )}
           </svg>
             </div>
           </div>

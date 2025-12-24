@@ -131,4 +131,6 @@ export interface MetricsResponse {
   automationCoverageDelta?: number;
   automationTrend: AutomationTrendPoint[];
   manualVsAutomated: ManualVsAutomatedByApp[];
+  /** Optional time-series of monthly investment vs savings for charts */
+  savingsInvestmentTrend?: { label: string; investmentUSD: number; savingsUSD: number }[];
 }

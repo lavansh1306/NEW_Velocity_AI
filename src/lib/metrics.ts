@@ -150,7 +150,8 @@ export function estimatedReturnsByApp(
 export function estimatedTotalReturnsUSD(events: NormalizedEvent[], hourlyRateUSD = 100, totalInvestmentUSD = 0): number {
   const totalHours = estimatedTimeSavedHours(events);
   const totalCostSaved = Math.round(totalHours * hourlyRateUSD * 100) / 100;
-  return totalCostSaved - totalInvestmentUSD;
+  // Return total cost saved minus investments (can be negative); round to cents
+  return Math.round((totalCostSaved - totalInvestmentUSD) * 100) / 100;
 }
 
 /**
