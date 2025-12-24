@@ -151,7 +151,7 @@ export function estimatedTotalReturnsUSD(events: NormalizedEvent[], hourlyRateUS
   const totalHours = estimatedTimeSavedHours(events);
   const totalCostSaved = Math.round(totalHours * hourlyRateUSD * 100) / 100;
   // Return total cost saved minus investments (can be negative); round to cents
-  return Math.round((totalCostSaved - totalInvestmentUSD) * 100) / 100;
+  return Math.round((totalCostSaved) * 100) / 100;
 }
 
 /**

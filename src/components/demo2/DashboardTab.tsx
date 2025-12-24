@@ -32,7 +32,6 @@ export default function DashboardTab() {
     <div>
       <div className="mb-6 sm:mb-8">
         <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">Pilot Overview</h2>
-        <p className="text-xs sm:text-sm text-gray-600 mt-2 leading-relaxed">Marketing Operations • 90-Day Pilot • Integration: Asana + HubSpot</p>
       </div>
 
       {/* ROI Metrics */}
@@ -44,12 +43,12 @@ export default function DashboardTab() {
         </div>
         <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6 hover:shadow-lg transition-shadow">
           <div className="text-xs sm:text-sm text-gray-600 mb-1">Operational ROI (Tier A)</div>
-          <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-green-600">$68,200</div>
+          <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-green-600">{formatLargeUSD(totalReturns)}</div>
           <div className="text-xs text-gray-500 mt-2">12 verified accelerations</div>
         </div>
         <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6 hover:shadow-lg transition-shadow">
           <div className="text-xs sm:text-sm text-gray-600 mb-1">Cost Avoidance (Tier B)</div>
-          <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-orange-600">{formatLargeUSD(totalReturns)}</div>
+          <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-orange-600">$68,000</div>
           <div className="text-xs text-gray-500 mt-2">8 harvest tasks completed</div>
         </div>
         <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6 hover:shadow-lg transition-shadow">
