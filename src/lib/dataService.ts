@@ -250,6 +250,29 @@ export async function loadAllMetrics(): Promise<Partial<MetricsResponse>> {
   const TOTAL_INVESTMENT_USD = 50000;
   const totalReturns = estimatedTotalReturnsUSD(allEvents, HOURLY_RATE_USD, TOTAL_INVESTMENT_USD);
 
+  // Build monthly savings/investment trend from events
+  const monthMap = new Map<string, NormalizedEvent[]>();
+  for (const e of allEvents) {
+    const d = new Date(e.timestamp);
+    const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+    if (!monthMap.has(key)) monthMap.set(key, []);
+    monthMap.get(key)!.push(e);
+  }
+
+  const monthKeys = Array.from(monthMap.keys()).sort();
+  const savingsInvestmentTrend: { label: string; investmentUSD: number; savingsUSD: number }[] = [];
+  if (monthKeys.length > 0) {
+    const investmentPerMonth = TOTAL_INVESTMENT_USD / monthKeys.length;
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    for (const key of monthKeys) {
+      const [y, m] = key.split('-').map(Number);
+      const eventsForMonth = monthMap.get(key) ?? [];
+      const savings = estimatedCostSavedUSD(eventsForMonth, HOURLY_RATE_USD);
+      const label = monthNames[(m - 1) % 12];
+      savingsInvestmentTrend.push({ label, investmentUSD: Math.round(investmentPerMonth), savingsUSD: Math.round(savings) });
+    }
+  }
+
   return {
     estimatedTimeSavedHours: totalHours,
     estimatedCostSavedUSD: totalCost,
@@ -257,6 +280,7 @@ export async function loadAllMetrics(): Promise<Partial<MetricsResponse>> {
     perAppHours,
     perAppReturns,
     totalReturns,
+    savingsInvestmentTrend,
   } as Partial<MetricsResponse> & { perAppHours: Record<string, number>; perAppReturns: Record<string, number>; totalReturns: number };
 }
 
