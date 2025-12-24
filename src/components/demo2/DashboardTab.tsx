@@ -1,4 +1,33 @@
+import React, { useEffect, useState } from 'react';
+import { loadAllMetrics } from '@/lib/dataService';
+
 export default function DashboardTab() {
+  const [totalReturns, setTotalReturns] = useState<number | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    loadAllMetrics()
+      .then((m) => {
+        if (!mounted) return;
+        setTotalReturns((m as any).totalReturns ?? null);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setTotalReturns(null);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  function formatLargeUSD(v: number | null | undefined) {
+    if (v == null) return '—';
+    const isNegative = v < 0;
+    const absVal = Math.abs(v);
+    const formatted = `$${Math.round(absVal).toLocaleString()}`;
+    return isNegative ? `-${formatted}` : formatted;
+  }
+
   return (
     <div>
       <div className="mb-6 sm:mb-8">
@@ -20,7 +49,7 @@ export default function DashboardTab() {
         </div>
         <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6 hover:shadow-lg transition-shadow">
           <div className="text-xs sm:text-sm text-gray-600 mb-1">Cost Avoidance (Tier B)</div>
-          <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-orange-600">$42,500</div>
+          <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-orange-600">{formatLargeUSD(totalReturns)}</div>
           <div className="text-xs text-gray-500 mt-2">8 harvest tasks completed</div>
         </div>
         <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6 hover:shadow-lg transition-shadow">
