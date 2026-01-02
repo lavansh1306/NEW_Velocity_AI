@@ -14,6 +14,7 @@ import VelocityAI from "./pages/VelocityAI";
 import Projects from "./pages/Projects";
 import ProjectDetailNew from "./pages/ProjectDetailNew";
 import DebugNormalization from "./pages/DebugNormalization";
+import JiraDashboard from "./pages/JiraDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -35,6 +36,7 @@ const App = () => (
             <Route path="/velocity-ai" element={<VelocityAI />} />
             <Route path="/projects" element={<Projects />} />
             <Route path="/projects/:id" element={<ProjectDetailNew />} />
+            <Route path="/projects/jira-dashboard" element={<JiraDashboard />} />
             <Route path="/debug-normalization" element={<DebugNormalization />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

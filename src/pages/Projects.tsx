@@ -94,6 +94,34 @@ export default function Projects({ jiraConnected = true }: ProjectsProps) {
           <p className="text-gray-600 text-sm sm:text-base leading-relaxed">Selected case studies and platform projects demonstrating impact and outcomes.</p>
         </div>
 
+        {/* Jira Dashboard Feature Card */}
+        <div className="mb-8">
+          <div className="rounded-lg bg-gradient-to-r from-blue-600 to-indigo-700 shadow-lg overflow-hidden">
+            <div className="p-6 sm:p-8 flex flex-col md:flex-row items-center gap-6">
+              <div className="flex-shrink-0 text-6xl">📊</div>
+              <div className="flex-1 text-white text-center md:text-left">
+                <h2 className="text-xl sm:text-2xl font-bold mb-2">Jira Issues Dashboard</h2>
+                <p className="text-blue-100 text-sm sm:text-base mb-4">
+                  Visualize your Jira projects with interactive Gantt charts, manager summaries, employee availability tracking, and real-time issue synchronization.
+                </p>
+                <div className="flex flex-wrap gap-2 justify-center md:justify-start mb-4">
+                  <span className="text-xs px-2.5 py-1 bg-white/20 text-white rounded-full font-medium">Gantt Charts</span>
+                  <span className="text-xs px-2.5 py-1 bg-white/20 text-white rounded-full font-medium">Manager View</span>
+                  <span className="text-xs px-2.5 py-1 bg-white/20 text-white rounded-full font-medium">Issue Tracking</span>
+                  <span className="text-xs px-2.5 py-1 bg-white/20 text-white rounded-full font-medium">Employee Availability</span>
+                </div>
+              </div>
+              <div className="flex-shrink-0">
+                <Button asChild className="bg-white text-blue-700 hover:bg-blue-50 font-semibold px-6 py-3">
+                  <Link to="/projects/jira-dashboard">
+                    Open Dashboard →
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {loading ? (
           <div className="text-center py-12">
             <p className="text-gray-500">Loading projects...</p>
