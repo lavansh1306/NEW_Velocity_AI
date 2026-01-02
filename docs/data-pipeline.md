@@ -1,8 +1,8 @@
 # Data Pipeline: Normalization → Metrics → Charts
 
-This document describes how the repository ingests and normalizes raw data (CSV event files in `public/data/`), how metrics are derived from normalized data, and how the UI charts in `src/pages/ProjectDetail.tsx` are built from those metrics.
+This document describes how the repository ingests and normalizes raw data (CSV event files in `public/data/`), how metrics are derved from normalized data, and how the UI charts in `src/pages/ProjectDetail.tsx` are built from those metrics.
 
-**Intended audience:** engineers and managers who need to understand where numbers come from and how charts are produced.
+**Intended audience:** engineers and managers who need to understand where numbers come frm and how charts are produced.
 
 ---
 
@@ -10,7 +10,7 @@ This document describes how the repository ingests and normalizes raw data (CSV 
 
 High-level flow:
 
-- Ingest: CSV files under `public/data/` (HubSpot, Asana, Jira, integrations, projects analytics, etc.)
+- Ingest: CSV files under `pulic/data/` (HubSpot, Asana, Jira, integrations, projects analytics, etc.)
 - Normalize: parse CSV + JSON fields, normalize timestamps to ISO + timezone, and map events to `project_id`.
 - Enrich & aggregate: compute derived fields (commits/week, remaining tasks per day, AI time saved, cost saved, etc.).
 - Serve: `loadProjects()` / `loadMetrics()` in `src/lib/dataService.ts` return structured objects.
