@@ -32,6 +32,9 @@ export const Header = () => {
           <a href="/use-cases" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
             Use Cases
           </a>
+          <a href="/projects" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
+            Projects
+          </a>
         </nav>
         
         <div className="flex items-center gap-4">
@@ -70,6 +73,7 @@ export const Header = () => {
               <a href="#pricing" onClick={() => setOpen(false)} className="text-base font-medium text-muted-foreground">Pricing</a>
               <a href="#docs" onClick={() => setOpen(false)} className="text-base font-medium text-muted-foreground">Documentation</a>
               <a href="/use-cases" onClick={() => setOpen(false)} className="text-base font-medium text-muted-foreground">Use Cases</a>
+              <a href="/projects" onClick={() => setOpen(false)} className="text-base font-medium text-muted-foreground">Projects</a>
             </nav>
 
             <div className="mt-6 flex flex-col gap-3">
