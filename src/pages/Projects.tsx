@@ -185,7 +185,14 @@ export default function Projects({ jiraConnected = true }: ProjectsProps) {
 
                       <div className="mt-auto pt-4">
                         <Button asChild className="w-full sm:w-auto text-xs sm:text-sm">
-                          <Link to={`/projects/jira-dashboard?project=${encodeURIComponent(p.id)}`} className="inline-block">
+                          <Link
+                            to={
+                              p.source === 'asana'
+                                ? `/projects/asana-dashboard?project=${encodeURIComponent(p.id)}`
+                                : `/projects/jira-dashboard?project=${encodeURIComponent(p.id)}`
+                            }
+                            className="inline-block"
+                          >
                             View Project
                           </Link>
                         </Button>

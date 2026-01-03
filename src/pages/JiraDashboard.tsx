@@ -117,6 +117,8 @@ export default function JiraDashboard() {
       const newAssignees = [...new Set(formattedIssues.map(i => i.assignee))].sort()
       setAssignees(newAssignees)
       setSelectedAssignee('')
+      // Ensure the loadedProjects list includes this project so the select shows it
+      setLoadedProjects((prev) => (prev.includes(projectKey) ? prev : [...prev, projectKey]))
     } catch (err) {
       console.error('Error switching project:', err)
       setError(`Failed to load project: ${err instanceof Error ? err.message : 'Unknown error'}`)
@@ -185,62 +187,10 @@ export default function JiraDashboard() {
 
         {/* Controls */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          {/* Controls area (Add Project UI removed) */}
           <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Add Jira Project</h3>
-            <div className="flex gap-2 flex-col md:flex-row">
-              <input
-                type="text"
-                placeholder="Enter Jira Project Key (e.g., TEST)"
-                value={projectKeyInput}
-                onChange={(e) => setProjectKeyInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleAddProject()}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-                disabled={addingProject || refreshing}
-              />
-              <button
-                onClick={handleAddProject}
-                disabled={addingProject || refreshing}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition font-medium"
-              >
-                {addingProject ? 'Loading...' : 'Load Project'}
-              </button>
-            </div>
-            {error && <div className="mt-3 text-sm text-red-600 font-medium">{error}</div>}
-            {currentProject && <div className="mt-3 text-sm text-green-600 font-medium">✓ Current Project: {currentProject}</div>}
+            <p className="text-sm text-gray-600">Manage Jira project loading via the Projects page. Project auto-loads when provided via the Projects list.</p>
           </div>
-
-          {loadedProjects.length > 0 && (
-            <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <label className="block text-sm font-semibold text-gray-700 mb-3">Loaded Projects:</label>
-              <div className="flex gap-2 flex-col md:flex-row items-start md:items-center flex-wrap">
-                <select
-                  value={currentProject || ''}
-                  onChange={(e) => handleSwitchProject(e.target.value)}
-                  disabled={refreshing}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition disabled:bg-gray-100"
-                >
-                  <option value="">-- Select a project --</option>
-                  {loadedProjects.map(project => (
-                    <option key={project} value={project}>{project}</option>
-                  ))}
-                </select>
-                <button
-                  onClick={handleRefreshProject}
-                  disabled={!currentProject || refreshing}
-                  className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition font-medium flex items-center gap-2"
-                >
-                  {refreshing ? (
-                    <>
-                      <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
-                      Syncing...
-                    </>
-                  ) : (
-                    <>🔄 Sync Changes</>
-                  )}
-                </button>
-              </div>
-            </div>
-          )}
 
           {currentProject && (
             <>
