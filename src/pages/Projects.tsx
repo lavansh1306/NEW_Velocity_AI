@@ -97,6 +97,47 @@ export default function Projects({ jiraConnected = true }: ProjectsProps) {
           <p className="text-gray-600 text-sm sm:text-base leading-relaxed">Selected case studies and platform projects demonstrating impact and outcomes.</p>
         </div>
 
+        {/* Integration Dashboards */}
+        <div className="mb-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Jira Dashboard Button */}
+          <Link
+            to="/projects/jira-dashboard"
+            className="flex items-center gap-4 p-4 bg-white rounded-lg border border-gray-200 hover:border-blue-400 hover:shadow-lg transition-all group"
+          >
+            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition">
+              <svg className="w-7 h-7 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M11.571 11.513H0a5.218 5.218 0 0 0 5.232 5.215h2.13v2.057A5.215 5.215 0 0 0 12.575 24V12.518a1.005 1.005 0 0 0-1.005-1.005zm5.723-5.756H5.736a5.215 5.215 0 0 0 5.213 5.214h2.129v2.058a5.218 5.218 0 0 0 5.215 5.214V6.758a1.001 1.001 0 0 0-1-1.001zM23.013 0H11.455a5.215 5.215 0 0 0 5.215 5.215h2.129v2.057A5.215 5.215 0 0 0 24 12.483V1.005A1.005 1.005 0 0 0 23.013 0z" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition">Jira Dashboard</h3>
+              <p className="text-sm text-gray-500">Connect your Jira project for issue tracking & Gantt charts</p>
+            </div>
+            <svg className="w-5 h-5 text-gray-400 group-hover:text-blue-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </Link>
+
+          {/* Asana Dashboard Button */}
+          <Link
+            to="/projects/asana-dashboard"
+            className="flex items-center gap-4 p-4 bg-white rounded-lg border border-gray-200 hover:border-orange-400 hover:shadow-lg transition-all group"
+          >
+            <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center group-hover:bg-orange-200 transition">
+              <svg className="w-7 h-7 text-orange-600" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M18.782 12.708c-2.892 0-5.24 2.347-5.24 5.24s2.348 5.24 5.24 5.24c2.893 0 5.24-2.347 5.24-5.24s-2.347-5.24-5.24-5.24zm-13.564 0c-2.893 0-5.24 2.347-5.24 5.24s2.347 5.24 5.24 5.24c2.892 0 5.24-2.347 5.24-5.24s-2.348-5.24-5.24-5.24zM12 1.24c-2.893 0-5.24 2.347-5.24 5.24s2.347 5.24 5.24 5.24c2.892 0 5.24-2.347 5.24-5.24S14.892 1.24 12 1.24z"/>
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-gray-900 group-hover:text-orange-600 transition">Asana Dashboard</h3>
+              <p className="text-sm text-gray-500">Connect your Asana project for task tracking & Gantt charts</p>
+            </div>
+            <svg className="w-5 h-5 text-gray-400 group-hover:text-orange-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </Link>
+        </div>
+
         {/* Jira feature card removed per request */}
 
         {loading ? (

@@ -10,6 +10,8 @@ app.use(cors())
 app.use(express.json())
 
 const PORT = Number(process.env.API_PORT || 4000)
+
+// ============ JIRA Configuration ============
 const DOMAIN = process.env.JIRA_DOMAIN
 const EMAIL = process.env.JIRA_EMAIL
 const API_TOKEN = process.env.JIRA_API_TOKEN
@@ -20,9 +22,20 @@ const auth = Buffer.from(`${EMAIL}:${API_TOKEN}`).toString("base64")
 const JIRA_SEARCH_URL = DOMAIN ? `https://${DOMAIN}/rest/api/3/search/jql` : null
 const MS_PER_DAY = 1000 * 60 * 60 * 24
 
-const isConfigReady = DOMAIN && EMAIL && API_TOKEN && PROJECT_KEY
-if (!isConfigReady) {
+const isJiraConfigReady = DOMAIN && EMAIL && API_TOKEN && PROJECT_KEY
+if (!isJiraConfigReady) {
   console.warn("Jira API is not fully configured. Please set JIRA_DOMAIN, JIRA_EMAIL, JIRA_API_TOKEN, and JIRA_PROJECT_KEY in your .env file.")
+}
+
+// ============ ASANA Configuration ============
+const ASANA_TOKEN = process.env.ASANA_TOKEN
+const DEFAULT_ASANA_PROJECT_ID = process.env.ASANA_PROJECT_ID
+const ASANA_BASE_URL = "https://app.asana.com/api/1.0"
+const IMPORTED_ASSIGNEE_FIELD_GID = "1212641939726131"
+
+const isAsanaConfigReady = !!ASANA_TOKEN
+if (!isAsanaConfigReady) {
+  console.warn("Asana API is not fully configured. Please set ASANA_TOKEN in your .env file.")
 }
 
 const extractDescription = (desc: any): string => {
@@ -51,7 +64,7 @@ app.get("/api/issues", async (req: Request, res: Response) => {
     return res.status(400).json({ error: "Project key is required. Provide it as ?projectKey=YOURKEY or set JIRA_PROJECT_KEY in .env" })
   }
 
-  if (!isConfigReady || !JIRA_SEARCH_URL) {
+  if (!isJiraConfigReady || !JIRA_SEARCH_URL) {
     return res.status(500).json({ error: "Jira configuration missing" })
   }
 
@@ -117,7 +130,7 @@ app.get("/api/issues", async (req: Request, res: Response) => {
 
 // Fetch list of projects from Jira (requires JIRA_DOMAIN + auth)
 app.get('/api/projects', async (_req: Request, res: Response) => {
-  if (!isConfigReady || !DOMAIN) {
+  if (!isJiraConfigReady || !DOMAIN) {
     return res.status(500).json({ error: 'Jira configuration missing' })
   }
 
@@ -153,10 +166,83 @@ app.get('/api/projects', async (_req: Request, res: Response) => {
   }
 })
 
+// ============ ASANA API Endpoints ============
+app.get("/api/asana/issues", async (req: Request, res: Response) => {
+  // Get project ID from query parameter or use default from env
+  const projectId = (req.query.projectKey as string) || DEFAULT_ASANA_PROJECT_ID
+
+  if (!projectId) {
+    return res.status(400).json({ error: "Project ID is required. Provide it as ?projectKey=YOUR_PROJECT_ID or set ASANA_PROJECT_ID in .env" })
+  }
+
+  if (!isAsanaConfigReady) {
+    return res.status(500).json({ error: "Asana configuration missing - ASANA_TOKEN not set" })
+  }
+
+  try {
+    const response = await fetch(
+      `${ASANA_BASE_URL}/tasks?project=${projectId}&opt_fields=name,completed,assignee.name,start_on,due_on,memberships.section.name,notes,custom_fields,custom_fields.enum_value,custom_fields.enum_value.name`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${ASANA_TOKEN}`,
+          Accept: "application/json",
+        },
+      }
+    )
+
+    if (!response.ok) {
+      const message = await response.text()
+      return res.status(response.status).json({ error: "Failed to fetch Asana tasks", details: message })
+    }
+
+    const data = await response.json() as any
+    const tasks = (data.data || []).map((task: any) => {
+      const startDate = task.start_on || null
+      const due = task.due_on || null
+      
+      // Calculate duration from start_on to due_on (inclusive of both start and end dates)
+      const duration = startDate && due 
+        ? Math.ceil((new Date(due).getTime() - new Date(startDate).getTime()) / MS_PER_DAY) + 1
+        : ""
+
+      // Get imported assignee from custom field
+      const importedAssigneeField = task.custom_fields?.find(
+        (cf: any) => cf.gid === IMPORTED_ASSIGNEE_FIELD_GID
+      )
+      const importedAssignee = importedAssigneeField?.enum_value?.name || null
+
+      // Use imported assignee if regular assignee is missing
+      const finalAssignee = task.assignee?.name || importedAssignee || "Unassigned"
+
+      return {
+        key: task.gid || "-",
+        issueType: "-",
+        summary: task.name || "-",
+        description: task.notes || "",
+        priority: "-",
+        status: task.completed ? "Done" : "Open",
+        assignee: finalAssignee,
+        team: task.memberships?.[0]?.section?.name || "-",
+        startDate,
+        due,
+        duration,
+      }
+    })
+
+    res.json({ issues: tasks })
+  } catch (err) {
+    console.error("[Asana API]", err)
+    res.status(500).json({ error: "Failed to fetch Asana tasks", details: err instanceof Error ? err.message : "Unknown error" })
+  }
+})
+
 app.get("/health", (_req: Request, res: Response) => {
   res.json({ status: "ok" })
 })
 
 app.listen(PORT, () => {
-  console.log(`Jira proxy API listening on http://localhost:${PORT}`)
+  console.log(`API server listening on http://localhost:${PORT}`)
+  console.log(`  - Jira API: ${isJiraConfigReady ? 'configured' : 'NOT configured'}`)
+  console.log(`  - Asana API: ${isAsanaConfigReady ? 'configured' : 'NOT configured'}`)
 })

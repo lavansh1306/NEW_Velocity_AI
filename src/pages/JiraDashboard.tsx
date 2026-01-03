@@ -185,7 +185,29 @@ export default function JiraDashboard() {
 
         {/* Controls */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          {/* Add Project input removed per request */}
+          <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">Add Jira Project</h3>
+            <div className="flex gap-2 flex-col md:flex-row">
+              <input
+                type="text"
+                placeholder="Enter Jira Project Key (e.g., TEST)"
+                value={projectKeyInput}
+                onChange={(e) => setProjectKeyInput(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleAddProject()}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                disabled={addingProject || refreshing}
+              />
+              <button
+                onClick={handleAddProject}
+                disabled={addingProject || refreshing}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition font-medium"
+              >
+                {addingProject ? 'Loading...' : 'Load Project'}
+              </button>
+            </div>
+            {error && <div className="mt-3 text-sm text-red-600 font-medium">{error}</div>}
+            {currentProject && <div className="mt-3 text-sm text-green-600 font-medium">✓ Current Project: {currentProject}</div>}
+          </div>
 
           {loadedProjects.length > 0 && (
             <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
