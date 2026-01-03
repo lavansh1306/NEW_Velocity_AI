@@ -89,6 +89,31 @@ async function fetchCSV(path: string): Promise<string> {
   return response.text();
 }
 
+// Fetch Jira issues via the backend proxy (/api/issues) and map to RawJiraRow[]
+async function fetchJiraRowsFromApi(projectKey?: string): Promise<RawJiraRow[]> {
+  try {
+    const url = projectKey ? `/api/issues?projectKey=${encodeURIComponent(projectKey)}` : '/api/issues'
+    const resp = await fetch(url)
+    if (!resp.ok) return []
+    const data = await resp.json()
+    const issues = data.issues || []
+    // Map to RawJiraRow shape expected by normalizers
+    return issues.map((iss: any) => ({
+      issue_id: iss.key || iss.id || '',
+      issue_key: iss.key || iss.id || '',
+      created_at: iss.created || iss.fields?.created || '',
+      event_type: 'issue_created',
+      actor: iss.assignee?.displayName || iss.fields?.assignee?.displayName || 'unknown',
+      from_status: '',
+      to_status: iss.status || iss.fields?.status?.name || '',
+      project_id: iss.fields?.project?.key || iss.project || projectKey || '',
+      fields: JSON.stringify(iss.fields || {}),
+    }))
+  } catch (e) {
+    return []
+  }
+}
+
 // ========================================
 // Project interface for the list
 // ========================================
@@ -148,6 +173,30 @@ const projectImages: Record<string, string> = {
  * Load list of projects from projects-analytics.csv
  */
 export async function loadProjects(): Promise<ProjectItem[]> {
+  // Try to fetch projects from backend (which can proxy Jira). Fall back to CSV when unavailable.
+  try {
+    const resp = await fetch('/api/projects')
+    if (resp.ok) {
+      const data = await resp.json()
+      const pj = (data.projects || []) as any[]
+      if (pj.length > 0) {
+        return pj.map(p => ({
+          id: p.id || p.key,
+          title: p.title || p.name || p.key,
+          category: p.category || 'Project',
+          description: p.description || projectDescriptions[p.id] || '',
+          image: p.avatar || projectImages[p.id] || projectImages['1'],
+          tags: projectTags[p.id] || [],
+          color: projectColors[p.id] || '#6366f1',
+        }))
+      }
+    }
+  } catch (e) {
+    // ignore and fall back to CSV
+    // console.warn('Failed to fetch projects from API, falling back to CSV', e)
+  }
+
+  // Fallback: load from CSV in public/data
   const csvText = await fetchCSV('/data/projects-analytics.csv');
   const lines = csvText.trim().split('\n');
   if (lines.length < 2) return [];
@@ -208,16 +257,17 @@ export async function loadMetrics(projectId: string): Promise<MetricsResponse> {
  * This avoids re-fetching CSVs per-project when we only need a global number.
  */
 export async function loadAllMetrics(): Promise<Partial<MetricsResponse>> {
-  const [asanaCsv, jiraCsv, zapierCsv, hubspotCsv, m365Csv] = await Promise.all([
+  const [asanaCsv, zapierCsv, hubspotCsv, m365Csv] = await Promise.all([
     fetchCSV('/data/asana_events.csv').catch(() => ''),
-    fetchCSV('/data/jira_events.csv').catch(() => ''),
     fetchCSV('/data/zapier_events.csv').catch(() => ''),
     fetchCSV('/data/hubspot_events.csv').catch(() => ''),
     fetchCSV('/data/microsoft365_events.csv').catch(() => ''),
   ]);
 
+  // Jira events come from live Jira via backend proxy — do NOT use CSV
+  const jiraRows = await fetchJiraRowsFromApi()
+
   const asanaRows = parseCSV<RawAsanaRow>(asanaCsv);
-  const jiraRows = parseCSV<RawJiraRow>(jiraCsv);
   const zapierRows = parseCSV<RawZapierRow>(zapierCsv);
   const hubspotRows = parseCSV<RawHubSpotRow>(hubspotCsv);
   const m365Rows = parseCSV<RawMicrosoft365Row>(m365Csv);
@@ -289,16 +339,17 @@ export async function loadAllMetrics(): Promise<Partial<MetricsResponse>> {
  * Fetch raw CSVs, normalize them and return NormalizedEvent[] filtered by projectId.
  */
 export async function getNormalizedEventsForProject(projectId: string): Promise<NormalizedEvent[]> {
-  const [asanaCsv, jiraCsv, zapierCsv, hubspotCsv, m365Csv] = await Promise.all([
+  const [asanaCsv, zapierCsv, hubspotCsv, m365Csv] = await Promise.all([
     fetchCSV('/data/asana_events.csv').catch(() => ''),
-    fetchCSV('/data/jira_events.csv').catch(() => ''),
     fetchCSV('/data/zapier_events.csv').catch(() => ''),
     fetchCSV('/data/hubspot_events.csv').catch(() => ''),
     fetchCSV('/data/microsoft365_events.csv').catch(() => ''),
   ]);
 
+  // Jira events come from live Jira via backend proxy — do NOT use CSV
+  const jiraRows = await fetchJiraRowsFromApi()
+
   const asanaRows = parseCSV<RawAsanaRow>(asanaCsv);
-  const jiraRows = parseCSV<RawJiraRow>(jiraCsv);
   const zapierRows = parseCSV<RawZapierRow>(zapierCsv);
   const hubspotRows = parseCSV<RawHubSpotRow>(hubspotCsv);
   const m365Rows = parseCSV<RawMicrosoft365Row>(m365Csv);
@@ -835,79 +886,50 @@ export interface HubSpotEvent {
 }
 
 export async function loadHubSpotEventsByProject(projectId: string): Promise<HubSpotEvent[]> {
-  const csvText = await fetchCSV('/data/hubspot_events.csv');
-  const allEvents = parseCSV<{ event_id: string; occurred_at: string; object_type: string; event_action: string; source: string; object_id: string; project_id: string; properties: string }>(csvText);
+  try {
+    const resp = await fetch(`/api/issues?projectKey=${encodeURIComponent(projectId)}`)
+    if (!resp.ok) return []
+    const data = await resp.json()
+    const issues = data.issues || []
+    return issues.map((iss: any) => ({
+      issue_id: iss.key || iss.id || '',
+      issue_key: iss.key || iss.id || '',
+      created_at: iss.created || iss.fields?.created || '',
+      event_type: 'issue_created',
+      actor: iss.assignee?.displayName || iss.fields?.assignee?.displayName || 'unknown',
+      from_status: '',
+      to_status: iss.status || iss.fields?.status?.name || '',
+      project_id: iss.fields?.project?.key || iss.project || projectId,
+      summary: iss.summary || iss.fields?.summary || '',
+      severity: iss.priority?.name || iss.fields?.priority?.name || '',
+      priority: iss.priority?.name || iss.fields?.priority?.name || '',
+      comment: '',
+      resolution: iss.fields?.resolution?.name || '',
+      is_automation: (iss.assignee?.displayName || '').toLowerCase().includes('automation'),
+    }))
+  } catch (err) {
+    console.error('Failed to load Jira issues from API', err)
+    return []
+  }
   
-  const projectEvents = allEvents.filter((e) => e.project_id === projectId);
-  
-  return projectEvents.map((e) => {
-    try {
-      let propsStr = e.properties || '{}';
-      
-      // Fix common JSON issues in the CSV data
-      // First, unescape any escaped quotes
-      propsStr = propsStr.replace(/\\"/g, '"');
-      
-      // Handle property names that might be missing quotes
-      propsStr = propsStr.replace(/([{,])\s*\\?([a-zA-Z_][a-zA-Z0-9_]*)\\?\s*:/g, '$1"$2":');
-      
-      // Handle unquoted values (but not if already quoted or if it's a number/boolean/null)
-      propsStr = propsStr.replace(/:\s*([^,}\[\]"\s][^,}\[\]]*?)\s*([,}])/g, (match, value, ending) => {
-        const trimmed = value.trim();
-        // Don't quote numbers, booleans, null, or already quoted strings
-        if (trimmed.match(/^(\d+(\.\d+)?|true|false|null)$/)) return `: ${trimmed}${ending}`;
-        if (trimmed.startsWith('"') && trimmed.endsWith('"')) return `: ${trimmed}${ending}`;
-        // Escape any internal quotes and wrap in quotes
-        const escaped = trimmed.replace(/"/g, '\\"');
-        return `: "${escaped}"${ending}`;
-      });
-      
-      const props = JSON.parse(propsStr);
-      return {
-        event_id: e.event_id,
-        occurred_at: e.occurred_at,
-        object_type: e.object_type,
-        event_action: e.event_action,
-        source: e.source as 'workflow' | 'manual',
-        object_id: e.object_id,
-        project_id: e.project_id,
-        workflow_name: props.workflow_name,
-        template: props.template,
-        company_size: props.company_size,
-        device: props.device,
-        subject: props.subject,
-        link: props.link,
-        role: props.role,
-        tags_added: props.tags_added,
-        status: props.status,
-      };
-    } catch (err) {
-      console.error('Failed to parse HubSpot event properties:', e.properties, err);
-      return {
-        event_id: e.event_id,
-        occurred_at: e.occurred_at,
-        object_type: e.object_type,
-        event_action: e.event_action,
-        source: e.source as 'workflow' | 'manual',
-        object_id: e.object_id,
-        project_id: e.project_id,
-      };
-    }
-  });
 }
 
 // ========================================
-// Microsoft 365 Data Loaders
+// Project Analytics Loader
+// ========================================
+
+// ========================================
+// Microsoft365 Data Loaders
 // ========================================
 
 export interface M365Activity {
   activity_id: string;
   activity_time: string;
-  workload: 'Teams' | 'Outlook' | 'OneDrive';
+  workload: 'Teams' | 'Outlook' | 'OneDrive' | string;
   activity_type: string;
-  user_type: 'user' | 'service';
-  resource_id: string;
-  project_id: string;
+  user_type: 'user' | 'service' | string;
+  resource_id?: string;
+  project_id?: string;
   participant_count?: number;
   duration_minutes?: number;
   subject?: string;
@@ -918,44 +940,37 @@ export interface M365Activity {
 }
 
 export async function loadM365ActivitiesByProject(projectId: string): Promise<M365Activity[]> {
-  const csvText = await fetchCSV('/data/microsoft365_events.csv');
+  const csvText = await fetchCSV('/data/microsoft365_events.csv').catch(() => '');
+  if (!csvText) return [];
   const allEvents = parseCSV<{ activity_id: string; activity_time: string; workload: string; activity_type: string; user_type: string; resource_id: string; project_id: string; additional_data: string }>(csvText);
-  
+
   const projectEvents = allEvents.filter((e) => e.project_id === projectId);
-  
+
   return projectEvents.map((e) => {
     try {
       let dataStr = e.additional_data || '{}';
-      
-      // Fix common JSON issues in the CSV data
-      // First, unescape any escaped quotes
       dataStr = dataStr.replace(/\\"/g, '"');
-      
-      // Handle property names that might be missing quotes
       dataStr = dataStr.replace(/([{,])\s*\\?([a-zA-Z_][a-zA-Z0-9_]*)\\?\s*:/g, '$1"$2":');
-      
-      // Handle unquoted values (but not if already quoted or if it's a number/boolean/null)
       dataStr = dataStr.replace(/:\s*([^,}\[\]"\s][^,}\[\]]*?)\s*([,}])/g, (match, value, ending) => {
         const trimmed = value.trim();
-        // Don't quote numbers, booleans, null, or already quoted strings
         if (trimmed.match(/^(\d+(\.\d+)?|true|false|null)$/)) return `: ${trimmed}${ending}`;
         if (trimmed.startsWith('"') && trimmed.endsWith('"')) return `: ${trimmed}${ending}`;
-        // Escape any internal quotes and wrap in quotes
         const escaped = trimmed.replace(/"/g, '\\"');
         return `: "${escaped}"${ending}`;
       });
-      
+
       const data = JSON.parse(dataStr);
+
       return {
         activity_id: e.activity_id,
         activity_time: e.activity_time,
-        workload: e.workload as 'Teams' | 'Outlook' | 'OneDrive',
+        workload: e.workload as any,
         activity_type: e.activity_type,
-        user_type: e.user_type as 'user' | 'service',
+        user_type: e.user_type as any,
         resource_id: e.resource_id,
         project_id: e.project_id,
-        participant_count: data.participant_count,
-        duration_minutes: data.duration_minutes,
+        participant_count: data.participant_count ? Number(data.participant_count) : undefined,
+        duration_minutes: data.duration_minutes ? Number(data.duration_minutes) : undefined,
         subject: data.subject,
         recipients: data.recipients ? data.recipients.split('|') : undefined,
         file_name: data.file_name,
@@ -963,23 +978,19 @@ export async function loadM365ActivitiesByProject(projectId: string): Promise<M3
         action: data.action,
       };
     } catch (err) {
-      console.error('Failed to parse M365 activity data:', e.additional_data, err);
+      console.error('Failed to parse M365 activity additional_data:', e.additional_data, err);
       return {
         activity_id: e.activity_id,
         activity_time: e.activity_time,
-        workload: e.workload as 'Teams' | 'Outlook' | 'OneDrive',
+        workload: e.workload as any,
         activity_type: e.activity_type,
-        user_type: e.user_type as 'user' | 'service',
+        user_type: e.user_type as any,
         resource_id: e.resource_id,
         project_id: e.project_id,
       };
     }
   });
 }
-
-// ========================================
-// Project Analytics Loader
-// ========================================
 
 export interface AIToolUsage {
   tool: string;

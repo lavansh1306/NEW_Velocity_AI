@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { Header } from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import AnalyticsPanel from '@/components/analytics/AnalyticsPanel';
 import type { MetricsResponse } from '@/lib/types';
@@ -87,40 +88,16 @@ export default function Projects({ jiraConnected = true }: ProjectsProps) {
   };
 
   return (
-    <div className="bg-gray-50 min-h-screen py-6 sm:py-8 lg:py-12">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div>
+      <Header />
+      <div className="bg-gray-50 min-h-screen py-6 sm:py-8 lg:py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-3">Projects</h1>
           <p className="text-gray-600 text-sm sm:text-base leading-relaxed">Selected case studies and platform projects demonstrating impact and outcomes.</p>
         </div>
 
-        {/* Jira Dashboard Feature Card */}
-        <div className="mb-8">
-          <div className="rounded-lg bg-gradient-to-r from-blue-600 to-indigo-700 shadow-lg overflow-hidden">
-            <div className="p-6 sm:p-8 flex flex-col md:flex-row items-center gap-6">
-              <div className="flex-shrink-0 text-6xl">📊</div>
-              <div className="flex-1 text-white text-center md:text-left">
-                <h2 className="text-xl sm:text-2xl font-bold mb-2">Jira Issues Dashboard</h2>
-                <p className="text-blue-100 text-sm sm:text-base mb-4">
-                  Visualize your Jira projects with interactive Gantt charts, manager summaries, employee availability tracking, and real-time issue synchronization.
-                </p>
-                <div className="flex flex-wrap gap-2 justify-center md:justify-start mb-4">
-                  <span className="text-xs px-2.5 py-1 bg-white/20 text-white rounded-full font-medium">Gantt Charts</span>
-                  <span className="text-xs px-2.5 py-1 bg-white/20 text-white rounded-full font-medium">Manager View</span>
-                  <span className="text-xs px-2.5 py-1 bg-white/20 text-white rounded-full font-medium">Issue Tracking</span>
-                  <span className="text-xs px-2.5 py-1 bg-white/20 text-white rounded-full font-medium">Employee Availability</span>
-                </div>
-              </div>
-              <div className="flex-shrink-0">
-                <Button asChild className="bg-white text-blue-700 hover:bg-blue-50 font-semibold px-6 py-3">
-                  <Link to="/projects/jira-dashboard">
-                    Open Dashboard →
-                  </Link>
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* Jira feature card removed per request */}
 
         {loading ? (
           <div className="text-center py-12">
@@ -167,7 +144,7 @@ export default function Projects({ jiraConnected = true }: ProjectsProps) {
 
                       <div className="mt-auto pt-4">
                         <Button asChild className="w-full sm:w-auto text-xs sm:text-sm">
-                          <Link to={`/projects/${p.id}`} className="inline-block">
+                          <Link to={`/projects/jira-dashboard?project=${encodeURIComponent(p.id)}`} className="inline-block">
                             View Project
                           </Link>
                         </Button>
@@ -272,7 +249,8 @@ export default function Projects({ jiraConnected = true }: ProjectsProps) {
             )}
           </>
         )}
+        </div>
       </div>
     </div>
-  );
+  )
 }
