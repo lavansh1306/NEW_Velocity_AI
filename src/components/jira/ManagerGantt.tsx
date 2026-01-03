@@ -42,11 +42,10 @@ export default function ManagerGantt({ tasks }: ManagerGanttProps) {
   const [zoom, setZoom] = useState(1.6)
 
   const { assignees, minDate, maxDate, totalUnits, dateMarkers, colorMap } = useMemo(() => {
-    // Helper to normalize date to midnight (start of day)
+    // Helper to normalize date to UTC midnight (start of day) to match other components
     const normalizeDate = (d: Date): Date => {
-      const normalized = new Date(d)
-      normalized.setHours(0, 0, 0, 0)
-      return normalized
+      const dd = new Date(d)
+      return new Date(Date.UTC(dd.getFullYear(), dd.getMonth(), dd.getDate()))
     }
 
     const byAssignee: { [key: string]: TaskWithDates[] } = {}
@@ -57,8 +56,14 @@ export default function ManagerGantt({ tasks }: ManagerGanttProps) {
       const assignee = t.assignee || 'Unassigned'
       if (!byAssignee[assignee]) byAssignee[assignee] = []
 
-      const start = normalizeDate(new Date(t.created!))
-      const end = t.due ? normalizeDate(new Date(t.due)) : normalizeDate(new Date(t.created!))
+      const sourceStart = (t as any).start || t.created
+      const start = normalizeDate(new Date(sourceStart!))
+      let end = t.due ? normalizeDate(new Date(t.due)) : normalizeDate(new Date(sourceStart!))
+
+      // Defensive: if due/end is before start, clamp end to start to avoid reversed ranges
+      if (end.getTime() < start.getTime()) {
+        end = new Date(start.getTime())
+      }
 
       byAssignee[assignee].push({ ...t, _start: start, _end: end })
 

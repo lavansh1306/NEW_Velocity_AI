@@ -48,9 +48,23 @@ export default function ManagerSummary({ tasks }: ManagerSummaryProps) {
   const [selectedAssignee, setSelectedAssignee] = useState<string | null>(null)
   const [workingPeriod, setWorkingPeriod] = useState<WorkingPeriod>({})
   const [showBlockTimeResult, setShowBlockTimeResult] = useState(false)
+  const [issueFixes, setIssueFixes] = useState<Record<string, { start?: string; due?: string }>>({})
+
+  const MS_PER_DAY = 24 * 60 * 60 * 1000
+
+  // Count business days (Mon-Fri) between two UTC-midnight ms values.
+  const businessDaysBetween = (startMs: number, endMs: number) => {
+    let count = 0
+    for (let cur = startMs; cur < endMs; cur += MS_PER_DAY) {
+      const dow = new Date(cur).getUTCDay()
+      if (dow !== 0 && dow !== 6) count++
+    }
+    return count
+  }
+
+  
   const { byAssignee, weeks, tasksPerWeekPerAssignee, totals, idleDaysByAssignee } = useMemo(() => {
     const byAssignee: { [key: string]: Issue[] } = {}
-    const msPerDay = 24 * 60 * 60 * 1000
     const normalizeDate = (d: Date | string): Date => {
       const nd = new Date(d)
       nd.setHours(0, 0, 0, 0)
@@ -64,8 +78,12 @@ export default function ManagerSummary({ tasks }: ManagerSummaryProps) {
 
       byAssignee[assignee].push(t)
 
+      // For weekly markers prefer due date, then explicit start (custom field), then created
       if (t.due) {
         const wk = getWeekStart(new Date(t.due)).toISOString().split('T')[0]
+        weeksSet.add(wk)
+      } else if (t.start) {
+        const wk = getWeekStart(new Date(t.start)).toISOString().split('T')[0]
         weeksSet.add(wk)
       } else if (t.created) {
         const wk = getWeekStart(new Date(t.created)).toISOString().split('T')[0]
@@ -80,43 +98,68 @@ export default function ManagerSummary({ tasks }: ManagerSummaryProps) {
     Object.keys(byAssignee).forEach(assignee => {
       tasksPerWeekPerAssignee[assignee] = {}
       byAssignee[assignee].forEach(t => {
-        const wk = (t.due ? getWeekStart(new Date(t.due)) : getWeekStart(new Date(t.created!))).toISOString().split('T')[0]
+        const wk = (t.due ? getWeekStart(new Date(t.due)) : getWeekStart(new Date(t.start || t.created!))).toISOString().split('T')[0]
         tasksPerWeekPerAssignee[assignee][wk] = (tasksPerWeekPerAssignee[assignee][wk] || 0) + 1
       })
     })
 
     // Calculate idle days between first and last task for each assignee
+    // Use UTC-normalized day intervals and merge overlapping/adjacent tasks
     const idleDaysByAssignee: { [key: string]: number } = {}
-    Object.keys(byAssignee).forEach(assignee => {
-      const assigneeTasks = byAssignee[assignee].map(t => ({
-        start: normalizeDate(t.created!),
-        end: t.due ? normalizeDate(t.due) : normalizeDate(t.created!),
-        // duration in days (inclusive)
-        durationDays: (() => {
-          const s = normalizeDate(t.created!)
-          const e = t.due ? normalizeDate(t.due) : s
-          return Math.max(1, Math.floor((e.getTime() - s.getTime()) / msPerDay) + 1)
-        })()
-      }))
+    const startOfDayUTC = (d: Date | string) => {
+      const dd = new Date(d)
+      return Date.UTC(dd.getFullYear(), dd.getMonth(), dd.getDate())
+    }
 
-      if (assigneeTasks.length === 0) {
+    // Count business days (Mon-Fri) between two UTC-midnight ms values.
+    const businessDaysBetween = (startMs: number, endMs: number) => {
+      const msPerDayLocal = 24 * 60 * 60 * 1000
+      let count = 0
+      for (let cur = startMs; cur < endMs; cur += msPerDayLocal) {
+        const dow = new Date(cur).getUTCDay()
+        if (dow !== 0 && dow !== 6) count++
+      }
+      return count
+    }
+
+    Object.keys(byAssignee).forEach(assignee => {
+      const intervals = byAssignee[assignee]
+        .map(t => {
+          const sourceStart = t.start || t.created
+          const s = startOfDayUTC(sourceStart!) // inclusive start at 00:00 UTC
+          const e = startOfDayUTC(t.due ? t.due : sourceStart!) + MS_PER_DAY // exclusive end (add one day)
+          return { s, e, raw: { sourceStart, due: t.due } }
+        })
+
+      if (intervals.length === 0) {
         idleDaysByAssignee[assignee] = 0
         return
       }
 
-      // Sort by start date
-      assigneeTasks.sort((a, b) => a.start.getTime() - b.start.getTime())
+      // sort and merge overlapping/adjacent intervals
+      intervals.sort((a, b) => a.s - b.s)
+      const merged: Array<{ s: number; e: number }> = []
+      intervals.forEach(intv => {
+        if (merged.length === 0) {
+          merged.push({ ...intv })
+          return
+        }
+        const last = merged[merged.length - 1]
+        if (intv.s <= last.e) {
+          // overlap or adjacent: extend last
+          last.e = Math.max(last.e, intv.e)
+        } else {
+          merged.push({ ...intv })
+        }
+      })
 
-      // Get total span from first task start to last task end (inclusive)
-      const firstTaskStart = assigneeTasks[0].start
-      const lastTaskEnd = assigneeTasks[assigneeTasks.length - 1].end
-      const totalSpanDays = Math.max(1, Math.floor((lastTaskEnd.getTime() - firstTaskStart.getTime()) / msPerDay) + 1)
+      // total business-days span from first merged start to last merged end
+      const totalBusinessSpan = Math.max(0, businessDaysBetween(merged[0].s, merged[merged.length - 1].e))
 
-      // Sum all task durations (inclusive)
-      const totalTaskDays = assigneeTasks.reduce((sum, task) => sum + Math.max(1, Math.floor((task.end.getTime() - task.start.getTime()) / msPerDay) + 1), 0)
+      // occupied business days is sum of merged intervals' business-day lengths
+      const occupiedBusinessDays = merged.reduce((sum, m) => sum + businessDaysBetween(m.s, m.e), 0)
 
-      // Idle days = total span - total task days
-      const idleDays = Math.max(0, totalSpanDays - totalTaskDays)
+      const idleDays = Math.max(0, totalBusinessSpan - occupiedBusinessDays)
       idleDaysByAssignee[assignee] = idleDays
     })
 
@@ -285,14 +328,23 @@ export default function ManagerSummary({ tasks }: ManagerSummaryProps) {
             
             {(() => {
               const msPerDay_local = 24 * 60 * 60 * 1000
-              const normDate = (d: Date | string): Date => { const nd = new Date(d); nd.setHours(0, 0, 0, 0); return nd }
+              // Normalize to UTC midnight for consistency with merged-interval logic
+              const normDate = (d: Date | string): Date => {
+                const dd = new Date(d)
+                return new Date(Date.UTC(dd.getFullYear(), dd.getMonth(), dd.getDate()))
+              }
 
-              const assigneeTasks = byAssignee[selectedAssignee].map(t => ({
-                start: normDate(t.created!),
-                end: t.due ? normDate(t.due) : normDate(t.created!),
-                key: t.key,
-                summary: t.summary
-              }))
+              // Apply any in-memory issue fixes (swap/clamp) before building intervals
+              const assigneeTasks = byAssignee[selectedAssignee].map(t => {
+                const fix = issueFixes[t.key] || {}
+                const sourceStartRaw = fix.start ?? t.start ?? t.created!
+                const sourceDueRaw = fix.due ?? t.due ?? null
+                const s = normDate(sourceStartRaw)
+                let e = sourceDueRaw ? normDate(sourceDueRaw) : normDate(sourceStartRaw)
+                // Defensive: if end is before start in source data, clamp end to start
+                if (e.getTime() < s.getTime()) e = new Date(s.getTime())
+                return ({ start: s, end: e, key: t.key, summary: t.summary, __raw: { sourceStartRaw, sourceDueRaw } as any })
+              })
               
               if (assigneeTasks.length === 0) {
                 return <p className="text-gray-500">No tasks assigned</p>
@@ -301,8 +353,9 @@ export default function ManagerSummary({ tasks }: ManagerSummaryProps) {
               // Sort by start date
               assigneeTasks.sort((a, b) => a.start.getTime() - b.start.getTime())
               
-              const defaultStart = assigneeTasks[0].start
-              const defaultEnd = assigneeTasks[assigneeTasks.length - 1].end
+              // Use fixed default window so UI isn't random: 2025-12-01 to 2026-01-01 (UTC)
+              const defaultStart = new Date('2025-12-01T00:00:00Z')
+              const defaultEnd = new Date('2026-01-01T00:00:00Z')
               
               const currentStart = workingPeriod[selectedAssignee]?.start || defaultStart
               const currentEnd = workingPeriod[selectedAssignee]?.end || defaultEnd
@@ -339,30 +392,76 @@ export default function ManagerSummary({ tasks }: ManagerSummaryProps) {
               }
               
               const freePeriods: FreePeriod[] = []
+              // For debug / verification
               
-              // Calculate gaps between tasks
-              for (let i = 0; i < assigneeTasks.length - 1; i++) {
-                const currentEnd = assigneeTasks[i].end
-                const nextStart = assigneeTasks[i + 1].start
 
-                // gapDays excludes the end day of the earlier task and the start day of the next task
-                const rawDays = Math.floor((nextStart.getTime() - currentEnd.getTime()) / msPerDay_local)
-                const gapDays = Math.max(0, rawDays - 1)
+              // Build UTC-normalized intervals and merge them to avoid double-counting overlaps
+              const startOfDayUTC_local = (d: Date) => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())
 
-                if (gapDays > 0) {
-                  const freeStart = new Date(currentEnd.getTime() + msPerDay_local)
-                  const freeEnd = new Date(nextStart.getTime() - msPerDay_local)
-                  freePeriods.push({
-                    start: freeStart,
-                    end: freeEnd,
-                    days: gapDays,
-                    type: 'between'
-                  })
+              const intervals = assigneeTasks.map(t => {
+                const s = startOfDayUTC_local(t.start)
+                const e = startOfDayUTC_local(t.end) + msPerDay_local // exclusive
+                
+                return { s, e }
+              })
+
+              intervals.sort((a, b) => a.s - b.s)
+              const merged: Array<{ s: number; e: number }> = []
+              intervals.forEach(intv => {
+                if (merged.length === 0) return merged.push({ ...intv })
+                const last = merged[merged.length - 1]
+                if (intv.s <= last.e) last.e = Math.max(last.e, intv.e)
+                else merged.push({ ...intv })
+              })
+
+              
+
+              
+
+              // Detect anomalies (start > due) from source data (before merge)
+              const anomalies: Array<{ key: string; start: string; due: string | null }> = []
+              byAssignee[selectedAssignee].forEach(t => {
+                const fix = issueFixes[t.key] || {}
+                const sourceStartRaw = fix.start ?? t.start ?? t.created!
+                const sourceDueRaw = fix.due ?? t.due ?? null
+                const sMs = startOfDayUTC_local(new Date(sourceStartRaw))
+                const eMs = sourceDueRaw ? startOfDayUTC_local(new Date(sourceDueRaw)) + msPerDay_local : sMs + msPerDay_local
+                if (eMs < sMs) {
+                  anomalies.push({ key: t.key, start: String(sourceStartRaw), due: String(sourceDueRaw) })
+                }
+              })
+
+              // Optionally clip to the current working period so free periods outside it are not shown
+              const workingStartMs = startOfDayUTC_local(currentStart)
+              const workingEndMs = startOfDayUTC_local(currentEnd) + msPerDay_local
+
+              // compute gaps between merged intervals, and between working window and merged intervals
+              // before first
+              if (merged.length > 0) {
+                if (merged[0].s > workingStartMs) {
+                  const gapDays = businessDaysBetween(workingStartMs, merged[0].s)
+                  if (gapDays > 0) freePeriods.push({ start: new Date(workingStartMs), end: new Date(merged[0].s - msPerDay_local), days: gapDays, type: 'between' })
+                }
+
+                for (let i = 0; i < merged.length - 1; i++) {
+                  const gapStart = merged[i].e
+                  const gapEnd = merged[i + 1].s
+                  const gapDays = businessDaysBetween(gapStart, gapEnd)
+                  if (gapDays > 0) {
+                    freePeriods.push({ start: new Date(gapStart), end: new Date(gapEnd - msPerDay_local), days: gapDays, type: 'between' })
+                  }
+                }
+
+                // after last
+                if (merged[merged.length - 1].e < workingEndMs) {
+                  const gapDays = businessDaysBetween(merged[merged.length - 1].e, workingEndMs)
+                  if (gapDays > 0) freePeriods.push({ start: new Date(merged[merged.length - 1].e), end: new Date(workingEndMs - msPerDay_local), days: gapDays, type: 'between' })
                 }
               }
               
               return (
                 <div className="space-y-3">
+                  
                   {/* Date Range Picker */}
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                     <h5 className="font-semibold text-sm text-gray-800 mb-3">Adjust Working Period</h5>
@@ -425,6 +524,7 @@ export default function ManagerSummary({ tasks }: ManagerSummaryProps) {
                     ) : (
                       <p className="text-gray-500 text-sm">No free periods - employee is fully scheduled</p>
                     )}
+                    {/* anomalies UI removed per request */}
                   </div>
 
                   <div className="border-t pt-4">
