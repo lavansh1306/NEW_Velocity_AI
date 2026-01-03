@@ -71,54 +71,44 @@ function parseJSONField(jsonStr: string): Record<string, any> {
 
 export async function loadJiraIssuesFromCSV(): Promise<Issue[]> {
   try {
-    const response = await fetch('/data/jira_events.csv')
-    if (!response.ok) {
-      throw new Error(`Failed to load CSV: ${response.status}`)
-    }
-    
-    const csvText = await response.text()
-    const rows = parseCSV(csvText)
-    
-    // Group events by issue_key and build issue objects
+    // Use live Jira via backend proxy
+    const resp = await fetch('/api/issues')
+    if (!resp.ok) throw new Error(`Failed to load Jira issues: ${resp.status}`)
+    const data = await resp.json()
+    const issuesRaw = data.issues || []
+
     const issueMap = new Map<string, Issue>()
-    
-    rows.forEach(row => {
-      const issueKey = row.issue_key
-      if (!issueKey) return
-      
-      const projectId = row.project_id || '1'
-      const fields = parseJSONField(row.fields || '{}')
-      
-      // Get or create issue
-      if (!issueMap.has(issueKey)) {
-        issueMap.set(issueKey, {
-          key: issueKey,
-          issueType: row.event_type === 'issue_created' ? 'Task' : 'Task',
-          summary: fields.summary || `Issue ${issueKey}`,
-          description: fields.comment || fields.note || '',
-          priority: fields.priority || fields.severity || 'Medium',
-          status: row.to_status || 'Open',
-          assignee: row.actor || 'Unassigned',
+    issuesRaw.forEach((iss: any) => {
+      const key = iss.key || iss.id
+      const fields = iss.fields || {}
+      const projectId = fields.project?.key || iss.project || '1'
+      const created = fields.created || iss.created || null
+      const due = fields.duedate || fields.due || null
+
+      if (!issueMap.has(key)) {
+        issueMap.set(key, {
+          key,
+          issueType: fields.issuetype?.name || iss.issueType || 'Task',
+          summary: fields.summary || iss.summary || `Issue ${key}`,
+          description: (fields.description && typeof fields.description === 'string') ? fields.description : '',
+          priority: fields.priority?.name || iss.priority || 'Medium',
+          status: fields.status?.name || iss.status || 'Open',
+          assignee: fields.assignee?.displayName || iss.assignee || 'Unassigned',
           team: `Project ${projectId}`,
-          created: row.created_at || null,
-          due: calculateDueDate(row.created_at),
-          duration: calculateDuration(row.created_at),
+          created,
+          due,
+          duration: calculateDuration(created),
         })
       } else {
-        // Update existing issue with latest status
-        const existing = issueMap.get(issueKey)!
-        if (row.to_status) {
-          existing.status = row.to_status
-        }
-        if (row.actor && row.actor !== 'automation') {
-          existing.assignee = row.actor
-        }
+        const existing = issueMap.get(key)!
+        if (fields.status?.name) existing.status = fields.status.name
+        if (fields.assignee?.displayName) existing.assignee = fields.assignee.displayName
       }
     })
-    
+
     return Array.from(issueMap.values())
   } catch (error) {
-    console.error('Error loading Jira issues from CSV:', error)
+    console.error('Error loading Jira issues from API:', error)
     throw error
   }
 }

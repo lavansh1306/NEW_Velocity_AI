@@ -115,6 +115,44 @@ app.get("/api/issues", async (req: Request, res: Response) => {
   }
 })
 
+// Fetch list of projects from Jira (requires JIRA_DOMAIN + auth)
+app.get('/api/projects', async (_req: Request, res: Response) => {
+  if (!isConfigReady || !DOMAIN) {
+    return res.status(500).json({ error: 'Jira configuration missing' })
+  }
+
+  try {
+    const url = `https://${DOMAIN}/rest/api/3/project/search?maxResults=200`
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Basic ${auth}`,
+        Accept: 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      const txt = await response.text()
+      return res.status(response.status).json({ error: 'Failed to fetch projects from Jira', details: txt })
+    }
+
+    const data = await response.json() as any
+    const values = data.values || data.projects || []
+    const projects = values.map((p: any) => ({
+      id: p.key || String(p.id),
+      key: p.key || String(p.id),
+      title: p.name || p.key || String(p.id),
+      category: p.projectTypeKey || p.projectCategory?.name || 'Project',
+      description: p.description ? (typeof p.description === 'string' ? p.description : JSON.stringify(p.description)) : '',
+      avatar: p.avatarUrls ? (p.avatarUrls['48x48'] || p.avatarUrls['24x24'] || '') : '',
+    }))
+
+    res.json({ projects })
+  } catch (err) {
+    console.error('[Jira Projects]', err)
+    res.status(500).json({ error: 'Failed to fetch Jira projects', details: err instanceof Error ? err.message : 'Unknown' })
+  }
+})
+
 app.get("/health", (_req: Request, res: Response) => {
   res.json({ status: "ok" })
 })

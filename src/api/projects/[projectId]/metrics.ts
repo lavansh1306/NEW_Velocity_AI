@@ -61,7 +61,30 @@ export async function GET(
 ): Promise<Response> {
   // Load raw rows from each app CSV
   const asanaRows = loadCSV<RawAsanaRow>('asana_events.csv');
-  const jiraRows = loadCSV<RawJiraRow>('jira_events.csv');
+  // Jira rows: prefer live Jira via backend proxy instead of CSV
+  let jiraRows: RawJiraRow[] = []
+  try {
+    const resp = await fetch('http://localhost:4000/api/issues')
+    if (resp.ok) {
+      const data = await resp.json()
+      const issues = data.issues || []
+      jiraRows = issues.map((iss: any) => ({
+        issue_id: iss.key || iss.id || '',
+        issue_key: iss.key || iss.id || '',
+        created_at: iss.created || iss.fields?.created || '',
+        event_type: 'issue_created',
+        actor: iss.assignee?.displayName || iss.fields?.assignee?.displayName || 'unknown',
+        from_status: '',
+        to_status: iss.status || iss.fields?.status?.name || '',
+        project_id: iss.fields?.project?.key || '',
+        fields: JSON.stringify(iss.fields || {}),
+      }))
+    } else {
+      jiraRows = []
+    }
+  } catch (err) {
+    jiraRows = []
+  }
   const zapierRows = loadCSV<RawZapierRow>('zapier_events.csv');
   const hubspotRows = loadCSV<RawHubSpotRow>('hubspot_events.csv');
   const m365Rows = loadCSV<RawMicrosoft365Row>('microsoft365_events.csv');
