@@ -51,6 +51,8 @@ export default function JiraDashboard() {
         assignee: issue.assignee || 'Unassigned',
         team: projectKey,
         created: issue.created || null,
+        // prefer customfield_10015 (start date) if present
+        start: issue.customfield_10015 || issue.start || null,
         due: issue.due || null,
         duration: issue.duration === undefined ? '' : issue.duration,
       }))

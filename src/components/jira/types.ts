@@ -8,6 +8,8 @@ export interface Issue {
   assignee: string
   team: string
   created: string | null
+  // Jira custom field for task start date (project-specific). Prefer this when available.
+  start?: string | null
   due: string | null
   duration: number | string
 }
