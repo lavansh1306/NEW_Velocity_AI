@@ -69,34 +69,73 @@ app.get("/api/issues", async (req: Request, res: Response) => {
   }
 
   try {
-    const response = await fetch(JIRA_SEARCH_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${auth}`,
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        jql: `project = ${projectKey} AND created >= -365d ORDER BY created DESC`,
-        fields: [
-          "key",
-          "summary",
-          "created",
-          "duedate",
-          "description",
-          "priority",
-          "status",
-          "assignee",
-          "issuetype",
-          TEAM_FIELD,
-        ].filter(Boolean),
-        maxResults: 500,
-      }),
-    })
+    // Try multiple Jira search endpoint variants to be compatible with instances
+    // that have migrated old APIs. We'll try in order and return the first successful response.
+    const jql = `project = ${projectKey} AND created >= -365d ORDER BY created DESC`
+    const fields = [
+      "key",
+      "summary",
+      "created",
+      "duedate",
+      "description",
+      "priority",
+      "status",
+      "assignee",
+      "issuetype",
+      TEAM_FIELD,
+    ].filter(Boolean)
 
-    if (!response.ok) {
-      const message = await response.text()
-      return res.status(response.status).json({ error: "Failed to fetch Jira issues", details: message })
+    const tryEndpoints = [
+      // Preferred new-style endpoint (some instances require /search/jql)
+      { url: `https://${DOMAIN}/rest/api/3/search/jql`, method: 'POST', bodyAsJson: true },
+      // Common search endpoint that accepts POST with JSON body
+      { url: `https://${DOMAIN}/rest/api/3/search`, method: 'POST', bodyAsJson: true },
+      // Fallback to GET with query param (some proxies prefer GET)
+      { url: `https://${DOMAIN}/rest/api/3/search?jql=${encodeURIComponent(jql)}&maxResults=500`, method: 'GET', bodyAsJson: false },
+    ]
+
+    let response: any = null
+    let lastErrorText = ''
+
+    for (const ep of tryEndpoints) {
+      try {
+        console.debug(`[Jira API] trying ${ep.method} ${ep.url}`)
+        if (ep.method === 'POST') {
+          response = await fetch(ep.url, {
+            method: 'POST',
+            headers: {
+              Authorization: `Basic ${auth}`,
+              Accept: 'application/json',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ jql, fields, maxResults: 500 }),
+          })
+        } else {
+          response = await fetch(ep.url, {
+            method: 'GET',
+            headers: {
+              Authorization: `Basic ${auth}`,
+              Accept: 'application/json',
+            },
+          })
+        }
+
+        if (response.ok) break
+
+        // collect text for diagnostics and continue to next endpoint
+        const text = await response.text()
+        lastErrorText = `url=${ep.url} status=${response.status} body=${text}`
+        console.warn('[Jira API] non-OK response:', lastErrorText)
+        // If 410 specifically returned, keep the text so we can show it to the client
+      } catch (innerErr) {
+        console.error('[Jira API] request error for endpoint', ep.url, innerErr)
+        lastErrorText = innerErr instanceof Error ? innerErr.message : String(innerErr)
+      }
+    }
+
+    if (!response || !response.ok) {
+      // Return the last captured error text; this includes Jira's JSON body when available.
+      return res.status(response ? response.status : 500).json({ error: 'Failed to fetch Jira issues', details: lastErrorText })
     }
 
     const data = await response.json() as any

@@ -111,12 +111,31 @@ export default function ManagerGantt({ tasks }: ManagerGanttProps) {
 
     const assigneeNames = Object.keys(byAssignee).sort()
     
-    // Create color map based on PROJECT KEY, not assignee name
-    const projectKeys = [...new Set(tasks.map(t => t.key))].sort()
+    // Create color map based on a derived PROJECT identifier per task.
+    // Prefer explicit project/projectId fields; fall back to Jira-style key prefix (PROJ-123 => PROJ).
+    const deriveProjectKey = (t: TaskWithDates) => {
+      const anyT: any = t as any
+      if (anyT.project) return String(anyT.project)
+      if (anyT.projectId) return String(anyT.projectId)
+      if (anyT.project_key) return String(anyT.project_key)
+      if (anyT.projectKey) return String(anyT.projectKey)
+      // If key looks like PROJ-123 (Jira style), use prefix
+      if (typeof t.key === 'string' && t.key.includes('-')) return t.key.split('-')[0]
+      return ''
+    }
+
+    const derivedKeys = tasks.map(t => deriveProjectKey(t as TaskWithDates)).filter(k => !!k)
+    const uniqueProjectKeys = [...new Set(derivedKeys)]
     const colorMap: { [key: string]: ColorGradient } = {}
-    projectKeys.forEach((projectKey, idx) => {
-      colorMap[projectKey] = assigneeColors[idx % assigneeColors.length]
-    })
+
+    if (uniqueProjectKeys.length === 0) {
+      // No project identifiers found — assign a single color for the whole view
+      colorMap['__single_project__'] = assigneeColors[0]
+    } else {
+      uniqueProjectKeys.forEach((projectKey, idx) => {
+        colorMap[projectKey] = assigneeColors[idx % assigneeColors.length]
+      })
+    }
 
     const assignees: AssigneeData[] = assigneeNames.map(name => ({
       name,
@@ -293,7 +312,20 @@ export default function ManagerGantt({ tasks }: ManagerGanttProps) {
                     const leftPx = startCol * cellWidth
                     const widthPx = spanCols * cellWidth
                     
-                    const colors = colorMap[task.key]
+                    // resolve project key for this task
+                    const resolveProjectKey = (t: TaskWithDates) => {
+                      const anyT: any = t as any
+                      if (anyT.project) return String(anyT.project)
+                      if (anyT.projectId) return String(anyT.projectId)
+                      if (anyT.project_key) return String(anyT.project_key)
+                      if (anyT.projectKey) return String(anyT.projectKey)
+                      if (typeof t.key === 'string' && t.key.includes('-')) return t.key.split('-')[0]
+                      return ''
+                    }
+
+                    let projectKeyForTask = resolveProjectKey(task)
+                    if (!projectKeyForTask) projectKeyForTask = '__single_project__'
+                    const colors = colorMap[projectKeyForTask] || assigneeColors[0]
 
                     return (
                       <div

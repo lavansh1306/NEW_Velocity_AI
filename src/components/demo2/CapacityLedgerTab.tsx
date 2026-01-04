@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import type { AsanaTask, TeamMember, ProjectAnalytics } from '@/lib/dataService';
 
 interface Props {
@@ -75,6 +75,452 @@ function mapRoleToTeam(role: string): string {
 }
 
 export default function CapacityLedgerTab({ projectId, asanaTasks = [], teamMembers = [], projectAnalytics = null }: Props) {
+  const [allProjectsBlocked, setAllProjectsBlocked] = useState<number | null>(null)
+  const [loadingAllProjects, setLoadingAllProjects] = useState(false)
+  const [projectTasks, setProjectTasks] = useState<any[]>([])
+  const [projectIdleHours, setProjectIdleHours] = useState<number | null>(null)
+  const [endpointDebug, setEndpointDebug] = useState<Array<{url: string; ok?: boolean; status?: number; body?: string; tag?: string}>>([])
+  const [perProjectBlocked, setPerProjectBlocked] = useState<Array<{ key: string; title?: string; source: 'jira'|'asana'; hours: number }>>([])
+  const [perAssigneeBlocked, setPerAssigneeBlocked] = useState<Array<{ assignee: string; hours: number }>>([])
+
+  // If no specific project is selected (or you want a global total), fetch all projects
+  // from Jira and Asana, then sum their estimated blocked hours.
+  useEffect(() => {
+    let cancelled = false
+    async function fetchAllAndCompute() {
+      setLoadingAllProjects(true)
+      try {
+        const msPerDay = 24 * 60 * 60 * 1000
+        let totalBlocked = 0
+        // collect per-project and per-assignee across Jira + Asana
+        const localPerProject: Array<{ key: string; title?: string; source: 'jira'|'asana'; hours: number }> = []
+        const assigneeMap = new Map<string, number>()
+
+        // Fetch Jira projects
+        try {
+          let jiraCount = 0
+          let jiraHours = 0
+          const pjRes = await fetch('/api/projects')
+          setEndpointDebug((prev) => [...prev, { url: '/api/projects', ok: pjRes.ok, status: pjRes.status, tag: 'global-projects' }])
+          if (pjRes.ok) {
+            const pjData = await pjRes.json()
+            const projects = pjData.projects || []
+            for (const p of projects) {
+              try {
+                let projectBlocked = 0
+                const issuesRes = await fetch(`/api/issues?projectKey=${encodeURIComponent(p.key)}`)
+                if (!issuesRes.ok) {
+                  try {
+                    const txt = await issuesRes.text()
+                    console.error(`[CapacityLedger][Global] Failed to fetch /api/issues url=/api/issues?projectKey=${encodeURIComponent(p.key)} status=${issuesRes.status} body=${txt}`)
+                    setEndpointDebug((prev) => [...prev, { url: `/api/issues?projectKey=${encodeURIComponent(p.key)}`, ok: false, status: issuesRes.status, body: txt, tag: 'global-issues' }])
+                  } catch (e) {
+                    console.error(`[CapacityLedger][Global] Failed to fetch /api/issues url=/api/issues?projectKey=${encodeURIComponent(p.key)} status=${issuesRes.status} (no body)`)
+                    setEndpointDebug((prev) => [...prev, { url: `/api/issues?projectKey=${encodeURIComponent(p.key)}`, ok: false, status: issuesRes.status, tag: 'global-issues' }])
+                  }
+                  continue
+                }
+                const issuesJson = await issuesRes.json()
+                setEndpointDebug((prev) => [...prev, { url: `/api/issues?projectKey=${encodeURIComponent(p.key)}`, ok: true, status: issuesRes.status, tag: 'global-issues' }])
+                const issues = issuesJson.issues || []
+                // Build per-assignee intervals for this project (UTC-normalized)
+                const byAssigneeProj: Record<string, Array<{ s: number; e: number }>> = {}
+                const startOfDayUTC = (d: any) => {
+                  const dd = new Date(d)
+                  return Date.UTC(dd.getFullYear(), dd.getMonth(), dd.getDate())
+                }
+                const businessDaysBetween = (startMs: number, endMs: number) => {
+                  let count = 0
+                  for (let cur = startMs; cur < endMs; cur += msPerDay) {
+                    const dow = new Date(cur).getUTCDay()
+                    if (dow !== 0 && dow !== 6) count++
+                  }
+                  return count
+                }
+
+                for (const it of issues) {
+                  const sourceStart = it.created || it.start || null
+                  const s = startOfDayUTC(sourceStart || new Date())
+                  const e = startOfDayUTC(it.due || it.due_date || sourceStart || new Date()) + msPerDay
+                  const assigneeKey = (it.assignee || 'Unassigned')
+                  if (!byAssigneeProj[assigneeKey]) byAssigneeProj[assigneeKey] = []
+                  byAssigneeProj[assigneeKey].push({ s, e })
+                  jiraCount++
+                  // estimate hours for debug metrics (not used for block calculation)
+                  let est = HOURS_PER_TASK
+                  if (sourceStart && it.due) {
+                    const parsed = parseDaysToHours(sourceStart, it.due)
+                    if (parsed !== null) est = parsed
+                  }
+                  jiraHours += est
+                }
+
+                // Now compute idle (blocked) days per assignee using merged intervals clipped to working window
+                const DEFAULT_WORKING_START = new Date('2025-12-01T00:00:00Z')
+                const DEFAULT_WORKING_END = new Date('2026-01-01T00:00:00Z')
+                const workingStartMs = Date.UTC(DEFAULT_WORKING_START.getUTCFullYear(), DEFAULT_WORKING_START.getUTCMonth(), DEFAULT_WORKING_START.getUTCDate())
+                const workingEndMs = Date.UTC(DEFAULT_WORKING_END.getUTCFullYear(), DEFAULT_WORKING_END.getUTCMonth(), DEFAULT_WORKING_END.getUTCDate()) + msPerDay
+                const totalWindowDays = Math.max(0, businessDaysBetween(workingStartMs, workingEndMs))
+
+                let totalIdleDaysForProject = 0
+                for (const assignee of Object.keys(byAssigneeProj)) {
+                  const intervals = byAssigneeProj[assignee].slice().sort((a, b) => a.s - b.s)
+                  const merged: Array<{ s: number; e: number }> = []
+                  for (const intv of intervals) {
+                    if (merged.length === 0) merged.push({ ...intv })
+                    else {
+                      const last = merged[merged.length - 1]
+                      if (intv.s <= last.e) last.e = Math.max(last.e, intv.e)
+                      else merged.push({ ...intv })
+                    }
+                  }
+
+                  let occupied = 0
+                  for (const m of merged) {
+                    const clipStart = Math.max(m.s, workingStartMs)
+                    const clipEnd = Math.min(m.e, workingEndMs)
+                    if (clipEnd <= clipStart) continue
+                    occupied += businessDaysBetween(clipStart, clipEnd)
+                  }
+
+                  const idleDays = Math.max(0, totalWindowDays - occupied)
+                  totalIdleDaysForProject += idleDays
+                  // convert to hours and add to global per-assignee map
+                  const assigneeHours = Math.round(idleDays * 8)
+                  assigneeMap.set(assignee, (assigneeMap.get(assignee) || 0) + assigneeHours)
+                }
+
+                const projectBlockedHours = Math.round(totalIdleDaysForProject * 8 * 10) / 10
+                totalBlocked += projectBlockedHours
+                // store per-project blocked hours for UI debug
+                localPerProject.push({ key: p.key, title: p.title, source: 'jira', hours: projectBlockedHours })
+              } catch (err) {
+                // ignore per-project errors
+              }
+            }
+          }
+          // attach debug info for global Jira fetch
+          console.debug('[CapacityLedger][Global] Jira projects scanned', { jiraCount, jiraHours })
+        } catch (err) {
+          // ignore
+        }
+
+        // Fetch Asana projects
+        try {
+          let asanaCount = 0
+          let asanaHours = 0
+          const aRes = await fetch('/api/asana/projects')
+          setEndpointDebug((prev) => [...prev, { url: '/api/asana/projects', ok: aRes.ok, status: aRes.status, tag: 'global-asana-projects' }])
+          if (aRes.ok) {
+            const aData = await aRes.json()
+            const projects = aData.projects || []
+              for (const p of projects) {
+                try {
+                  let projectBlocked = 0
+                  const tasksRes = await fetch(`/api/asana/issues?projectKey=${encodeURIComponent(p.id)}`)
+                if (!tasksRes.ok) {
+                  try {
+                    const txt = await tasksRes.text()
+                    console.error(`[CapacityLedger][Global] Failed to fetch /api/asana/issues url=/api/asana/issues?projectKey=${encodeURIComponent(p.id)} status=${tasksRes.status} body=${txt}`)
+                    setEndpointDebug((prev) => [...prev, { url: `/api/asana/issues?projectKey=${encodeURIComponent(p.id)}`, ok: false, status: tasksRes.status, body: txt, tag: 'global-asana-issues' }])
+                  } catch (e) {
+                    console.error(`[CapacityLedger][Global] Failed to fetch /api/asana/issues url=/api/asana/issues?projectKey=${encodeURIComponent(p.id)} status=${tasksRes.status} (no body)`)
+                    setEndpointDebug((prev) => [...prev, { url: `/api/asana/issues?projectKey=${encodeURIComponent(p.id)}`, ok: false, status: tasksRes.status, tag: 'global-asana-issues' }])
+                  }
+                  continue
+                }
+                const tasksJson = await tasksRes.json()
+                setEndpointDebug((prev) => [...prev, { url: `/api/asana/issues?projectKey=${encodeURIComponent(p.id)}`, ok: true, status: tasksRes.status, tag: 'global-asana-issues' }])
+                const tasks = tasksJson.issues || []
+                // Build per-assignee intervals for this Asana project
+                const byAssigneeProjA: Record<string, Array<{ s: number; e: number }>> = {}
+                const startOfDayUTC = (d: any) => {
+                  const dd = new Date(d)
+                  return Date.UTC(dd.getFullYear(), dd.getMonth(), dd.getDate())
+                }
+                const businessDaysBetween = (startMs: number, endMs: number) => {
+                  let count = 0
+                  for (let cur = startMs; cur < endMs; cur += msPerDay) {
+                    const dow = new Date(cur).getUTCDay()
+                    if (dow !== 0 && dow !== 6) count++
+                  }
+                  return count
+                }
+
+                for (const t of tasks) {
+                  const sourceStart = t.startDate || t.start || t.created || null
+                  const s = startOfDayUTC(sourceStart || new Date())
+                  const e = startOfDayUTC(t.due || t.due_on || sourceStart || new Date()) + msPerDay
+                  const assigneeKey = (t.assignee || t.finalAssignee || 'Unassigned')
+                  if (!byAssigneeProjA[assigneeKey]) byAssigneeProjA[assigneeKey] = []
+                  byAssigneeProjA[assigneeKey].push({ s, e })
+                  asanaCount++
+                  // estimate hours for debug metrics
+                  let est = HOURS_PER_TASK
+                  if (sourceStart && t.due) {
+                    const parsed = parseDaysToHours(sourceStart, t.due)
+                    if (parsed !== null) est = parsed
+                  }
+                  asanaHours += est
+                }
+
+                // compute idle days per assignee for Asana project using same working window
+                const DEFAULT_WORKING_START = new Date('2025-12-01T00:00:00Z')
+                const DEFAULT_WORKING_END = new Date('2026-01-01T00:00:00Z')
+                const workingStartMs = Date.UTC(DEFAULT_WORKING_START.getUTCFullYear(), DEFAULT_WORKING_START.getUTCMonth(), DEFAULT_WORKING_START.getUTCDate())
+                const workingEndMs = Date.UTC(DEFAULT_WORKING_END.getUTCFullYear(), DEFAULT_WORKING_END.getUTCMonth(), DEFAULT_WORKING_END.getUTCDate()) + msPerDay
+                const totalWindowDays = Math.max(0, businessDaysBetween(workingStartMs, workingEndMs))
+
+                let totalIdleDaysForProjectA = 0
+                for (const assignee of Object.keys(byAssigneeProjA)) {
+                  const intervals = byAssigneeProjA[assignee].slice().sort((a, b) => a.s - b.s)
+                  const merged: Array<{ s: number; e: number }> = []
+                  for (const intv of intervals) {
+                    if (merged.length === 0) merged.push({ ...intv })
+                    else {
+                      const last = merged[merged.length - 1]
+                      if (intv.s <= last.e) last.e = Math.max(last.e, intv.e)
+                      else merged.push({ ...intv })
+                    }
+                  }
+
+                  let occupied = 0
+                  for (const m of merged) {
+                    const clipStart = Math.max(m.s, workingStartMs)
+                    const clipEnd = Math.min(m.e, workingEndMs)
+                    if (clipEnd <= clipStart) continue
+                    occupied += businessDaysBetween(clipStart, clipEnd)
+                  }
+
+                  const idleDays = Math.max(0, totalWindowDays - occupied)
+                  totalIdleDaysForProjectA += idleDays
+                  const assigneeHours = Math.round(idleDays * 8)
+                  assigneeMap.set(assignee, (assigneeMap.get(assignee) || 0) + assigneeHours)
+                }
+
+                const projectBlockedHoursA = Math.round(totalIdleDaysForProjectA * 8 * 10) / 10
+                totalBlocked += projectBlockedHoursA
+                localPerProject.push({ key: p.id, title: p.title, source: 'asana', hours: projectBlockedHoursA })
+              } catch (err) {
+                // ignore per-project errors
+              }
+            }
+          }
+          // attach debug info for global Asana fetch
+          console.debug('[CapacityLedger][Global] Asana projects scanned', { asanaCount, asanaHours })
+        } catch (err) {
+          // ignore
+        }
+
+        if (!cancelled) {
+          setAllProjectsBlocked(Math.round(totalBlocked * 10) / 10)
+          // update per-project list in state for UI
+          setPerProjectBlocked(localPerProject)
+          // update per-assignee list in state, sorted desc
+          const assigneeArr = Array.from(assigneeMap.entries()).map(([assignee, hours]) => ({ assignee, hours: Math.round(hours * 10) / 10 }))
+          assigneeArr.sort((a, b) => b.hours - a.hours)
+          setPerAssigneeBlocked(assigneeArr)
+          console.debug('[CapacityLedger][Global] totalBlocked hours', { totalBlocked: Math.round(totalBlocked * 10) / 10 })
+          console.debug('[CapacityLedger][Global] perProjectBlocked', localPerProject)
+          console.debug('[CapacityLedger][Global] perAssigneeBlocked', assigneeArr)
+        }
+      } finally {
+        if (!cancelled) setLoadingAllProjects(false)
+      }
+    }
+
+    // Only fetch global totals when no specific project is provided
+    if (!projectId) fetchAllAndCompute()
+
+    return () => { cancelled = true }
+  }, [projectId])
+
+  // When a specific projectId is provided and no asanaTasks prop passed,
+  // fetch project tasks from both Jira and Asana so per-project totals include Jira data.
+  useEffect(() => {
+    let cancelled = false
+    async function fetchProjectTasks() {
+      if (!projectId) {
+        setProjectTasks([])
+        return
+      }
+      const aggregated: any[] = []
+      try {
+        // Try Jira issues for this project
+        try {
+          const res = await fetch(`/api/issues?projectKey=${encodeURIComponent(projectId)}`)
+          setEndpointDebug((prev) => [...prev, { url: `/api/issues?projectKey=${encodeURIComponent(projectId)}`, ok: res.ok, status: res.status, tag: 'project-issues' }])
+          if (!res.ok) {
+            try {
+              const txt = await res.text()
+              console.error(`[CapacityLedger][Project] Failed to fetch /api/issues projectId=${projectId} status=${res.status} body=${txt}`)
+              setEndpointDebug((prev) => [...prev, { url: `/api/issues?projectKey=${encodeURIComponent(projectId)}`, ok: false, status: res.status, body: txt, tag: 'project-issues' }])
+            } catch (e) {
+              console.error(`[CapacityLedger][Project] Failed to fetch /api/issues projectId=${projectId} status=${res.status} (no body)`)
+              setEndpointDebug((prev) => [...prev, { url: `/api/issues?projectKey=${encodeURIComponent(projectId)}`, ok: false, status: res.status, tag: 'project-issues' }])
+            }
+          } else {
+            const j = await res.json()
+            setEndpointDebug((prev) => [...prev, { url: `/api/issues?projectKey=${encodeURIComponent(projectId)}`, ok: true, status: res.status, tag: 'project-issues' }])
+            const issues = j.issues || []
+            for (const it of issues) {
+                aggregated.push({
+                  source: 'jira',
+                  assignee: it.assignee || 'Unassigned',
+                  task_name: it.summary || it.key || '',
+                  is_automation: false,
+                  status: it.status || '',
+                  from_status: '',
+                  to_status: '',
+                  action: '',
+                  startDate: it.created || null,
+                  due: it.due || null,
+                  created: it.created || null,
+                })
+            }
+          }
+        } catch (err) {
+          // ignore
+        }
+
+        // Try Asana tasks for this project
+        try {
+          const res2 = await fetch(`/api/asana/issues?projectKey=${encodeURIComponent(projectId)}`)
+          setEndpointDebug((prev) => [...prev, { url: `/api/asana/issues?projectKey=${encodeURIComponent(projectId)}`, ok: res2.ok, status: res2.status, tag: 'project-asana-issues' }])
+          if (!res2.ok) {
+            try {
+              const txt = await res2.text()
+              console.error(`[CapacityLedger][Project] Failed to fetch /api/asana/issues projectId=${projectId} status=${res2.status} body=${txt}`)
+              setEndpointDebug((prev) => [...prev, { url: `/api/asana/issues?projectKey=${encodeURIComponent(projectId)}`, ok: false, status: res2.status, body: txt, tag: 'project-asana-issues' }])
+            } catch (e) {
+              console.error(`[CapacityLedger][Project] Failed to fetch /api/asana/issues projectId=${projectId} status=${res2.status} (no body)`)
+              setEndpointDebug((prev) => [...prev, { url: `/api/asana/issues?projectKey=${encodeURIComponent(projectId)}`, ok: false, status: res2.status, tag: 'project-asana-issues' }])
+            }
+          } else {
+            const j2 = await res2.json()
+            setEndpointDebug((prev) => [...prev, { url: `/api/asana/issues?projectKey=${encodeURIComponent(projectId)}`, ok: true, status: res2.status, tag: 'project-asana-issues' }])
+            const tasks = j2.issues || []
+            for (const t of tasks) {
+              aggregated.push({
+                source: 'asana',
+                ...t,
+                task_name: t.summary || t.task_name || '',
+                startDate: t.startDate || t.start || t.created || null,
+                created: t.created || null,
+              })
+            }
+          }
+        } catch (err) {
+          // ignore
+        }
+              if (!cancelled) {
+                setProjectTasks(aggregated)
+                // compute simple per-source counts and estimated hours and log for debugging
+                try {
+                  let jiraCount = 0
+                  let asanaCount = 0
+                  let jiraHours = 0
+                  let asanaHours = 0
+                  for (const it of aggregated) {
+                    const s = it.startDate || it.start || it.created || null
+                    const e = it.due || it.due_on || it.dueDate || null
+                    let est = HOURS_PER_TASK
+                    if (s && e) {
+                      const parsed = parseDaysToHours(s, e)
+                      if (parsed !== null) est = parsed
+                    }
+                    if (it.source === 'jira') {
+                      jiraCount++
+                      jiraHours += est
+                    } else if (it.source === 'asana') {
+                      asanaCount++
+                      asanaHours += est
+                    }
+                  }
+                  console.debug('[CapacityLedger][Project]', { projectId, jiraCount, jiraHours: Math.round(jiraHours*10)/10, asanaCount, asanaHours: Math.round(asanaHours*10)/10, totalTasks: aggregated.length })
+                } catch (err) {
+                  // ignore
+                }
+              }
+      } finally {
+        if (!cancelled) {
+          setProjectTasks(aggregated)
+          // compute idle hours (free time) from the aggregated tasks to match ManagerSummary logic
+          try {
+            const MS_PER_DAY = 24 * 60 * 60 * 1000
+            const startOfDayUTC = (d: any) => {
+              const dd = new Date(d)
+              return Date.UTC(dd.getFullYear(), dd.getMonth(), dd.getDate())
+            }
+            const businessDaysBetween = (startMs: number, endMs: number) => {
+              let count = 0
+              for (let cur = startMs; cur < endMs; cur += MS_PER_DAY) {
+                const dow = new Date(cur).getUTCDay()
+                if (dow !== 0 && dow !== 6) count++
+              }
+              return count
+            }
+
+            const DEFAULT_WORKING_START = new Date('2025-12-01T00:00:00Z')
+            const DEFAULT_WORKING_END = new Date('2026-01-01T00:00:00Z')
+
+            const byAssignee: Record<string, Array<{ s: number; e: number }>> = {}
+            for (const t of aggregated) {
+              const assignee = (t.assignee || 'Unassigned') as string
+              const sourceStart = t.startDate || t.start || t.created || null
+              const s = startOfDayUTC(sourceStart || new Date())
+              const e = startOfDayUTC(t.due || t.due_on || t.dueDate || sourceStart || new Date()) + MS_PER_DAY
+              if (!byAssignee[assignee]) byAssignee[assignee] = []
+              byAssignee[assignee].push({ s, e })
+            }
+
+            let totalIdleDays = 0
+            const workingStartMs = Date.UTC(DEFAULT_WORKING_START.getUTCFullYear(), DEFAULT_WORKING_START.getUTCMonth(), DEFAULT_WORKING_START.getUTCDate())
+            const workingEndMs = Date.UTC(DEFAULT_WORKING_END.getUTCFullYear(), DEFAULT_WORKING_END.getUTCMonth(), DEFAULT_WORKING_END.getUTCDate()) + MS_PER_DAY
+            const totalWindowDays = Math.max(0, businessDaysBetween(workingStartMs, workingEndMs))
+
+            for (const assignee of Object.keys(byAssignee)) {
+              const intervals = byAssignee[assignee].slice().sort((a, b) => a.s - b.s)
+              const merged: Array<{ s: number; e: number }> = []
+              for (const intv of intervals) {
+                if (merged.length === 0) {
+                  merged.push({ ...intv })
+                } else {
+                  const last = merged[merged.length - 1]
+                  if (intv.s <= last.e) last.e = Math.max(last.e, intv.e)
+                  else merged.push({ ...intv })
+                }
+              }
+
+              // occupied business days clipped to working window
+              let occupied = 0
+              for (const m of merged) {
+                const clipStart = Math.max(m.s, workingStartMs)
+                const clipEnd = Math.min(m.e, workingEndMs)
+                if (clipEnd <= clipStart) continue
+                occupied += businessDaysBetween(clipStart, clipEnd)
+              }
+
+              const idleDays = Math.max(0, totalWindowDays - occupied)
+              totalIdleDays += idleDays
+            }
+
+            const idleHours = Math.round(totalIdleDays * 8)
+            setProjectIdleHours(idleHours)
+          } catch (err) {
+            setProjectIdleHours(null)
+          }
+        }
+      }
+    }
+
+    fetchProjectTasks()
+    return () => { cancelled = true }
+  }, [projectId])
+
+  // Choose tasks source: prefer `asanaTasks` prop when provided, otherwise use fetched `projectTasks` (which includes Jira+Asana for the selected project)
+  const tasksForCalc = (asanaTasks && asanaTasks.length > 0) ? asanaTasks : projectTasks
+
   const byTeam = useMemo(() => {
     const map = new Map<string, { team: string; total: number; blocked: number; fractional: number; members: Set<string>; blockedBy: Map<string, number>; representative?: { name: string; role: string } }>();
 
@@ -176,7 +622,7 @@ export default function CapacityLedgerTab({ projectId, asanaTasks = [], teamMemb
       return blocked;
     };
 
-    for (const task of asanaTasks) {
+    for (const task of tasksForCalc) {
       const rawAssignee = task.assignee ?? '';
       const resolvedName = resolveAssigneeToken(rawAssignee) || 'Unassigned';
 
@@ -264,7 +710,7 @@ export default function CapacityLedgerTab({ projectId, asanaTasks = [], teamMemb
     }));
     arr.sort((a, b) => b.total - a.total);
     return arr;
-  }, [asanaTasks, teamMembers, projectAnalytics]);
+  }, [tasksForCalc, teamMembers, projectAnalytics]);
 
   const totals = useMemo(() => {
     const t = { total: 0, blocked: 0, fractional: 0 };
@@ -298,14 +744,66 @@ export default function CapacityLedgerTab({ projectId, asanaTasks = [], teamMemb
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-6">
+      {endpointDebug.length > 0 && (
+        <div className="mt-4 bg-gray-50 rounded p-3 mb-6 text-xs">
+          <div className="font-medium text-sm mb-2">Debug: endpoint statuses (recent)</div>
+          <div className="space-y-2 max-h-48 overflow-auto">
+            {endpointDebug.slice(-30).reverse().map((e, i) => (
+              <div key={i} className="text-left">
+                <div>
+                  <span className="font-mono">{e.url}</span>
+                  <span className="ml-2">{e.ok ? <span className="text-green-600">OK</span> : <span className="text-red-600">FAIL</span>} ({e.status ?? '—'})</span>
+                  <span className="ml-2 text-gray-500">{e.tag ?? ''}</span>
+                </div>
+                {e.body && (
+                  <pre className="whitespace-pre-wrap text-xs text-red-700 mt-1 break-words">{e.body}</pre>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+        {perProjectBlocked.length > 0 && (
+          <div className="mt-2 bg-white border rounded p-3 text-sm">
+            <div className="font-medium mb-2">Per-project Blocked Hours</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              {perProjectBlocked.map((p) => (
+                <div key={`${p.source}-${p.key}`} className="p-2 border rounded bg-gray-50">
+                  <div className="text-gray-700 font-semibold">{p.title ?? p.key} <span className="text-gray-400">({p.source})</span></div>
+                  <div className="text-green-600 font-bold">{p.hours} hrs</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {perAssigneeBlocked.length > 0 && (
+          <div className="mt-4 bg-white border rounded p-3 text-sm">
+            <div className="font-medium mb-2">Blocked Hours by Individual</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              {perAssigneeBlocked.map((p) => (
+                <div key={p.assignee} className="p-2 border rounded bg-gray-50">
+                  <div className="text-gray-700 font-semibold">{p.assignee}</div>
+                  <div className="text-green-600 font-bold">{p.hours} hrs</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-6">
         <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-lg p-4 sm:p-6 text-white">
-          <div className="text-xs sm:text-sm opacity-90 mb-1">Block Capacity (This Project)</div>
-          <div className="text-3xl sm:text-4xl font-bold">{totals.blocked.toFixed(1)} hrs</div>
-          <div className="text-xs sm:text-sm mt-2 opacity-75">Detected from task statuses and time ranges</div>
+          <div className="text-xs sm:text-sm opacity-90 mb-1">{!projectId ? 'Block Capacity (All Projects)' : 'Block Capacity (This Project)'}</div>
+          <div className="text-3xl sm:text-4xl font-bold">{!projectId ? (
+            loadingAllProjects ? '...' : (allProjectsBlocked !== null ? `${allProjectsBlocked} hrs` : `${totals.blocked.toFixed(1)} hrs`)
+          ) : (
+            projectIdleHours !== null ? `${projectIdleHours} hrs` : `${totals.blocked.toFixed(1)} hrs`
+          )}</div>
+          <div className="text-xs sm:text-sm mt-2 opacity-75">Detected from task statuses and time ranges{!projectId ? ' (aggregated across Jira + Asana)' : ''}</div>
         </div>
         <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg p-4 sm:p-6 text-white">
-          <div className="text-xs sm:text-sm opacity-90 mb-1">Fractional Capacity (This Project)</div>
+          <div className="text-xs sm:text-sm opacity-90 mb-1">AI-SAVED TIME (This Project)</div>
           <div className="text-3xl sm:text-4xl font-bold">{totals.fractional.toFixed(1)} hrs</div>
           <div className="text-xs sm:text-sm mt-2 opacity-75">Estimated where automation reduces per-task human time</div>
         </div>

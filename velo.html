@@ -663,7 +663,7 @@
                         </div>
                         <div>
                             <div class="flex justify-between mb-2">
-                                <span class="text-sm font-semibold text-gray-700">Fractional Capacity</span>
+                                <span class="text-sm font-semibold text-gray-700">AI-SAVED TIME</span>
                                 <span class="text-sm font-bold text-blue-600">32.3 hours</span>
                             </div>
                             <div class="w-full bg-gray-100 rounded-full h-3">
@@ -1027,7 +1027,7 @@
                     <div class="text-sm mt-2 opacity-75">From 4,328 automated executions</div>
                 </div>
                 <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg p-6 text-white">
-                    <div class="text-sm opacity-90 mb-1">Fractional Capacity (This Week)</div>
+                    <div class="text-sm opacity-90 mb-1">AI-SAVED TIME (This Week)</div>
                     <div class="text-4xl font-bold">32.3 hrs</div>
                     <div class="text-sm mt-2 opacity-75">From efficiency improvements</div>
                 </div>
@@ -1745,14 +1745,14 @@
             
             console.log(`Block Capacity Minted: ${blockCapacityHours.toFixed(1)} hours`);
             
-            // Fractional Capacity Calculation
+            // AI-SAVED TIME Calculation
             // Formula: Deviation from historical baseline
             const meetingDurationSaved = 25; // minutes per meeting
             const meetingsOptimized = 68;
             const attendeesAvg = 4;
             const fractionalCapacityHours = (meetingDurationSaved * meetingsOptimized * attendeesAvg) / 60;
             
-            console.log(`Fractional Capacity Minted: ${fractionalCapacityHours.toFixed(1)} hours`);
+            console.log(`AI-SAVED TIME Minted: ${fractionalCapacityHours.toFixed(1)} hours`);
             
             // Total Capacity
             const totalCapacity = blockCapacityHours + fractionalCapacityHours;
