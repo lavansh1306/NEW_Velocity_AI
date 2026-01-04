@@ -126,6 +126,8 @@ export interface ProjectItem {
   image: string;
   tags: string[];
   color: string;
+  // runtime source marker: 'jira' | 'asana' | 'local'
+  source?: 'jira' | 'asana' | 'local';
 }
 
 // Fallback metadata (could be moved to a separate JSON file)
@@ -170,61 +172,74 @@ const projectImages: Record<string, string> = {
 // ========================================
 
 /**
- * Load list of projects from projects-analytics.csv
+ * Load list of projects from live integrations only (Jira + Asana).
+ * This function no longer reads CSV fallbacks — projects are fetched
+ * from `/api/projects` (Jira) and `/api/asana/projects` (Asana).
  */
 export async function loadProjects(): Promise<ProjectItem[]> {
-  // Try to fetch projects from backend (which can proxy Jira). Fall back to CSV when unavailable.
-  try {
-    const resp = await fetch('/api/projects')
-    if (resp.ok) {
-      const data = await resp.json()
-      const pj = (data.projects || []) as any[]
-      if (pj.length > 0) {
-        return pj.map(p => ({
-          id: p.id || p.key,
-          title: p.title || p.name || p.key,
-          category: p.category || 'Project',
-          description: p.description || projectDescriptions[p.id] || '',
-          image: p.avatar || projectImages[p.id] || projectImages['1'],
-          tags: projectTags[p.id] || [],
-          color: projectColors[p.id] || '#6366f1',
-        }))
-      }
+  // Fetch Jira and Asana project lists in parallel. If one fails, continue with the other.
+  const [jiraRes, asanaRes] = await Promise.all([
+    fetch('/api/projects').catch(() => null),
+    fetch('/api/asana/projects').catch(() => null),
+  ]);
+
+  let jiraList: any[] = [];
+  let asanaList: any[] = [];
+
+  if (jiraRes && jiraRes.ok) {
+    try {
+      const data = await jiraRes.json();
+      jiraList = data.projects || [];
+    } catch (e) {
+      jiraList = [];
     }
-  } catch (e) {
-    // ignore and fall back to CSV
-    // console.warn('Failed to fetch projects from API, falling back to CSV', e)
   }
 
-  // Fallback: load from CSV in public/data
-  const csvText = await fetchCSV('/data/projects-analytics.csv');
-  const lines = csvText.trim().split('\n');
-  if (lines.length < 2) return [];
+  if (asanaRes && asanaRes.ok) {
+    try {
+      const data = await asanaRes.json();
+      asanaList = data.projects || [];
+    } catch (e) {
+      asanaList = [];
+    }
+  }
 
-  const projects: ProjectItem[] = [];
+  const normalized: ProjectItem[] = [];
 
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i];
-    // Format: id,name,category,"json_data"
-    const match = line.match(/^([^,]+),([^,]+),([^,]+),/);
-    if (!match) continue;
-
-    const id = match[1].trim();
-    const title = match[2].trim();
-    const category = match[3].trim();
-
-    projects.push({
+  // Normalize Jira projects first
+  for (const p of jiraList) {
+    const id = p.key || p.id || String(p.id || '');
+    normalized.push({
       id,
-      title,
-      category,
-      description: projectDescriptions[id] ?? 'Project details not available.',
-      image: projectImages[id] ?? 'https://images.unsplash.com/photo-1556740738-b6a63e27c4df?w=1200&h=800&fit=crop',
-      tags: projectTags[id] ?? [],
-      color: projectColors[id] ?? '#6366f1',
-    });
+      title: p.title || p.name || p.key || id,
+      category: p.category || p.projectTypeKey || 'Project',
+      description: p.description ? (typeof p.description === 'string' ? p.description : JSON.stringify(p.description)) : projectDescriptions[id] || '',
+      image: p.avatar || p.avatarUrls?.['48x48'] || projectImages[id] || projectImages['1'],
+      tags: projectTags[id] || [],
+      color: projectColors[id] || '#6366f1',
+      // @ts-ignore - add runtime marker for consumers
+      source: 'jira',
+    } as unknown as ProjectItem);
   }
 
-  return projects;
+  // Normalize Asana projects, avoid duplicates by id
+  for (const p of asanaList) {
+    const id = p.id || p.gid || String(p.gid || '');
+    if (normalized.some((x) => x.id === id)) continue;
+    normalized.push({
+      id,
+      title: p.title || p.name || String(p.name || id),
+      category: p.category || 'Asana',
+      description: p.description || p.notes || projectDescriptions[id] || '',
+      image: p.avatar || p.photo || projectImages[id] || projectImages['1'],
+      tags: projectTags[id] || [],
+      color: projectColors[id] || '#fb923c',
+      // @ts-ignore - add runtime marker for consumers
+      source: 'asana',
+    } as unknown as ProjectItem);
+  }
+
+  return normalized;
 }
 
 /**

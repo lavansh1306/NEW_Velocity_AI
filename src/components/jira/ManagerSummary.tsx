@@ -63,6 +63,10 @@ export default function ManagerSummary({ tasks }: ManagerSummaryProps) {
   }
 
   
+  // Default working window used in the availability panel
+  const DEFAULT_WORKING_START = new Date('2025-12-01T00:00:00Z')
+  const DEFAULT_WORKING_END = new Date('2026-01-01T00:00:00Z')
+
   const { byAssignee, weeks, tasksPerWeekPerAssignee, totals, idleDaysByAssignee } = useMemo(() => {
     const byAssignee: { [key: string]: Issue[] } = {}
     const normalizeDate = (d: Date | string): Date => {
@@ -111,16 +115,7 @@ export default function ManagerSummary({ tasks }: ManagerSummaryProps) {
       return Date.UTC(dd.getFullYear(), dd.getMonth(), dd.getDate())
     }
 
-    // Count business days (Mon-Fri) between two UTC-midnight ms values.
-    const businessDaysBetween = (startMs: number, endMs: number) => {
-      const msPerDayLocal = 24 * 60 * 60 * 1000
-      let count = 0
-      for (let cur = startMs; cur < endMs; cur += msPerDayLocal) {
-        const dow = new Date(cur).getUTCDay()
-        if (dow !== 0 && dow !== 6) count++
-      }
-      return count
-    }
+    // use the module-level businessDaysBetween (excludes weekends)
 
     Object.keys(byAssignee).forEach(assignee => {
       const intervals = byAssignee[assignee]
@@ -153,11 +148,22 @@ export default function ManagerSummary({ tasks }: ManagerSummaryProps) {
         }
       })
 
-      // total business-days span from first merged start to last merged end
-      const totalBusinessSpan = Math.max(0, businessDaysBetween(merged[0].s, merged[merged.length - 1].e))
+      // To match the availability panel, compute idle days within a working window.
+      // Use per-assignee workingPeriod if set, otherwise fall back to defaults.
+      const wp = workingPeriod[assignee]
+      const workingStartMs = startOfDayUTC(wp?.start ?? DEFAULT_WORKING_START)
+      const workingEndMs = startOfDayUTC(wp?.end ?? DEFAULT_WORKING_END) + MS_PER_DAY
 
-      // occupied business days is sum of merged intervals' business-day lengths
-      const occupiedBusinessDays = merged.reduce((sum, m) => sum + businessDaysBetween(m.s, m.e), 0)
+      // total business-days in the working window
+      const totalBusinessSpan = Math.max(0, businessDaysBetween(workingStartMs, workingEndMs))
+
+      // occupied business days clipped to the working window
+      const occupiedBusinessDays = merged.reduce((sum, m) => {
+        const clipStart = Math.max(m.s, workingStartMs)
+        const clipEnd = Math.min(m.e, workingEndMs)
+        if (clipEnd <= clipStart) return sum
+        return sum + businessDaysBetween(clipStart, clipEnd)
+      }, 0)
 
       const idleDays = Math.max(0, totalBusinessSpan - occupiedBusinessDays)
       idleDaysByAssignee[assignee] = idleDays
@@ -173,7 +179,7 @@ export default function ManagerSummary({ tasks }: ManagerSummaryProps) {
     }).sort((a, b) => b.count - a.count)
 
     return { byAssignee, weeks, tasksPerWeekPerAssignee, totals, idleDaysByAssignee }
-  }, [tasks])
+  }, [tasks, workingPeriod, issueFixes])
 
   const topAssignees = totals.slice(0, 8)
 
@@ -198,21 +204,33 @@ export default function ManagerSummary({ tasks }: ManagerSummaryProps) {
         {showBlockTimeResult && (
           <div className="mt-4 bg-gradient-to-r from-purple-50 to-purple-100 border-2 border-purple-300 rounded-lg p-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-white rounded-lg p-4 shadow-sm">
-                <p className="text-sm text-gray-600 mb-2">Total Block Time (All Employees)</p>
-                <p className="text-4xl font-bold text-purple-600">{(Object.values(idleDaysByAssignee) as number[]).reduce((sum, days) => sum + days, 0)}</p>
-                <p className="text-xs text-gray-500 mt-2">Total Idle Days</p>
-              </div>
-              <div className="bg-white rounded-lg p-4 shadow-sm">
-                <p className="text-sm text-gray-600 mb-2">Average Block Time Per Employee</p>
-                <p className="text-4xl font-bold text-blue-600">{((Object.values(idleDaysByAssignee) as number[]).reduce((sum, days) => sum + days, 0) / Math.max(1, Object.keys(byAssignee).length)).toFixed(1)}</p>
-                <p className="text-xs text-gray-500 mt-2">Idle Days/Employee</p>
-              </div>
-              <div className="bg-white rounded-lg p-4 shadow-sm">
-                <p className="text-sm text-gray-600 mb-2">Highest Block Time</p>
-                <p className="text-4xl font-bold text-orange-600">{Math.max(...(Object.values(idleDaysByAssignee) as number[]), 0)}</p>
-                <p className="text-xs text-gray-500 mt-2">{totals.find(t => t.idleDays === Math.max(...totals.map(x => x.idleDays)))?.name || '-'}</p>
-              </div>
+              {/* Convert days -> hours (1 day = 8 hours) for display */}
+              {(() => {
+                const allDays = (Object.values(idleDaysByAssignee) as number[]).reduce((sum, days) => sum + days, 0)
+                const allHours = Math.round(allDays * 8)
+                const avgHours = ((allDays / Math.max(1, Object.keys(byAssignee).length)) * 8)
+                const maxDays = Math.max(...(Object.values(idleDaysByAssignee) as number[]), 0)
+                const maxHours = Math.round(maxDays * 8)
+                return (
+                  <>
+                    <div className="bg-white rounded-lg p-4 shadow-sm">
+                      <p className="text-sm text-gray-600 mb-2">Total Block Time (All Employees)</p>
+                      <p className="text-4xl font-bold text-purple-600">{allHours}</p>
+                      <p className="text-xs text-gray-500 mt-2">Total Idle Hours</p>
+                    </div>
+                    <div className="bg-white rounded-lg p-4 shadow-sm">
+                      <p className="text-sm text-gray-600 mb-2">Average Block Time Per Employee</p>
+                      <p className="text-4xl font-bold text-blue-600">{avgHours.toFixed(1)}</p>
+                      <p className="text-xs text-gray-500 mt-2">Idle Hours / Employee (1 day = 8h)</p>
+                    </div>
+                    <div className="bg-white rounded-lg p-4 shadow-sm">
+                      <p className="text-sm text-gray-600 mb-2">Highest Block Time</p>
+                      <p className="text-4xl font-bold text-orange-600">{maxHours}</p>
+                      <p className="text-xs text-gray-500 mt-2">{totals.find(t => t.idleDays === Math.max(...totals.map(x => x.idleDays)))?.name || '-'}</p>
+                    </div>
+                  </>
+                )
+              })()}
             </div>
             
             <div className="mt-4 bg-white rounded-lg p-4">
@@ -224,7 +242,7 @@ export default function ManagerSummary({ tasks }: ManagerSummaryProps) {
                   .map(t => (
                     <div key={t.name} className="flex items-center justify-between bg-gray-50 p-2 rounded">
                       <span className="text-sm font-medium">{t.name}</span>
-                      <span className="text-sm font-bold text-purple-600">{t.idleDays} days</span>
+                      <span className="text-sm font-bold text-purple-600">{t.idleDays} {t.idleDays === 1 ? 'day' : 'days'}</span>
                     </div>
                   ))}
                 {totals.filter(t => t.idleDays > 0).length === 0 && (
@@ -266,16 +284,19 @@ export default function ManagerSummary({ tasks }: ManagerSummaryProps) {
 
         <div className="w-full md:w-[420px]">
           <h4 className="text-sm font-semibold mb-2">Idle Days by Assignee</h4>
-          <div className="space-y-2">
-            {totals.map(t => (
-              <div key={`idle-${t.name}`} className="flex items-center gap-3">
-                <div className="w-32 text-sm truncate">{t.name}</div>
-                <div className="flex-1 bg-gray-100 h-4 rounded overflow-hidden">
-                  <div className="bg-orange-500 h-4 rounded" style={{ width: `${Math.min(100, (t.idleDays / Math.max(...totals.map(x => x.idleDays), 1)) * 100)}%` }} />
+            <div className="space-y-2">
+            {(() => {
+              const maxDays = Math.max(...totals.map(x => x.idleDays)) || 1
+              return totals.map(t => (
+                <div key={`idle-${t.name}`} className="flex items-center gap-3">
+                  <div className="w-32 text-sm truncate">{t.name}</div>
+                  <div className="flex-1 bg-gray-100 h-4 rounded overflow-hidden">
+                    <div className="bg-orange-500 h-4 rounded" style={{ width: `${Math.min(100, ((t.idleDays) / maxDays) * 100)}%` }} />
+                  </div>
+                  <div className="w-10 text-sm text-right">{t.idleDays} {t.idleDays === 1 ? 'day' : 'days'}</div>
                 </div>
-                <div className="w-10 text-sm text-right">{t.idleDays}d</div>
-              </div>
-            ))}
+              ))
+            })()}
           </div>
         </div>
       </div>

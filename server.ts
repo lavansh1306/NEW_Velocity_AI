@@ -237,6 +237,73 @@ app.get("/api/asana/issues", async (req: Request, res: Response) => {
   }
 })
 
+// Fetch list of Asana projects (requires ASANA_TOKEN). Uses ASANA_WORKSPACE env if provided,
+// otherwise returns the DEFAULT_ASANA_PROJECT_ID as a single-item list when available.
+app.get('/api/asana/projects', async (_req: Request, res: Response) => {
+  if (!isAsanaConfigReady) {
+    return res.status(500).json({ error: 'Asana configuration missing' })
+  }
+
+  try {
+    const workspace = process.env.ASANA_WORKSPACE_ID
+    if (workspace) {
+      const url = `${ASANA_BASE_URL}/projects?workspace=${workspace}&archived=false&opt_fields=gid,name,notes`;
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${ASANA_TOKEN}`,
+          Accept: 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        const txt = await response.text()
+        return res.status(response.status).json({ error: 'Failed to fetch Asana projects', details: txt })
+      }
+
+      const data = await response.json() as any
+      const values = data.data || []
+      const projects = values.map((p: any) => ({
+        id: p.gid,
+        key: p.gid,
+        title: p.name,
+        description: p.notes || '',
+        avatar: '',
+      }))
+
+      return res.json({ projects })
+    }
+
+    // If no workspace provided, try returning the default project if set
+    if (DEFAULT_ASANA_PROJECT_ID) {
+      const url = `${ASANA_BASE_URL}/projects/${DEFAULT_ASANA_PROJECT_ID}?opt_fields=gid,name,notes`;
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${ASANA_TOKEN}`,
+          Accept: 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        const txt = await response.text()
+        return res.status(response.status).json({ error: 'Failed to fetch Asana project', details: txt })
+      }
+
+      const data = await response.json() as any
+      const p = data.data
+      const project = p ? [{ id: p.gid, key: p.gid, title: p.name, description: p.notes || '', avatar: '' }] : []
+      return res.json({ projects: project })
+    }
+
+    // No workspace and no default project configured
+    return res.json({ projects: [] })
+  } catch (err) {
+    console.error('[Asana Projects]', err)
+    return res.status(500).json({ error: 'Failed to fetch Asana projects', details: err instanceof Error ? err.message : 'Unknown' })
+  }
+})
+
 app.get("/health", (_req: Request, res: Response) => {
   res.json({ status: "ok" })
 })
