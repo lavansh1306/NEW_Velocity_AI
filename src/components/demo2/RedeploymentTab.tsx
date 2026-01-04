@@ -33,7 +33,7 @@ export default function RedeploymentTab() {
             </div>
             <div className="p-3 sm:p-4 bg-blue-50 border border-blue-200 rounded-lg cursor-move hover:shadow-md transition">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
-                <span className="font-semibold sm:font-bold text-xs sm:text-sm text-gray-900">Sales - Fractional Capacity</span>
+                <span className="font-semibold sm:font-bold text-xs sm:text-sm text-gray-900">Sales - AI-SAVED TIME</span>
                 <span className="text-base sm:text-lg font-bold text-blue-600">14.1h</span>
               </div>
               <div className="text-xs sm:text-sm text-gray-600">From meeting efficiency gains</div>

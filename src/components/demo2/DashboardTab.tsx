@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { loadAllMetrics } from '@/lib/dataService';
+import { loadAllMetrics, computeAllBlockedHours } from '@/lib/dataService';
 
 export default function DashboardTab() {
   const [totalReturns, setTotalReturns] = useState<number | null>(null);
+  const [blockedHours, setBlockedHours] = useState<number | null>(null);
+  const [loadingBlocked, setLoadingBlocked] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -15,6 +17,28 @@ export default function DashboardTab() {
         if (!mounted) return;
         setTotalReturns(null);
       });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    setLoadingBlocked(true);
+    computeAllBlockedHours()
+      .then((val) => {
+        if (!mounted) return;
+        setBlockedHours(val);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setBlockedHours(null);
+      })
+      .finally(() => {
+        if (!mounted) return;
+        setLoadingBlocked(false);
+      });
+
     return () => {
       mounted = false;
     };
@@ -66,7 +90,7 @@ export default function DashboardTab() {
             <div>
               <div className="flex justify-between mb-2">
                 <span className="text-xs sm:text-sm font-semibold text-gray-700">Block Capacity</span>
-                <span className="text-xs sm:text-sm font-bold text-gray-900">84.5 hours</span>
+                <span className="text-xs sm:text-sm font-bold text-gray-900">{loadingBlocked ? '...' : (blockedHours !== null ? `${blockedHours} hours` : '—')}</span>
               </div>
               <div className="w-full bg-gray-100 rounded-full h-6">
                 <div
@@ -77,7 +101,7 @@ export default function DashboardTab() {
             </div>
             <div>
               <div className="flex justify-between mb-2">
-                <span className="text-xs sm:text-sm font-semibold text-gray-700">Fractional Capacity</span>
+                <span className="text-xs sm:text-sm font-semibold text-gray-700">AI-SAVED TIME</span>
                 <span className="text-xs sm:text-sm font-bold text-gray-900">32.3 hours</span>
               </div>
               <div className="w-full bg-gray-100 rounded-full h-6">
@@ -148,7 +172,7 @@ export default function DashboardTab() {
           <div className="flex items-start gap-3 sm:gap-4 p-2 sm:p-3 hover:bg-gray-50 rounded-lg">
             <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-1.5 sm:mt-2"></div>
             <div className="flex-1 min-w-0">
-              <div className="font-semibold text-xs sm:text-sm text-gray-900">Fractional Capacity: Meeting Efficiency Gain</div>
+              <div className="font-semibold text-xs sm:text-sm text-gray-900">AI-SAVED TIME: Meeting Efficiency Gain</div>
               <div className="text-xs sm:text-sm text-gray-600">4 meetings optimized, 1.7 hours recaptured</div>
             </div>
             <div className="text-xs text-gray-500 flex-shrink-0 whitespace-nowrap">5 hours ago</div>

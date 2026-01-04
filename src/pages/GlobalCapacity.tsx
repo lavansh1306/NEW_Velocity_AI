@@ -103,7 +103,7 @@ export default function GlobalCapacity() {
           </div>
 
           <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <div className="text-lg font-medium mb-3">Fractional Capacity by Project</div>
+            <div className="text-lg font-medium mb-3">AI-SAVED TIME by Project</div>
             <div className="space-y-2">
               {projects.map(p => {
                 const max = Math.max(...projects.map(x => x.fractional), 1);

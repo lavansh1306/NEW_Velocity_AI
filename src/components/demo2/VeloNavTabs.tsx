@@ -3,6 +3,7 @@ import { useState } from 'react';
 interface VeloNavTabsProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
+  children?: React.ReactNode;
 }
 
 const tabs = [
@@ -16,7 +17,7 @@ const tabs = [
   { id: 'roi', label: 'ROI Verification', icon: '' },
 ];
 
-export default function VeloNavTabs({ activeTab, onTabChange }: VeloNavTabsProps) {
+export default function VeloNavTabs({ activeTab, onTabChange, children }: VeloNavTabsProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleTabSelect = (tabId: string) => {
@@ -124,6 +125,10 @@ export default function VeloNavTabs({ activeTab, onTabChange }: VeloNavTabsProps
               </button>
             ))}
           </div>
+        </div>
+        {/* Main content injected by page */}
+        <div className="flex-1 w-full">
+          {children}
         </div>
       </div>
     </div>

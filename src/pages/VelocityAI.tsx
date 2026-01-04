@@ -106,7 +106,7 @@ export default function VelocityAI() {
                   </div>
                 </>
               )}
-              {activeTab === 'projects' && <Projects jiraConnected={jiraConnected} />}
+              {activeTab === 'projects' && <Projects jiraConnected={jiraConnected} withNav={false} />}
               {activeTab === 'stc' && <StandardTimeCatalogTab />}
               {activeTab === 'ledger' && <CapacityLedgerTab />}
               {activeTab === 'hotspots' && <HotspotScoringTab />}

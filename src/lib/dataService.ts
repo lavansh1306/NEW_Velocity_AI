@@ -350,6 +350,180 @@ export async function loadAllMetrics(): Promise<Partial<MetricsResponse>> {
 }
 
 /**
+ * Compute aggregated blocked hours across all Jira and Asana projects.
+ * Uses the same UTC-normalized, merged-interval, business-day logic
+ * as the capacity ledger component so numbers align across the app.
+ */
+export async function computeAllBlockedHours(): Promise<number | null> {
+  try {
+    const MS_PER_DAY = 24 * 60 * 60 * 1000;
+    const msPerDay = MS_PER_DAY;
+
+    let totalBlocked = 0;
+
+    // Fetch Jira projects
+    try {
+      const pjRes = await fetch('/api/projects');
+      if (pjRes.ok) {
+        const pjData = await pjRes.json();
+        const projects = pjData.projects || [];
+        for (const p of projects) {
+          try {
+            const issuesRes = await fetch(`/api/issues?projectKey=${encodeURIComponent(p.key)}`);
+            if (!issuesRes.ok) continue;
+            const issuesJson = await issuesRes.json();
+            const issues = issuesJson.issues || [];
+
+            const byAssigneeProj: Record<string, Array<{ s: number; e: number }>> = {};
+            const startOfDayUTC = (d: any) => {
+              const dd = new Date(d);
+              return Date.UTC(dd.getFullYear(), dd.getMonth(), dd.getDate());
+            };
+            const businessDaysBetween = (startMs: number, endMs: number) => {
+              let count = 0;
+              for (let cur = startMs; cur < endMs; cur += msPerDay) {
+                const dow = new Date(cur).getUTCDay();
+                if (dow !== 0 && dow !== 6) count++;
+              }
+              return count;
+            };
+
+            for (const it of issues) {
+              const sourceStart = it.created || it.start || null;
+              const s = startOfDayUTC(sourceStart || new Date());
+              const e = startOfDayUTC(it.due || it.due_date || sourceStart || new Date()) + msPerDay;
+              const assigneeKey = (it.assignee || 'Unassigned');
+              if (!byAssigneeProj[assigneeKey]) byAssigneeProj[assigneeKey] = [];
+              byAssigneeProj[assigneeKey].push({ s, e });
+            }
+
+            const DEFAULT_WORKING_START = new Date('2025-12-01T00:00:00Z');
+            const DEFAULT_WORKING_END = new Date('2026-01-01T00:00:00Z');
+            const workingStartMs = Date.UTC(DEFAULT_WORKING_START.getUTCFullYear(), DEFAULT_WORKING_START.getUTCMonth(), DEFAULT_WORKING_START.getUTCDate());
+            const workingEndMs = Date.UTC(DEFAULT_WORKING_END.getUTCFullYear(), DEFAULT_WORKING_END.getUTCMonth(), DEFAULT_WORKING_END.getUTCDate()) + msPerDay;
+            const totalWindowDays = Math.max(0, businessDaysBetween(workingStartMs, workingEndMs));
+
+            let totalIdleDaysForProject = 0;
+            for (const assignee of Object.keys(byAssigneeProj)) {
+              const intervals = byAssigneeProj[assignee].slice().sort((a, b) => a.s - b.s);
+              const merged: Array<{ s: number; e: number }> = [];
+              for (const intv of intervals) {
+                if (merged.length === 0) merged.push({ ...intv });
+                else {
+                  const last = merged[merged.length - 1];
+                  if (intv.s <= last.e) last.e = Math.max(last.e, intv.e);
+                  else merged.push({ ...intv });
+                }
+              }
+
+              let occupied = 0;
+              for (const m of merged) {
+                const clipStart = Math.max(m.s, workingStartMs);
+                const clipEnd = Math.min(m.e, workingEndMs);
+                if (clipEnd <= clipStart) continue;
+                occupied += businessDaysBetween(clipStart, clipEnd);
+              }
+
+              const idleDays = Math.max(0, totalWindowDays - occupied);
+              totalIdleDaysForProject += idleDays;
+            }
+
+            const projectBlockedHours = Math.round(totalIdleDaysForProject * 8 * 10) / 10;
+            totalBlocked += projectBlockedHours;
+          } catch (err) {
+            // ignore per-project errors
+          }
+        }
+      }
+    } catch (err) {
+      // ignore
+    }
+
+    // Fetch Asana projects
+    try {
+      const aRes = await fetch('/api/asana/projects');
+      if (aRes.ok) {
+        const aData = await aRes.json();
+        const projects = aData.projects || [];
+        for (const p of projects) {
+          try {
+            const tasksRes = await fetch(`/api/asana/issues?projectKey=${encodeURIComponent(p.id)}`);
+            if (!tasksRes.ok) continue;
+            const tasksJson = await tasksRes.json();
+            const tasks = tasksJson.issues || [];
+
+            const byAssigneeProjA: Record<string, Array<{ s: number; e: number }>> = {};
+            const startOfDayUTC = (d: any) => {
+              const dd = new Date(d);
+              return Date.UTC(dd.getFullYear(), dd.getMonth(), dd.getDate());
+            };
+            const businessDaysBetween = (startMs: number, endMs: number) => {
+              let count = 0;
+              for (let cur = startMs; cur < endMs; cur += msPerDay) {
+                const dow = new Date(cur).getUTCDay();
+                if (dow !== 0 && dow !== 6) count++;
+              }
+              return count;
+            };
+
+            for (const t of tasks) {
+              const sourceStart = t.startDate || t.start || t.created || null;
+              const s = startOfDayUTC(sourceStart || new Date());
+              const e = startOfDayUTC(t.due || t.due_on || sourceStart || new Date()) + msPerDay;
+              const assigneeKey = (t.assignee || t.finalAssignee || 'Unassigned');
+              if (!byAssigneeProjA[assigneeKey]) byAssigneeProjA[assigneeKey] = [];
+              byAssigneeProjA[assigneeKey].push({ s, e });
+            }
+
+            const DEFAULT_WORKING_START = new Date('2025-12-01T00:00:00Z');
+            const DEFAULT_WORKING_END = new Date('2026-01-01T00:00:00Z');
+            const workingStartMs = Date.UTC(DEFAULT_WORKING_START.getUTCFullYear(), DEFAULT_WORKING_START.getUTCMonth(), DEFAULT_WORKING_START.getUTCDate());
+            const workingEndMs = Date.UTC(DEFAULT_WORKING_END.getUTCFullYear(), DEFAULT_WORKING_END.getUTCMonth(), DEFAULT_WORKING_END.getUTCDate()) + msPerDay;
+            const totalWindowDays = Math.max(0, businessDaysBetween(workingStartMs, workingEndMs));
+
+            let totalIdleDaysForProjectA = 0;
+            for (const assignee of Object.keys(byAssigneeProjA)) {
+              const intervals = byAssigneeProjA[assignee].slice().sort((a, b) => a.s - b.s);
+              const merged: Array<{ s: number; e: number }> = [];
+              for (const intv of intervals) {
+                if (merged.length === 0) merged.push({ ...intv });
+                else {
+                  const last = merged[merged.length - 1];
+                  if (intv.s <= last.e) last.e = Math.max(last.e, intv.e);
+                  else merged.push({ ...intv });
+                }
+              }
+
+              let occupied = 0;
+              for (const m of merged) {
+                const clipStart = Math.max(m.s, workingStartMs);
+                const clipEnd = Math.min(m.e, workingEndMs);
+                if (clipEnd <= clipStart) continue;
+                occupied += businessDaysBetween(clipStart, clipEnd);
+              }
+
+              const idleDays = Math.max(0, totalWindowDays - occupied);
+              totalIdleDaysForProjectA += idleDays;
+            }
+
+            const projectBlockedHoursA = Math.round(totalIdleDaysForProjectA * 8 * 10) / 10;
+            totalBlocked += projectBlockedHoursA;
+          } catch (err) {
+            // ignore per-project errors
+          }
+        }
+      }
+    } catch (err) {
+      // ignore
+    }
+
+    return Math.round(totalBlocked * 10) / 10;
+  } catch (err) {
+    return null;
+  }
+}
+
+/**
  * getNormalizedEventsForProject
  * Fetch raw CSVs, normalize them and return NormalizedEvent[] filtered by projectId.
  */

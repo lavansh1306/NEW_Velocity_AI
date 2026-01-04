@@ -40,6 +40,7 @@ const assigneeColors: ColorGradient[] = [
 export default function ManagerGantt({ tasks }: ManagerGanttProps) {
   const [viewType, setViewType] = useState<ViewType>('day')
   const [zoom, setZoom] = useState(1.6)
+  const [selectedTask, setSelectedTask] = useState<TaskWithDates | null>(null)
 
   const { assignees, minDate, maxDate, totalUnits, dateMarkers, colorMap } = useMemo(() => {
     // Helper to normalize date to UTC midnight (start of day) to match other components
@@ -60,10 +61,7 @@ export default function ManagerGantt({ tasks }: ManagerGanttProps) {
       const start = normalizeDate(new Date(sourceStart!))
       let end = t.due ? normalizeDate(new Date(t.due)) : normalizeDate(new Date(sourceStart!))
 
-      // Defensive: if due/end is before start, clamp end to start to avoid reversed ranges
-      if (end.getTime() < start.getTime()) {
-        end = new Date(start.getTime())
-      }
+      if (end.getTime() < start.getTime()) end = new Date(start.getTime())
 
       byAssignee[assignee].push({ ...t, _start: start, _end: end })
 
@@ -85,14 +83,10 @@ export default function ManagerGantt({ tasks }: ManagerGanttProps) {
 
     if (viewType === 'day') {
       totalUnits = Math.ceil((max.getTime() - min.getTime()) / (1000 * 60 * 60 * 24)) + 1
-      for (let i = 0; i < totalUnits; i++) {
-        markers.push(new Date(min.getTime() + i * 24 * 60 * 60 * 1000))
-      }
+      for (let i = 0; i < totalUnits; i++) markers.push(new Date(min.getTime() + i * 24 * 60 * 60 * 1000))
     } else if (viewType === 'week') {
       totalUnits = Math.ceil((max.getTime() - min.getTime()) / (1000 * 60 * 60 * 24 * 7)) + 1
-      for (let i = 0; i < totalUnits; i++) {
-        markers.push(new Date(min.getTime() + i * 7 * 24 * 60 * 60 * 1000))
-      }
+      for (let i = 0; i < totalUnits; i++) markers.push(new Date(min.getTime() + i * 7 * 24 * 60 * 60 * 1000))
     } else if (viewType === 'month') {
       let current = new Date(min)
       current.setDate(1)
@@ -104,13 +98,28 @@ export default function ManagerGantt({ tasks }: ManagerGanttProps) {
     }
 
     const assigneeNames = Object.keys(byAssignee).sort()
-    
-    // Create color map based on PROJECT KEY, not assignee name
-    const projectKeys = [...new Set(tasks.map(t => t.key))].sort()
+
+    const deriveProjectKey = (t: TaskWithDates) => {
+      const anyT: any = t as any
+      if (anyT.project) return String(anyT.project)
+      if (anyT.projectId) return String(anyT.projectId)
+      if (anyT.project_key) return String(anyT.project_key)
+      if (anyT.projectKey) return String(anyT.projectKey)
+      if (typeof t.key === 'string' && t.key.includes('-')) return t.key.split('-')[0]
+      return ''
+    }
+
+    const derivedKeys = tasks.map(t => deriveProjectKey(t as TaskWithDates)).filter(k => !!k)
+    const uniqueProjectKeys = [...new Set(derivedKeys)]
     const colorMap: { [key: string]: ColorGradient } = {}
-    projectKeys.forEach((projectKey, idx) => {
-      colorMap[projectKey] = assigneeColors[idx % assigneeColors.length]
-    })
+
+    if (uniqueProjectKeys.length === 0) {
+      colorMap['__single_project__'] = assigneeColors[0]
+    } else {
+      uniqueProjectKeys.forEach((projectKey, idx) => {
+        colorMap[projectKey] = assigneeColors[idx % assigneeColors.length]
+      })
+    }
 
     const assignees: AssigneeData[] = assigneeNames.map(name => ({
       name,
@@ -131,35 +140,6 @@ export default function ManagerGantt({ tasks }: ManagerGanttProps) {
 
   return (
     <div className="bg-white rounded-lg shadow-lg p-4 md:p-6">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-bold">Manager Gantt — All Assignees</h2>
-        <div className="flex items-center gap-4">
-          <select
-            value={viewType}
-            onChange={(e) => setViewType(e.target.value as ViewType)}
-            className="px-4 py-2 border border-gray-300 rounded-lg bg-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="day">Day View</option>
-            <option value="week">Week View</option>
-            <option value="month">Month View</option>
-          </select>
-          
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-600">Zoom:</span>
-            <input
-              type="range"
-              min="0.3"
-              max="3"
-              step="0.1"
-              value={zoom}
-              onChange={(e) => setZoom(parseFloat(e.target.value))}
-              className="w-32 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-            />
-            <span className="text-sm text-gray-600 w-10">{Math.round(zoom * 100)}%</span>
-          </div>
-        </div>
-      </div>
-
       <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
         {/* Show month-range with year (e.g. "Nov 2025 — Jun 2026") */}
         <div>
@@ -252,7 +232,7 @@ export default function ManagerGantt({ tasks }: ManagerGanttProps) {
                   {assignee.tasks.map((task, tIdx) => {
                     let startCol = 0
                     let spanCols = 1
-
+                    
                     if (viewType === 'day') {
                       // COLUMN INDEX = days from timeline start (0-indexed)
                       // Task starting on minDate = column 0
@@ -287,19 +267,32 @@ export default function ManagerGantt({ tasks }: ManagerGanttProps) {
                     const leftPx = startCol * cellWidth
                     const widthPx = spanCols * cellWidth
                     
-                    const colors = colorMap[task.key] || assigneeColors[0]
+                    const resolveProjectKey = (t: TaskWithDates) => {
+                      const anyT: any = t as any
+                      if (anyT.project) return String(anyT.project)
+                      if (anyT.projectId) return String(anyT.projectId)
+                      if (anyT.project_key) return String(anyT.project_key)
+                      if (anyT.projectKey) return String(anyT.projectKey)
+                      if (typeof t.key === 'string' && t.key.includes('-')) return t.key.split('-')[0]
+                      return ''
+                    }
+
+                    let projectKeyForTask = resolveProjectKey(task)
+                    if (!projectKeyForTask) projectKeyForTask = '__single_project__'
+                    const colors = colorMap[projectKeyForTask] || assigneeColors[0]
 
                     return (
                       <div
                         key={tIdx}
-                        className={`absolute rounded shadow-sm bg-gradient-to-r ${colors.from} ${colors.to} text-white text-xs font-medium hover:opacity-100 overflow-hidden`}
+                        className={`absolute rounded shadow-sm bg-gradient-to-r ${colors.from} ${colors.to} text-white text-xs font-medium hover:opacity-100 overflow-hidden cursor-pointer hover:ring-2 hover:ring-white hover:ring-offset-1 transition-all`}
                         style={{ 
                           left: `${leftPx}px`, 
                           width: `${widthPx}px`, 
                           top: '9px',
                           height: '32px'
                         }}
-                        title={`${task.key} — ${task.summary}\n${formatDate(task._start)} → ${formatDate(task._end)}`}
+                        title={`Click to view details`}
+                        onClick={() => setSelectedTask(task)}
                       >
                         <div className="px-2 py-1 truncate h-full flex items-center">
                           <span className="truncate">{task.key}</span>
@@ -313,6 +306,90 @@ export default function ManagerGantt({ tasks }: ManagerGanttProps) {
           })}
         </div>
       </div>
+      {/* Task Detail Modal (same UX as Asana Gantt) */}
+      {selectedTask && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => setSelectedTask(null)}
+        >
+          <div 
+            className="bg-white rounded-lg shadow-2xl p-6 max-w-md w-full mx-4 transform transition-all"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-start mb-4">
+              <h3 className="text-xl font-bold text-gray-800">Task Details</h3>
+              <button 
+                onClick={() => setSelectedTask(null)}
+                className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm font-semibold text-gray-500">Task Name</label>
+                <p className="text-gray-800 font-medium">{selectedTask.summary}</p>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-semibold text-gray-500">Assignee</label>
+                  <p className="text-gray-800">{selectedTask.assignee || 'Unassigned'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-semibold text-gray-500">Status</label>
+                  <p className={`font-medium ${selectedTask.status === 'Done' ? 'text-green-600' : 'text-orange-600'}`}>
+                    {selectedTask.status}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-semibold text-gray-500">Start Date</label>
+                  <p className="text-gray-800">{formatDate(selectedTask._start)}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-semibold text-gray-500">Due Date</label>
+                  <p className="text-gray-800">{formatDate(selectedTask._end)}</p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-semibold text-gray-500">Duration</label>
+                  <p className="text-gray-800 font-medium">
+                    {selectedTask._start && selectedTask._end 
+                      ? `${Math.ceil((selectedTask._end.getTime() - selectedTask._start.getTime()) / (1000 * 60 * 60 * 24)) + 1} days`
+                      : '-'}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm font-semibold text-gray-500">Section</label>
+                  <p className="text-gray-800">{(selectedTask as any).team || '-'}</p>
+                </div>
+              </div>
+
+              {(selectedTask as any).description && (
+                <div>
+                  <label className="text-sm font-semibold text-gray-500">Description</label>
+                  <p className="text-gray-700 text-sm mt-1">{(selectedTask as any).description}</p>
+                </div>
+              )}
+            </div>
+            
+            <div className="mt-6 flex justify-end">
+              <button 
+                onClick={() => setSelectedTask(null)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
