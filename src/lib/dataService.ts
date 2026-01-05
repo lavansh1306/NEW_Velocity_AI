@@ -30,6 +30,7 @@ import {
 } from './metrics';
 import { estimatedTimeSavedHoursByApp, estimatedReturnsByApp, estimatedTotalReturnsUSD } from './metrics';
 import { estimatedCostSavedUSD, automationCoveragePrevious } from './metrics';
+import { apiUrl } from './api';
 
 // ========================================
 // CSV Parser (browser-compatible)
@@ -92,7 +93,7 @@ async function fetchCSV(path: string): Promise<string> {
 // Fetch Jira issues via the backend proxy (/api/issues) and map to RawJiraRow[]
 async function fetchJiraRowsFromApi(projectKey?: string): Promise<RawJiraRow[]> {
   try {
-    const url = projectKey ? `/api/issues?projectKey=${encodeURIComponent(projectKey)}` : '/api/issues'
+    const url = projectKey ? apiUrl(`/api/issues?projectKey=${encodeURIComponent(projectKey)}`) : apiUrl('/api/issues')
     const resp = await fetch(url)
     if (!resp.ok) return []
     const data = await resp.json()
@@ -179,8 +180,8 @@ const projectImages: Record<string, string> = {
 export async function loadProjects(): Promise<ProjectItem[]> {
   // Fetch Jira and Asana project lists in parallel. If one fails, continue with the other.
   const [jiraRes, asanaRes] = await Promise.all([
-    fetch('/api/projects').catch(() => null),
-    fetch('/api/asana/projects').catch(() => null),
+    fetch(apiUrl('/api/projects')).catch(() => null),
+    fetch(apiUrl('/api/asana/projects')).catch(() => null),
   ]);
 
   let jiraList: any[] = [];

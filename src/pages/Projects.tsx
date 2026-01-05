@@ -9,6 +9,7 @@ import { Plus, Trash2, Loader2 } from 'lucide-react';
 import AnalyticsPanel from '@/components/analytics/AnalyticsPanel';
 import type { MetricsResponse } from '@/lib/types';
 import { loadProjects as fetchProjects, loadMetrics, type ProjectItem } from '@/lib/dataService';
+import { apiUrl } from '@/lib/api';
 import { useToast } from '@/contexts/ToastContext';
 
 interface ProjectsProps {
@@ -120,7 +121,7 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
 
     try {
       // Try Jira first
-      const jiraRes = await fetch(`/api/issues?projectKey=${encodeURIComponent(projectKey)}`);
+      const jiraRes = await fetch(apiUrl(`/api/issues?projectKey=${encodeURIComponent(projectKey)}`));
       if (jiraRes.ok) {
         const jiraData = await jiraRes.json();
         const issues = jiraData.issues || [];
@@ -146,7 +147,7 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
       }
 
       // Try Asana
-      const asanaRes = await fetch(`/api/asana/issues?projectKey=${encodeURIComponent(projectKey)}`);
+      const asanaRes = await fetch(apiUrl(`/api/asana/issues?projectKey=${encodeURIComponent(projectKey)}`));
       if (asanaRes.ok) {
         const asanaData = await asanaRes.json();
         const tasks = asanaData.issues || [];

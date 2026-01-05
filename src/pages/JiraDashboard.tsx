@@ -5,6 +5,7 @@ import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { IssuesTable, GanttChart, ManagerGantt, ManagerSummary } from '@/components/jira'
 import { Issue } from '@/components/jira/types'
+import { apiUrl } from '@/lib/api'
 
 export default function JiraDashboard() {
   const [allIssues, setAllIssues] = useState<Issue[]>([])
@@ -49,7 +50,7 @@ export default function JiraDashboard() {
 
   const fetchProjectData = async (projectKey: string): Promise<Issue[]> => {
     try {
-      const response = await fetch(`/api/issues?projectKey=${projectKey}`)
+      const response = await fetch(apiUrl(`/api/issues?projectKey=${projectKey}`))
       if (!response.ok) {
         throw new Error('Failed to fetch project issues')
       }

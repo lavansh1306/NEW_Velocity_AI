@@ -5,6 +5,7 @@ import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { IssuesTable, GanttChart, ManagerGantt, ManagerSummary } from '@/components/asana'
 import { Issue } from '@/components/asana/types'
+import { apiUrl } from '@/lib/api'
 
 export default function AsanaDashboard() {
   const [allIssues, setAllIssues] = useState<Issue[]>([])
@@ -49,7 +50,7 @@ export default function AsanaDashboard() {
 
   const fetchProjectData = async (projectKey: string): Promise<Issue[]> => {
     try {
-      const response = await fetch(`/api/asana/issues?projectKey=${projectKey}`)
+      const response = await fetch(apiUrl(`/api/asana/issues?projectKey=${projectKey}`))
       if (!response.ok) {
         throw new Error('Failed to fetch project tasks')
       }
