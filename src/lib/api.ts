@@ -1,8 +1,8 @@
 /**
- * API configuration - always uses Render backend
+ * API configuration - uses local backend in development
  */
 
-export const API_BASE_URL = 'https://new-velocity-ai.onrender.com';
+export const API_BASE_URL = '';
 
 /**
  * Helper to build API URLs
