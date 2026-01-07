@@ -167,7 +167,7 @@ export default function JiraDashboard() {
         </div>
       )}
 
-      <div className="w-full mx-auto max-w-7xl">
+      <div className="w-full mx-auto max-w-full px-4 md:px-6 lg:px-8">
         {/* Back Button */}
         <div className="mb-4">
           <Button asChild variant="ghost" size="sm">

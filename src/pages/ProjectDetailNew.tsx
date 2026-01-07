@@ -247,7 +247,7 @@ export default function ProjectDetailNew() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-6 py-6">
+        <div className="max-w-full mx-auto px-4 md:px-6 py-6">
           <Link to="/" className="text-blue-600 hover:underline flex items-center gap-2 mb-4">
             <ArrowLeft className="w-4 h-4" /> Back to Projects
           </Link>
@@ -269,7 +269,7 @@ export default function ProjectDetailNew() {
 
       {/* Tabs */}
       <div className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-6">
+        <div className="max-w-full mx-auto px-4 md:px-6">
           <div className="flex gap-6">
             {[
               { id: 'overview', label: 'Overview', icon: Activity },
@@ -298,7 +298,7 @@ export default function ProjectDetailNew() {
       </div>
 
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="max-w-full mx-auto px-4 md:px-6 py-8">
         
         {/* OVERVIEW TAB */}
         {activeTab === 'overview' && (
