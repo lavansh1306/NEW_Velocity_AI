@@ -1,13 +1,13 @@
 {
   "version": 2,
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/index.ts" },
-    { "source": "/(.*)", "destination": "/index.html" }
-  ],
   "functions": {
     "api/index.ts": {
       "memory": 1024,
       "maxDuration": 30
     }
-  }
+  },
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/index.ts?__vercel_no_trailing_slash=1" },
+    { "source": "/((?!api).*)$", "destination": "/index.html" }
+  ]
 }
