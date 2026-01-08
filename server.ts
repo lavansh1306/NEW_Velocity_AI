@@ -18,13 +18,17 @@ const API_TOKEN = process.env.JIRA_API_TOKEN
 const PROJECT_KEY = process.env.JIRA_PROJECT_KEY
 const TEAM_FIELD = process.env.JIRA_TEAM_FIELD_ID // Optional custom field key, e.g. customfield_12345
 
-const auth = Buffer.from(`${EMAIL}:${API_TOKEN}`).toString("base64")
-const JIRA_SEARCH_URL = DOMAIN ? `https://${DOMAIN}/rest/api/3/search/jql` : null
+let auth = ''
+if (EMAIL && API_TOKEN) {
+  auth = Buffer.from(`${EMAIL}:${API_TOKEN}`).toString("base64")
+  console.log('[Jira] Auth configured for email:', EMAIL)
+}
+
 const MS_PER_DAY = 1000 * 60 * 60 * 24
 
 const isJiraConfigReady = DOMAIN && EMAIL && API_TOKEN && PROJECT_KEY
 if (!isJiraConfigReady) {
-  console.warn("Jira API is not fully configured. Please set JIRA_DOMAIN, JIRA_EMAIL, JIRA_API_TOKEN, and JIRA_PROJECT_KEY in your .env file.")
+  console.warn("[Jira] Configuration incomplete:", { domain: !!DOMAIN, email: !!EMAIL, token: !!API_TOKEN, projectKey: !!PROJECT_KEY })
 }
 
 // ============ ASANA Configuration ============
@@ -60,47 +64,39 @@ app.get("/api/issues", async (req: Request, res: Response) => {
   // Get project key from query parameter or use default from env
   const projectKey = (req.query.projectKey as string) || PROJECT_KEY
 
+  console.log('[/api/issues] Request for:', projectKey, 'Auth ready:', !!auth)
+
   if (!projectKey) {
     return res.status(400).json({ error: "Project key is required. Provide it as ?projectKey=YOURKEY or set JIRA_PROJECT_KEY in .env" })
   }
 
-  if (!isJiraConfigReady || !JIRA_SEARCH_URL) {
+  if (!isJiraConfigReady) {
+    console.error('[/api/issues] Jira not configured')
     return res.status(500).json({ error: "Jira configuration missing" })
   }
 
   try {
     const jql = `project = "${projectKey}"`
-    const fields = [
-      "key",
-      "summary",
-      "created",
-      "duedate",
-      "description",
-      "priority",
-      "status",
-      "assignee",
-      "issuetype",
-      TEAM_FIELD,
-    ].filter(Boolean)
-
-    // Use the correct Jira API v3 endpoint
-    const response = await fetch(`https://${DOMAIN}/rest/api/3/issues/search?jql=${encodeURIComponent(jql)}&maxResults=500&expand=changelog`, {
+    const url = `https://${DOMAIN}/rest/api/3/issues/search?jql=${encodeURIComponent(jql)}&maxResults=500`
+    
+    console.log('[Jira Request] URL:', url)
+    console.log('[Jira Request] Auth present:', !!auth)
+    
+    const response = await fetch(url, {
       method: 'GET',
       headers: {
-        Authorization: `Basic ${auth}`,
-        Accept: 'application/json',
+        'Authorization': `Basic ${auth}`,
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
       },
     })
 
+    console.log('[Jira Response] Status:', response.status)
+
     if (!response.ok) {
       const errText = await response.text()
-      console.error(`[Jira] Failed with status ${response.status}:`, errText)
-      return res.status(response.status).json({ error: 'Failed to fetch Jira issues', details: errText })
-    }
-
-    if (!response || !response.ok) {
-      // Return the last captured error text; this includes Jira's JSON body when available.
-      return res.status(response ? response.status : 500).json({ error: 'Failed to fetch Jira issues', details: lastErrorText })
+      console.error(`[Jira] Failed with status ${response.status}:`, errText.substring(0, 300))
+      return res.status(response.status).json({ error: 'Failed to fetch Jira issues', status: response.status, details: errText })
     }
 
     const data = await response.json() as any
