@@ -69,9 +69,7 @@ app.get("/api/issues", async (req: Request, res: Response) => {
   }
 
   try {
-    // Try multiple Jira search endpoint variants to be compatible with instances
-    // that have migrated old APIs. We'll try in order and return the first successful response.
-    const jql = `project = ${projectKey} AND created >= -365d ORDER BY created DESC`
+    const jql = `project = "${projectKey}" ORDER BY created DESC`
     const fields = [
       "key",
       "summary",
@@ -86,12 +84,10 @@ app.get("/api/issues", async (req: Request, res: Response) => {
     ].filter(Boolean)
 
     const tryEndpoints = [
-      // Preferred new-style endpoint (some instances require /search/jql)
-      { url: `https://${DOMAIN}/rest/api/3/search/jql`, method: 'POST', bodyAsJson: true },
-      // Common search endpoint that accepts POST with JSON body
+      // Preferred new-style endpoint with GET
+      { url: `https://${DOMAIN}/rest/api/3/search?jql=${encodeURIComponent(jql)}&maxResults=500&fields=${fields.join(',')}`, method: 'GET', bodyAsJson: false },
+      // Fallback to POST
       { url: `https://${DOMAIN}/rest/api/3/search`, method: 'POST', bodyAsJson: true },
-      // Fallback to GET with query param (some proxies prefer GET)
-      { url: `https://${DOMAIN}/rest/api/3/search?jql=${encodeURIComponent(jql)}&maxResults=500`, method: 'GET', bodyAsJson: false },
     ]
 
     let response: any = null

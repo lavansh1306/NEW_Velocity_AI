@@ -56,17 +56,15 @@ app.get("/api/issues", async (req: Request, res: Response) => {
   }
 
   try {
-    const jql = `project = ${projectKey} AND created >= -365d ORDER BY created DESC`
+    const jql = `project = "${projectKey}" ORDER BY created DESC`
     const fields = ["key", "summary", "created", "duedate", "description", "priority", "status", "assignee", "issuetype", TEAM_FIELD].filter(Boolean)
 
-    const response = await fetch(`https://${DOMAIN}/rest/api/3/search`, {
-      method: 'POST',
+    const response = await fetch(`https://${DOMAIN}/rest/api/3/search?jql=${encodeURIComponent(jql)}&maxResults=500&fields=${fields.join(',')}`, {
+      method: 'GET',
       headers: {
         Authorization: `Basic ${auth}`,
         Accept: 'application/json',
-        'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ jql, fields, maxResults: 500 }),
     })
 
     if (!response.ok) {
