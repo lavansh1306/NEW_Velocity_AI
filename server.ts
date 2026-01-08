@@ -69,7 +69,7 @@ app.get("/api/issues", async (req: Request, res: Response) => {
   }
 
   try {
-    const jql = `project = "${projectKey}" ORDER BY created DESC`
+    const jql = `project = "${projectKey}"`
     const fields = [
       "key",
       "summary",
@@ -83,50 +83,19 @@ app.get("/api/issues", async (req: Request, res: Response) => {
       TEAM_FIELD,
     ].filter(Boolean)
 
-    const tryEndpoints = [
-      // Preferred new-style endpoint with GET
-      { url: `https://${DOMAIN}/rest/api/3/search?jql=${encodeURIComponent(jql)}&maxResults=500&fields=${fields.join(',')}`, method: 'GET', bodyAsJson: false },
-      // Fallback to POST
-      { url: `https://${DOMAIN}/rest/api/3/search`, method: 'POST', bodyAsJson: true },
-    ]
+    // Use the correct Jira API v3 endpoint
+    const response = await fetch(`https://${DOMAIN}/rest/api/3/issues/search?jql=${encodeURIComponent(jql)}&maxResults=500&expand=changelog`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Basic ${auth}`,
+        Accept: 'application/json',
+      },
+    })
 
-    let response: any = null
-    let lastErrorText = ''
-
-    for (const ep of tryEndpoints) {
-      try {
-        console.debug(`[Jira API] trying ${ep.method} ${ep.url}`)
-        if (ep.method === 'POST') {
-          response = await fetch(ep.url, {
-            method: 'POST',
-            headers: {
-              Authorization: `Basic ${auth}`,
-              Accept: 'application/json',
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ jql, fields, maxResults: 500 }),
-          })
-        } else {
-          response = await fetch(ep.url, {
-            method: 'GET',
-            headers: {
-              Authorization: `Basic ${auth}`,
-              Accept: 'application/json',
-            },
-          })
-        }
-
-        if (response.ok) break
-
-        // collect text for diagnostics and continue to next endpoint
-        const text = await response.text()
-        lastErrorText = `url=${ep.url} status=${response.status} body=${text}`
-        console.warn('[Jira API] non-OK response:', lastErrorText)
-        // If 410 specifically returned, keep the text so we can show it to the client
-      } catch (innerErr) {
-        console.error('[Jira API] request error for endpoint', ep.url, innerErr)
-        lastErrorText = innerErr instanceof Error ? innerErr.message : String(innerErr)
-      }
+    if (!response.ok) {
+      const errText = await response.text()
+      console.error(`[Jira] Failed with status ${response.status}:`, errText)
+      return res.status(response.status).json({ error: 'Failed to fetch Jira issues', details: errText })
     }
 
     if (!response || !response.ok) {

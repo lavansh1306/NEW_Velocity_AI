@@ -56,10 +56,10 @@ app.get("/api/issues", async (req: Request, res: Response) => {
   }
 
   try {
-    const jql = `project = "${projectKey}" ORDER BY created DESC`
+    const jql = `project = "${projectKey}"`
     const fields = ["key", "summary", "created", "duedate", "description", "priority", "status", "assignee", "issuetype", TEAM_FIELD].filter(Boolean)
 
-    const response = await fetch(`https://${DOMAIN}/rest/api/3/search?jql=${encodeURIComponent(jql)}&maxResults=500&fields=${fields.join(',')}`, {
+    const response = await fetch(`https://${DOMAIN}/rest/api/3/issues/search?jql=${encodeURIComponent(jql)}&maxResults=500&expand=changelog`, {
       method: 'GET',
       headers: {
         Authorization: `Basic ${auth}`,
@@ -69,6 +69,7 @@ app.get("/api/issues", async (req: Request, res: Response) => {
 
     if (!response.ok) {
       const text = await response.text()
+      console.error('Jira API Error:', response.status, text)
       return res.status(response.status).json({ error: 'Failed to fetch Jira issues', details: text })
     }
 
