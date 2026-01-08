@@ -74,7 +74,8 @@ app.get("/api/issues", async (req: Request, res: Response) => {
 
   try {
     const jql = `project = "${projectKey}"`
-    const url = `https://${DOMAIN}/rest/api/3/issues/search?jql=${encodeURIComponent(jql)}&maxResults=500`
+    // Use correct Jira Cloud API v3 endpoint format
+    const url = `https://${DOMAIN}/rest/api/3/search/jql?jql=${encodeURIComponent(jql)}&maxResults=500&fields=key,summary,created,duedate,description,priority,status,assignee,issuetype`
     
     console.log('[Jira Request] URL:', url)
     console.log('[Jira Request] Auth header set:', !!auth)
@@ -130,7 +131,7 @@ app.get('/api/projects', async (_req: Request, res: Response) => {
   }
 
   try {
-    const response = await fetch(`https://${DOMAIN}/rest/api/3/project/search?maxResults=200`, {
+    const response = await fetch(`https://${DOMAIN}/rest/api/2/project?maxResults=200`, {
       headers: {
         Authorization: `Basic ${auth}`,
         Accept: 'application/json',
@@ -143,8 +144,9 @@ app.get('/api/projects', async (_req: Request, res: Response) => {
     }
 
     const data = await response.json() as any
-    const values = data.values || data.projects || []
-    const projects = values.map((p: any) => ({
+    // Jira API v2 /project returns a direct array
+    const projectArray = Array.isArray(data) ? data : (data.values || data.projects || [])
+    const projects = projectArray.map((p: any) => ({
       id: p.key || String(p.id),
       key: p.key || String(p.id),
       title: p.name || p.key || String(p.id),
@@ -152,7 +154,8 @@ app.get('/api/projects', async (_req: Request, res: Response) => {
       description: p.description ? (typeof p.description === 'string' ? p.description : '') : '',
       avatar: p.avatarUrls?.['48x48'] || '',
     }))
-
+    
+    console.log('[/api/projects] Returning', projects.length, 'projects')
     res.json({ projects })
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch Jira projects', details: err instanceof Error ? err.message : 'Unknown' })

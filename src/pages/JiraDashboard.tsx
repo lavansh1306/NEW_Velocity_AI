@@ -29,8 +29,10 @@ export default function JiraDashboard() {
   useEffect(() => {
     const params = new URLSearchParams(location.search)
     const projectParam = params.get('project')
+    console.log('[JiraDashboard] URL params:', location.search, 'project param:', projectParam)
     if (projectParam) {
       // Attempt to load the specified project right away
+      console.log('[JiraDashboard] Auto-loading project:', projectParam.toUpperCase())
       handleSwitchProject(projectParam.toUpperCase())
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -50,11 +52,15 @@ export default function JiraDashboard() {
 
   const fetchProjectData = async (projectKey: string): Promise<Issue[]> => {
     try {
-      const response = await fetch(apiUrl(`/api/issues?projectKey=${projectKey}`))
+      const url = apiUrl(`/api/issues?projectKey=${projectKey}`)
+      console.log('[fetchProjectData] Fetching from:', url)
+      const response = await fetch(url)
+      console.log('[fetchProjectData] Response status:', response.status)
       if (!response.ok) {
         throw new Error('Failed to fetch project issues')
       }
       const projectIssues = await response.json()
+      console.log('[fetchProjectData] Received data:', projectIssues)
       const formattedIssues = (Array.isArray(projectIssues) ? projectIssues : (projectIssues.issues || [])).map((issue: any) => ({
         key: issue.key || '-',
         issueType: issue.issueType || issue.type || '-',
@@ -70,8 +76,10 @@ export default function JiraDashboard() {
         due: issue.due || null,
         duration: issue.duration === undefined ? '' : issue.duration,
       }))
+      console.log('[fetchProjectData] Formatted issues:', formattedIssues.length)
       return formattedIssues
     } catch (err) {
+      console.error('[fetchProjectData] Error:', err)
       throw err
     }
   }
