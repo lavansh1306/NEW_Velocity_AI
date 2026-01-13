@@ -48,19 +48,19 @@ For a detailed architecture diagram, see [architecture.svg](./architecture.svg).
 ## 🛠️ Tech Stack
 
 ### Frontend
-- **Framework**: React 18.3.1 with TypeScript 5.8.3
-- **Build Tool**: Vite 6.4.1
-- **Routing**: React Router DOM 6.30.1
-- **State Management**: TanStack Query (React Query) 5.83.0
+- **Framework**: React  with TypeScript
+- **Build Tool**: Vite 
+- **Routing**: React Router DOM
+- **State Management**: TanStack Query (React Query)
 - **UI Framework**: 
   - shadcn/ui (Radix UI components)
-  - Tailwind CSS 3.4.17
+  - Tailwind CSS
   - Lucide React icons
 - **Charts & Visualization**:
   - Chart.js 4.5.1 with React wrapper
   - Recharts 2.15.4
   - Date-fns for date handling
-- **Forms**: React Hook Form 7.61.1 with Zod validation
+- **Forms**: React Hook Form  with Zod validation
 
 ### Backend
 - **Runtime**: Node.js with TypeScript
