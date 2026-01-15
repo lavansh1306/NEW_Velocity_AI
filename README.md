@@ -1,18 +1,49 @@
 # Velocity AI — Workforce Intelligence
 
-AI platform that measures productivity gains, proves ROI, and recommends high-impact work.
+![MIT](https://img.shields.io/badge/license-MIT-yellow) ![React](https://img.shields.io/badge/React-17.0-blue) ![TypeScript](https://img.shields.io/badge/TypeScript-4.0-3178C6) ![Vite](https://img.shields.io/badge/Vite-3.0-646CFF) ![Tailwind](https://img.shields.io/badge/Tailwind-3.0-06B6D4)
 
-![MIT License](https://img.shields.io/badge/license-MIT-yellow)
+Short pitch
+-----------
 
-What
-- Ingests Jira & Asana events, normalizes data, and produces stakeholder KPIs (automation%, hours saved, cost impact).
+Velocity AI turns raw project events into CFO-ready insights: automation coverage, human-hours saved, cost impact, and redeployment recommendations that convert efficiency into measurable business outcomes.
 
-Tech
-- Frontend: React + TypeScript + Vite
+Why this repo matters (for recruiters)
+------------------------------------
+
+- Full-stack product: data ingestion, normalization, analytics, and dashboard UI.
+- Designed for stakeholders (CFO/CHRO) with KPIs and ROI attribution—bridges product, analytics, and engineering.
+- Modular connectors: add integrations (Jira, Asana, HubSpot, Microsoft365) with low friction.
+
+Core features
+-------------
+
+- Connectors: Jira & Asana ingestion and canonical event mapping
+- Normalization: unified event model for cross-platform analytics
+- Metrics: Automation Coverage, Hours Saved, Cost Savings, Capacity Forecasts
+- Intelligence: Redeployment recommendations and causal attribution
+- Visuals: Live dashboards, project detail views, and Gantt charts
+
+High-level architecture
+-----------------------
+
+- Ingestion layer: platform-specific connectors and token-based auth
+- Processing layer: normalization, enrichment, and metrics calculations
+- Intelligence layer: attribution and redeployment engine
+- Frontend: React SPA (TypeScript) with charts and responsive UI
+
+Tech summary
+------------
+
+- Frontend: React, TypeScript, Vite, Tailwind CSS, shadcn/ui
+- Visuals: Chart.js, Recharts, date-fns
 - Backend: Node.js + Express (TypeScript)
-- UI: Tailwind, Chart.js / Recharts
+- Deployment: Vercel; env-driven configuration
 
 Quick start
+-----------
+
+Clone and run (dev):
+
 ```bash
 git clone https://github.com/lavansh1306/NEW_Velocity_AI.git
 cd NEW_Velocity_AI
@@ -20,13 +51,54 @@ npm install
 npm run dev
 ```
 
-Config
-- Add Jira/Asana tokens to a `.env` file. Demo data is available under `public/data`.
+Optional: start backend API server in another terminal:
+
+```bash
+npm run api
+```
+
+Configuration (short)
+---------------------
+
+- Create a `.env` at repo root with your Jira/Asana credentials. The app runs in demo mode using `public/data` CSVs when tokens are missing.
+- Minimal vars: `JIRA_DOMAIN`, `JIRA_EMAIL`, `JIRA_API_TOKEN`, `ASANA_TOKEN`, `ASANA_PROJECT_ID`, `API_PORT`.
+
+Files to inspect
+----------------
+
+- `public/data/` — sample CSVs for local demos
+- `src/api/` — server endpoints and normalization logic
+- `src/components/analytics/` — charting and metrics components
+
+Deployment
+----------
+
+- Recommended: Vercel. Configure environment variables in the Vercel dashboard and connect to this repository for automatic deploys.
+
+Interview callouts (say this)
+-----------------------------
+
+- "I built an end-to-end analytics pipeline that converts Jira/Asana events into CFO-level KPIs and recommendations." 
+- Focus: causal attribution & redeployment engine — business-facing features, not only charts.
+
+Contributing
+------------
+
+- Create a `feature/<name>` branch, run `npm run lint`, `npm run build`, and open a PR with a clear description.
 
 License
-- MIT
+-------
 
-Questions or changes: open an issue or PR.
+MIT — see the LICENSE file.
+
+Contact
+-------
+
+Open an issue or PR on the repository for questions or improvements.
+
+---
+
+This README is intentionally concise — ask me to add a short "Key achievements" block with sample metrics for recruiter impact.
 # Velocity AI - Workforce Intelligence Platform
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/lavansh1306/NEW_Velocity_AI)
