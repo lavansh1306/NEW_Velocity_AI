@@ -1,3 +1,32 @@
+# Velocity AI — Workforce Intelligence
+
+AI platform that measures productivity gains, proves ROI, and recommends high-impact work.
+
+![MIT License](https://img.shields.io/badge/license-MIT-yellow)
+
+What
+- Ingests Jira & Asana events, normalizes data, and produces stakeholder KPIs (automation%, hours saved, cost impact).
+
+Tech
+- Frontend: React + TypeScript + Vite
+- Backend: Node.js + Express (TypeScript)
+- UI: Tailwind, Chart.js / Recharts
+
+Quick start
+```bash
+git clone https://github.com/lavansh1306/NEW_Velocity_AI.git
+cd NEW_Velocity_AI
+npm install
+npm run dev
+```
+
+Config
+- Add Jira/Asana tokens to a `.env` file. Demo data is available under `public/data`.
+
+License
+- MIT
+
+Questions or changes: open an issue or PR.
 # Velocity AI - Workforce Intelligence Platform
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/lavansh1306/NEW_Velocity_AI)
