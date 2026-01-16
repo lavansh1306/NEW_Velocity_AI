@@ -85,7 +85,7 @@ Designed for **CFOs, CHROs, and Engineering Leaders** who need to:
 
 Velocity AI follows a layered architecture design for scalability and maintainability:
 
-![Architecture Diagram](./architecture-new.svg)
+![Architecture Diagram](./architecture.svg)
 
 ### **Architecture Layers**
 
