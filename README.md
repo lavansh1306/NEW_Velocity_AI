@@ -1,383 +1,400 @@
-# Velocity AI — Workforce Intelligence
+# 🚀 Velocity AI - Workforce Intelligence Platform
 
-![MIT](https://img.shields.io/badge/license-MIT-yellow) ![React](https://img.shields.io/badge/React-17.0-blue) ![TypeScript](https://img.shields.io/badge/TypeScript-4.0-3178C6) ![Vite](https://img.shields.io/badge/Vite-3.0-646CFF) ![Tailwind](https://img.shields.io/badge/Tailwind-3.0-06B6D4)
+<div align="center">
 
-Short pitch
------------
+![Velocity AI](https://img.shields.io/badge/Velocity-AI-3b82f6?style=for-the-badge&logo=react&logoColor=white)
 
-Velocity AI turns raw project events into CFO-ready insights: automation coverage, human-hours saved, cost impact, and redeployment recommendations that convert efficiency into measurable business outcomes.
+[![React](https://img.shields.io/badge/React-18.3-61DAFB?style=flat&logo=react&logoColor=white)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-6.4-646CFF?style=flat&logo=vite&logoColor=white)](https://vitejs.dev/)
+[![Node.js](https://img.shields.io/badge/Node.js-18+-339933?style=flat&logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Express](https://img.shields.io/badge/Express-5.2-000000?style=flat&logo=express&logoColor=white)](https://expressjs.com/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-06B6D4?style=flat&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
+[![Chart.js](https://img.shields.io/badge/Chart.js-4.5-FF6384?style=flat&logo=chart.js&logoColor=white)](https://www.chartjs.org/)
+[![TanStack Query](https://img.shields.io/badge/TanStack_Query-5.83-FF4154?style=flat&logo=react-query&logoColor=white)](https://tanstack.com/query)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat)](https://opensource.org/licenses/MIT)
+[![Deploy with Vercel](https://img.shields.io/badge/Deploy-Vercel-000000?style=flat&logo=vercel&logoColor=white)](https://vercel.com/new/clone?repository-url=https://github.com/lavansh1306/NEW_Velocity_AI)
 
-Why this repo matters (for recruiters)
-------------------------------------
+**Transform raw project events into CFO-ready insights**
 
-- Full-stack product: data ingestion, normalization, analytics, and dashboard UI.
-- Designed for stakeholders (CFO/CHRO) with KPIs and ROI attribution—bridges product, analytics, and engineering.
-- Modular connectors: add integrations (Jira, Asana, HubSpot, Microsoft365) with low friction.
+[Features](#-core-features) • [Architecture](#-architecture) • [Quick Start](#-quick-start) • [Documentation](#-documentation) • [Contributing](#-contributing)
 
-Core features
--------------
-
-- Connectors: Jira & Asana ingestion and canonical event mapping
-- Normalization: unified event model for cross-platform analytics
-- Metrics: Automation Coverage, Hours Saved, Cost Savings, Capacity Forecasts
-- Intelligence: Redeployment recommendations and causal attribution
-- Visuals: Live dashboards, project detail views, and Gantt charts
-
-High-level architecture
------------------------
-
-- Ingestion layer: platform-specific connectors and token-based auth
-- Processing layer: normalization, enrichment, and metrics calculations
-- Intelligence layer: attribution and redeployment engine
-- Frontend: React SPA (TypeScript) with charts and responsive UI
-
-Tech summary
-------------
-
-- Frontend: React, TypeScript, Vite, Tailwind CSS, shadcn/ui
-- Visuals: Chart.js, Recharts, date-fns
-- Backend: Node.js + Express (TypeScript)
-- Deployment: Vercel; env-driven configuration
-
-Quick start
------------
-
-Clone and run (dev):
-
-```bash
-git clone https://github.com/lavansh1306/NEW_Velocity_AI.git
-cd NEW_Velocity_AI
-npm install
-npm run dev
-```
-
-Optional: start backend API server in another terminal:
-
-```bash
-npm run api
-```
-
-Configuration (short)
----------------------
-
-- Create a `.env` at repo root with your Jira/Asana credentials. The app runs in demo mode using `public/data` CSVs when tokens are missing.
-- Minimal vars: `JIRA_DOMAIN`, `JIRA_EMAIL`, `JIRA_API_TOKEN`, `ASANA_TOKEN`, `ASANA_PROJECT_ID`, `API_PORT`.
-
-Files to inspect
-----------------
-
-- `public/data/` — sample CSVs for local demos
-- `src/api/` — server endpoints and normalization logic
-- `src/components/analytics/` — charting and metrics components
-
-Deployment
-----------
-
-- Recommended: Vercel. Configure environment variables in the Vercel dashboard and connect to this repository for automatic deploys.
-
-Interview callouts (say this)
------------------------------
-
-- "I built an end-to-end analytics pipeline that converts Jira/Asana events into CFO-level KPIs and recommendations." 
-- Focus: causal attribution & redeployment engine — business-facing features, not only charts.
-
-Contributing
-------------
-
-- Create a `feature/<name>` branch, run `npm run lint`, `npm run build`, and open a PR with a clear description.
-
-License
--------
-
-MIT — see the LICENSE file.
-
-Contact
--------
-
-Open an issue or PR on the repository for questions or improvements.
+</div>
 
 ---
 
-This README is intentionally concise — ask me to add a short "Key achievements" block with sample metrics for recruiter impact.
-# Velocity AI - Workforce Intelligence Platform
+## 📖 Overview
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/lavansh1306/NEW_Velocity_AI)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+**Velocity AI** is a comprehensive workforce intelligence platform that transforms raw project events from multiple sources (Jira, Asana, HubSpot, Microsoft 365, Zapier) into actionable CFO-ready insights. The platform provides:
 
-**Velocity AI** is an AI-powered workforce intelligence platform that tracks productivity gains from AI tools, reallocates freed capacity to high-impact initiatives, and proves ROI with causal attribution. It provides CFOs and CHROs with the clarity they need to make data-driven decisions about AI adoption and resource allocation.
+- **Automation Coverage Analysis**: Track what percentage of work is automated vs. manual
+- **Human-Hours Saved**: Calculate time savings from AI and automation tools
+- **Cost Impact Attribution**: Link automation savings to measurable business outcomes
+- **Redeployment Recommendations**: Strategic allocation of freed capacity to high-impact initiatives
 
-![Velocity AI Architecture](./architecture.svg)
+### 💼 Business Value
 
-## 🚀 Features
+Designed for **CFOs, CHROs, and Engineering Leaders** who need to:
+- Prove ROI from AI and automation investments
+- Make data-driven decisions about resource allocation
+- Track productivity gains across teams and projects
+- Forecast capacity and plan strategic initiatives
 
-### Core Capabilities
-- **📊 Multi-Platform Integration**: Seamlessly connects with Jira and Asana to aggregate project data
-- **⚡ Real-time Dashboards**: Interactive dashboards for Jira and Asana projects with live metrics
-- **💰 ROI Calculator**: Calculate and visualize return on investment from AI and automation tools
-- **📈 Analytics & Metrics**: 
-  - Automation coverage percentage
-  - Total automations executed (weekly trends)
-  - Estimated human hours saved
-  - Cost savings analysis
-  - Capacity forecasting
-- **🎯 Project Management**: 
-  - Project detail views with comprehensive metrics
-  - Gantt charts for timeline visualization
-  - Team capacity planning
-  - Sprint analytics
-- **🔄 Redeployment Engine**: Strategic allocation of freed capacity to high-impact initiatives
-- **🎨 Modern UI/UX**: Built with shadcn/ui and Tailwind CSS for a polished, responsive design
+---
 
-### Advanced Features
-- **Skill Graph Engine**: Maps team skills and automation capabilities
-- **Causal Attribution Analysis**: Tracks impact of AI tools on productivity
-- **Security Audit**: Enterprise-grade security monitoring
-- **Data Normalization**: Canonical event mapping across multiple data sources
+## ✨ Core Features
+
+### 🔌 **Multi-Platform Integration**
+- **Jira**: Issues, sprints, timelines, and quality metrics
+- **Asana**: Tasks, projects, and team workflows
+- **HubSpot**: CRM deals, contacts, campaigns, and tickets
+- **Microsoft 365**: Meetings, emails, calendar events, and Teams data
+- **Zapier**: Workflow automation runs and metrics
+- **CSV Import**: Support for custom data sources
+
+### 📊 **Real-Time Dashboards**
+- Interactive project dashboards with live metrics
+- Cross-platform analytics and comparisons
+- Gantt charts for timeline visualization
+- Burndown charts for sprint tracking
+- Custom visualizations with Chart.js and Recharts
+
+### 💰 **ROI & Analytics**
+- **Automation Coverage**: Percentage of work handled by automation
+- **Time Savings**: Estimated human-hours saved from automation
+- **Cost Analysis**: Financial impact of productivity gains
+- **Capacity Forecasting**: Predict future team capacity
+- **Causal Attribution**: Link specific tools to business outcomes
+
+### 🎯 **Redeployment Engine**
+- Skill graph mapping for team capabilities
+- Strategic capacity allocation recommendations
+- High-impact initiative prioritization
+- Team rebalancing suggestions
+
+### 🎨 **Modern UI/UX**
+- Built with shadcn/ui and Radix UI primitives
+- Fully responsive design with Tailwind CSS
+- Dark/light theme support
+- Accessible components (WCAG compliant)
+- Toast notifications and user feedback
+
+---
 
 ## 🏗️ Architecture
 
-The application follows a layered architecture:
+Velocity AI follows a layered architecture design for scalability and maintainability:
 
-1. **Data Ingestion Layer**: Connectors for Jira, Asana, and other platforms with OAuth/Token authentication
-2. **Processing Layer**: Data normalization, metrics calculation, and event processing
-3. **Intelligence Layer**: Redeployment engine, ROI attribution, and capacity forecasting
-4. **Frontend Layer**: React-based SPA with modern UI components and state management
-5. **Infrastructure Layer**: Vite build system, Vercel deployment, and monitoring
+![Architecture Diagram](./architecture-new.svg)
 
-For a detailed architecture diagram, see [architecture.svg](./architecture.svg).
+### **Architecture Layers**
+
+1. **External Data Sources**: Connect to Jira, Asana, HubSpot, Microsoft 365, Zapier, and CSV files
+2. **Data Ingestion Layer**: Express API server with OAuth/token authentication
+3. **Processing Layer**: Data normalization, transformation, and storage
+4. **Intelligence Layer**: Metrics calculation, ROI attribution, and redeployment engine
+5. **Frontend Layer**: React SPA with modern UI components and visualizations
+
+For detailed architecture documentation, see [docs/metrics-and-architecture.md](./docs/metrics-and-architecture.md).
+
+---
 
 ## 🛠️ Tech Stack
 
-### Frontend
-- **Framework**: React  with TypeScript
-- **Build Tool**: Vite 
-- **Routing**: React Router DOM
-- **State Management**: TanStack Query (React Query)
-- **UI Framework**: 
-  - shadcn/ui (Radix UI components)
-  - Tailwind CSS
-  - Lucide React icons
-- **Charts & Visualization**:
-  - Chart.js 4.5.1 with React wrapper
-  - Recharts 2.15.4
-  - Date-fns for date handling
-- **Forms**: React Hook Form  with Zod validation
+<details>
+<summary><b>Frontend Technologies</b></summary>
 
-### Backend
-- **Runtime**: Node.js with TypeScript
-- **Framework**: Express 5.2.1
-- **API Integration**: Node-fetch 3.3.2
-- **Security**: CORS 2.8.5, dotenv for env management
+| Technology | Version | Purpose |
+|-----------|---------|---------|
+| **React** | 18.3.1 | UI framework |
+| **TypeScript** | 5.8.3 | Type safety |
+| **Vite** | 6.4.1 | Build tool & dev server |
+| **React Router** | 6.30.1 | Client-side routing |
+| **TanStack Query** | 5.83.0 | Data fetching & caching |
+| **Tailwind CSS** | 3.4.17 | Utility-first styling |
+| **shadcn/ui** | Latest | Component library (Radix UI) |
+| **Chart.js** | 4.5.1 | Data visualization |
+| **Recharts** | 2.15.4 | React charts |
+| **Lucide React** | 0.462.0 | Icon library |
+| **React Hook Form** | 7.61.1 | Form management |
+| **Zod** | 3.25.76 | Schema validation |
+| **date-fns** | 3.6.0 | Date utilities |
 
-### Development Tools
-- **Linting**: ESLint 9.32.0 with TypeScript ESLint
-- **Testing**: Built-in Vite test support
-- **Package Manager**: npm (bun.lockb also available)
+</details>
 
-### Deployment & Monitoring
-- **Platform**: Vercel
-- **Analytics**: @vercel/analytics, @vercel/speed-insights
-- **CI/CD**: GitHub Actions (optional)
+<details>
+<summary><b>Backend Technologies</b></summary>
 
-## 📋 Prerequisites
+| Technology | Version | Purpose |
+|-----------|---------|---------|
+| **Node.js** | 18+ | JavaScript runtime |
+| **Express** | 5.2.1 | Web framework |
+| **TypeScript** | 5.8.3 | Type safety |
+| **CORS** | 2.8.5 | Cross-origin requests |
+| **dotenv** | 17.2.3 | Environment variables |
+| **csv-parse** | 6.1.0 | CSV parsing |
+| **node-fetch** | 3.3.2 | HTTP client |
+| **express-session** | 1.17.3 | Session management |
 
-Before you begin, ensure you have the following installed:
+</details>
 
-- **Node.js**: Version 18.x or higher ([install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating))
-- **npm**: Version 9.x or higher (comes with Node.js)
-- **Git**: For version control
+<details>
+<summary><b>Development & Build Tools</b></summary>
 
-### API Credentials (Optional but Recommended)
+| Technology | Version | Purpose |
+|-----------|---------|---------|
+| **ESLint** | 9.32.0 | Code linting |
+| **TypeScript ESLint** | 8.38.0 | TypeScript linting |
+| **PostCSS** | 8.5.6 | CSS processing |
+| **Autoprefixer** | 10.4.21 | CSS vendor prefixes |
+| **tsx** | 4.21.0 | TypeScript execution |
+| **ts-node** | 1.7.1 | TypeScript Node.js |
 
-To use the full functionality, you'll need:
+</details>
 
-1. **Jira API Access**:
-   - Jira domain (e.g., `yourcompany.atlassian.net`)
-   - Email address associated with your Jira account
-   - API token (generate from [Atlassian API tokens](https://id.atlassian.com/manage-profile/security/api-tokens))
-   - Project key
+<details>
+<summary><b>Deployment & Monitoring</b></summary>
 
-2. **Asana API Access**:
-   - Personal Access Token (generate from [Asana Developer Console](https://app.asana.com/0/my-apps))
-   - Project ID
+| Technology | Version | Purpose |
+|-----------|---------|---------|
+| **Vercel** | Latest | Hosting platform |
+| **@vercel/analytics** | 1.5.0 | Usage analytics |
+| **@vercel/speed-insights** | 1.2.0 | Performance monitoring |
 
-## 🚀 Installation & Setup
+</details>
 
-### 1. Clone the Repository
+---
 
-```bash
-git clone https://github.com/lavansh1306/NEW_Velocity_AI.git
-cd NEW_Velocity_AI
-```
+## 🚀 Quick Start
 
-### 2. Install Dependencies
+### Prerequisites
 
-```bash
-npm install
-```
+Before you begin, ensure you have:
+- **Node.js** 18.x or higher ([download](https://nodejs.org/))
+- **npm** 9.x or higher (comes with Node.js)
+- **Git** for version control
 
-### 3. Configure Environment Variables
+### Installation
 
-Create a `.env` file in the root directory with the following configuration:
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/lavansh1306/NEW_Velocity_AI.git
+   cd NEW_Velocity_AI
+   ```
 
-```bash
-# Jira API credentials
-JIRA_DOMAIN=yourcompany.atlassian.net
-JIRA_EMAIL=your-email@company.com
-JIRA_API_TOKEN=your_jira_api_token
-JIRA_PROJECT_KEY=YOUR_PROJECT_KEY
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-# Optional: custom field for team names (e.g., customfield_12345)
-JIRA_TEAM_FIELD_ID=
+3. **Set up environment variables** (Optional but recommended)
+   
+   Create a `.env` file in the root directory:
+   ```bash
+   # Jira Configuration
+   JIRA_DOMAIN=yourcompany.atlassian.net
+   JIRA_EMAIL=your-email@company.com
+   JIRA_API_TOKEN=your_jira_api_token
+   JIRA_PROJECT_KEY=YOUR_PROJECT_KEY
+   JIRA_TEAM_FIELD_ID=customfield_xxxxx
+   
+   # Asana Configuration
+   ASANA_TOKEN=your_asana_personal_access_token
+   ASANA_PROJECT_ID=your_asana_project_id
+   
+   # HubSpot Configuration
+   HUBSPOT_API_KEY=your_hubspot_api_key
+   
+   # Microsoft 365 Configuration
+   MS365_CLIENT_ID=your_azure_app_client_id
+   MS365_CLIENT_SECRET=your_azure_app_client_secret
+   MS365_TENANT_ID=your_azure_tenant_id
+   
+   # Server Configuration
+   API_PORT=4000
+   ```
 
-# Asana API credentials
-ASANA_TOKEN=your_asana_personal_access_token
-ASANA_PROJECT_ID=your_asana_project_id
+   > **Note**: The app works without API credentials using demo CSV data from `public/data/`
 
-# Server port (defaults to 4000)
-API_PORT=4000
-```
+4. **Start the development server**
+   
+   **Frontend (React app):**
+   ```bash
+   npm run dev
+   ```
+   
+   Access the app at `http://localhost:5173`
 
-**Note**: The application will work without API credentials, but integration features will be limited. See warnings in the console for missing configurations.
+   **Backend API (optional, in a new terminal):**
+   ```bash
+   npm run api
+   ```
+   
+   API server runs at `http://localhost:4000`
 
-### 4. Start the Development Server
+5. **Build for production**
+   ```bash
+   npm run build
+   ```
 
-#### Frontend (React App)
-```bash
-npm run dev
-```
+6. **Preview production build**
+   ```bash
+   npm run preview
+   ```
 
-The application will be available at `http://localhost:5173` (or another port if 5173 is in use).
-
-#### Backend API Server (Optional)
-In a separate terminal:
-
-```bash
-npm run api
-```
-
-The API server will run on `http://localhost:4000`.
-
-### 5. Build for Production
-
-```bash
-npm run build
-```
-
-This creates an optimized production build in the `dist/` directory.
-
-### 6. Preview Production Build
-
-```bash
-npm run preview
-```
+---
 
 ## 📁 Project Structure
 
 ```
 NEW_Velocity_AI/
-├── public/                  # Static assets
-│   ├── data/               # CSV data files
-│   └── placeholder.svg     # Image assets
-├── src/
-│   ├── api/                # API integration modules
-│   │   └── projects/       # Project-specific API endpoints
-│   ├── components/         # React components
-│   │   ├── ui/            # shadcn/ui components
-│   │   ├── jira/          # Jira-specific components
-│   │   ├── demo2/         # Demo components
-│   │   └── [feature].tsx  # Feature components
-│   ├── contexts/          # React contexts (Toast, etc.)
-│   ├── hooks/             # Custom React hooks
-│   ├── lib/               # Utility functions and services
-│   ├── pages/             # Route pages
-│   │   ├── Index.tsx      # Landing page
-│   │   ├── JiraDashboard.tsx
-│   │   ├── AsanaDashboard.tsx
-│   │   ├── Projects.tsx
-│   │   ├── ProjectDetailNew.tsx
-│   │   ├── ROICalculator.tsx
-│   │   └── [other pages]
-│   ├── App.tsx            # Main app component with routing
-│   ├── main.tsx           # Application entry point
-│   └── index.css          # Global styles
-├── server.ts              # Express API server
-├── docs/                  # Documentation
-│   ├── QUICK-REFERENCE.md
+├── 📁 public/                      # Static assets
+│   ├── data/                       # Demo CSV data files
+│   │   ├── jira_events.csv
+│   │   ├── asana_events.csv
+│   │   ├── hubspot_events.csv
+│   │   ├── microsoft365_events.csv
+│   │   ├── zapier_events.csv
+│   │   └── projects-*.csv
+│   ├── placeholder.svg
+│   └── robots.txt
+│
+├── 📁 src/                         # Main application source
+│   ├── 📁 api/                     # API route handlers
+│   │   ├── hubspot/                # HubSpot integration
+│   │   ├── microsoft365/           # Microsoft 365 integration
+│   │   └── projects/               # Project endpoints
+│   │
+│   ├── 📁 components/              # React components
+│   │   ├── ui/                     # shadcn/ui components (40+)
+│   │   ├── analytics/              # Chart components
+│   │   │   ├── AnalyticsPanel.tsx
+│   │   │   ├── AIUsageChart.tsx
+│   │   │   ├── BurndownChart.tsx
+│   │   │   ├── GanttChart.tsx
+│   │   │   └── custom/             # Custom visualizations
+│   │   ├── jira/                   # Jira-specific components
+│   │   ├── asana/                  # Asana-specific components
+│   │   ├── hubspot/                # HubSpot-specific components
+│   │   ├── microsoft365/           # Microsoft 365 components
+│   │   ├── demo/                   # Demo components
+│   │   │   ├── LiveFeed.tsx
+│   │   │   ├── ROIMetrics.tsx
+│   │   │   ├── RedeploymentView.tsx
+│   │   │   └── TimeTracking.tsx
+│   │   ├── demo2/                  # Advanced demo components
+│   │   │   ├── VPDashboard.tsx
+│   │   │   ├── DashboardTab.tsx
+│   │   │   ├── RedeploymentTab.tsx
+│   │   │   └── [other tabs]
+│   │   ├── Header.tsx
+│   │   ├── Footer.tsx
+│   │   ├── Hero.tsx
+│   │   └── [other components]
+│   │
+│   ├── 📁 pages/                   # Route components
+│   │   ├── Index.tsx               # Landing page
+│   │   ├── Demo.tsx                # Main demo
+│   │   ├── JiraDashboard.tsx       # Jira dashboard
+│   │   ├── AsanaDashboard.tsx      # Asana dashboard
+│   │   ├── HubSpotDashboard.tsx    # HubSpot dashboard
+│   │   ├── Microsoft365Dashboard.tsx
+│   │   ├── Projects.tsx            # Projects list
+│   │   ├── ProjectDetailNew.tsx    # Project details
+│   │   ├── ROICalculator.tsx       # ROI calculator
+│   │   ├── ROIReport.tsx           # ROI reports
+│   │   ├── VelocityAI.tsx          # VP dashboard
+│   │   ├── UseCases.tsx            # Use cases page
+│   │   ├── GlobalCapacity.tsx      # Capacity view
+│   │   └── NotFound.tsx            # 404 page
+│   │
+│   ├── 📁 lib/                     # Core utilities
+│   │   ├── normalizers/            # Data normalizers
+│   │   │   ├── jira.ts             # Jira normalization
+│   │   │   ├── asana.ts            # Asana normalization
+│   │   │   ├── hubspot.ts          # HubSpot normalization
+│   │   │   ├── microsoft365.ts     # Microsoft 365 normalization
+│   │   │   └── zapier.ts           # Zapier normalization
+│   │   ├── api.ts                  # API client
+│   │   ├── dataService.ts          # Data fetching service
+│   │   ├── metrics.ts              # Metrics calculations
+│   │   ├── storage.ts              # Local storage
+│   │   ├── csvLoader.ts            # CSV parsing
+│   │   ├── types.ts                # TypeScript types
+│   │   └── utils.ts                # Utility functions
+│   │
+│   ├── 📁 hooks/                   # Custom React hooks
+│   │   ├── use-toast.ts
+│   │   ├── use-mobile.tsx
+│   │   └── useNotification.ts
+│   │
+│   ├── 📁 contexts/                # React contexts
+│   │   └── ToastContext.tsx
+│   │
+│   ├── App.tsx                     # Main app component
+│   ├── main.tsx                    # Entry point
+│   └── index.css                   # Global styles
+│
+├── 📁 docs/                        # Documentation
 │   ├── data-pipeline.md
-│   └── metrics-and-architecture.md
-├── architecture.svg       # System architecture diagram
-├── .env                   # Environment variables (not in repo)
-├── package.json           # Dependencies and scripts
-├── tsconfig.json          # TypeScript configuration
-├── vite.config.ts         # Vite configuration
-├── tailwind.config.ts     # Tailwind CSS configuration
-├── vercel.json            # Vercel deployment config
-└── README.md              # This file
+│   ├── metrics-and-architecture.md
+│   └── QUICK-REFERENCE.md
+│
+├── 📁 api/                         # Serverless API
+│   └── index.ts
+│
+├── server.ts                       # Express server
+├── architecture-new.svg            # Architecture diagram
+├── package.json                    # Dependencies
+├── tsconfig.json                   # TypeScript config
+├── vite.config.ts                  # Vite config
+├── tailwind.config.ts              # Tailwind config
+├── vercel.json                     # Vercel config
+└── README.md                       # This file
 ```
 
-## 🔧 Configuration
+---
 
-### Vite Configuration
+## 🔌 API Endpoints
 
-The project uses Vite for fast development and optimized production builds. Key configuration in `vite.config.ts`:
-
-- React SWC plugin for fast refresh
-- Path aliases (`@/` → `src/`)
-- Server configuration for development
-
-### Tailwind CSS
-
-Custom theme configuration in `tailwind.config.ts` with:
-- Custom color palette
-- Shadow utilities
-- Typography plugin
-- Animation utilities
-
-### TypeScript
-
-Strict TypeScript configuration with:
-- ES2020 target
-- React JSX transformation
-- Path mapping for imports
-- Strict type checking enabled
-
-## 🌐 API Endpoints
-
-The Express server provides the following REST endpoints:
+The Express API server provides RESTful endpoints for data access:
 
 ### Jira Endpoints
 
-#### Get Jira Issues
-```
+```http
 GET /api/issues?projectKey=YOUR_KEY
-```
-Returns normalized Jira issues for a project.
-
-#### Get Jira Projects
-```
 GET /api/projects
 ```
-Returns list of all Jira projects.
 
 ### Asana Endpoints
 
-#### Get Asana Tasks
+```http
+GET /api/asana/issues?projectKey=PROJECT_ID
 ```
-GET /api/asana/issues?projectKey=YOUR_PROJECT_ID
+
+### HubSpot Endpoints
+
+```http
+GET /api/hubspot/deals
+GET /api/hubspot/contacts
+GET /api/hubspot/campaigns
 ```
-Returns normalized Asana tasks for a project.
+
+### Microsoft 365 Endpoints
+
+```http
+GET /api/microsoft365/meetings
+GET /api/microsoft365/emails
+GET /api/microsoft365/roi
+```
 
 ### Health Check
-```
+
+```http
 GET /health
 ```
-Returns API server health status.
 
-### Response Format
-
-All endpoints return JSON with the following structure:
-
+**Response Format:**
 ```json
 {
   "issues": [
@@ -385,178 +402,333 @@ All endpoints return JSON with the following structure:
       "key": "PROJ-123",
       "issueType": "Task",
       "summary": "Task summary",
-      "description": "Task description",
       "priority": "High",
       "status": "In Progress",
       "assignee": "John Doe",
-      "team": "Team 1",
       "created": "2024-01-01T00:00:00Z",
-      "due": "2024-01-15T00:00:00Z",
       "duration": 14
     }
   ]
 }
 ```
 
-## 💻 Development Workflow
+---
 
-### Code Style
+## 📊 Key Metrics & Calculations
 
-- Follow the ESLint configuration (run `npm run lint`)
-- Use TypeScript for type safety
-- Follow React best practices and hooks rules
+### Automation Coverage
+```
+Automation Coverage (%) = (Automated Tasks / Total Tasks) × 100
+```
 
-### Adding New Features
+### Human Hours Saved
+```
+Hours Saved = Σ(Task Duration × Automation Efficiency)
+```
 
-1. Create feature branch: `git checkout -b feature/your-feature-name`
-2. Implement your feature in the appropriate directory
-3. Test locally with `npm run dev`
-4. Run linter: `npm run lint`
-5. Build to verify: `npm run build`
-6. Commit changes with clear messages
-7. Create a pull request
+### Cost Savings
+```
+Cost Savings ($) = Hours Saved × Hourly Rate
+```
 
-### Testing
+### Capacity Forecast
+```
+Future Capacity = Current Capacity + (Hours Saved / Work Week Hours)
+```
 
-While the project doesn't include a formal test suite yet, manual testing is recommended:
+For detailed metric formulas, see [docs/metrics-and-architecture.md](./docs/metrics-and-architecture.md).
 
-1. Test all routes and navigation
-2. Verify API integrations with real credentials
-3. Check responsive design on multiple screen sizes
-4. Test form validations and error handling
+---
 
-## 🚀 Deployment
+## 🌐 Deployment
 
-### Deploying to Vercel (Recommended)
+### Deploy to Vercel (Recommended)
 
-1. **Push to GitHub**: Ensure your code is pushed to a GitHub repository
+1. **Push to GitHub**
+   ```bash
+   git push origin main
+   ```
 
-2. **Connect to Vercel**:
-   - Go to [Vercel](https://vercel.com)
-   - Import your GitHub repository
-   - Configure environment variables in Vercel dashboard
+2. **Import to Vercel**
+   - Go to [vercel.com](https://vercel.com)
+   - Click "Import Project"
+   - Select your GitHub repository
 
-3. **Environment Variables**: Add all variables from `.env` to Vercel's environment settings
+3. **Configure Environment Variables**
+   - Add all variables from `.env` in Vercel dashboard
+   - Go to Settings → Environment Variables
 
-4. **Deploy**: Vercel will automatically build and deploy your application
+4. **Deploy**
+   - Vercel automatically builds and deploys
+   - Automatic deployments on every push to `main`
 
-5. **Automatic Deployments**: Push to `main` branch triggers automatic deployments
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/lavansh1306/NEW_Velocity_AI)
 
-### Alternative: Deploying to Netlify
+### Alternative Deployment Options
+
+<details>
+<summary><b>Deploy to Netlify</b></summary>
 
 ```bash
-# Build the project
 npm run build
-
-# Deploy the dist folder to Netlify
-# Use Netlify CLI or drag-and-drop the dist folder
+# Deploy the dist/ folder to Netlify
 ```
 
-### Alternative: Deploying to GitHub Pages
+1. Sign up at [netlify.com](https://netlify.com)
+2. Drag and drop the `dist/` folder
+3. Or use Netlify CLI: `netlify deploy --prod`
 
-1. Update `vite.config.ts` with base URL:
-```typescript
-export default defineConfig({
-  base: '/NEW_Velocity_AI/',
-  // ... other config
-})
+</details>
+
+<details>
+<summary><b>Self-Hosting with Docker</b></summary>
+
+```dockerfile
+FROM node:18-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
+EXPOSE 5173
+CMD ["npm", "run", "preview"]
 ```
 
-2. Build and deploy:
 ```bash
-npm run build
-# Deploy dist folder to gh-pages branch
+docker build -t velocity-ai .
+docker run -p 5173:5173 velocity-ai
 ```
 
-### Self-Hosting
+</details>
 
-Deploy to any static hosting provider:
+<details>
+<summary><b>Static Hosting (Nginx)</b></summary>
 
-1. Build: `npm run build`
-2. Serve the `dist/` directory
-3. Configure your web server to route all requests to `index.html` (SPA mode)
+Build the project and serve the `dist/` folder:
 
-Example Nginx configuration:
 ```nginx
-location / {
-  try_files $uri $uri/ /index.html;
+server {
+    listen 80;
+    server_name yourdomain.com;
+    root /var/www/velocity-ai/dist;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
 }
 ```
 
-## 🔐 Security Considerations
+</details>
 
-- **Environment Variables**: Never commit `.env` file to version control
-- **API Tokens**: Rotate API tokens regularly
-- **CORS**: Configure CORS appropriately for production
-- **Rate Limiting**: Consider implementing rate limiting for API endpoints
-- **Authentication**: Implement proper authentication for production use
+---
+
+## 💻 Development
+
+### Available Scripts
+
+```bash
+# Development
+npm run dev          # Start Vite dev server (port 5173)
+npm run api          # Start Express API server (port 4000)
+
+# Building
+npm run build        # Production build
+npm run build:dev    # Development build
+
+# Quality Checks
+npm run lint         # Run ESLint
+npm run preview      # Preview production build
+```
+
+### Adding a New Integration
+
+1. **Create normalizer**: `src/lib/normalizers/yourplatform.ts`
+   ```typescript
+   export function normalizeYourPlatformEvents(data: any[]): Event[] {
+     return data.map(item => ({
+       // Transform to canonical event format
+     }));
+   }
+   ```
+
+2. **Add API routes**: `src/api/yourplatform/routes.ts`
+   ```typescript
+   app.get('/api/yourplatform/data', async (req, res) => {
+     // Fetch and return data
+   });
+   ```
+
+3. **Create components**: `src/components/yourplatform/`
+
+4. **Add dashboard page**: `src/pages/YourPlatformDashboard.tsx`
+
+5. **Register route**: Update `src/App.tsx`
+
+### Code Style Guidelines
+
+- Use TypeScript for all new code
+- Follow ESLint configuration
+- Use functional components with hooks
+- Implement proper error handling
+- Add JSDoc comments for complex functions
+- Keep components small and focused
+
+---
+
+## 📚 Documentation
+
+- **[Quick Reference](./docs/QUICK-REFERENCE.md)** - Common tasks and commands
+- **[Data Pipeline](./docs/data-pipeline.md)** - Data ingestion and processing
+- **[Metrics & Architecture](./docs/metrics-and-architecture.md)** - System design and calculations
+- **[Toast System](./TOAST_SYSTEM.md)** - Notification system documentation
+- **[Integration Guide](./INTEGRATION_GUIDE.md)** - Adding new integrations
+
+---
+
+## 🔐 Security
+
+- **Environment Variables**: Never commit `.env` files
+- **API Tokens**: Rotate regularly and store securely
+- **CORS**: Configured for production domains
+- **Authentication**: OAuth 2.0 and token-based auth
 - **HTTPS**: Always use HTTPS in production
+- **Input Validation**: Zod schemas for all user inputs
 
-## 📊 Data Pipeline
-
-The application uses a sophisticated data pipeline:
-
-1. **Ingestion**: Data pulled from Jira/Asana APIs
-2. **Normalization**: Events mapped to canonical format
-3. **Processing**: Metrics calculated from normalized events
-4. **Storage**: Data cached for performance
-5. **Visualization**: Rendered in dashboards and charts
-
-See [docs/data-pipeline.md](./docs/data-pipeline.md) for detailed information.
-
-## 📝 Key Metrics Explained
-
-- **Automation Coverage**: Percentage of work executed automatically vs. manually
-- **Human Hours Saved**: Calculated from automation events × average manual time
-- **Cost Savings**: Hours saved × hourly rate (configurable)
-- **Automation Growth**: Trend analysis of automation adoption over time
-- **Capacity Forecasting**: Predicted future capacity based on current trends
-
-See [docs/metrics-and-architecture.md](./docs/metrics-and-architecture.md) for formulas and implementation details.
+---
 
 ## 🤝 Contributing
 
-Contributions are welcome! Here's how you can help:
+We welcome contributions! Here's how you can help:
 
-1. **Report Bugs**: Open an issue with detailed reproduction steps
-2. **Suggest Features**: Open an issue with your feature proposal
-3. **Submit Pull Requests**: 
-   - Fork the repository
-   - Create a feature branch
-   - Make your changes
-   - Submit a PR with a clear description
+### Reporting Bugs
 
-### Development Guidelines
+1. Check if the issue already exists
+2. Create a new issue with:
+   - Clear description
+   - Steps to reproduce
+   - Expected vs actual behavior
+   - Screenshots if applicable
 
-- Write clean, readable code with proper TypeScript types
-- Follow the existing code style and conventions
-- Update documentation for significant changes
-- Test your changes thoroughly before submitting
-- Keep PRs focused on a single feature or fix
+### Suggesting Features
 
-## 📄 License
+1. Open an issue with the `enhancement` label
+2. Describe the feature and its benefits
+3. Provide mockups or examples if possible
+
+### Submitting Pull Requests
+
+1. **Fork the repository**
+   ```bash
+   git clone https://github.com/yourusername/NEW_Velocity_AI.git
+   cd NEW_Velocity_AI
+   ```
+
+2. **Create a feature branch**
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+
+3. **Make your changes**
+   - Write clean, documented code
+   - Follow the existing code style
+   - Add tests if applicable
+
+4. **Test your changes**
+   ```bash
+   npm run lint
+   npm run build
+   npm run dev
+   ```
+
+5. **Commit with clear messages**
+   ```bash
+   git commit -m "feat: add new feature description"
+   ```
+
+6. **Push and create PR**
+   ```bash
+   git push origin feature/your-feature-name
+   ```
+
+### Development Setup
+
+See [Quick Start](#-quick-start) for development environment setup.
+
+---
+
+## 🎯 Use Cases
+
+### For CFOs
+- **ROI Measurement**: Quantify returns from AI/automation investments
+- **Cost Analysis**: Track operational cost reductions
+- **Budget Planning**: Forecast future capacity and resource needs
+
+### For CHROs
+- **Workforce Planning**: Optimize team allocation and utilization
+- **Skill Mapping**: Identify team capabilities and gaps
+- **Redeployment**: Strategic reallocation of freed capacity
+
+### For Engineering Leaders
+- **Productivity Tracking**: Monitor team velocity and efficiency
+- **Tool Adoption**: Measure impact of new tools and processes
+- **Process Optimization**: Identify bottlenecks and improvements
+
+### For Project Managers
+- **Project Analytics**: Real-time project health and metrics
+- **Timeline Tracking**: Gantt charts and burndown analysis
+- **Resource Management**: Team capacity and allocation
+
+---
+
+## 🏆 Key Achievements
+
+- **End-to-end analytics pipeline** from multiple data sources
+- **Causal attribution engine** linking tools to business outcomes
+- **Redeployment intelligence** for strategic capacity allocation
+- **CFO-ready insights** with ROI and cost impact analysis
+- **Modular architecture** for easy integration additions
+- **Production-ready** with Vercel deployment and monitoring
+
+---
+
+## 📝 License
 
 This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
 
+---
+
 ## 🙏 Acknowledgments
 
-- Built with [React](https://react.dev/)
-- UI components from [shadcn/ui](https://ui.shadcn.com/)
-- Icons from [Lucide](https://lucide.dev/)
-- Charts by [Chart.js](https://www.chartjs.org/) and [Recharts](https://recharts.org/)
+- **UI Components**: [shadcn/ui](https://ui.shadcn.com/) (Radix UI)
+- **Icons**: [Lucide](https://lucide.dev/)
+- **Charts**: [Chart.js](https://www.chartjs.org/) and [Recharts](https://recharts.org/)
+- **Framework**: [React](https://react.dev/)
+- **Build Tool**: [Vite](https://vitejs.dev/)
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
+
+---
 
 ## 📞 Support
 
 For questions, issues, or feature requests:
 
-- Open an issue on [GitHub](https://github.com/lavansh1306/NEW_Velocity_AI/issues)
-- Check existing documentation in the `docs/` folder
-- Review the [TOAST_SYSTEM.md](./TOAST_SYSTEM.md) for notification system details
+- **GitHub Issues**: [Open an issue](https://github.com/lavansh1306/NEW_Velocity_AI/issues)
+- **Documentation**: Check the [docs/](./docs/) folder
+- **Examples**: See [TOAST_EXAMPLES.md](./TOAST_EXAMPLES.md)
 
-## 🔄 Version History
+---
+
+## 🔄 Changelog
 
 See the [commit history](https://github.com/lavansh1306/NEW_Velocity_AI/commits/main) for detailed version information.
 
 ---
 
-**Built with ❤️ by the Velocity AI team**
+<div align="center">
+
+**Built with ❤️ by the Velocity AI Team**
+
+[⬆ Back to Top](#-velocity-ai---workforce-intelligence-platform)
+
+</div>
