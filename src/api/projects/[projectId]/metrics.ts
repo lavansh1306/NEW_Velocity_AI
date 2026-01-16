@@ -64,7 +64,7 @@ export async function GET(
   // Jira rows: prefer live Jira via backend proxy instead of CSV
   let jiraRows: RawJiraRow[] = []
   try {
-    const resp = await fetch('http://localhost:4000/api/issues')
+    const resp = await fetch('http://localhost:3000/api/issues')
     if (resp.ok) {
       const data = await resp.json()
       const issues = data.issues || []

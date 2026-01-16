@@ -2,9 +2,9 @@
  * API configuration - uses local backend in development
  */
 
-// In development, API is on localhost:4000. In production, use relative URLs for Vercel
+// In development, API is on localhost:3000. In production, use relative URLs for Vercel
 export const API_BASE_URL = typeof window !== 'undefined' && window.location.hostname === 'localhost' 
-  ? 'http://localhost:4000' 
+  ? 'http://localhost:3000' 
   : '';
 
 /**

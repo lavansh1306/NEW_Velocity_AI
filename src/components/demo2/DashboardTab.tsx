@@ -1,10 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { loadAllMetrics, computeAllBlockedHours } from '@/lib/dataService';
+import { apiUrl } from '@/lib/api';
+import { hubspotFetch } from '@/lib/hubspot-fetch';
 
 export default function DashboardTab() {
   const [totalReturns, setTotalReturns] = useState<number | null>(null);
   const [blockedHours, setBlockedHours] = useState<number | null>(null);
+  const [aiSavedHours, setAiSavedHours] = useState<number | null>(null);
   const [loadingBlocked, setLoadingBlocked] = useState(false);
+  const [loadingAI, setLoadingAI] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -37,6 +41,33 @@ export default function DashboardTab() {
       .finally(() => {
         if (!mounted) return;
         setLoadingBlocked(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    setLoadingAI(true);
+    hubspotFetch(apiUrl('/api/hubspot/ai-metrics'))
+      .then((res) => {
+        if (!mounted) return;
+        if (!res.ok) throw new Error('Failed to fetch AI metrics');
+        return res.json();
+      })
+      .then((data) => {
+        if (!mounted) return;
+        setAiSavedHours(data.totalTimeSavedHours ?? null);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setAiSavedHours(null);
+      })
+      .finally(() => {
+        if (!mounted) return;
+        setLoadingAI(false);
       });
 
     return () => {
@@ -102,12 +133,14 @@ export default function DashboardTab() {
             <div>
               <div className="flex justify-between mb-2">
                 <span className="text-xs sm:text-sm font-semibold text-gray-700">AI-SAVED TIME</span>
-                <span className="text-xs sm:text-sm font-bold text-gray-900">32.3 hours</span>
+                <span className="text-xs sm:text-sm font-bold text-gray-900">
+                  {loadingAI ? '...' : aiSavedHours ? `${aiSavedHours} hours` : '—'}
+                </span>
               </div>
               <div className="w-full bg-gray-100 rounded-full h-6">
                 <div
                   className="h-6 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full transition-all duration-500"
-                  style={{ width: '28%' }}
+                  style={{ width: aiSavedHours ? `${Math.min((aiSavedHours / 120) * 100, 100)}%` : '0%' }}
                 ></div>
               </div>
             </div>

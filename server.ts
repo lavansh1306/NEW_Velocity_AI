@@ -2,12 +2,50 @@ import express, { Request, Response } from "express"
 import cors from "cors"
 import dotenv from "dotenv"
 import fetch from "node-fetch"
+import session from "express-session"
+import { fileURLToPath } from "url"
+import path from "path"
 
+// Load .env FIRST
 dotenv.config()
 
-const app = express()
-app.use(cors())
-app.use(express.json())
+// Get __dirname equivalent in ESM
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
+// Async startup
+;(async () => {
+  // Dynamic imports after dotenv loads
+  const m365Auth = await import("./src/api/microsoft365/auth")
+  const m365MetricsRoutes = await import("./src/api/microsoft365/routes/metrics").then(m => m.default)
+  const m365RoiRoutes = await import("./src/api/microsoft365/routes/roi").then(m => m.default)
+  const hubspotRoutes = await import("./src/api/hubspot/routes").then(m => m.default)
+  const hubspotAuth = await import("./src/api/hubspot/auth")
+
+  const app = express()
+  
+  // CORS configuration for cross-origin requests
+  app.use(cors({
+    origin: process.env.NODE_ENV === 'production' 
+      ? process.env.FRONTEND_URL || 'https://example.com'
+      : ['http://localhost:5173', 'http://localhost:3000'],
+    credentials: true
+  }))
+  
+  app.use(express.json())
+
+// Session middleware for M365 OAuth
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'dev-secret-change-in-prod',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { 
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : false,
+    domain: process.env.NODE_ENV === 'production' ? undefined : 'localhost'
+  }
+}))
 
 const PORT = Number(process.env.API_PORT || 4000)
 
@@ -311,8 +349,49 @@ app.get("/health", (_req: Request, res: Response) => {
   res.json({ status: "ok" })
 })
 
-app.listen(PORT, () => {
+// ============ Microsoft 365 OAuth Routes ============
+app.get('/api/microsoft365/auth/login', m365Auth.login);
+app.get('/auth/callback', m365Auth.callback);
+app.get('/api/microsoft365/auth/logout', m365Auth.logout);
+app.get('/api/microsoft365/auth/status', (req: Request, res: Response) => {
+  const isAuthenticated = !!(req.session?.tenantId && m365Auth.getTokenForSession(req));
+  res.json({
+    authenticated: isAuthenticated,
+    account: req.session?.account || null,
+    tenantId: req.session?.tenantId || null
+  });
+});
+
+// ============ HubSpot OAuth Callback Route ============
+app.get('/oauth/hubspot/callback', hubspotAuth.callback);
+
+// ============ Microsoft 365 API Routes ============
+app.use('/api/microsoft365/metrics', m365MetricsRoutes);
+app.use('/api/microsoft365/roi', m365RoiRoutes);
+
+// ============ HubSpot API Routes ============
+app.use('/api/hubspot', hubspotRoutes);
+
+// SPA Fallback: serve index.html for all non-API routes
+app.use((req: Request, res: Response) => {
+  if (req.url.startsWith('/api/')) {
+    res.status(404).json({ error: 'API endpoint not found' })
+    return
+  }
+  res.status(200).sendFile(__dirname + '/public/index.html', (err) => {
+    if (err) {
+      res.status(404).json({ error: 'Page not found' })
+    }
+  })
+})
+
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`API server listening on http://localhost:${PORT}`)
   console.log(`  - Jira API: ${isJiraConfigReady ? 'configured' : 'NOT configured'}`)
   console.log(`  - Asana API: ${isAsanaConfigReady ? 'configured' : 'NOT configured'}`)
+  console.log(`  - Microsoft 365 API: ${process.env.MS_CLIENT_ID ? 'configured' : 'NOT configured'}`)
+})
+})().catch(err => {
+  console.error('Failed to start server:', err)
+  process.exit(1)
 })
