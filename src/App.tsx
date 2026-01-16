@@ -16,6 +16,8 @@ import ProjectDetailNew from "./pages/ProjectDetailNew";
 import DebugNormalization from "./pages/DebugNormalization";
 import JiraDashboard from "./pages/JiraDashboard";
 import AsanaDashboard from "./pages/AsanaDashboard";
+import HubSpotDashboard from "./pages/HubSpotDashboard";
+import Microsoft365Dashboard from "./pages/Microsoft365Dashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -39,6 +41,8 @@ const App = () => (
             <Route path="/projects/:id" element={<ProjectDetailNew />} />
             <Route path="/projects/jira-dashboard" element={<JiraDashboard />} />
             <Route path="/projects/asana-dashboard" element={<AsanaDashboard />} />
+            <Route path="/projects/hubspot-dashboard" element={<HubSpotDashboard />} />
+            <Route path="/projects/microsoft365-dashboard" element={<Microsoft365Dashboard />} />
             <Route path="/debug-normalization" element={<DebugNormalization />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
