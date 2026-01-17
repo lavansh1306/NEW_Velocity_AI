@@ -135,7 +135,8 @@ app.get("/api/issues", async (req: Request, res: Response) => {
     if (!response.ok) {
       const errText = await response.text()
       console.error(`[Jira] Failed with status ${response.status}:`, errText.substring(0, 300))
-      return res.status(response.status).json({ error: 'Failed to fetch Jira issues', status: response.status, details: errText })
+      // Return empty list instead of 500 so UI doesn't break in production
+      return res.json({ issues: [] })
     }
 
     const data = await response.json() as any
@@ -217,11 +218,13 @@ app.get("/api/asana/issues", async (req: Request, res: Response) => {
   const projectId = (req.query.projectKey as string) || DEFAULT_ASANA_PROJECT_ID
 
   if (!projectId) {
-    return res.status(400).json({ error: "Project ID is required. Provide it as ?projectKey=YOUR_PROJECT_ID or set ASANA_PROJECT_ID in .env" })
+    console.warn('[Asana Issues] No project ID provided and ASANA_PROJECT_ID not set')
+    return res.json({ issues: [] })
   }
 
   if (!isAsanaConfigReady) {
-    return res.status(500).json({ error: "Asana configuration missing - ASANA_TOKEN not set" })
+    console.warn('[Asana Issues] Asana token not configured - returning empty issues')
+    return res.json({ issues: [] })
   }
 
   try {
@@ -238,7 +241,8 @@ app.get("/api/asana/issues", async (req: Request, res: Response) => {
 
     if (!response.ok) {
       const message = await response.text()
-      return res.status(response.status).json({ error: "Failed to fetch Asana tasks", details: message })
+      console.error('[Asana Issues] Upstream returned', response.status, message.substring(0, 300))
+      return res.json({ issues: [] })
     }
 
     const data = await response.json() as any
@@ -277,8 +281,9 @@ app.get("/api/asana/issues", async (req: Request, res: Response) => {
 
     res.json({ issues: tasks })
   } catch (err) {
-    console.error("[Asana API]", err)
-    res.status(500).json({ error: "Failed to fetch Asana tasks", details: err instanceof Error ? err.message : "Unknown error" })
+    const errMsg = err instanceof Error ? err.message : String(err)
+    console.error('[Asana Issues] Exception fetching tasks:', errMsg)
+    res.json({ issues: [] })
   }
 })
 
