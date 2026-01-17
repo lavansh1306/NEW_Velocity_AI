@@ -170,7 +170,8 @@ app.get("/api/issues", async (req: Request, res: Response) => {
 // Fetch list of projects from Jira (requires JIRA_DOMAIN + auth)
 app.get('/api/projects', async (_req: Request, res: Response) => {
   if (!isJiraConfigReady || !DOMAIN) {
-    return res.status(500).json({ error: 'Jira configuration missing' })
+    console.warn('[API] /api/projects called but Jira configuration missing - returning empty list')
+    return res.json({ projects: [] })
   }
 
   try {
@@ -202,8 +203,9 @@ app.get('/api/projects', async (_req: Request, res: Response) => {
 
     res.json({ projects })
   } catch (err) {
-    console.error('[Jira Projects]', err)
-    res.status(500).json({ error: 'Failed to fetch Jira projects', details: err instanceof Error ? err.message : 'Unknown' })
+    console.error('[Jira Projects] Failed to fetch projects:', err)
+    // Return empty list rather than failing the entire page in production
+    res.json({ projects: [] })
   }
 })
 
@@ -282,7 +284,8 @@ app.get("/api/asana/issues", async (req: Request, res: Response) => {
 // otherwise returns the DEFAULT_ASANA_PROJECT_ID as a single-item list when available.
 app.get('/api/asana/projects', async (_req: Request, res: Response) => {
   if (!isAsanaConfigReady) {
-    return res.status(500).json({ error: 'Asana configuration missing' })
+    console.warn('[API] /api/asana/projects called but Asana configuration missing - returning empty list')
+    return res.json({ projects: [] })
   }
 
   try {
@@ -299,7 +302,8 @@ app.get('/api/asana/projects', async (_req: Request, res: Response) => {
 
       if (!response.ok) {
         const txt = await response.text()
-        return res.status(response.status).json({ error: 'Failed to fetch Asana projects', details: txt })
+        console.error('[Asana Projects] upstream returned', response.status, txt.substring(0, 300))
+        return res.json({ projects: [] })
       }
 
       const data = await response.json() as any
@@ -328,7 +332,8 @@ app.get('/api/asana/projects', async (_req: Request, res: Response) => {
 
       if (!response.ok) {
         const txt = await response.text()
-        return res.status(response.status).json({ error: 'Failed to fetch Asana project', details: txt })
+        console.error('[Asana Project] upstream returned', response.status, txt.substring(0, 300))
+        return res.json({ projects: [] })
       }
 
       const data = await response.json() as any
@@ -340,8 +345,8 @@ app.get('/api/asana/projects', async (_req: Request, res: Response) => {
     // No workspace and no default project configured
     return res.json({ projects: [] })
   } catch (err) {
-    console.error('[Asana Projects]', err)
-    return res.status(500).json({ error: 'Failed to fetch Asana projects', details: err instanceof Error ? err.message : 'Unknown' })
+    console.error('[Asana Projects] Error fetching projects:', err)
+    return res.json({ projects: [] })
   }
 })
 
