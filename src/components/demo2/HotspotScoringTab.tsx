@@ -1,4 +1,49 @@
+import { useState, useEffect } from 'react'
+import { apiUrl } from '@/lib/api'
+import { hubspotFetch } from '@/lib/hubspot-fetch'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+
 export default function HotspotScoringTab() {
+  const [dealsMetrics, setDealsMetrics] = useState<{
+    dealCount: number
+    totalValue: number
+    aiSavedHours: number
+    avgDealValue: number
+  } | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchDealsMetrics()
+  }, [])
+
+  const fetchDealsMetrics = async () => {
+    try {
+      setLoading(true)
+      const response = await hubspotFetch(apiUrl('/api/hubspot/deals'))
+      if (response.ok) {
+        const data = await response.json()
+        const deals = data.deals || []
+        const totalValue = deals.reduce((sum: number, d: any) => sum + (Number(d.amount) || 0), 0)
+        
+        // Calculate AI saved time from metrics endpoint
+        const metricsResponse = await hubspotFetch(apiUrl('/api/hubspot/ai-metrics'))
+        if (metricsResponse.ok) {
+          const metricsData = await metricsResponse.json()
+          setDealsMetrics({
+            dealCount: deals.length,
+            totalValue: totalValue,
+            aiSavedHours: metricsData.totalTimeSavedHours || 0,
+            avgDealValue: deals.length > 0 ? Math.round(totalValue / deals.length) : 0
+          })
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch deals metrics:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const hotspots = [
     {
       title: 'Q4 Product Launch Campaign - Asset Finalization',
@@ -47,6 +92,44 @@ export default function HotspotScoringTab() {
         <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">Task Hotspot Scoring</h2>
         <p className="text-xs sm:text-sm text-gray-600 mt-2">Ranked by slack, proximity, and Cost of Delay (CoD)</p>
       </div>
+
+      {/* Deals Summary Metrics */}
+      {dealsMetrics && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Total Deals</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{dealsMetrics.dealCount}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Total Value</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">${(dealsMetrics.totalValue / 1000000).toFixed(1)}M</div>
+            </CardContent>
+          </Card>
+          <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-orange-700">AI-Saved Time</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-orange-900">{dealsMetrics.aiSavedHours} hrs</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Avg Deal Value</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">${(dealsMetrics.avgDealValue / 1000000).toFixed(1)}M</div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 mb-6 overflow-x-auto">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 min-w-full sm:min-w-0">
