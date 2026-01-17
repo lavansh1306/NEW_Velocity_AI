@@ -9,6 +9,20 @@ export default function DashboardTab() {
   const [aiSavedHours, setAiSavedHours] = useState<number | null>(null);
   const [loadingBlocked, setLoadingBlocked] = useState(false);
   const [loadingAI, setLoadingAI] = useState(false);
+  const [refetchTrigger, setRefetchTrigger] = useState(0);
+
+  // Check for storeKey changes (indicates auth happened)
+  useEffect(() => {
+    const checkStoreKey = () => {
+      const storeKey = localStorage.getItem('hubspot_storeKey')
+      if (storeKey) {
+        // Auth detected, trigger refetch
+        setRefetchTrigger(prev => prev + 1)
+      }
+    }
+    window.addEventListener('storage', checkStoreKey)
+    return () => window.removeEventListener('storage', checkStoreKey)
+  }, [])
 
   useEffect(() => {
     let mounted = true;
@@ -61,8 +75,9 @@ export default function DashboardTab() {
         if (!mounted) return;
         setAiSavedHours(data.totalTimeSavedHours ?? null);
       })
-      .catch(() => {
+      .catch((err) => {
         if (!mounted) return;
+        console.error('[DashboardTab] AI metrics error:', err)
         setAiSavedHours(null);
       })
       .finally(() => {
@@ -73,7 +88,7 @@ export default function DashboardTab() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [refetchTrigger]);
 
   function formatLargeUSD(v: number | null | undefined) {
     if (v == null) return '—';

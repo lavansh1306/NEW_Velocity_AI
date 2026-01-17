@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { apiUrl } from '@/lib/api';
+import { hubspotFetch } from '@/lib/hubspot-fetch';
 import { loadAllMetrics } from '@/lib/dataService';
 
 export default function VPDashboard() {
@@ -9,6 +11,20 @@ export default function VPDashboard() {
   const [totalReturns, setTotalReturns] = useState<number | null>(null);
   const [savingsTrend, setSavingsTrend] = useState<{ label: string; investmentUSD: number; savingsUSD: number }[] | null>(null);
   const [hourlyRateUsedUSD, setHourlyRateUsedUSD] = useState<number | null>(null);
+  const [hubspotHours, setHubspotHours] = useState<number | null>(null);
+  const [refetchTrigger, setRefetchTrigger] = useState(0);
+
+  // Check for storeKey changes (indicates auth happened)
+  useEffect(() => {
+    const checkStoreKey = () => {
+      const storeKey = localStorage.getItem('hubspot_storeKey')
+      if (storeKey) {
+        setRefetchTrigger(prev => prev + 1)
+      }
+    }
+    window.addEventListener('storage', checkStoreKey)
+    return () => window.removeEventListener('storage', checkStoreKey)
+  }, [])
 
   useEffect(() => {
     let mounted = true;
@@ -32,6 +48,29 @@ export default function VPDashboard() {
     };
   }, []);
 
+  // Fetch HubSpot AI metrics
+  useEffect(() => {
+    let mounted = true;
+    hubspotFetch(apiUrl('/api/hubspot/ai-metrics'))
+      .then((res) => {
+        if (!mounted) return;
+        if (!res.ok) throw new Error('Failed to fetch AI metrics');
+        return res.json();
+      })
+      .then((data) => {
+        if (!mounted) return;
+        setHubspotHours(data.totalTimeSavedHours ?? null);
+      })
+      .catch((err) => {
+        if (!mounted) return;
+        console.error('[VPDashboard] AI metrics error:', err)
+        setHubspotHours(null);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [refetchTrigger]);
+
   function formatLargeUSD(v: number | null | undefined) {
     if (v == null) return '—';
     const isNegative = v < 0;
@@ -49,6 +88,10 @@ export default function VPDashboard() {
     const ftes = hours / 8;
     return `${ftes.toFixed(1)} FTEs`;
   }
+
+  // Calculate combined total hours (Jira + Asana + HubSpot)
+  const combinedTotalHours = totalHours !== null && hubspotHours !== null ? totalHours + hubspotHours : totalHours ?? hubspotHours ?? null;
+
   // Tools and blended-scale calculations (used by chart and footer)
   const tools = [
     { name: 'JIRA', investment: 10 },
@@ -136,7 +179,7 @@ export default function VPDashboard() {
             </div>
           </div>
           <div className="text-xs opacity-90 mb-1">Total Hours Saved</div>
-          <div className="text-xl sm:text-2xl font-bold">{totalHours != null ? formatNumberWithCommas(totalHours) : '—'}</div>
+          <div className="text-xl sm:text-2xl font-bold">{combinedTotalHours != null ? formatNumberWithCommas(combinedTotalHours) : '—'}</div>
           <div className="text-xs mt-1 opacity-75">Across all platforms</div>
         </div>
 
@@ -163,10 +206,10 @@ export default function VPDashboard() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <span className="text-xs font-bold bg-white bg-opacity-20 px-2 py-0.5 rounded">{totalHours != null ? `${formatNumberWithCommas(totalHours)} hrs` : '—'}</span>
+            <span className="text-xs font-bold bg-white bg-opacity-20 px-2 py-0.5 rounded">{combinedTotalHours != null ? `${formatNumberWithCommas(combinedTotalHours)} hrs` : '—'}</span>
           </div>
           <div className="text-xs opacity-90 mb-1">Time Recaptured</div>
-          <div className="text-xl sm:text-2xl font-bold">{formatFTEs(totalHours)}</div>
+          <div className="text-xl sm:text-2xl font-bold">{formatFTEs(combinedTotalHours)}</div>
           <div className="text-xs mt-1 opacity-75">Equivalent capacity freed</div>
         </div>
       </div>
