@@ -62,9 +62,11 @@ export async function GET(
   // Load raw rows from each app CSV
   const asanaRows = loadCSV<RawAsanaRow>('asana_events.csv');
   // Jira rows: prefer live Jira via backend proxy instead of CSV
+  // Use an environment-configurable internal API base so this file works in serverless / production.
   let jiraRows: RawJiraRow[] = []
   try {
-    const resp = await fetch('http://localhost:3000/api/issues')
+    const INTERNAL_API_BASE = process.env.INTERNAL_API_BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000'
+    const resp = await fetch(`${INTERNAL_API_BASE.replace(/\/$/, '')}/api/issues`)
     if (resp.ok) {
       const data = await resp.json()
       const issues = data.issues || []
@@ -80,9 +82,11 @@ export async function GET(
         fields: JSON.stringify(iss.fields || {}),
       }))
     } else {
+      console.warn('[Metrics] /api/issues responded with', resp.status)
       jiraRows = []
     }
   } catch (err) {
+    console.warn('[Metrics] Failed to fetch /api/issues:', err)
     jiraRows = []
   }
   const zapierRows = loadCSV<RawZapierRow>('zapier_events.csv');
