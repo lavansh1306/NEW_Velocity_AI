@@ -1,8 +1,36 @@
 import express, { Request, Response } from "express"
 import cors from "cors"
 import fetch from "node-fetch"
+import dotenv from "dotenv"
+import session from "express-session"
+
+import hubspotRoutes from "../src/api/hubspot/routes"
+import * as hubspotAuth from "../src/api/hubspot/auth"
+
+// Load env
+dotenv.config()
 
 const app = express()
+
+// CORS (allow frontend origin and credentials)
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' ? (process.env.FRONTEND_URL || 'https://example.com') : ['http://localhost:5173', 'http://localhost:3000'],
+  credentials: true
+}))
+
+app.use(express.json())
+
+// Session middleware (required for OAuth PKCE flow)
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'dev-secret-change-in-prod',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : false,
+  }
+}))
 app.use(cors())
 app.use(express.json())
 
@@ -275,6 +303,12 @@ app.get('/api/asana/projects', async (_req: Request, res: Response) => {
     return res.status(500).json({ error: 'Failed to fetch Asana projects', details: err instanceof Error ? err.message : 'Unknown' })
   }
 })
+
+// ============ HubSpot OAuth Callback Route (serverless)
+app.get('/oauth/hubspot/callback', hubspotAuth.callback)
+
+// ============ HubSpot API Routes (serverless)
+app.use('/api/hubspot', hubspotRoutes)
 
 app.get("/api/health", (_req: Request, res: Response) => {
   res.json({ status: "ok" })
