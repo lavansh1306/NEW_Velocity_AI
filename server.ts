@@ -109,8 +109,8 @@ app.get("/api/issues", async (req: Request, res: Response) => {
   }
 
   if (!isJiraConfigReady) {
-    console.error('[/api/issues] Jira not configured')
-    return res.status(500).json({ error: "Jira configuration missing" })
+    console.warn('[/api/issues] Jira not configured - returning empty issues list')
+    return res.json({ issues: [] })
   }
 
   try {
@@ -163,7 +163,9 @@ app.get("/api/issues", async (req: Request, res: Response) => {
     res.json({ issues })
   } catch (err) {
     console.error("[Jira API]", err)
-    res.status(500).json({ error: "Failed to fetch Jira issues", details: err instanceof Error ? err.message : "Unknown error" })
+    // Return an empty issues array rather than a 500 so UI can render in production
+    console.warn('[Jira API] Failed to fetch issues:', err)
+    res.json({ issues: [] })
   }
 })
 
