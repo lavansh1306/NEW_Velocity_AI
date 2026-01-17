@@ -4,8 +4,8 @@ import fetch from "node-fetch"
 import dotenv from "dotenv"
 import session from "express-session"
 
-import hubspotRoutes from "../src/api/hubspot/routes"
-import * as hubspotAuth from "../src/api/hubspot/auth"
+import hubspotRoutes from "../src/api/hubspot/routes.js"
+import * as hubspotAuth from "../src/api/hubspot/auth.js"
 
 // Load env
 dotenv.config()

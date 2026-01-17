@@ -1,6 +1,6 @@
 // src/api/hubspot/routes.ts
 import express, { Request, Response } from 'express'
-import * as hubspotAuth from './auth'
+import * as hubspotAuth from './auth.js'
 
 const router = express.Router()
 

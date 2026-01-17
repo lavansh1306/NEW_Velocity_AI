@@ -358,7 +358,13 @@ app.get('/api/asana/projects', async (_req: Request, res: Response) => {
 })
 
 app.get("/health", (_req: Request, res: Response) => {
-  res.json({ status: "ok" })
+  res.json({ 
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    jiraConfigured: isJiraConfigReady,
+    asanaConfigured: isAsanaConfigReady,
+    apiPort: PORT
+  })
 })
 
 // ============ Microsoft 365 OAuth Routes ============

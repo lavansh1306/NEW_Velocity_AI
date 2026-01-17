@@ -4,17 +4,15 @@ import fetch from 'node-fetch';
 import { URLSearchParams } from 'url';
 import * as crypto from 'crypto';
 import { Request, Response } from 'express';
+import session from 'express-session';
 
-// Extend Express Request to include session
-declare global {
-  namespace Express {
-    interface Request {
-      session?: {
-        hubspotUserId?: string;
-        hubspotPortalId?: string;
-        codeVerifier?: string;
-      };
-    }
+// Extend express-session SessionData to include HubSpot properties
+declare module 'express-session' {
+  interface SessionData {
+    hubspotUserId?: string;
+    hubspotPortalId?: string;
+    hubspotStoreKey?: string;
+    codeVerifier?: string;
   }
 }
 
