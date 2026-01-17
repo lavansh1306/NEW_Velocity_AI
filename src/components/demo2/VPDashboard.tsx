@@ -12,6 +12,7 @@ export default function VPDashboard() {
   const [savingsTrend, setSavingsTrend] = useState<{ label: string; investmentUSD: number; savingsUSD: number }[] | null>(null);
   const [hourlyRateUsedUSD, setHourlyRateUsedUSD] = useState<number | null>(null);
   const [hubspotHours, setHubspotHours] = useState<number | null>(null);
+  const [totalRevenueImpact, setTotalRevenueImpact] = useState<number | null>(null);
   const [refetchTrigger, setRefetchTrigger] = useState(0);
 
   // Check for storeKey changes (indicates auth happened)
@@ -60,6 +61,7 @@ export default function VPDashboard() {
       .then((data) => {
         if (!mounted) return;
         setHubspotHours(data.totalTimeSavedHours ?? null);
+        setTotalRevenueImpact(data.totalRevenueImpact ?? null);
       })
       .catch((err) => {
         if (!mounted) return;
@@ -152,7 +154,7 @@ export default function VPDashboard() {
             <span className="text-xs font-bold bg-white bg-opacity-20 px-2 py-0.5 rounded">+47% vs LQ</span>
           </div>
           <div className="text-xs opacity-90 mb-1">Total AI-Driven Value</div>
-          <div className="text-xl sm:text-2xl font-bold">$847K</div>
+          <div className="text-xl sm:text-2xl font-bold">{totalRevenueImpact != null ? formatLargeUSD(totalRevenueImpact) : '—'}</div>
           <div className="text-xs mt-1 opacity-75">Verified ROI this quarter</div>
         </div>
 
