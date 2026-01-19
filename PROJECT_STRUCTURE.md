@@ -6,7 +6,7 @@
 
 **Tech Stack:**
 - **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui, Recharts
-- **Backend:** Node.js, Express, TypeScript
+- **Backend:**Node.js, Expre, TypeScript
 - **Deployment:** Vercel
 - **Package Manager:** Bun
 
