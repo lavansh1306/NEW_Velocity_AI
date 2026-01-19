@@ -206,9 +206,13 @@ async function callback(req: Request, res: Response): Promise<void> {
     req.session.account = account as { oid: string; upn?: string; name?: string; } | undefined;
 
     // Redirect back to Microsoft 365 dashboard after successful authentication
-    const frontendUrl = process.env.NODE_ENV === 'production' 
-      ? '/projects/microsoft365-dashboard'
-      : 'http://localhost:5173/projects/microsoft365-dashboard'
+    // Use the request origin or referrer to determine the correct frontend URL
+    const origin = req.headers.origin || req.headers.referer?.split('/').slice(0, 3).join('/') || 'http://localhost:5173';
+    const frontendUrl = `${origin}/projects/microsoft365-dashboard`;
+    
+    console.log('[M365 Callback] Request origin:', req.headers.origin);
+    console.log('[M365 Callback] Request referer:', req.headers.referer);
+    console.log('[M365 Callback] Calculated frontend URL:', frontendUrl);
     res.redirect(frontendUrl);
   } catch (err) {
     console.error('Callback error', err);
