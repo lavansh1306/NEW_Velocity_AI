@@ -10,7 +10,7 @@ import { ROIMetrics } from "@/components/demo/ROIMetrics";
 import { LiveFeed } from "@/components/demo/LiveFeed";
 
 const Demo = () => {
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState("integrations");
 
   return (
     <div className="min-h-screen bg-background">
@@ -46,8 +46,9 @@ const Demo = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:w-[600px]">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 lg:w-[700px]">
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="integrations">Integrations</TabsTrigger>
             <TabsTrigger value="timesaved">Time Saved</TabsTrigger>
             <TabsTrigger value="redeployment">Redeployment</TabsTrigger>
             <TabsTrigger value="roi">ROI Impact</TabsTrigger>
@@ -83,6 +84,71 @@ const Demo = () => {
               </div>
               <div>
                 <LiveFeed />
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="integrations" className="space-y-6">
+            <div className="max-w-4xl mx-auto">
+              <h2 className="text-2xl font-bold mb-6">Connect Your Tools</h2>
+              <p className="text-muted-foreground mb-8">
+                Integrate with your existing workflow tools to track productivity gains and measure ROI impact.
+              </p>
+              
+              <div className="grid gap-6 md:grid-cols-2">
+                {/* Microsoft 365 Integration */}
+                <Card className="p-6">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">
+                      M
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold">Microsoft 365</h3>
+                      <p className="text-sm text-muted-foreground">Track calendar events and email productivity</p>
+                    </div>
+                  </div>
+                  <div className="space-y-3 mb-4">
+                    <div className="text-sm">
+                      <span className="font-medium">Scopes:</span> calendar.read, mail.read (metadata only)
+                    </div>
+                    <div className="text-sm">
+                      <span className="font-medium">Events:</span> meeting.created, meeting.duration, email.sent
+                    </div>
+                  </div>
+                  <Button 
+                    onClick={() => window.location.href = '/api/microsoft365/auth/login'}
+                    className="w-full"
+                  >
+                    Login with Microsoft 365
+                  </Button>
+                </Card>
+
+                {/* HubSpot Integration */}
+                <Card className="p-6">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="w-12 h-12 bg-orange-500 rounded-lg flex items-center justify-center text-white font-bold text-xl">
+                      H
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold">HubSpot</h3>
+                      <p className="text-sm text-muted-foreground">Monitor CRM activities and deal progress</p>
+                    </div>
+                  </div>
+                  <div className="space-y-3 mb-4">
+                    <div className="text-sm">
+                      <span className="font-medium">Scopes:</span> contacts.read, deals.read, companies.read
+                    </div>
+                    <div className="text-sm">
+                      <span className="font-medium">Events:</span> contact.created, deal.closed, company.updated
+                    </div>
+                  </div>
+                  <Button 
+                    onClick={() => window.location.href = '/api/hubspot/auth/connect'}
+                    className="w-full"
+                  >
+                    Login with HubSpot
+                  </Button>
+                </Card>
               </div>
             </div>
           </TabsContent>

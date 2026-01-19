@@ -115,7 +115,20 @@ export default function SecurityAuditTab({ onJiraConnectionChange }: SecurityAud
   });
 
   const handleToggleIntegration = (id: string) => {
-    // Compute new connected state from current integrations, then update state
+    // Special handling for OAuth integrations
+    if (id === 'microsoft365') {
+      // Redirect to Microsoft 365 OAuth login
+      window.location.href = '/api/microsoft365/auth/login';
+      return;
+    }
+    
+    if (id === 'hubspot') {
+      // Redirect to HubSpot OAuth login
+      window.location.href = '/api/hubspot/auth/connect';
+      return;
+    }
+
+    // For other integrations, use the existing toggle logic
     const current = integrations[id];
     if (!current) return;
     const newConnected = !current.connected;
@@ -378,7 +391,7 @@ export default function SecurityAuditTab({ onJiraConnectionChange }: SecurityAud
                         : 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800'
                     }`}
                   >
-                    {integration.connected ? 'Disconnect' : 'Connect'}
+                    {integration.connected ? 'Disconnect' : (key === 'microsoft365' || key === 'hubspot') ? 'Login' : 'Connect'}
                   </button>
                 </div>
 

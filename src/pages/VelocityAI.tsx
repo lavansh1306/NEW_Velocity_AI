@@ -11,6 +11,8 @@ import ROIVerificationTab from '../components/demo2/ROIVerificationTab';
 import CausalAttributionAnalysis from '../components/demo2/CausalAttributionAnalysis';
 import ProjectActivityTab from '../components/demo2/ProjectActivityTab';
 import SecurityAuditTab from '../components/demo2/SecurityAuditTab';
+import HubSpotTab from '../components/demo2/HubSpotTab';
+import IntegrationsTab from '../components/demo2/IntegrationsTab';
 import Projects from './Projects';
 import { getJiraConnected, setJiraConnected } from '../lib/storage';
 
@@ -109,7 +111,8 @@ export default function VelocityAI() {
               {activeTab === 'projects' && <Projects jiraConnected={jiraConnected} withNav={false} />}
               {activeTab === 'stc' && <StandardTimeCatalogTab />}
               {activeTab === 'ledger' && <CapacityLedgerTab />}
-              {activeTab === 'hotspots' && <HotspotScoringTab />}
+              {activeTab === 'hubspot' && <HubSpotTab />}
+              {activeTab === 'integrations' && <IntegrationsTab />}
               {activeTab === 'redeployment' && <RedeploymentTab />}
               {activeTab === 'activity' && <ProjectActivityTab />}
               {activeTab === 'roi' && <ROIVerificationTab />}

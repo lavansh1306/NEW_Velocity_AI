@@ -12,7 +12,8 @@ const tabs = [
   { id: 'stc', label: 'Standard Time Catalog', icon: '' },
   { id: 'activity', label: 'Project Activity', icon: '' },
   { id: 'ledger', label: 'Capacity Ledger', icon: '' },
-  { id: 'hotspots', label: 'Hotspot Scoring', icon: '' },
+  { id: 'hubspot', label: 'HubSpot', icon: '' },
+  { id: 'integrations', label: 'Integrations', icon: '' },
   { id: 'redeployment', label: 'Redeployment', icon: '' },
   { id: 'roi', label: 'ROI Verification', icon: '' },
 ];
