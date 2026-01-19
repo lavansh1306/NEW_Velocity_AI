@@ -3,7 +3,7 @@
 import fetch from 'node-fetch';
 import { URLSearchParams } from 'url';
 import * as crypto from 'crypto';
-import { Request, Response } from 'express';
+import express, { Request, Response } from 'express';
 import session from 'express-session';
 
 // Extend express-session SessionData to include HubSpot properties
