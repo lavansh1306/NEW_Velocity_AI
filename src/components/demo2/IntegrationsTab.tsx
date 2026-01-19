@@ -54,13 +54,13 @@ export default function IntegrationsTab() {
     {
       id: 'microsoft365',
       name: 'Microsoft 365',
-      description: 'Analyze calendar events and email productivity',
+      description: 'Analyze calendar events and user productivity data',
       icon: 'M',
       bgColor: 'bg-blue-600',
       connected: false,
       status: 'disconnected',
-      scopes: ['calendar.read', 'mail.read (metadata only)'],
-      events: ['meeting.created', 'meeting.duration', 'email.sent']
+      scopes: ['User.Read', 'Calendars.Read'],
+      events: ['meeting.created', 'meeting.duration']
     }
   ]);
 
@@ -180,6 +180,25 @@ export default function IntegrationsTab() {
     }
   };
 
+  const handleOpen = (integrationId: string) => {
+    switch (integrationId) {
+      case 'hubspot':
+        window.location.href = '/projects/hubspot-dashboard';
+        break;
+      case 'microsoft365':
+        window.location.href = '/projects/microsoft365-dashboard';
+        break;
+      case 'jira':
+        window.location.href = '/projects/jira-dashboard';
+        break;
+      case 'asana':
+        window.location.href = '/projects/asana-dashboard';
+        break;
+      default:
+        console.warn(`No dashboard available for ${integrationId}`);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -256,17 +275,28 @@ export default function IntegrationsTab() {
               </div>
             )}
 
-            {/* Action Button */}
-            <div className="flex justify-end">
+            {/* Action Buttons */}
+            <div className="flex justify-end gap-2">
               {integration.connected ? (
-                <Button
-                  onClick={() => handleDisconnect(integration.id)}
-                  variant="outline"
-                  size="sm"
-                  className="border-red-300 text-red-600 hover:bg-red-50"
-                >
-                  Disconnect
-                </Button>
+                <>
+                  <Button
+                    onClick={() => handleOpen(integration.id)}
+                    variant="outline"
+                    size="sm"
+                    className="border-blue-300 text-blue-600 hover:bg-blue-50"
+                  >
+                    Open
+                    <ExternalLink className="w-3 h-3 ml-1" />
+                  </Button>
+                  <Button
+                    onClick={() => handleDisconnect(integration.id)}
+                    variant="outline"
+                    size="sm"
+                    className="border-red-300 text-red-600 hover:bg-red-50"
+                  >
+                    Disconnect
+                  </Button>
+                </>
               ) : (
                 <Button
                   onClick={() => handleConnect(integration.id)}

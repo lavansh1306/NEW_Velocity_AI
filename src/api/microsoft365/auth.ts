@@ -34,17 +34,13 @@ console.log('[M365 Auth] CLIENT_SECRET loaded:', CLIENT_SECRET ? 'YES' : 'NO');
 console.log('[M365 Auth] REDIRECT_URI:', REDIRECT_URI);
 
 // Scopes requested (delegated). Admin consent is required for some permissions.
+// Starting with minimal scopes to avoid admin consent issues
 const SCOPES: string = [
   'offline_access',
   'openid',
   'profile',
   'User.Read',
-  'Calendars.Read',
-  'Channel.ReadBasic.All',
-  'ChannelMessage.Read.All',
-  'Chat.Read',
-  'OnlineMeetings.Read',
-  'Team.ReadBasic.All'
+  'Calendars.Read'
 ].join(' ');
 
 // Type definitions
@@ -101,7 +97,7 @@ function login(req: Request, res: Response): void {
     redirect_uri: REDIRECT_URI,
     response_mode: 'query',
     scope: SCOPES,
-    prompt: 'consent',
+    prompt: 'select_account', // Changed from 'consent' to 'select_account' for smoother flow
     code_challenge: codeChallenge,
     code_challenge_method: 'S256'
   });
@@ -209,10 +205,10 @@ async function callback(req: Request, res: Response): Promise<void> {
     req.session.tenantId = tenantId as string | undefined;
     req.session.account = account as { oid: string; upn?: string; name?: string; } | undefined;
 
-    // Redirect back to frontend (port 5173 in dev, same origin in prod)
+    // Redirect back to Microsoft 365 dashboard after successful authentication
     const frontendUrl = process.env.NODE_ENV === 'production' 
-      ? '/'
-      : 'http://localhost:5173/'
+      ? '/projects/microsoft365-dashboard'
+      : 'http://localhost:5173/projects/microsoft365-dashboard'
     res.redirect(frontendUrl);
   } catch (err) {
     console.error('Callback error', err);
