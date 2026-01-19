@@ -195,12 +195,16 @@ async function callback(req: Request, res: Response): Promise<void> {
     req.session.hubspotPortalId = portalId || undefined;
     req.session.hubspotStoreKey = storeKey;
 
-    // Redirect back to frontend with storeKey in URL (for cross-origin session issue)
-    const frontendUrl = process.env.NODE_ENV === 'production' 
-      ? `/projects/hubspot-dashboard?connected=true&storeKey=${storeKey}`
-      : `http://localhost:5173/projects/hubspot-dashboard?connected=true&storeKey=${storeKey}`
+    // Redirect back to HubSpot dashboard after successful authentication
+    // Use the request origin or referrer to determine the correct frontend URL
+    const origin = req.headers.origin || req.headers.referer?.split('/').slice(0, 3).join('/') || 
+                   (process.env.NODE_ENV === 'production' ? process.env.FRONTEND_URL : 'http://localhost:5173') || 
+                   'http://localhost:5173';
+    const frontendUrl = `${origin}/projects/hubspot-dashboard?connected=true&storeKey=${storeKey}`;
     
-    console.log('[HubSpot Callback] Successfully authenticated, storeKey:', storeKey)
+    console.log('[HubSpot Callback] Request origin:', req.headers.origin);
+    console.log('[HubSpot Callback] Request referer:', req.headers.referer);
+    console.log('[HubSpot Callback] Calculated frontend URL:', frontendUrl);
     res.redirect(frontendUrl);
   } catch (err) {
     console.error('HubSpot callback error:', err);
