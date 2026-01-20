@@ -24,6 +24,9 @@ import * as hubspotAuth from "./src/api/hubspot/auth.js"
 
 const app = express()
 
+// Trust proxy for Vercel/Nginx - required for Secure cookies to work behind proxy
+app.set('trust proxy', 1)
+
 // Simple request logger to help debugging route matching
 app.use((req: Request, res: Response, next) => {
   console.log('[REQ]', req.method, req.url, 'headers:', { host: req.headers.host, origin: req.headers.origin })
@@ -40,15 +43,16 @@ app.use(cors({
 
 app.use(express.json())
 
-// Session middleware for M365 OAuth
+// Session middleware for OAuth flows (HubSpot + M365)
+// CRITICAL: SameSite=none + Secure=true required for OAuth redirects (Provider -> App)
 app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-secret-change-in-prod',
   resave: false,
   saveUninitialized: false,
   cookie: { 
-    secure: process.env.NODE_ENV === 'production', // Set to true for HTTPS in production
-    httpOnly: true,
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // Use 'none' for production cross-site, 'lax' for localhost
+    secure: process.env.NODE_ENV === 'production', // true in production (HTTPS required)
+    httpOnly: true, // Prevent XSS attacks
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' allows cross-site (OAuth), 'lax' for localhost
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }))

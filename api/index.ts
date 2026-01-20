@@ -12,6 +12,9 @@ dotenv.config()
 
 const app = express()
 
+// Trust proxy for Vercel/Nginx - required for Secure cookies to work
+app.set('trust proxy', 1)
+
 // CORS (allow frontend origin and credentials)
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' ? (process.env.FRONTEND_URL || 'https://example.com') : ['http://localhost:5173', 'http://localhost:3000'],
@@ -21,14 +24,16 @@ app.use(cors({
 app.use(express.json())
 
 // Session middleware (required for OAuth PKCE flow)
+// CRITICAL: SameSite=none + Secure=true required for OAuth redirects (HubSpot -> App)
 app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-secret-change-in-prod',
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    httpOnly: true,
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : false,
+    secure: process.env.NODE_ENV === 'production', // true in production (HTTPS required)
+    httpOnly: true, // Prevent XSS attacks
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' allows cross-site cookies (OAuth)
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }))
 // app.use(cors()) // Removed duplicate CORS - already configured above
