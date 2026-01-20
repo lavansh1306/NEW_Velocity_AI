@@ -244,7 +244,7 @@ async function callback(req: Request, res: Response): Promise<void> {
       portalId = tokenData.hub_id?.toString() || null;
     }
 
-    // Store token in memory
+    // Store token in memory AND persist to session store for serverless
     const store: TokenStore = {
       accessToken: tokenData.access_token,
       refreshToken: tokenData.refresh_token,
@@ -255,7 +255,19 @@ async function callback(req: Request, res: Response): Promise<void> {
 
     const storeKey = userId || `hubspot_${Date.now()}`;
     hubspotTokens.set(storeKey, store);
-    console.log('[HubSpot Callback] Token stored with key:', storeKey);
+    console.log('[HubSpot Callback] Token stored in memory with key:', storeKey);
+    
+    // CRITICAL: Persist token to session store for Vercel serverless
+    await sessionStore.set(storeKey, {
+      userId,
+      portalId,
+      storeKey,
+      accessToken: tokenData.access_token,
+      refreshToken: tokenData.refresh_token,
+      expiresAt: Date.now() + tokenData.expires_in * 1000,
+      createdAt: Date.now()
+    });
+    console.log('[HubSpot Callback] Token persisted to session store');
 
     // Save to session
     req.session.hubspotUserId = userId || undefined;
