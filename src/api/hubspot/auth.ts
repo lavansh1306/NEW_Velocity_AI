@@ -78,7 +78,7 @@ function generatePKCE(): PKCE {
 // In-memory token store (for simplicity; use DB in production)
 const hubspotTokens: Map<string, TokenStore> = new Map();
 
-function login(req: Request, res: Response): void {
+async function login(req: Request, res: Response): Promise<void> {
   try {
     // Generate PKCE parameters
     const { codeVerifier, codeChallenge } = generatePKCE();
@@ -98,6 +98,7 @@ function login(req: Request, res: Response): void {
       codeVerifier,
       createdAt: Date.now()
     });
+    console.log('[HubSpot Login] PKCE data saved successfully');
 
     const params = new URLSearchParams({
       client_id: getClientId(),
@@ -177,10 +178,20 @@ async function callback(req: Request, res: Response): Promise<void> {
 
     // Retrieve PKCE data from persistent session store using state
     console.log('[HubSpot Callback] Retrieving PKCE data for state:', state);
-    const pkceData = await sessionStore.get(state as string);
+    
+    let pkceData = await sessionStore.get(state as string);
+    
+    // RETRY LOGIC: If not found immediately, wait and retry once
+    // (accounts for async save delays or timing issues)
+    if (!pkceData || !pkceData.codeVerifier) {
+      console.warn('[HubSpot Callback] PKCE data not found on first attempt, retrying...');
+      await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms
+      pkceData = await sessionStore.get(state as string);
+    }
     
     if (!pkceData || !pkceData.codeVerifier) {
-      console.error('[HubSpot Callback] PKCE data not found for state:', state);
+      console.error('[HubSpot Callback] PKCE data not found after retry for state:', state);
+      console.error('[HubSpot Callback] Available keys in store:', Array.from((sessionStore as any).memoryStore?.keys?.() || []));
       const error = OAuthErrors.SESSION_EXPIRED(
         'PKCE verification data expired or not found. Please try connecting again.'
       );
@@ -226,29 +237,54 @@ async function callback(req: Request, res: Response): Promise<void> {
 
     console.log('[HubSpot Callback] Token exchange successful');
 
-    // Fetch user info from HubSpot
-    console.log('[HubSpot Callback] Fetching user info from HubSpot...');
-    const infoResp = await fetch('https://api.hubapi.com/crm/v3/objects/contacts/me', {
-      headers: {
-        Authorization: `Bearer ${tokenData.access_token}`,
-      },
-    });
-
+    // Get account info (hub_id is in the token response directly)
     let portalId: string | null = null;
     let userId: string | null = null;
 
-    if (infoResp.ok) {
-      const info = (await infoResp.json()) as any;
-      portalId = info.properties?.hs_portal_id || tokenData.hub_id?.toString() || null;
-      userId = info.id || tokenData.user_id || null;
-      console.log('[HubSpot Callback] User info retrieved:', { userId, portalId });
-    } else {
-      console.warn('[HubSpot Callback] Failed to fetch user info (status: ' + infoResp.status + '), using token data');
-      userId = tokenData.user_id?.toString() || null;
-      portalId = tokenData.hub_id?.toString() || null;
+    // PRIORITY 1: Get from token response directly (most reliable)
+    if (tokenData.hub_id) {
+      portalId = tokenData.hub_id.toString();
+      console.log('[HubSpot Callback] Portal ID from token:', portalId);
+    }
+    if (tokenData.user_id) {
+      userId = tokenData.user_id.toString();
     }
 
-    // Store token in memory
+    // PRIORITY 2: Try to get additional user info from account API
+    if (!portalId || !userId) {
+      console.log('[HubSpot Callback] Fetching account info from HubSpot...');
+      try {
+        // Use account-info endpoint instead of contacts/me
+        const accountResp = await fetch('https://api.hubapi.com/account-info/v3/api-usage/daily', {
+          headers: {
+            Authorization: `Bearer ${tokenData.access_token}`,
+          },
+        });
+
+        if (accountResp.ok) {
+          const accountInfo = (await accountResp.json()) as any;
+          if (!portalId && accountInfo.portalId) {
+            portalId = accountInfo.portalId.toString();
+          }
+          console.log('[HubSpot Callback] Account info retrieved:', { portalId });
+        }
+      } catch (err) {
+        console.warn('[HubSpot Callback] Failed to fetch account info:', err);
+      }
+    }
+
+    // FALLBACK: Generate a temporary ID if still not found
+    if (!portalId) {
+      portalId = `unknown_${Date.now()}`;
+      console.warn('[HubSpot Callback] No portal ID found, using temporary ID:', portalId);
+    }
+    if (!userId) {
+      userId = `user_${Date.now()}`;
+    }
+
+    console.log('[HubSpot Callback] Final IDs:', { userId, portalId });
+
+    // Store token in memory AND persist to session store for serverless
     const store: TokenStore = {
       accessToken: tokenData.access_token,
       refreshToken: tokenData.refresh_token,
@@ -259,7 +295,19 @@ async function callback(req: Request, res: Response): Promise<void> {
 
     const storeKey = userId || `hubspot_${Date.now()}`;
     hubspotTokens.set(storeKey, store);
-    console.log('[HubSpot Callback] Token stored with key:', storeKey);
+    console.log('[HubSpot Callback] Token stored in memory with key:', storeKey);
+    
+    // CRITICAL: Persist token to session store for Vercel serverless
+    await sessionStore.set(storeKey, {
+      userId,
+      portalId,
+      storeKey,
+      accessToken: tokenData.access_token,
+      refreshToken: tokenData.refresh_token,
+      expiresAt: Date.now() + tokenData.expires_in * 1000,
+      createdAt: Date.now()
+    });
+    console.log('[HubSpot Callback] Token persisted to session store');
 
     // Save to session
     req.session.hubspotUserId = userId || undefined;
@@ -283,16 +331,27 @@ async function callback(req: Request, res: Response): Promise<void> {
       duration: `${Date.now() - startTime}ms`
     });
     
-    // Save session before redirecting
-    req.session.save((err) => {
-      if (err) {
-        console.error('[HubSpot Callback] Session save error:', err);
-        const error = OAuthErrors.SESSION_SAVE_FAILED(err instanceof Error ? err.message : 'Unknown error');
-        return res.status(error.statusCode).json(error.toJSON());
-      }
-      console.log('[HubSpot Callback] Session saved successfully, redirecting');
-      res.redirect(frontendUrl);
+    // CRITICAL: Wait for session to be saved before redirecting
+    await new Promise<void>((resolve, reject) => {
+      req.session.save((err) => {
+        if (err) {
+          console.error('[HubSpot Callback] Session save error:', err);
+          reject(err);
+        } else {
+          console.log('[HubSpot Callback] Session saved successfully');
+          resolve();
+        }
+      });
     });
+    
+    // VERCEL SERVERLESS FIX: Manually set session cookie with Secure and SameSite=None
+    // This ensures the cookie works across cross-origin requests in serverless environments
+    const sessionCookie = `hubspot_session=${storeKey}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=604800`;
+    res.setHeader('Set-Cookie', sessionCookie);
+    console.log('[HubSpot Callback] Set hubspot_session cookie for persistence');
+    
+    console.log('[HubSpot Callback] Redirecting to:', frontendUrl.substring(0, 80) + '...');
+    res.redirect(frontendUrl);
   } catch (err) {
     console.error('[HubSpot Callback] Unexpected error:', {
       error: err,
