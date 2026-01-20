@@ -1,6 +1,7 @@
 // src/api/hubspot/routes.ts
 import express, { Request, Response } from 'express'
 import * as hubspotAuth from './auth.js'
+import { sessionStore } from './session-store.js'
 
 const router = express.Router()
 
@@ -28,9 +29,30 @@ async function getToken(req: Request): Promise<string> {
     
     if (hubspotAuth.hubspotTokens.has(sessionStoreKey)) {
       const store = hubspotAuth.hubspotTokens.get(sessionStoreKey)!
-      console.log('[getToken] ✓ Token found in store via session')
+      console.log('[getToken] ✓ Token found in memory store via session')
       console.log('[getToken] === END TOKEN LOOKUP ===\n')
       return store.accessToken
+    }
+    
+    // CRITICAL: If not in memory, try persistent session store (for Vercel)
+    console.log('[getToken] Token not in memory, checking persistent store...')
+    try {
+      const persistedData = await sessionStore.get(sessionStoreKey)
+      if (persistedData?.accessToken) {
+        console.log('[getToken] ✓ Token found in persistent store')
+        // Restore to memory for future use
+        hubspotAuth.hubspotTokens.set(sessionStoreKey, {
+          accessToken: persistedData.accessToken,
+          refreshToken: persistedData.refreshToken || '',
+          expiresAt: persistedData.expiresAt || Date.now(),
+          portalId: persistedData.portalId || null,
+          userId: persistedData.userId || null,
+        })
+        console.log('[getToken] === END TOKEN LOOKUP ===\n')
+        return persistedData.accessToken
+      }
+    } catch (err) {
+      console.error('[getToken] Error checking persistent store:', err)
     }
   }
   
@@ -40,30 +62,109 @@ async function getToken(req: Request): Promise<string> {
     console.log('[getToken] Trying header storeKey:', storeKeyHeader)
     if (hubspotAuth.hubspotTokens.has(storeKeyHeader)) {
       const store = hubspotAuth.hubspotTokens.get(storeKeyHeader)!
-      console.log('[getToken] ✓ Token found in store via header')
+      console.log('[getToken] ✓ Token found in memory store via header')
       console.log('[getToken] === END TOKEN LOOKUP ===\n')
       return store.accessToken
+    }
+    
+    // Try persistent store via header
+    console.log('[getToken] Token not in memory, checking persistent store with header key...')
+    try {
+      const persistedData = await sessionStore.get(storeKeyHeader)
+      if (persistedData?.accessToken) {
+        console.log('[getToken] ✓ Token found in persistent store via header')
+        // Restore to memory
+        hubspotAuth.hubspotTokens.set(storeKeyHeader, {
+          accessToken: persistedData.accessToken,
+          refreshToken: persistedData.refreshToken || '',
+          expiresAt: persistedData.expiresAt || Date.now(),
+          portalId: persistedData.portalId || null,
+          userId: persistedData.userId || null,
+        })
+        console.log('[getToken] === END TOKEN LOOKUP ===\n')
+        return persistedData.accessToken
+      }
+    } catch (err) {
+      console.error('[getToken] Error checking persistent store with header:', err)
     }
   }
   
   // No token found
-  console.log('[getToken] ✗ No token found. Available storeKeys:', Array.from(hubspotAuth.hubspotTokens.keys()))
+  console.log('[getToken] ✗ No token found. Available memory storeKeys:', Array.from(hubspotAuth.hubspotTokens.keys()))
   console.log('[getToken] === END TOKEN LOOKUP ===\n')
   throw new Error('No authentication - please connect to HubSpot')
 }
 
 // GET /api/hubspot/auth/status
-router.get('/auth/status', (req: Request, res: Response) => {
+router.get('/auth/status', async (req: Request, res: Response) => {
   console.log('[Auth Status] Session:', {
     userId: req.session?.hubspotUserId,
+    portalId: req.session?.hubspotPortalId,
     hasStoreKey: !!req.session?.hubspotStoreKey,
     sessionID: req.sessionID
   })
-  const isAuthenticated = !!(req.session?.hubspotUserId && hubspotAuth.getTokenForSession(req))
+  
+  // Try session first
+  let userId = req.session?.hubspotUserId || null
+  let portalId = req.session?.hubspotPortalId || null
+  let storeKey = req.session?.hubspotStoreKey || null
+  
+  // If session is missing data, try header storeKey
+  const headerStoreKey = req.headers['x-hubspot-storekey'] as string
+  if (headerStoreKey && (!userId || !portalId || !storeKey)) {
+    console.log('[Auth Status] Session incomplete, checking header storeKey:', headerStoreKey)
+    
+    // Check memory store first
+    if (hubspotAuth.hubspotTokens.has(headerStoreKey)) {
+      const store = hubspotAuth.hubspotTokens.get(headerStoreKey)!
+      userId = userId || store.userId || null
+      portalId = portalId || store.portalId || null
+      storeKey = headerStoreKey
+      console.log('[Auth Status] Found in memory store:', { userId, portalId })
+    } else {
+      // Fallback to persistent store
+      try {
+        const persistedData = await sessionStore.get(headerStoreKey)
+        if (persistedData) {
+          userId = userId || persistedData.userId || null
+          portalId = portalId || persistedData.portalId || null
+          storeKey = headerStoreKey
+          console.log('[Auth Status] Found in persistent store:', { userId, portalId })
+          
+          // Restore to memory for future requests
+          if (persistedData.accessToken) {
+            hubspotAuth.hubspotTokens.set(headerStoreKey, {
+              accessToken: persistedData.accessToken,
+              refreshToken: persistedData.refreshToken || '',
+              expiresAt: persistedData.expiresAt || Date.now() + 3600000,
+              portalId: portalId || '',
+              userId: userId || ''
+            })
+            console.log('[Auth Status] Restored token to memory store')
+          }
+        }
+      } catch (err) {
+        console.warn('[Auth Status] Failed to check persistent store:', err)
+      }
+    }
+  }
+  
+  // Check if we have valid token
+  const hasToken = !!(storeKey && (
+    hubspotAuth.hubspotTokens.has(storeKey) || 
+    hubspotAuth.getTokenForSession(req)
+  ))
+  
+  const isAuthenticated = !!(userId && hasToken)
+  
+  console.log('[Auth Status] Result:', { isAuthenticated, userId, portalId, hasToken })
+  
   res.json({
     authenticated: isAuthenticated,
-    userId: req.session?.hubspotUserId || null,
-    portalId: req.session?.hubspotPortalId || null
+    userId,
+    portalId,
+    // Include storeKey so frontend can persist it
+    storeKey: isAuthenticated ? storeKey : null
   })
 })
 
