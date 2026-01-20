@@ -16,9 +16,9 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 // Static imports
-// import * as m365Auth from "./src/api/microsoft365/auth.js"
-// import m365MetricsRoutes from "./src/api/microsoft365/routes/metrics.js"
-// import m365RoiRoutes from "./src/api/microsoft365/routes/roi.js"
+import * as m365Auth from "./src/api/microsoft365/auth.js"
+import m365MetricsRoutes from "./src/api/microsoft365/routes/metrics.js"
+import m365RoiRoutes from "./src/api/microsoft365/routes/roi.js"
 import hubspotRoutes from "./src/api/hubspot/routes.js"
 import * as hubspotAuth from "./src/api/hubspot/auth.js"
 
@@ -374,37 +374,24 @@ app.get("/health", (_req: Request, res: Response) => {
 })
 
 // ============ Microsoft 365 OAuth Routes ============
-// app.get('/api/microsoft365/auth/login', m365Auth.login);
-// app.get('/auth/callback', m365Auth.callback);
-// app.get('/api/microsoft365/auth/logout', m365Auth.logout);
-// app.get('/api/microsoft365/auth/status', (req: Request, res: Response) => {
-//   const isAuthenticated = !!(req.session?.tenantId && m365Auth.getTokenForSession(req));
-//   res.json({
-//     authenticated: isAuthenticated,
-//     account: req.session?.account || null,
-//     tenantId: req.session?.tenantId || null
-//   });
-// });
+app.get('/api/microsoft365/auth/login', m365Auth.login);
+app.get('/auth/callback', m365Auth.callback);
+app.get('/api/microsoft365/auth/logout', m365Auth.logout);
+app.get('/api/microsoft365/auth/status', (req: Request, res: Response) => {
+  const isAuthenticated = !!(req.session?.tenantId && m365Auth.getTokenForSession(req));
+  res.json({
+    authenticated: isAuthenticated,
+    account: req.session?.account || null,
+    tenantId: req.session?.tenantId || null
+  });
+});
 
 // ============ HubSpot OAuth Callback Route ============
 app.get('/oauth/hubspot/callback', hubspotAuth.callback);
 
 // ============ Microsoft 365 API Routes ============
-// Dynamic imports for Microsoft 365 routes
-// const loadM365Routes = async () => {
-//   try {
-//     const m365MetricsRoutes = (await import("./src/api/microsoft365/routes/metrics.js")).default;
-//     const m365RoiRoutes = (await import("./src/api/microsoft365/routes/roi.js")).default;
-//     app.use('/api/microsoft365/metrics', m365MetricsRoutes);
-//     app.use('/api/microsoft365/roi', m365RoiRoutes);
-//     console.log('[M365 Routes] Loaded successfully');
-//   } catch (error) {
-//     console.error('[M365 Routes] Failed to load:', error);
-//   }
-// };
-
-// Load M365 routes after server starts
-// setTimeout(loadM365Routes, 100);
+app.use('/api/microsoft365/metrics', m365MetricsRoutes);
+app.use('/api/microsoft365/roi', m365RoiRoutes);
 
 // ============ HubSpot API Routes ============
 console.log('[Server] Mounting HubSpot routes:', !!hubspotRoutes, Object.prototype.toString.call(hubspotRoutes).slice(8, -1));
