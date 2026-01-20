@@ -78,7 +78,7 @@ function generatePKCE(): PKCE {
 // In-memory token store (for simplicity; use DB in production)
 const hubspotTokens: Map<string, TokenStore> = new Map();
 
-function login(req: Request, res: Response): void {
+async function login(req: Request, res: Response): Promise<void> {
   try {
     // Generate PKCE parameters
     const { codeVerifier, codeChallenge } = generatePKCE();
@@ -92,15 +92,13 @@ function login(req: Request, res: Response): void {
       timestamp: new Date().toISOString()
     });
 
-    // Store PKCE data in persistent session store using state as key
-    sessionStore.set(state, {
+    // CRITICAL: WAIT for PKCE data to be saved BEFORE redirecting
+    console.log('[HubSpot Login] Saving PKCE data...');
+    await sessionStore.set(state, {
       codeVerifier,
       createdAt: Date.now()
-    }).catch(err => {
-      console.error('[HubSpot Login] Failed to store PKCE data:', err);
-      const error = OAuthErrors.INIT_FAILED(err instanceof Error ? err.message : 'Unknown error');
-      res.status(error.statusCode).json(error.toJSON());
     });
+    console.log('[HubSpot Login] PKCE data saved successfully');
 
     const params = new URLSearchParams({
       client_id: getClientId(),
@@ -173,10 +171,20 @@ async function callback(req: Request, res: Response): Promise<void> {
 
     // Retrieve PKCE data from persistent session store using state
     console.log('[HubSpot Callback] Retrieving PKCE data for state:', state);
-    const pkceData = await sessionStore.get(state as string);
+    
+    let pkceData = await sessionStore.get(state as string);
+    
+    // RETRY LOGIC: If not found immediately, wait and retry once
+    // (accounts for async save delays or timing issues)
+    if (!pkceData || !pkceData.codeVerifier) {
+      console.warn('[HubSpot Callback] PKCE data not found on first attempt, retrying...');
+      await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms
+      pkceData = await sessionStore.get(state as string);
+    }
     
     if (!pkceData || !pkceData.codeVerifier) {
-      console.error('[HubSpot Callback] PKCE data not found for state:', state);
+      console.error('[HubSpot Callback] PKCE data not found after retry for state:', state);
+      console.error('[HubSpot Callback] Available keys in store:', Array.from((sessionStore as any).memoryStore?.keys?.() || []));
       const error = OAuthErrors.SESSION_EXPIRED(
         'PKCE verification data expired or not found. Please try connecting again.'
       );
@@ -291,16 +299,21 @@ async function callback(req: Request, res: Response): Promise<void> {
       duration: `${Date.now() - startTime}ms`
     });
     
-    // Save session before redirecting
-    req.session.save((err) => {
-      if (err) {
-        console.error('[HubSpot Callback] Session save error:', err);
-        const error = OAuthErrors.SESSION_SAVE_FAILED(err instanceof Error ? err.message : 'Unknown error');
-        return res.status(error.statusCode).json(error.toJSON());
-      }
-      console.log('[HubSpot Callback] Session saved successfully, redirecting');
-      res.redirect(frontendUrl);
+    // CRITICAL: Wait for session to be saved before redirecting
+    await new Promise<void>((resolve, reject) => {
+      req.session.save((err) => {
+        if (err) {
+          console.error('[HubSpot Callback] Session save error:', err);
+          reject(err);
+        } else {
+          console.log('[HubSpot Callback] Session saved successfully');
+          resolve();
+        }
+      });
     });
+    
+    console.log('[HubSpot Callback] Redirecting to:', frontendUrl.substring(0, 80) + '...');
+    res.redirect(frontendUrl);
   } catch (err) {
     console.error('[HubSpot Callback] Unexpected error:', {
       error: err,
