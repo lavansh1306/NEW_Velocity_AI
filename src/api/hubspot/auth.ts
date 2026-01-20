@@ -74,6 +74,18 @@ function generatePKCE(): PKCE {
 
 // In-memory token store (for simplicity; use DB in production)
 const hubspotTokens: Map<string, TokenStore> = new Map();
+// In-memory store for PKCE code verifiers (temporary, expires after 10 minutes)
+const pkceStore: Map<string, { codeVerifier: string; timestamp: number }> = new Map();
+
+// Clean up old PKCE entries every minute
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of pkceStore.entries()) {
+    if (now - value.timestamp > 10 * 60 * 1000) {
+      pkceStore.delete(key);
+    }
+  }
+}, 60 * 1000);
 
 function login(req: Request, res: Response): void {
   // Generate PKCE parameters
@@ -81,6 +93,11 @@ function login(req: Request, res: Response): void {
 
   // Store code_verifier in session for token exchange
   req.session.codeVerifier = codeVerifier;
+  
+  // Also store in memory map with session ID as key for serverless environments
+  const sessionId = req.sessionID || `temp_${Date.now()}`;
+  pkceStore.set(sessionId, { codeVerifier, timestamp: Date.now() });
+  console.log('[HubSpot Login] Storing PKCE in sessionId:', sessionId);
 
   const params = new URLSearchParams({
     client_id: getClientId(),
@@ -89,6 +106,7 @@ function login(req: Request, res: Response): void {
     scope: SCOPES,
     code_challenge: codeChallenge,
     code_challenge_method: 'S256',
+    state: sessionId, // Pass sessionId as state parameter for retrieval
   });
 
   const authUrl = `${AUTHORIZE_URL}?${params.toString()}`;
@@ -129,10 +147,29 @@ async function refreshToken(refreshToken: string): Promise<TokenResponse> {
 
 async function callback(req: Request, res: Response): Promise<void> {
   try {
-    const { code } = req.query;
-    const codeVerifier = req.session?.codeVerifier;
+    const { code, state } = req.query;
+    
+    console.log('[HubSpot Callback] Received:', { code: !!code, state, sessionID: req.sessionID });
 
-    if (!code || !codeVerifier) {
+    if (!code) {
+      res.status(400).json({ error: 'Missing authorization code' });
+      return;
+    }
+
+    // Try to get codeVerifier from session first, then from PKCE store using state
+    let codeVerifier = req.session?.codeVerifier;
+    
+    if (!codeVerifier && state) {
+      const stored = pkceStore.get(state as string);
+      if (stored) {
+        codeVerifier = stored.codeVerifier;
+        console.log('[HubSpot Callback] Retrieved codeVerifier from PKCE store');
+        pkceStore.delete(state as string); // Clean up after use
+      }
+    }
+
+    if (!codeVerifier) {
+      console.error('[HubSpot Callback] Missing code verifier. Session:', req.sessionID, 'State:', state);
       res.status(400).json({ error: 'Missing authorization code or verifier' });
       return;
     }
