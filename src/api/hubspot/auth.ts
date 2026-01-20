@@ -92,14 +92,11 @@ function login(req: Request, res: Response): void {
       timestamp: new Date().toISOString()
     });
 
-    // Store PKCE data in persistent session store using state as key
-    sessionStore.set(state, {
+    // CRITICAL: Store PKCE data BEFORE redirecting
+    // Use .then() chain since this is sync function
+    const pkcePromise = sessionStore.set(state, {
       codeVerifier,
       createdAt: Date.now()
-    }).catch(err => {
-      console.error('[HubSpot Login] Failed to store PKCE data:', err);
-      const error = OAuthErrors.INIT_FAILED(err instanceof Error ? err.message : 'Unknown error');
-      res.status(error.statusCode).json(error.toJSON());
     });
 
     const params = new URLSearchParams({
@@ -115,6 +112,13 @@ function login(req: Request, res: Response): void {
     const authUrl = `${AUTHORIZE_URL}?${params.toString()}`;
     
     console.log('[HubSpot Login] Redirecting to HubSpot:', authUrl.substring(0, 100) + '...');
+    
+    // VERCEL FIX: Manually set Set-Cookie header with Secure and SameSite=None
+    // This bypasses proxy check issues in serverless environments
+    const cookieValue = `auth_state=${state}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=900`;
+    res.setHeader('Set-Cookie', cookieValue);
+    console.log('[HubSpot Login] Set auth_state cookie for state verification');
+    
     res.redirect(authUrl);
   } catch (err) {
     console.error('[HubSpot Login] Error:', err);

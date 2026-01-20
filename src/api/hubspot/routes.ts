@@ -11,6 +11,15 @@ async function getToken(req: Request): Promise<string> {
   console.log('[getToken] session.hubspotUserId:', req.session?.hubspotUserId)
   console.log('[getToken] session.hubspotStoreKey:', req.session?.hubspotStoreKey)
   console.log('[getToken] header x-hubspot-storekey:', req.headers['x-hubspot-storekey'])
+  console.log('[getToken] header x-hubspot-token:', req.headers['x-hubspot-token'] ? '***' : 'none')
+  
+  // PRIORITY 0: Direct token header (for testing/curl)
+  const directToken = req.headers['x-hubspot-token'] as string
+  if (directToken) {
+    console.log('[getToken] ✓ Using direct token from x-hubspot-token header')
+    console.log('[getToken] === END TOKEN LOOKUP ===\n')
+    return directToken
+  }
   
   // First, try to get from session directly
   if (req.session?.hubspotUserId && req.session?.hubspotStoreKey) {
@@ -364,6 +373,31 @@ router.get('/ai-metrics', async (req: Request, res: Response) => {
       totalRevenueImpact: 0,
       dealCount: 0,
       averageTimeSavedPerDeal: 0
+    })
+  }
+})
+
+// DEBUG: GET /api/hubspot/debug/token
+// Exposes the current session token for testing with curl
+// ⚠️ SECURITY WARNING: Only use in development. Remove in production.
+router.get('/debug/token', async (req: Request, res: Response) => {
+  try {
+    const token = await getToken(req)
+    const storeKey = req.session?.hubspotStoreKey || req.headers['x-hubspot-storekey']
+    const portalId = req.session?.hubspotPortalId
+    
+    res.json({
+      success: true,
+      token,
+      storeKey,
+      portalId,
+      usage: `curl -H "x-hubspot-token: ${token}" https://www.joinvelocity.co/api/hubspot/ai-metrics`
+    })
+  } catch (err) {
+    res.status(401).json({
+      success: false,
+      error: 'No valid authentication. Please log in first.',
+      message: err instanceof Error ? err.message : 'Unknown error'
     })
   }
 })
