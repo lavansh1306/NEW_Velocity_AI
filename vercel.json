@@ -8,7 +8,7 @@
   },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index.ts" },
-    { "source": "/oauth/hubspot/callback", "destination": "/api/index.ts" },
+    { "source": "/oauth/hubspot/callback", "destination": "/api/oauth/hubspot/callback.ts" },
     { "source": "/oauth/hubspot/callbac", "destination": "/api/index.ts" },
     { "source": "/auth/callback", "destination": "/api/index.ts" },
     { "source": "/(.*)", "destination": "/index.html" }
