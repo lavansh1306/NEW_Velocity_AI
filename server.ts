@@ -1,38 +1,44 @@
+import dotenv from "dotenv"
+
+// Load .env FIRST before any other imports
+dotenv.config()
+console.log('dotenv loaded, MS_CLIENT_ID:', process.env.MS_CLIENT_ID ? 'YES' : 'NO')
+
 import express, { Request, Response } from "express"
 import cors from "cors"
-import dotenv from "dotenv"
 import fetch from "node-fetch"
 import session from "express-session"
 import { fileURLToPath } from "url"
 import path from "path"
 
-// Load .env FIRST
-dotenv.config()
-
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-// Async startup
-;(async () => {
-  // Dynamic imports after dotenv loads
-  const m365Auth = await import("./src/api/microsoft365/auth")
-  const m365MetricsRoutes = await import("./src/api/microsoft365/routes/metrics").then(m => m.default)
-  const m365RoiRoutes = await import("./src/api/microsoft365/routes/roi").then(m => m.default)
-  const hubspotRoutes = await import("./src/api/hubspot/routes").then(m => m.default)
-  const hubspotAuth = await import("./src/api/hubspot/auth")
+// Static imports
+// import * as m365Auth from "./src/api/microsoft365/auth.js"
+// import m365MetricsRoutes from "./src/api/microsoft365/routes/metrics.js"
+// import m365RoiRoutes from "./src/api/microsoft365/routes/roi.js"
+import hubspotRoutes from "./src/api/hubspot/routes.js"
+import * as hubspotAuth from "./src/api/hubspot/auth.js"
 
-  const app = express()
-  
-  // CORS configuration for cross-origin requests
-  app.use(cors({
-    origin: process.env.NODE_ENV === 'production' 
-      ? process.env.FRONTEND_URL || 'https://example.com'
-      : ['http://localhost:5173', 'http://localhost:3000'],
-    credentials: true
-  }))
-  
-  app.use(express.json())
+const app = express()
+
+// Simple request logger to help debugging route matching
+app.use((req: Request, res: Response, next) => {
+  console.log('[REQ]', req.method, req.url, 'headers:', { host: req.headers.host, origin: req.headers.origin })
+  next()
+})
+
+// CORS configuration for cross-origin requests
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' 
+    ? process.env.FRONTEND_URL || 'https://example.com'
+    : ['http://localhost:5173', 'http://localhost:3000'],
+  credentials: true
+}))
+
+app.use(express.json())
 
 // Session middleware for M365 OAuth
 app.use(session({
@@ -40,14 +46,14 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: { 
-    secure: process.env.NODE_ENV === 'production',
+    secure: false, // Set to false for localhost development
     httpOnly: true,
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : false,
-    domain: process.env.NODE_ENV === 'production' ? undefined : 'localhost'
+    sameSite: 'lax', // Use 'lax' instead of 'none' for localhost
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }))
 
-const PORT = Number(process.env.API_PORT || 4000)
+const PORT = Number(process.env.API_PORT || 3000)
 
 // ============ JIRA Configuration ============
 const DOMAIN = process.env.JIRA_DOMAIN
@@ -368,27 +374,62 @@ app.get("/health", (_req: Request, res: Response) => {
 })
 
 // ============ Microsoft 365 OAuth Routes ============
-app.get('/api/microsoft365/auth/login', m365Auth.login);
-app.get('/auth/callback', m365Auth.callback);
-app.get('/api/microsoft365/auth/logout', m365Auth.logout);
-app.get('/api/microsoft365/auth/status', (req: Request, res: Response) => {
-  const isAuthenticated = !!(req.session?.tenantId && m365Auth.getTokenForSession(req));
-  res.json({
-    authenticated: isAuthenticated,
-    account: req.session?.account || null,
-    tenantId: req.session?.tenantId || null
-  });
-});
+// app.get('/api/microsoft365/auth/login', m365Auth.login);
+// app.get('/auth/callback', m365Auth.callback);
+// app.get('/api/microsoft365/auth/logout', m365Auth.logout);
+// app.get('/api/microsoft365/auth/status', (req: Request, res: Response) => {
+//   const isAuthenticated = !!(req.session?.tenantId && m365Auth.getTokenForSession(req));
+//   res.json({
+//     authenticated: isAuthenticated,
+//     account: req.session?.account || null,
+//     tenantId: req.session?.tenantId || null
+//   });
+// });
 
 // ============ HubSpot OAuth Callback Route ============
 app.get('/oauth/hubspot/callback', hubspotAuth.callback);
 
 // ============ Microsoft 365 API Routes ============
-app.use('/api/microsoft365/metrics', m365MetricsRoutes);
-app.use('/api/microsoft365/roi', m365RoiRoutes);
+// Dynamic imports for Microsoft 365 routes
+// const loadM365Routes = async () => {
+//   try {
+//     const m365MetricsRoutes = (await import("./src/api/microsoft365/routes/metrics.js")).default;
+//     const m365RoiRoutes = (await import("./src/api/microsoft365/routes/roi.js")).default;
+//     app.use('/api/microsoft365/metrics', m365MetricsRoutes);
+//     app.use('/api/microsoft365/roi', m365RoiRoutes);
+//     console.log('[M365 Routes] Loaded successfully');
+//   } catch (error) {
+//     console.error('[M365 Routes] Failed to load:', error);
+//   }
+// };
+
+// Load M365 routes after server starts
+// setTimeout(loadM365Routes, 100);
 
 // ============ HubSpot API Routes ============
+console.log('[Server] Mounting HubSpot routes:', !!hubspotRoutes, Object.prototype.toString.call(hubspotRoutes).slice(8, -1));
 app.use('/api/hubspot', hubspotRoutes);
+console.log('[Server] HubSpot routes mounted');
+// try {
+//   const stack = (hubspotRoutes as any)?.stack || []
+//   const routes = stack.map((layer: any) => {
+//     if (layer.route) return `${Object.keys(layer.route.methods).join(',').toUpperCase()} ${layer.route.path}`
+//     return layer.name || 'middleware'
+//   })
+//   console.log('[Server] HubSpot router registered routes:', routes)
+// } catch (e) {
+//   console.log('[Server] Could not introspect hubspotRoutes stack', e)
+// }
+
+// Temporary direct test route to verify requests reach the server
+// app.get('/api/hubspot/auth/status-test', (req: Request, res: Response) => {
+//   console.log('[Direct Test] /api/hubspot/auth/status-test hit, sessionID:', req.sessionID)
+//   res.json({ ok: true, test: 'direct' })
+// })
+
+// Also mount HubSpot router at /hubspot for debugging (non-API prefix)
+// app.use('/hubspot', hubspotRoutes)
+// console.log('[Server] Also mounted HubSpot routes at /hubspot for debugging')
 
 // SPA Fallback: serve index.html for all non-API routes
 app.use((req: Request, res: Response) => {
@@ -396,11 +437,8 @@ app.use((req: Request, res: Response) => {
     res.status(404).json({ error: 'API endpoint not found' })
     return
   }
-  res.status(200).sendFile(__dirname + '/public/index.html', (err) => {
-    if (err) {
-      res.status(404).json({ error: 'Page not found' })
-    }
-  })
+  // Temporarily just return a simple response
+  res.status(200).send('SPA fallback - would serve index.html')
 })
 
 app.listen(PORT, '0.0.0.0', () => {
@@ -409,7 +447,19 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`  - Asana API: ${isAsanaConfigReady ? 'configured' : 'NOT configured'}`)
   console.log(`  - Microsoft 365 API: ${process.env.MS_CLIENT_ID ? 'configured' : 'NOT configured'}`)
 })
-})().catch(err => {
-  console.error('Failed to start server:', err)
-  process.exit(1)
-})
+
+// Keep the event loop alive
+process.stdin.resume()
+
+// Handle uncaught exceptions (log but do not exit in dev)
+// process.on('uncaughtException', (err) => {
+//   console.error('Uncaught Exception:', err)
+//   console.error('Stack:', err.stack)
+//   // In development, avoid exiting so the server remains available for debugging
+// })
+
+// Handle unhandled promise rejections (log but do not exit in dev)
+// process.on('unhandledRejection', (reason, promise) => {
+//   console.error('Unhandled Rejection at:', promise, 'reason:', reason)
+//   // In development, avoid exiting so the server remains available for debugging
+// })

@@ -5,33 +5,32 @@ import { URLSearchParams } from 'url';
 import * as crypto from 'crypto';
 import { Request, Response } from 'express';
 
-// Extend Express Request to include session
-declare global {
-  namespace Express {
-    interface Request {
-      session?: {
-        tenantId?: string;
-        account?: {
-          oid: string;
-          upn?: string;
-          name?: string;
-        };
-        codeVerifier?: string;
-      };
-    }
+// Extend express-session SessionData to include Microsoft 365 properties
+declare module 'express-session' {
+  interface SessionData {
+    tenantId?: string;
+    account?: {
+      oid: string;
+      upn?: string;
+      name?: string;
+    };
+    codeVerifier?: string;
   }
 }
 
-const CLIENT_ID: string = process.env.MS_CLIENT_ID || '';
-const CLIENT_SECRET: string = process.env.MS_CLIENT_SECRET || '';
-const REDIRECT_URI: string = process.env.MS_REDIRECT_URI || 'http://localhost:3000/auth/callback';
+// Environment variables (accessed at runtime)
+const getClientId = () => process.env.MS_CLIENT_ID || '';
+const getClientSecret = () => process.env.MS_CLIENT_SECRET || '';
+const getRedirectUri = () => process.env.MS_REDIRECT_URI || 'http://localhost:3000/auth/callback';
 const AUTHORIZE_URL: string = 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize';
 const TOKEN_URL: string = 'https://login.microsoftonline.com/common/oauth2/v2.0/token';
 
-// Debug: log if credentials are loaded
-console.log('[M365 Auth] CLIENT_ID loaded:', CLIENT_ID ? 'YES' : 'NO');
-console.log('[M365 Auth] CLIENT_SECRET loaded:', CLIENT_SECRET ? 'YES' : 'NO');
-console.log('[M365 Auth] REDIRECT_URI:', REDIRECT_URI);
+// Debug: log if credentials are loaded (deferred)
+setTimeout(() => {
+  console.log('[M365 Auth] CLIENT_ID loaded:', getClientId() ? 'YES' : 'NO');
+  console.log('[M365 Auth] CLIENT_SECRET loaded:', getClientSecret() ? 'YES' : 'NO');
+  console.log('[M365 Auth] REDIRECT_URI:', getRedirectUri());
+}, 100);
 
 // Scopes requested (delegated). Admin consent is required for some permissions.
 // Starting with minimal scopes to avoid admin consent issues
@@ -92,9 +91,9 @@ function login(req: Request, res: Response): void {
   // To perform tenant-wide admin consent for application permissions,
   // use the admin consent endpoint: /{tenant}/adminconsent?client_id=...
   const params = new URLSearchParams({
-    client_id: CLIENT_ID,
+    client_id: getClientId(),
     response_type: 'code',
-    redirect_uri: REDIRECT_URI,
+    redirect_uri: getRedirectUri(),
     response_mode: 'query',
     scope: SCOPES,
     prompt: 'select_account', // Changed from 'consent' to 'select_account' for smoother flow
@@ -107,18 +106,18 @@ function login(req: Request, res: Response): void {
 
 // Optional helper to initiate the admin consent flow (tenant admin must visit)
 function adminConsent(req: Request, res: Response): void {
-  const adminUrl = `https://login.microsoftonline.com/common/adminconsent?client_id=${encodeURIComponent(CLIENT_ID)}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`;
+  const adminUrl = `https://login.microsoftonline.com/common/adminconsent?client_id=${encodeURIComponent(getClientId())}&redirect_uri=${encodeURIComponent(getRedirectUri())}`;
   res.redirect(adminUrl);
 }
 
 async function exchangeCodeForToken(code: string, codeVerifier: string): Promise<TokenResponse> {
   const params = new URLSearchParams({
-    client_id: CLIENT_ID,
+    client_id: getClientId(),
     scope: SCOPES,
     code: code,
-    redirect_uri: REDIRECT_URI,
+    redirect_uri: getRedirectUri(),
     grant_type: 'authorization_code',
-    client_secret: CLIENT_SECRET,
+    client_secret: getClientSecret(),
     code_verifier: codeVerifier
   });
 
@@ -134,10 +133,10 @@ async function exchangeCodeForToken(code: string, codeVerifier: string): Promise
 
 async function refreshToken(refreshToken: string): Promise<TokenResponse> {
   const params = new URLSearchParams({
-    client_id: CLIENT_ID,
+    client_id: getClientId(),
     grant_type: 'refresh_token',
     refresh_token: refreshToken,
-    client_secret: CLIENT_SECRET,
+    client_secret: getClientSecret(),
     scope: SCOPES
   });
 

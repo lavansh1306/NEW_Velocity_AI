@@ -16,16 +16,19 @@ declare module 'express-session' {
   }
 }
 
-const CLIENT_ID: string = process.env.HUBSPOT_CLIENT_ID || '';
-const CLIENT_SECRET: string = process.env.HUBSPOT_CLIENT_SECRET || '';
-const REDIRECT_URI: string = process.env.HUBSPOT_REDIRECT_URI || 'http://localhost:3000/auth/hubspot/callback';
+// Environment variables (accessed at runtime)
+const getClientId = () => process.env.HUBSPOT_CLIENT_ID || '';
+const getClientSecret = () => process.env.HUBSPOT_CLIENT_SECRET || '';
+const getRedirectUri = () => process.env.HUBSPOT_REDIRECT_URI || 'https://www.joinvelocity.co/oauth/hubspot/callback';
 const AUTHORIZE_URL: string = 'https://app.hubspot.com/oauth/authorize';
 const TOKEN_URL: string = 'https://api.hubapi.com/oauth/v1/token';
 
-// Debug: log if credentials are loaded
-console.log('[HubSpot Auth] CLIENT_ID loaded:', CLIENT_ID ? 'YES' : 'NO');
-console.log('[HubSpot Auth] CLIENT_SECRET loaded:', CLIENT_SECRET ? 'YES' : 'NO');
-console.log('[HubSpot Auth] REDIRECT_URI:', REDIRECT_URI);
+// Debug: log if credentials are loaded (deferred)
+setTimeout(() => {
+  console.log('[HubSpot Auth] CLIENT_ID loaded:', getClientId() ? 'YES' : 'NO');
+  console.log('[HubSpot Auth] CLIENT_SECRET loaded:', getClientSecret() ? 'YES' : 'NO');
+  console.log('[HubSpot Auth] REDIRECT_URI:', getRedirectUri());
+}, 100);
 
 // Scopes requested
 const SCOPES: string = [
@@ -80,8 +83,8 @@ function login(req: Request, res: Response): void {
   req.session.codeVerifier = codeVerifier;
 
   const params = new URLSearchParams({
-    client_id: CLIENT_ID,
-    redirect_uri: REDIRECT_URI,
+    client_id: getClientId(),
+    redirect_uri: getRedirectUri(),
     response_type: 'code',
     scope: SCOPES,
     code_challenge: codeChallenge,
@@ -105,8 +108,8 @@ function login(req: Request, res: Response): void {
 async function refreshToken(refreshToken: string): Promise<TokenResponse> {
   const body = new URLSearchParams({
     grant_type: 'refresh_token',
-    client_id: CLIENT_ID,
-    client_secret: CLIENT_SECRET,
+    client_id: getClientId(),
+    client_secret: getClientSecret(),
     refresh_token: refreshToken,
   });
 
@@ -137,9 +140,9 @@ async function callback(req: Request, res: Response): Promise<void> {
     // Exchange code for token
     const body = new URLSearchParams({
       grant_type: 'authorization_code',
-      client_id: CLIENT_ID,
-      client_secret: CLIENT_SECRET,
-      redirect_uri: REDIRECT_URI,
+      client_id: getClientId(),
+      client_secret: getClientSecret(),
+      redirect_uri: getRedirectUri(),
       code: code as string,
       code_verifier: codeVerifier,
     });

@@ -31,7 +31,7 @@ app.use(session({
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : false,
   }
 }))
-app.use(cors())
+// app.use(cors()) // Removed duplicate CORS - already configured above
 app.use(express.json())
 
 // ============ JIRA Configuration ============
