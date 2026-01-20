@@ -230,27 +230,52 @@ async function callback(req: Request, res: Response): Promise<void> {
 
     console.log('[HubSpot Callback] Token exchange successful');
 
-    // Fetch user info from HubSpot
-    console.log('[HubSpot Callback] Fetching user info from HubSpot...');
-    const infoResp = await fetch('https://api.hubapi.com/crm/v3/objects/contacts/me', {
-      headers: {
-        Authorization: `Bearer ${tokenData.access_token}`,
-      },
-    });
-
+    // Get account info (hub_id is in the token response directly)
     let portalId: string | null = null;
     let userId: string | null = null;
 
-    if (infoResp.ok) {
-      const info = (await infoResp.json()) as any;
-      portalId = info.properties?.hs_portal_id || tokenData.hub_id?.toString() || null;
-      userId = info.id || tokenData.user_id || null;
-      console.log('[HubSpot Callback] User info retrieved:', { userId, portalId });
-    } else {
-      console.warn('[HubSpot Callback] Failed to fetch user info (status: ' + infoResp.status + '), using token data');
-      userId = tokenData.user_id?.toString() || null;
-      portalId = tokenData.hub_id?.toString() || null;
+    // PRIORITY 1: Get from token response directly (most reliable)
+    if (tokenData.hub_id) {
+      portalId = tokenData.hub_id.toString();
+      console.log('[HubSpot Callback] Portal ID from token:', portalId);
     }
+    if (tokenData.user_id) {
+      userId = tokenData.user_id.toString();
+    }
+
+    // PRIORITY 2: Try to get additional user info from account API
+    if (!portalId || !userId) {
+      console.log('[HubSpot Callback] Fetching account info from HubSpot...');
+      try {
+        // Use account-info endpoint instead of contacts/me
+        const accountResp = await fetch('https://api.hubapi.com/account-info/v3/api-usage/daily', {
+          headers: {
+            Authorization: `Bearer ${tokenData.access_token}`,
+          },
+        });
+
+        if (accountResp.ok) {
+          const accountInfo = (await accountResp.json()) as any;
+          if (!portalId && accountInfo.portalId) {
+            portalId = accountInfo.portalId.toString();
+          }
+          console.log('[HubSpot Callback] Account info retrieved:', { portalId });
+        }
+      } catch (err) {
+        console.warn('[HubSpot Callback] Failed to fetch account info:', err);
+      }
+    }
+
+    // FALLBACK: Generate a temporary ID if still not found
+    if (!portalId) {
+      portalId = `unknown_${Date.now()}`;
+      console.warn('[HubSpot Callback] No portal ID found, using temporary ID:', portalId);
+    }
+    if (!userId) {
+      userId = `user_${Date.now()}`;
+    }
+
+    console.log('[HubSpot Callback] Final IDs:', { userId, portalId });
 
     // Store token in memory AND persist to session store for serverless
     const store: TokenStore = {

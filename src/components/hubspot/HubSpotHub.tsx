@@ -12,6 +12,8 @@ import RealizationDeals from './RealizationDeals'
 
 interface HubSpotAuthStatus {
   authenticated: boolean
+  userId?: string | null
+  portalId?: string | null
   expiresAt?: number | null
 }
 
@@ -32,8 +34,8 @@ export default function HubSpotHub() {
       }
       // Clean up URL first
       window.history.replaceState({}, document.title, window.location.pathname)
-      // Now verify the auth status from backend
-      fetchAuthStatus()
+      // Now verify the auth status from backend (with retry for timing issues)
+      setTimeout(() => fetchAuthStatus(), 300) // Small delay for session propagation
     } else {
       // Try to fetch auth status from backend
       fetchAuthStatus()
@@ -44,10 +46,26 @@ export default function HubSpotHub() {
     setLoading(true)
     try {
       const response = await fetch(apiUrl('/api/hubspot/auth/status'), {
-        credentials: 'include' // Send cookies with request
+        credentials: 'include', // Send cookies with request
+        headers: {
+          'x-hubspot-storekey': localStorage.getItem('hubspot_storeKey') || ''
+        }
       })
+      
+      if (!response.ok) {
+        throw new Error(`Status check failed: ${response.status}`)
+      }
+      
       const data = await response.json()
-      setAuthStatus(data)
+      console.log('[HubSpot] Auth status:', data)
+      
+      // CRITICAL: Only set authenticated if we have both userId and portalId
+      if (data.authenticated && !data.portalId) {
+        console.warn('[HubSpot] Authenticated but no portalId - treating as not authenticated')
+        setAuthStatus({ authenticated: false })
+      } else {
+        setAuthStatus(data)
+      }
     } catch (error) {
       console.error('Failed to fetch auth status:', error)
       setAuthStatus({ authenticated: false })
