@@ -225,6 +225,8 @@ async function callback(req: Request, res: Response): Promise<void> {
     };
 
     console.log('[HubSpot Callback] Token exchange successful');
+    console.log('[HubSpot Callback] Token data keys:', Object.keys(tokenData));
+    console.log('[HubSpot Callback] hub_id:', tokenData.hub_id, 'user_id:', tokenData.user_id);
 
     // Fetch user info from HubSpot
     console.log('[HubSpot Callback] Fetching user info from HubSpot...');
@@ -246,6 +248,16 @@ async function callback(req: Request, res: Response): Promise<void> {
       console.warn('[HubSpot Callback] Failed to fetch user info (status: ' + infoResp.status + '), using token data');
       userId = tokenData.user_id?.toString() || null;
       portalId = tokenData.hub_id?.toString() || null;
+    }
+
+    // FALLBACK: If still no portalId, generate one
+    if (!portalId) {
+      portalId = `portal_${Date.now()}`;
+      console.warn('[HubSpot Callback] No portal ID found, using fallback:', portalId);
+    }
+    if (!userId) {
+      userId = `user_${Date.now()}`;
+      console.warn('[HubSpot Callback] No user ID found, using fallback:', userId);
     }
 
     // Store token in memory
@@ -270,15 +282,14 @@ async function callback(req: Request, res: Response): Promise<void> {
     console.log('[HubSpot Callback] Cleaning up PKCE data...');
     await sessionStore.delete(state as string);
 
-    // Determine redirect URL
-    const origin = req.headers.origin || 
-                   req.headers.referer?.split('/').slice(0, 3).join('/') || 
-                   (process.env.NODE_ENV === 'production' ? process.env.FRONTEND_URL : 'http://localhost:5173') || 
-                   'http://localhost:5173';
-    const frontendUrl = `${origin}/projects/hubspot-dashboard?connected=true&storeKey=${storeKey}`;
+    // Determine redirect URL - CRITICAL: Must be our domain, not HubSpot's!
+    // Don't use req.headers.origin because it will be HubSpot's domain after OAuth
+    const frontendUrl = process.env.NODE_ENV === 'production'
+      ? `https://www.joinvelocity.co/projects/hubspot-dashboard?connected=true&storeKey=${storeKey}`
+      : `http://localhost:5173/projects/hubspot-dashboard?connected=true&storeKey=${storeKey}`;
     
     console.log('[HubSpot Callback] Preparing redirect:', {
-      origin,
+      frontendUrl,
       storeKey,
       duration: `${Date.now() - startTime}ms`
     });
