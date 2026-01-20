@@ -46,9 +46,9 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: { 
-    secure: false, // Set to false for localhost development
+    secure: process.env.NODE_ENV === 'production', // Set to true for HTTPS in production
     httpOnly: true,
-    sameSite: 'lax', // Use 'lax' instead of 'none' for localhost
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // Use 'none' for production cross-site, 'lax' for localhost
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }))
@@ -435,18 +435,17 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`  - Microsoft 365 API: ${process.env.MS_CLIENT_ID ? 'configured' : 'NOT configured'}`)
 })
 
-// Keep the event loop alive
-process.stdin.resume()
+// The Express server keeps the event loop alive
 
 // Handle uncaught exceptions (log but do not exit in dev)
-// process.on('uncaughtException', (err) => {
-//   console.error('Uncaught Exception:', err)
-//   console.error('Stack:', err.stack)
-//   // In development, avoid exiting so the server remains available for debugging
-// })
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err)
+  console.error('Stack:', err.stack)
+  // In development, avoid exiting so the server remains available for debugging
+})
 
 // Handle unhandled promise rejections (log but do not exit in dev)
-// process.on('unhandledRejection', (reason, promise) => {
-//   console.error('Unhandled Rejection at:', promise, 'reason:', reason)
-//   // In development, avoid exiting so the server remains available for debugging
-// })
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason)
+  // In development, avoid exiting so the server remains available for debugging
+})
