@@ -1,10 +1,13 @@
 // src/api/hubspot/auth.ts
 // Implements OAuth2 Authorization Code flow for HubSpot
+// Production-grade implementation for serverless environments
 import fetch from 'node-fetch';
 import { URLSearchParams } from 'url';
 import * as crypto from 'crypto';
 import express, { Request, Response } from 'express';
 import session from 'express-session';
+import { sessionStore } from './session-store.js';
+import { OAuthErrors } from './oauth-errors.js';
 
 // Extend express-session SessionData to include HubSpot properties
 declare module 'express-session' {
@@ -74,53 +77,50 @@ function generatePKCE(): PKCE {
 
 // In-memory token store (for simplicity; use DB in production)
 const hubspotTokens: Map<string, TokenStore> = new Map();
-// In-memory store for PKCE code verifiers (temporary, expires after 10 minutes)
-const pkceStore: Map<string, { codeVerifier: string; timestamp: number }> = new Map();
-
-// Clean up old PKCE entries every minute
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, value] of pkceStore.entries()) {
-    if (now - value.timestamp > 10 * 60 * 1000) {
-      pkceStore.delete(key);
-    }
-  }
-}, 60 * 1000);
 
 function login(req: Request, res: Response): void {
-  // Generate PKCE parameters
-  const { codeVerifier, codeChallenge } = generatePKCE();
+  try {
+    // Generate PKCE parameters
+    const { codeVerifier, codeChallenge } = generatePKCE();
+    
+    // Generate unique state for this OAuth flow
+    const state = crypto.randomBytes(32).toString('hex');
+    
+    console.log('[HubSpot Login] Starting OAuth flow:', {
+      sessionID: req.sessionID,
+      state,
+      timestamp: new Date().toISOString()
+    });
 
-  // Store code_verifier in session for token exchange
-  req.session.codeVerifier = codeVerifier;
-  
-  // Also store in memory map with session ID as key for serverless environments
-  const sessionId = req.sessionID || `temp_${Date.now()}`;
-  pkceStore.set(sessionId, { codeVerifier, timestamp: Date.now() });
-  console.log('[HubSpot Login] Storing PKCE in sessionId:', sessionId);
+    // Store PKCE data in persistent session store using state as key
+    sessionStore.set(state, {
+      codeVerifier,
+      createdAt: Date.now()
+    }).catch(err => {
+      console.error('[HubSpot Login] Failed to store PKCE data:', err);
+      const error = OAuthErrors.INIT_FAILED(err instanceof Error ? err.message : 'Unknown error');
+      res.status(error.statusCode).json(error.toJSON());
+    });
 
-  const params = new URLSearchParams({
-    client_id: getClientId(),
-    redirect_uri: getRedirectUri(),
-    response_type: 'code',
-    scope: SCOPES,
-    code_challenge: codeChallenge,
-    code_challenge_method: 'S256',
-    state: sessionId, // Pass sessionId as state parameter for retrieval
-  });
+    const params = new URLSearchParams({
+      client_id: getClientId(),
+      redirect_uri: getRedirectUri(),
+      response_type: 'code',
+      scope: SCOPES,
+      code_challenge: codeChallenge,
+      code_challenge_method: 'S256',
+      state, // Pass state parameter for retrieval
+    });
 
-  const authUrl = `${AUTHORIZE_URL}?${params.toString()}`;
-  
-  // Save session before redirecting
-  req.session.save((err) => {
-    if (err) {
-      console.error('[HubSpot Login] Session save error:', err);
-      res.status(500).json({ error: 'Failed to save session' });
-      return;
-    }
-    console.log('[HubSpot Login] Session saved, redirecting to HubSpot');
+    const authUrl = `${AUTHORIZE_URL}?${params.toString()}`;
+    
+    console.log('[HubSpot Login] Redirecting to HubSpot:', authUrl.substring(0, 100) + '...');
     res.redirect(authUrl);
-  });
+  } catch (err) {
+    console.error('[HubSpot Login] Error:', err);
+    const error = OAuthErrors.INIT_FAILED(err instanceof Error ? err.message : 'Unknown error');
+    res.status(error.statusCode).json(error.toJSON());
+  }
 }
 
 async function refreshToken(refreshToken: string): Promise<TokenResponse> {
@@ -146,35 +146,48 @@ async function refreshToken(refreshToken: string): Promise<TokenResponse> {
 }
 
 async function callback(req: Request, res: Response): Promise<void> {
+  const startTime = Date.now();
+  
   try {
     const { code, state } = req.query;
     
-    console.log('[HubSpot Callback] Received:', { code: !!code, state, sessionID: req.sessionID });
+    console.log('[HubSpot Callback] Received OAuth callback:', {
+      code: !!code,
+      state,
+      sessionID: req.sessionID,
+      timestamp: new Date().toISOString()
+    });
 
+    // Validate required parameters
     if (!code) {
-      res.status(400).json({ error: 'Missing authorization code' });
-      return;
+      console.error('[HubSpot Callback] Missing authorization code');
+      const error = OAuthErrors.MISSING_CODE('OAuth provider did not return authorization code');
+      return res.status(error.statusCode).json(error.toJSON());
     }
 
-    // Try to get codeVerifier from session first, then from PKCE store using state
-    let codeVerifier = req.session?.codeVerifier;
+    if (!state) {
+      console.error('[HubSpot Callback] Missing state parameter');
+      const error = OAuthErrors.MISSING_STATE('OAuth provider did not return state parameter');
+      return res.status(error.statusCode).json(error.toJSON());
+    }
+
+    // Retrieve PKCE data from persistent session store using state
+    console.log('[HubSpot Callback] Retrieving PKCE data for state:', state);
+    const pkceData = await sessionStore.get(state as string);
     
-    if (!codeVerifier && state) {
-      const stored = pkceStore.get(state as string);
-      if (stored) {
-        codeVerifier = stored.codeVerifier;
-        console.log('[HubSpot Callback] Retrieved codeVerifier from PKCE store');
-        pkceStore.delete(state as string); // Clean up after use
-      }
+    if (!pkceData || !pkceData.codeVerifier) {
+      console.error('[HubSpot Callback] PKCE data not found for state:', state);
+      const error = OAuthErrors.SESSION_EXPIRED(
+        'PKCE verification data expired or not found. Please try connecting again.'
+      );
+      return res.status(error.statusCode).json(error.toJSON());
     }
 
-    if (!codeVerifier) {
-      console.error('[HubSpot Callback] Missing code verifier. Session:', req.sessionID, 'State:', state);
-      res.status(400).json({ error: 'Missing authorization code or verifier' });
-      return;
-    }
+    const codeVerifier = pkceData.codeVerifier;
+    console.log('[HubSpot Callback] Retrieved PKCE data successfully');
 
     // Exchange code for token
+    console.log('[HubSpot Callback] Exchanging authorization code for token...');
     const body = new URLSearchParams({
       grant_type: 'authorization_code',
       client_id: getClientId(),
@@ -192,9 +205,14 @@ async function callback(req: Request, res: Response): Promise<void> {
 
     if (!tokenResp.ok) {
       const text = await tokenResp.text();
-      console.error('Token exchange failed:', text);
-      res.status(tokenResp.status).json({ error: 'Token exchange failed' });
-      return;
+      console.error('[HubSpot Callback] Token exchange failed:', {
+        status: tokenResp.status,
+        error: text.substring(0, 500)
+      });
+      const error = OAuthErrors.TOKEN_EXCHANGE_FAILED(
+        `HubSpot returned status ${tokenResp.status}`
+      );
+      return res.status(error.statusCode).json(error.toJSON());
     }
 
     const tokenData = (await tokenResp.json()) as TokenResponse & {
@@ -202,7 +220,10 @@ async function callback(req: Request, res: Response): Promise<void> {
       user_id?: string;
     };
 
+    console.log('[HubSpot Callback] Token exchange successful');
+
     // Fetch user info from HubSpot
+    console.log('[HubSpot Callback] Fetching user info from HubSpot...');
     const infoResp = await fetch('https://api.hubapi.com/crm/v3/objects/contacts/me', {
       headers: {
         Authorization: `Bearer ${tokenData.access_token}`,
@@ -216,9 +237,14 @@ async function callback(req: Request, res: Response): Promise<void> {
       const info = (await infoResp.json()) as any;
       portalId = info.properties?.hs_portal_id || tokenData.hub_id?.toString() || null;
       userId = info.id || tokenData.user_id || null;
+      console.log('[HubSpot Callback] User info retrieved:', { userId, portalId });
+    } else {
+      console.warn('[HubSpot Callback] Failed to fetch user info (status: ' + infoResp.status + '), using token data');
+      userId = tokenData.user_id?.toString() || null;
+      portalId = tokenData.hub_id?.toString() || null;
     }
 
-    // Store token
+    // Store token in memory
     const store: TokenStore = {
       accessToken: tokenData.access_token,
       refreshToken: tokenData.refresh_token,
@@ -229,37 +255,49 @@ async function callback(req: Request, res: Response): Promise<void> {
 
     const storeKey = userId || `hubspot_${Date.now()}`;
     hubspotTokens.set(storeKey, store);
+    console.log('[HubSpot Callback] Token stored with key:', storeKey);
 
-    // Save to session - backend now stores token, not frontend
+    // Save to session
     req.session.hubspotUserId = userId || undefined;
     req.session.hubspotPortalId = portalId || undefined;
     req.session.hubspotStoreKey = storeKey;
 
-    // Redirect back to HubSpot dashboard after successful authentication
-    // Use the request origin or referrer to determine the correct frontend URL
-    const origin = req.headers.origin || req.headers.referer?.split('/').slice(0, 3).join('/') || 
+    // Clean up PKCE data from session store
+    console.log('[HubSpot Callback] Cleaning up PKCE data...');
+    await sessionStore.delete(state as string);
+
+    // Determine redirect URL
+    const origin = req.headers.origin || 
+                   req.headers.referer?.split('/').slice(0, 3).join('/') || 
                    (process.env.NODE_ENV === 'production' ? process.env.FRONTEND_URL : 'http://localhost:5173') || 
                    'http://localhost:5173';
     const frontendUrl = `${origin}/projects/hubspot-dashboard?connected=true&storeKey=${storeKey}`;
     
-    console.log('[HubSpot Callback] Request origin:', req.headers.origin);
-    console.log('[HubSpot Callback] Request referer:', req.headers.referer);
-    console.log('[HubSpot Callback] Calculated frontend URL:', frontendUrl);
-    console.log('[HubSpot Callback] Session data saved:', { userId, portalId, storeKey });
+    console.log('[HubSpot Callback] Preparing redirect:', {
+      origin,
+      storeKey,
+      duration: `${Date.now() - startTime}ms`
+    });
     
-    // Save session before redirecting (critical for Vercel)
+    // Save session before redirecting
     req.session.save((err) => {
       if (err) {
         console.error('[HubSpot Callback] Session save error:', err);
-        res.status(500).json({ error: 'Failed to save session' });
-        return;
+        const error = OAuthErrors.SESSION_SAVE_FAILED(err instanceof Error ? err.message : 'Unknown error');
+        return res.status(error.statusCode).json(error.toJSON());
       }
-      console.log('[HubSpot Callback] Session saved successfully');
+      console.log('[HubSpot Callback] Session saved successfully, redirecting');
       res.redirect(frontendUrl);
     });
   } catch (err) {
-    console.error('HubSpot callback error:', err);
-    res.status(500).json({ error: 'OAuth callback failed' });
+    console.error('[HubSpot Callback] Unexpected error:', {
+      error: err,
+      duration: `${Date.now() - startTime}ms`
+    });
+    const errorObj = OAuthErrors.INIT_FAILED(
+      err instanceof Error ? err.message : 'Unknown error'
+    );
+    res.status(errorObj.statusCode).json(errorObj.toJSON());
   }
 }
 
