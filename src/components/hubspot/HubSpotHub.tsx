@@ -75,12 +75,24 @@ export default function HubSpotHub() {
         }
       })
       
+      // CRITICAL: Handle explicit 401/403 as auth failure - don't retry
+      if (response.status === 401 || response.status === 403) {
+        console.log('[HubSpot Gatekeeper] Explicit auth failure (401/403) - redirect to connect')
+        setAuthState({ status: 'unauthenticated' })
+        return
+      }
+      
       if (!response.ok) {
         throw new Error(`Auth status check failed: ${response.status}`)
       }
       
       const data: HubSpotAuthStatus = await response.json()
       console.log('[HubSpot Gatekeeper] Auth response:', data)
+      
+      // Store storeKey from response if provided
+      if ((data as any).storeKey) {
+        localStorage.setItem('hubspot_storeKey', (data as any).storeKey)
+      }
       
       // GATEKEEPER LOGIC: Check authentication state
       if (!data.authenticated) {
@@ -94,13 +106,13 @@ export default function HubSpotHub() {
         console.warn(`[HubSpot Gatekeeper] Authenticated but missing portalId (attempt ${attempt})`)
         
         if (attempt < MAX_PORTAL_RETRIES) {
-          // Retry after delay
+          // Retry after delay - portalId may still be propagating
           console.log(`[HubSpot Gatekeeper] Retrying in ${RETRY_DELAY_MS}ms...`)
           await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS))
           await verifyAuthWithRetry(attempt + 1)
           return
         } else {
-          // Max retries reached - treat as unauthenticated
+          // Max retries reached - show error with reconnect option, DON'T auto-redirect
           console.error('[HubSpot Gatekeeper] Max retries reached, portalId still missing')
           setAuthState({ 
             status: 'error', 

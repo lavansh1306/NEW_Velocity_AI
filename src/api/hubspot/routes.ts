@@ -87,17 +87,75 @@ async function getToken(req: Request): Promise<string> {
 }
 
 // GET /api/hubspot/auth/status
-router.get('/auth/status', (req: Request, res: Response) => {
+router.get('/auth/status', async (req: Request, res: Response) => {
   console.log('[Auth Status] Session:', {
     userId: req.session?.hubspotUserId,
+    portalId: req.session?.hubspotPortalId,
     hasStoreKey: !!req.session?.hubspotStoreKey,
     sessionID: req.sessionID
   })
-  const isAuthenticated = !!(req.session?.hubspotUserId && hubspotAuth.getTokenForSession(req))
+  
+  // Try session first
+  let userId = req.session?.hubspotUserId || null
+  let portalId = req.session?.hubspotPortalId || null
+  let storeKey = req.session?.hubspotStoreKey || null
+  
+  // If session is missing data, try header storeKey
+  const headerStoreKey = req.headers['x-hubspot-storekey'] as string
+  if (headerStoreKey && (!userId || !portalId || !storeKey)) {
+    console.log('[Auth Status] Session incomplete, checking header storeKey:', headerStoreKey)
+    
+    // Check memory store first
+    if (hubspotAuth.hubspotTokens.has(headerStoreKey)) {
+      const store = hubspotAuth.hubspotTokens.get(headerStoreKey)!
+      userId = userId || store.userId || null
+      portalId = portalId || store.portalId || null
+      storeKey = headerStoreKey
+      console.log('[Auth Status] Found in memory store:', { userId, portalId })
+    } else {
+      // Fallback to persistent store
+      try {
+        const persistedData = await sessionStore.get(headerStoreKey)
+        if (persistedData) {
+          userId = userId || persistedData.userId || null
+          portalId = portalId || persistedData.portalId || null
+          storeKey = headerStoreKey
+          console.log('[Auth Status] Found in persistent store:', { userId, portalId })
+          
+          // Restore to memory for future requests
+          if (persistedData.accessToken) {
+            hubspotAuth.hubspotTokens.set(headerStoreKey, {
+              accessToken: persistedData.accessToken,
+              refreshToken: persistedData.refreshToken || '',
+              expiresAt: persistedData.expiresAt || Date.now() + 3600000,
+              portalId: portalId || '',
+              userId: userId || ''
+            })
+            console.log('[Auth Status] Restored token to memory store')
+          }
+        }
+      } catch (err) {
+        console.warn('[Auth Status] Failed to check persistent store:', err)
+      }
+    }
+  }
+  
+  // Check if we have valid token
+  const hasToken = !!(storeKey && (
+    hubspotAuth.hubspotTokens.has(storeKey) || 
+    hubspotAuth.getTokenForSession(req)
+  ))
+  
+  const isAuthenticated = !!(userId && hasToken)
+  
+  console.log('[Auth Status] Result:', { isAuthenticated, userId, portalId, hasToken })
+  
   res.json({
     authenticated: isAuthenticated,
-    userId: req.session?.hubspotUserId || null,
-    portalId: req.session?.hubspotPortalId || null
+    userId,
+    portalId,
+    // Include storeKey so frontend can persist it
+    storeKey: isAuthenticated ? storeKey : null
   })
 })
 
