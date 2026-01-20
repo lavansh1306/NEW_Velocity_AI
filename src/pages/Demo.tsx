@@ -27,7 +27,7 @@ const Demo = () => {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-hero">
               <span className="text-lg font-bold text-white">V</span>
             </div>
-            <span className="text-xl font-bold">Velocity AI Demo</span>
+            <span className="text-xl font-bold"> AI Velocity Demo</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="h-2 w-2 animate-pulse rounded-full bg-green-500"></div>
@@ -41,7 +41,7 @@ const Demo = () => {
         <div className="mb-6">
           <h1 className="mb-2 text-3xl font-bold">Workforce Intelligence Dashboard</h1>
           <p className="text-muted-foreground">
-            Real-time insights into productivity gains, resource allocation, and ROI impact
+            Real-time insights into productivity gains and  resource allocation, and ROI impact
           </p>
         </div>
 

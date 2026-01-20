@@ -92,9 +92,9 @@ async function login(req: Request, res: Response): Promise<void> {
       timestamp: new Date().toISOString()
     });
 
-    // CRITICAL: WAIT for PKCE data to be saved BEFORE redirecting
-    console.log('[HubSpot Login] Saving PKCE data...');
-    await sessionStore.set(state, {
+    // CRITICAL: Store PKCE data BEFORE redirecting
+    // Use .then() chain since this is sync function
+    const pkcePromise = sessionStore.set(state, {
       codeVerifier,
       createdAt: Date.now()
     });
@@ -114,7 +114,7 @@ async function login(req: Request, res: Response): Promise<void> {
     
     console.log('[HubSpot Login] Redirecting to HubSpot:', authUrl.substring(0, 100) + '...');
     
-    // VERCEL SERVERLESS FIX: Manually set Set-Cookie header with Secure and SameSite=None
+    // VERCEL FIX: Manually set Set-Cookie header with Secure and SameSite=None
     // This bypasses proxy check issues in serverless environments
     const cookieValue = `auth_state=${state}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=900`;
     res.setHeader('Set-Cookie', cookieValue);
