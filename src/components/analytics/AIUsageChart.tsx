@@ -40,9 +40,9 @@ export default function AIUsageChart({ data }: Props) {
 
   return (
     <div className="bg-white rounded-lg border p-4 h-48 flex flex-col overflow-hidden">
-      <h4 className="text-sm font-semibold mb-2">AI Tool Usage (hours)</h4>
+      <h4 className="text-sm font-semibold mb-2">AI Toolssss Usage (hours)</h4>
       <div className="text-xs text-gray-500 mb-2">Source: Internal AI telemetry · shows hours spent using AI tools</div>
-      <div className="text-xs text-gray-700 mb-3">Total AI hours: {totalAiHours}{timeSaved ? ` · Time saved: ${timeSaved}h (${Math.round((timeSaved / Math.max(1, totalAiHours)) * 100)}%)` : ''}</div>
+      <div className="text-xs text-gray-700 mb-3">Total AIIII hours: {totalAiHours}{timeSaved ? ` · Time saved: ${timeSaved}h (${Math.round((timeSaved / Math.max(1, totalAiHours)) * 100)}%)` : ''}</div>
       <div className="flex-1 min-h-0">
         <Bar data={chartData} options={options} />
       </div>
