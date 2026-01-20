@@ -113,6 +113,13 @@ async function login(req: Request, res: Response): Promise<void> {
     const authUrl = `${AUTHORIZE_URL}?${params.toString()}`;
     
     console.log('[HubSpot Login] Redirecting to HubSpot:', authUrl.substring(0, 100) + '...');
+    
+    // VERCEL SERVERLESS FIX: Manually set Set-Cookie header with Secure and SameSite=None
+    // This bypasses proxy check issues in serverless environments
+    const cookieValue = `auth_state=${state}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=900`;
+    res.setHeader('Set-Cookie', cookieValue);
+    console.log('[HubSpot Login] Set auth_state cookie for state verification');
+    
     res.redirect(authUrl);
   } catch (err) {
     console.error('[HubSpot Login] Error:', err);
@@ -336,6 +343,12 @@ async function callback(req: Request, res: Response): Promise<void> {
         }
       });
     });
+    
+    // VERCEL SERVERLESS FIX: Manually set session cookie with Secure and SameSite=None
+    // This ensures the cookie works across cross-origin requests in serverless environments
+    const sessionCookie = `hubspot_session=${storeKey}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=604800`;
+    res.setHeader('Set-Cookie', sessionCookie);
+    console.log('[HubSpot Callback] Set hubspot_session cookie for persistence');
     
     console.log('[HubSpot Callback] Redirecting to:', frontendUrl.substring(0, 80) + '...');
     res.redirect(frontendUrl);
