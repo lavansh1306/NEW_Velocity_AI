@@ -245,7 +245,18 @@ async function callback(req: Request, res: Response): Promise<void> {
     console.log('[HubSpot Callback] Request origin:', req.headers.origin);
     console.log('[HubSpot Callback] Request referer:', req.headers.referer);
     console.log('[HubSpot Callback] Calculated frontend URL:', frontendUrl);
-    res.redirect(frontendUrl);
+    console.log('[HubSpot Callback] Session data saved:', { userId, portalId, storeKey });
+    
+    // Save session before redirecting (critical for Vercel)
+    req.session.save((err) => {
+      if (err) {
+        console.error('[HubSpot Callback] Session save error:', err);
+        res.status(500).json({ error: 'Failed to save session' });
+        return;
+      }
+      console.log('[HubSpot Callback] Session saved successfully');
+      res.redirect(frontendUrl);
+    });
   } catch (err) {
     console.error('HubSpot callback error:', err);
     res.status(500).json({ error: 'OAuth callback failed' });

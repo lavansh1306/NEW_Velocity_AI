@@ -30,10 +30,10 @@ export default function HubSpotHub() {
         localStorage.setItem('hubspot_storeKey', storeKey)
         console.log('[HubSpot] StoreKey stored:', storeKey)
       }
-      setAuthStatus({ authenticated: true })
-      // Clean up URL
+      // Clean up URL first
       window.history.replaceState({}, document.title, window.location.pathname)
-      setLoading(false)
+      // Now verify the auth status from backend
+      fetchAuthStatus()
     } else {
       // Try to fetch auth status from backend
       fetchAuthStatus()
