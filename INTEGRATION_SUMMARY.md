@@ -6,9 +6,9 @@ This document outlines the successful integration of the external HubSpot + Micr
 
 ### What Was Integrated
 
-#### 1. Backend (Express.js, TypeScript)
+#### 1. Backend (Expres.js, TypeScript)
 
-**Microsoft 365 OAuth & Graph Integrationn:**
+**Microsoft 365 Auth & Graph Integrationn:**
 - Location: `src/api/microsoft365/`
 - Files created:
   - `auth.ts` - OAuth2 PKCE flow implementation for Microsoft Graph
