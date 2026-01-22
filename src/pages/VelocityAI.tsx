@@ -117,6 +117,7 @@ export default function VelocityAI() {
               {activeTab === 'activity' && <ProjectActivityTab />}
               {activeTab === 'roi' && <ROIVerificationTab />}
               {activeTab === 'security' && <SecurityAuditTab onJiraConnectionChange={handleJiraConnectionChange} />}
+              {activeTab === 'leave' && <LeaveManagementTab currentView={currentView} />}
             </div>
           )}
         </main>
