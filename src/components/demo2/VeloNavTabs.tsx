@@ -1,5 +1,5 @@
 import { useState } from 'react';
-
+import { CalendarIcon } from 'lucide-react';
 interface VeloNavTabsProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
@@ -16,6 +16,7 @@ const tabs = [
   { id: 'integrations', label: 'Integrations', icon: '' },
   { id: 'redeployment', label: 'Redeployment', icon: '' },
   { id: 'roi', label: 'ROI Verification', icon: '' },
+  { id: 'leave', label: 'Leave Management', icon: '' }
 ];
 
 export default function VeloNavTabs({ activeTab, onTabChange, children }: VeloNavTabsProps) {

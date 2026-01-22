@@ -14,6 +14,7 @@ import SecurityAuditTab from '../components/demo2/SecurityAuditTab';
 import HubSpotTab from '../components/demo2/HubSpotTab';
 import IntegrationsTab from '../components/demo2/IntegrationsTab';
 import Projects from './Projects';
+import LeaveManagementTab from '@/components/demo2/LeaveManagementTab';
 import { getJiraConnected, setJiraConnected } from '../lib/storage';
 
 export default function VelocityAI() {
