@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { loadAllMetrics, computeAllBlockedHours } from '@/lib/dataService';
 import { apiUrl } from '@/lib/api';
 import { hubspotFetch } from '@/lib/hubspot-fetch';
+import { ManagerGantt } from '@/components/jira';
+import type { Issue } from '@/components/jira/types';
 
 export default function DashboardTab() {
   const [totalReturns, setTotalReturns] = useState<number | null>(null);
@@ -10,6 +12,8 @@ export default function DashboardTab() {
   const [loadingBlocked, setLoadingBlocked] = useState(false);
   const [loadingAI, setLoadingAI] = useState(false);
   const [refetchTrigger, setRefetchTrigger] = useState(0);
+  const [jiraIssues, setJiraIssues] = useState<Issue[]>([]);
+  const [loadingJira, setLoadingJira] = useState(false);
 
   // Check for storeKey changes (indicates auth happened)
   useEffect(() => {
@@ -89,6 +93,88 @@ export default function DashboardTab() {
       mounted = false;
     };
   }, [refetchTrigger]);
+
+  // Fetch all Jira issues from all projects
+  useEffect(() => {
+    let mounted = true;
+    setLoadingJira(true);
+    
+    const fetchAllJiraIssues = async () => {
+      try {
+        // First, fetch all available projects
+        const projectsResponse = await fetch(apiUrl('/api/projects'));
+        
+        if (!projectsResponse.ok) {
+          throw new Error('Failed to fetch projects list');
+        }
+        
+        const projectsData = await projectsResponse.json();
+        const projects = Array.isArray(projectsData) ? projectsData : (projectsData.projects || projectsData || []);
+        
+        console.log('[DashboardTab] Found projects:', projects);
+        
+        // If no projects, try default fetch
+        if (!projects || projects.length === 0) {
+          console.warn('[DashboardTab] No projects found, attempting default fetch');
+          const defaultResponse = await fetch(apiUrl('/api/issues'));
+          if (defaultResponse.ok) {
+            const defaultData = await defaultResponse.json();
+            const issues = defaultData.issues || [];
+            if (mounted && issues.length > 0) {
+              setJiraIssues(issues);
+            }
+          }
+          return;
+        }
+
+        // Extract project keys
+        const projectKeys = projects.map((p: any) => {
+          if (typeof p === 'string') return p;
+          return p.key || p.id || p.name;
+        }).filter((k: string) => !!k);
+
+        console.log('[DashboardTab] Project keys to fetch:', projectKeys);
+
+        // Fetch issues from each project
+        const allIssues: any[] = [];
+        for (const projectKey of projectKeys) {
+          try {
+            const issuesResponse = await fetch(apiUrl(`/api/issues?projectKey=${projectKey}`));
+            if (issuesResponse.ok) {
+              const issuesData = await issuesResponse.json();
+              const issues = issuesData.issues || [];
+              console.log(`[DashboardTab] Fetched ${issues.length} issues from ${projectKey}`);
+              allIssues.push(...issues);
+            } else {
+              console.warn(`[DashboardTab] Failed to fetch issues from ${projectKey}:`, issuesResponse.status);
+            }
+          } catch (err) {
+            console.warn(`[DashboardTab] Error fetching issues from ${projectKey}:`, err);
+          }
+        }
+
+        if (mounted) {
+          console.log('[DashboardTab] Total issues collected:', allIssues.length);
+          setJiraIssues(allIssues);
+        }
+      } catch (err) {
+        console.error('[DashboardTab] Error fetching Jira data:', err);
+        if (mounted) {
+          setJiraIssues([]);
+        }
+      } finally {
+        if (mounted) {
+          setLoadingJira(false);
+        }
+      }
+    };
+
+    fetchAllJiraIssues();
+    
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   function formatLargeUSD(v: number | null | undefined) {
     if (v == null) return '—';
@@ -235,6 +321,19 @@ export default function DashboardTab() {
           </div>
         </div>
       </div>
+
+      {/* Jira Manager Gantt Chart */}
+      {jiraIssues.length > 0 && (
+        <div className="mt-8 sm:mt-10">
+          {loadingJira ? (
+            <div className="bg-white rounded-lg border border-gray-200 p-6 text-center">
+              <p className="text-gray-600">Loading Jira Gantt...</p>
+            </div>
+          ) : (
+            <ManagerGantt tasks={jiraIssues} />
+          )}
+        </div>
+      )}
     </div>
   );
 }

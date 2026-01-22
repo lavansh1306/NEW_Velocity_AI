@@ -8,7 +8,6 @@ import CapacityLedgerTab from '../components/demo2/CapacityLedgerTab';
 import HotspotScoringTab from '../components/demo2/HotspotScoringTab';
 import RedeploymentTab from '../components/demo2/RedeploymentTab';
 import ROIVerificationTab from '../components/demo2/ROIVerificationTab';
-import CausalAttributionAnalysis from '../components/demo2/CausalAttributionAnalysis';
 import ProjectActivityTab from '../components/demo2/ProjectActivityTab';
 import SecurityAuditTab from '../components/demo2/SecurityAuditTab';
 import HubSpotTab from '../components/demo2/HubSpotTab';
@@ -102,12 +101,7 @@ export default function VelocityAI() {
           ) : (
             <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-7xl mx-auto">
               {activeTab === 'dashboard' && (
-                <>
-                  <DashboardTab />
-                  <div className="mt-8">
-                    <CausalAttributionAnalysis />
-                  </div>
-                </>
+                <DashboardTab />
               )}
               {activeTab === 'projects' && <Projects jiraConnected={jiraConnected} withNav={false} />}
               {activeTab === 'stc' && <StandardTimeCatalogTab />}
