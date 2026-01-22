@@ -20,18 +20,18 @@ export default function GanttChart({ tasks, assignee }: GanttChartProps) {
   const [scrollPosition, setScrollPosition] = useState(0)
 
   const { stats, tasksByWeek, sortedWeeks, minDate, maxDate, allWeeks } = useMemo(() => {
-    // Group tasks by week but compute earliest start from task.created
+    // Group tasks by week but compute earliest start from task.start
     const tasksByWeek: { [key: string]: Issue[] } = {}
     let earliest: Date | null = null
     let latest: Date | null = null
 
     tasks.forEach(task => {
-      // use created as the primary start; fall back to due if missing
-      const createdDate = task.created ? new Date(task.created) : null
+      // use start as the primary start; fall back to due if missing
+      const startDate = task.start ? new Date(task.start) : null
       const dueDate = task.due ? new Date(task.due) : null
 
-      const taskStart = createdDate && !isNaN(createdDate.getTime()) ? createdDate : (dueDate && !isNaN(dueDate.getTime()) ? dueDate : null)
-      const taskEnd = dueDate && !isNaN(dueDate.getTime()) ? dueDate : (createdDate && !isNaN(createdDate.getTime()) ? createdDate : null)
+      const taskStart = startDate && !isNaN(startDate.getTime()) ? startDate : (dueDate && !isNaN(dueDate.getTime()) ? dueDate : null)
+      const taskEnd = dueDate && !isNaN(dueDate.getTime()) ? dueDate : (startDate && !isNaN(startDate.getTime()) ? startDate : null)
 
       if (taskStart) {
         const weekStart = getWeekStart(taskStart)
@@ -201,7 +201,7 @@ export default function GanttChart({ tasks, assignee }: GanttChartProps) {
                         </div>
                       </div>
                       <div className="flex gap-4 text-sm text-gray-600">
-                        <span>Created: {task.created ? new Date(task.created).toLocaleDateString() : '-'}</span>
+                        <span>Start: {task.start ? new Date(task.start).toLocaleDateString() : '-'}</span>
                         <span>Due: {task.due ? new Date(task.due).toLocaleDateString() : '-'}</span>
                         <span className="font-semibold text-blue-600">Duration: {task.duration}d</span>
                       </div>

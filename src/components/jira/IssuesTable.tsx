@@ -20,7 +20,7 @@ export default function IssuesTable({ issues }: IssuesTableProps) {
               <th className="px-6 py-4 text-left font-semibold">Priority</th>
               <th className="px-6 py-4 text-left font-semibold">Status</th>
               <th className="px-6 py-4 text-left font-semibold">Assignee</th>
-              <th className="px-6 py-4 text-left font-semibold">Created</th>
+              <th className="px-6 py-4 text-left font-semibold">Start Date</th>
               <th className="px-6 py-4 text-left font-semibold">Due Date</th>
               <th className="px-6 py-4 text-left font-semibold">Duration (days)</th>
             </tr>
@@ -48,7 +48,7 @@ export default function IssuesTable({ issues }: IssuesTableProps) {
                 </td>
                 <td className="px-6 py-4 text-gray-700">{issue.assignee}</td>
                 <td className="px-6 py-4 text-gray-600">
-                  {issue.created ? new Date(issue.created).toLocaleDateString() : '-'}
+                  {issue.start ? new Date(issue.start).toLocaleDateString() : '-'}
                 </td>
                 <td className="px-6 py-4 text-gray-600">
                   {issue.due ? new Date(issue.due).toLocaleDateString() : '-'}

@@ -126,7 +126,7 @@ app.get("/api/issues", async (req: Request, res: Response) => {
   try {
     const jql = `project = "${projectKey}"`
     // Use correct Jira Cloud API v3 endpoint format
-    const url = `https://${DOMAIN}/rest/api/3/search/jql?jql=${encodeURIComponent(jql)}&maxResults=500&fields=key,summary,created,duedate,description,priority,status,assignee,issuetype`
+    const url = `https://${DOMAIN}/rest/api/3/search/jql?jql=${encodeURIComponent(jql)}&maxResults=500&fields=key,summary,created,duedate,description,priority,status,assignee,issuetype,*all`
     
     console.log('[Jira Request] URL:', url)
     console.log('[Jira Request] Auth present:', !!auth)
@@ -156,6 +156,9 @@ app.get("/api/issues", async (req: Request, res: Response) => {
       const due = fields.duedate || null
       const duration = created && due ? Math.ceil((new Date(due).getTime() - new Date(created).getTime()) / MS_PER_DAY) : ""
 
+      // Use customfield_10015 as the start date
+      const startDate = fields.customfield_10015 || null
+
       return {
         key: issue.key || "-",
         issueType: fields.issuetype?.name || "-",
@@ -168,6 +171,8 @@ app.get("/api/issues", async (req: Request, res: Response) => {
         created,
         due,
         duration,
+        start: startDate,
+        customfield_10015: fields.customfield_10015 || null,
       }
     })
 
