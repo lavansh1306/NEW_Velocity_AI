@@ -1,0 +1,255 @@
+NEW_Velocity_AI
+├── .env
+├── .git/
+├── .gitignore
+├── api
+│   ├── diagnose.ts
+│   ├── hubspot-callback.ts
+│   └── index.ts
+├── architecture-old.svg
+├── architecture.svg
+├── asana
+├── bun.lockb
+├── COMPLETION_REPORT.md
+├── components.json
+├── demo
+│   ├── LiveFeed.tsx
+│   ├── RedeploymentView.tsx
+│   ├── ROIMetrics.tsx
+│   └── TimeTracking.tsx
+├── docs
+│   ├── data-pipeline.md
+│   ├── metrics-and-architecture.md
+│   └── QUICK-REFERENCE.md
+├── eslint.config.js
+├── googleba79ddad728eb1f3.html
+├── HUBSPOT_CORRECTION.md
+├── HUBSPOT_INTEGRATION_COMPLETE.md
+├── index.html
+├── INTEGRATION_GUIDE.md
+├── INTEGRATION_SUMMARY.md
+├── LICENSE
+├── node_modules/
+├── package.json
+├── pnpm-lock.yaml
+├── postcss.config.js
+├── PROJECT_STRUCTURE.md
+├── public
+│   ├── data
+│   │   ├── asana_events.csv
+│   │   ├── github_events.csv
+│   │   ├── hubspot_events.csv
+│   │   ├── integrations-analytics.csv
+│   │   ├── jira_events.csv
+│   │   ├── microsoft365_events.csv
+│   │   ├── projects-analytics.csv
+│   │   ├── projects-asana.csv
+│   │   ├── projects-hubspot.csv
+│   │   ├── projects-microsoft365.csv
+│   │   ├── projects-zapier.csv
+│   │   └── zapier_events.csv
+│   ├── googleba79ddad728eb1f3.html
+│   ├── placeholder.svg
+│   └── robots.txt
+├── README.md
+├── README.old.md
+├── server.ts
+├── src
+│   ├── api
+│   │   ├── hubspot
+│   │   │   ├── auth.ts
+│   │   │   ├── oauth-errors.ts
+│   │   │   ├── routes.ts
+│   │   │   └── session-store.ts
+│   │   ├── microsoft365
+│   │   │   ├── auth.ts
+│   │   │   ├── graphClient.ts
+│   │   │   └── routes
+│   │   │       ├── metrics.ts
+│   │   │       └── roi.ts
+│   │   └── projects
+│   │       ├── index.ts
+│   │       └── [projectId]
+│   │           └── metrics.ts
+│   ├── App.css
+│   ├── App.tsx
+│   ├── components
+│   │   ├── analytics
+│   │   │   ├── AIUsageChart.tsx
+│   │   │   ├── AnalyticsPanel.tsx
+│   │   │   ├── AsanaTasksChart.tsx
+│   │   │   ├── BurndownChart.tsx
+│   │   │   ├── chartSetup.ts
+│   │   │   ├── custom
+│   │   │   │   ├── AutomationCoverageDonut.tsx
+│   │   │   │   ├── AutomationGrowthTrend.tsx
+│   │   │   │   ├── EstimatedTimeSavedBar.tsx
+│   │   │   │   ├── ManualVsAutomated100.tsx
+│   │   │   │   └── TotalAutomationsStacked.tsx
+│   │   │   ├── GanttChart.tsx
+│   │   │   ├── HubSpotDealsChart.tsx
+│   │   │   ├── JiraQualityChart.tsx
+│   │   │   ├── Microsoft365MeetingsChart.tsx
+│   │   │   ├── PlannedVsActualChart.tsx
+│   │   │   ├── types.ts
+│   │   │   └── ZapierRunsChart.tsx
+│   │   ├── Architecture.tsx
+│   │   ├── asana
+│   │   │   ├── GanttChart.tsx
+│   │   │   ├── index.ts
+│   │   │   ├── IssuesTable.tsx
+│   │   │   ├── ManagerGantt.tsx
+│   │   │   ├── ManagerSummary.tsx
+│   │   │   └── types.ts
+│   │   ├── CTA.tsx
+│   │   ├── demo
+│   │   │   ├── LiveFeed.tsx
+│   │   │   ├── RedeploymentView.tsx
+│   │   │   ├── ROIMetrics.tsx
+│   │   │   └── TimeTracking.tsx
+│   │   ├── demo2
+│   │   │   ├── CapacityLedgerTab.tsx
+│   │   │   ├── CausalAttributionAnalysis.tsx
+│   │   │   ├── DashboardTab.tsx
+│   │   │   ├── HotspotScoringTab.tsx
+│   │   │   ├── HubSpotTab.tsx
+│   │   │   ├── image.png
+│   │   │   ├── IntegrationsTab.tsx
+│   │   │   ├── ProjectActivityTab.tsx
+│   │   │   ├── RedeploymentTab.tsx
+│   │   │   ├── ROIVerificationTab.tsx
+│   │   │   ├── SecurityAuditTab.tsx
+│   │   │   ├── StandardTimeCatalogTab.tsx
+│   │   │   ├── VeloHeader.tsx
+│   │   │   ├── VeloNavTabs.tsx
+│   │   │   └── VPDashboard.tsx
+│   │   ├── Features.tsx
+│   │   ├── Footer.tsx
+│   │   ├── Header.tsx
+│   │   ├── Hero.tsx
+│   │   ├── hubspot
+│   │   │   ├── CampaignsList.tsx
+│   │   │   ├── ContactsList.tsx
+│   │   │   ├── DealsList.tsx
+│   │   │   ├── HubSpotHub.tsx
+│   │   │   ├── RealizationDeals.tsx
+│   │   │   └── TicketsList.tsx
+│   │   ├── jira
+│   │   │   ├── dataLoader.ts
+│   │   │   ├── GanttChart.tsx
+│   │   │   ├── index.ts
+│   │   │   ├── IssuesTable.tsx
+│   │   │   ├── ManagerGantt.tsx
+│   │   │   ├── ManagerSummary.tsx
+│   │   │   └── types.ts
+│   │   ├── microsoft365
+│   │   │   ├── EmailMetrics.tsx
+│   │   │   ├── MeetingsMetrics.tsx
+│   │   │   ├── Microsoft365Hub.tsx
+│   │   │   └── ROICalculator.tsx
+│   │   ├── NavLink.tsx
+│   │   ├── Stats.tsx
+│   │   ├── ToastContainer.tsx
+│   │   └── ui
+│   │       ├── accordion.tsx
+│   │       ├── alert-dialog.tsx
+│   │       ├── alert.tsx
+│   │       ├── aspect-ratio.tsx
+│   │       ├── avatar.tsx
+│   │       ├── badge.tsx
+│   │       ├── breadcrumb.tsx
+│   │       ├── button.tsx
+│   │       ├── calendar.tsx
+│   │       ├── card.tsx
+│   │       ├── carousel.tsx
+│   │       ├── chart.tsx
+│   │       ├── checkbox.tsx
+│   │       ├── collapsible.tsx
+│   │       ├── command.tsx
+│   │       ├── context-menu.tsx
+│   │       ├── dialog.tsx
+│   │       ├── drawer.tsx
+│   │       ├── dropdown-menu.tsx
+│   │       ├── form.tsx
+│   │       ├── hover-card.tsx
+│   │       ├── input-otp.tsx
+│   │       ├── input.tsx
+│   │       ├── label.tsx
+│   │       ├── menubar.tsx
+│   │       ├── navigation-menu.tsx
+│   │       ├── pagination.tsx
+│   │       ├── popover.tsx
+│   │       ├── progress.tsx
+│   │       ├── radio-group.tsx
+│   │       ├── resizable.tsx
+│   │       ├── scroll-area.tsx
+│   │       ├── select.tsx
+│   │       ├── separator.tsx
+│   │       ├── sheet.tsx
+│   │       ├── sidebar.tsx
+│   │       ├── skeleton.tsx
+│   │       ├── slider.tsx
+│   │       ├── sonner.tsx
+│   │       ├── switch.tsx
+│   │       ├── table.tsx
+│   │       ├── tabs.tsx
+│   │       ├── textarea.tsx
+│   │       ├── toast.tsx
+│   │       ├── toaster.tsx
+│   │       ├── toggle-group.tsx
+│   │       ├── toggle.tsx
+│   │       ├── tooltip.tsx
+│   │       └── use-toast.ts
+│   ├── contexts
+│   │   └── ToastContext.tsx
+│   ├── hooks
+│   │   ├── use-mobile.tsx
+│   │   ├── use-toast.ts
+│   │   └── useNotification.ts
+│   ├── index.css
+│   ├── lib
+│   │   ├── api.ts
+│   │   ├── csvLoader.ts
+│   │   ├── dataService.ts
+│   │   ├── hubspot-fetch.ts
+│   │   ├── metrics.ts
+│   │   ├── normalizers
+│   │   │   ├── asana.ts
+│   │   │   ├── hubspot.ts
+│   │   │   ├── index.ts
+│   │   │   ├── jira.ts
+│   │   │   ├── microsoft365.ts
+│   │   │   └── zapier.ts
+│   │   ├── storage.ts
+│   │   ├── types.ts
+│   │   └── utils.ts
+│   ├── main.tsx
+│   ├── pages
+│   │   ├── AsanaDashboard.tsx
+│   │   ├── DebugNormalization.tsx
+│   │   ├── Demo.tsx
+│   │   ├── GlobalCapacity.tsx
+│   │   ├── HubSpotDashboard.tsx
+│   │   ├── Index.tsx
+│   │   ├── JiraDashboard.tsx
+│   │   ├── Microsoft365Dashboard.tsx
+│   │   ├── NotFound.tsx
+│   │   ├── ProjectDetail.tsx
+│   │   ├── ProjectDetailNew.tsx
+│   │   ├── Projects.tsx
+│   │   ├── ROICalculator.tsx
+│   │   ├── ROIReport.tsx
+│   │   ├── UseCases.tsx
+│   │   └── VelocityAI.tsx
+│   └── vite-env.d.ts
+├── tailwind.config.ts
+├── test-server.ts
+├── TOAST_EXAMPLES.md
+├── TOAST_SYSTEM.md
+├── tsconfig.app.json
+├── tsconfig.json
+├── tsconfig.node.json
+├── velo.html
+├── vercel.json
+├── VERIFICATION_CHECKLIST.md
+└── vite.config.ts
