@@ -27,13 +27,6 @@ export const Hero = () => {
           </p>
           
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <Link to="/velocity-ai">
-                  <Button size="lg" variant="secondary" className="group gap-2 shadow-elevated">
-                Try Live Demo
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </Button>
-            </Link>
-            
             <Link to="/roi-calculator">
               <Button size="lg" variant="outline" className="border-white/30 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20">
                 ROI CHECKER
