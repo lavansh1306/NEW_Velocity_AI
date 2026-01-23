@@ -2,7 +2,7 @@
 
 ## ✅ Integration Status: COMPLETE
 
-All backend and frontend components from he external HubSpot + Microsoft 365 project have been successfully integrated into NEW_Velocity_AI.
+All backend and frontend components from he external HubSpot + Microsoft 365 project have been successfully integrated into NEW_Velocity_A.
 
 ---
 
