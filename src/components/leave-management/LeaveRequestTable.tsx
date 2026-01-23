@@ -1,7 +1,7 @@
 import React from 'react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table';
-import { Button } from '../../ui/button';
-import { Card } from '../../ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
+import { Button } from '../ui/button';
+import { Card } from '../ui/card';
 import { LeaveRequest } from './types';
 
 interface LeaveRequestTableProps {

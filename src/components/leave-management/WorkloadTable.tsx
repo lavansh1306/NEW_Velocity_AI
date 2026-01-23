@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card } from '../../ui/card';
+import { Card } from '../ui/card';
 import { CheckCircle2, Briefcase, Plus } from 'lucide-react';
 import { Task, EmployeeProfile } from './types';
 import { DAYS } from './data';
