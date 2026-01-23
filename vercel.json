@@ -6,6 +6,12 @@
       "maxDuration": 30
     }
   },
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "outputDirectory": "dist",
+  "env": {
+    "NODE_ENV": "production"
+  },
   "rewrites": [
     { "source": "/oauth/hubspot/callback", "destination": "/api/index.ts" },
     { "source": "/api/(.*)", "destination": "/api/index.ts" },
