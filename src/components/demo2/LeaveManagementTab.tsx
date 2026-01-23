@@ -4,7 +4,10 @@ import { Button } from '../ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../ui/dialog';
 import { Badge } from '../ui/badge';
-import { CheckCircle2, XCircle, Users, ArrowRight, BrainCircuit, Briefcase, AlertTriangle, Info, Zap, Calendar as CalendarIcon } from 'lucide-react';
+import { Label } from '../ui/label';
+import { Textarea } from '../ui/textarea';
+import { Input } from '../ui/input';
+import { CheckCircle2, XCircle, Users, ArrowRight, BrainCircuit, Briefcase, AlertTriangle, Info, Zap, Clock, FileText, Check } from 'lucide-react';
 
 // --- Types ---
 interface Task {
@@ -12,12 +15,17 @@ interface Task {
   projectName: string;
   taskName: string;
   assignee: string;
-  hours: number;
+  hours: number; // Planned hours
   day: number; // 0-4 (Mon-Fri)
-  requiredSkills: string[]; // NEW: Added skills to tasks
+  requiredSkills: string[];
   isReallocated?: boolean;
   isCancelled?: boolean;
   originalAssignee?: string;
+  // NEW: Time Logging State
+  status?: 'Logged' | 'Pending'; 
+  actualHours?: number;
+  workDescription?: string;
+  extraTasks?: string;
 }
 
 interface LeaveRequest {
@@ -62,10 +70,15 @@ export default function LeaveManagementTab() {
   ]);
   const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
   
-  // Scenario Planning State
+  // Scenario Planning State (Manager)
   const [scenarioOpen, setScenarioOpen] = useState(false);
   const [selectedLeave, setSelectedLeave] = useState<LeaveRequest | null>(null);
   const [predictionResult, setPredictionResult] = useState<{task: Task, newAssignee: string, reason: string, score: number}[]>([]);
+
+  // Time Logging State (Employee)
+  const [logOpen, setLogOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [logForm, setLogForm] = useState({ actualHours: 0, description: '', extraTasks: '' });
 
   const currentUser = "Alex Rivera";
 
@@ -77,44 +90,34 @@ export default function LeaveManagementTab() {
       .reduce((sum, t) => sum + t.hours, 0);
   };
 
-  // NEW: Smart Analysis Engine (Simulates Adobe Workfront's "Best Fit" algorithm)
+  // --- Manager Logic: Impact Analysis ---
   const runImpactAnalysis = (leave: LeaveRequest) => {
     const absenteeTasks = tasks.filter(t => t.assignee === leave.name && !t.isReallocated && !t.isCancelled);
     const predictions = [];
 
     for (const task of absenteeTasks) {
-      // 1. Find candidates excluding absentee
       const candidates = EMPLOYEES_DATA.filter(e => e.name !== leave.name);
       
-      // 2. Score candidates
       const scoredCandidates = candidates.map(emp => {
         let score = 0;
-        
-        // Skill Match (High weight)
         const hasSkill = task.requiredSkills.some(skill => emp.skills.includes(skill));
         if (hasSkill) score += 50;
-
-        // Availability (Medium weight)
         const currentLoad = getDailyLoad(emp.name, task.day, tasks);
-        const capacity = 10 - currentLoad; // Assuming 10h max
+        const capacity = 10 - currentLoad;
         if (capacity >= task.hours) score += 30;
         else if (capacity > 0) score += 10;
-        else score -= 20; // Overload penalty
-
-        // Role/History (Simulated)
+        else score -= 20;
         score += Math.floor(Math.random() * 10); 
-
         return { ...emp, score, capacity };
       });
 
-      // 3. Pick Winner
       const bestFit = scoredCandidates.sort((a, b) => b.score - a.score)[0];
       
       predictions.push({
         task,
         newAssignee: bestFit.name,
         reason: bestFit.score > 40 ? `Skills Matched: ${task.requiredSkills.join(', ')}` : "Capacity Availability",
-        score: Math.min(99, bestFit.score + 20) // Normalize for UI
+        score: Math.min(99, bestFit.score + 20)
       });
     }
 
@@ -125,15 +128,10 @@ export default function LeaveManagementTab() {
 
   const confirmReallocation = () => {
     if (!selectedLeave || !predictionResult) return;
-
     setTasks(prevTasks => {
       const newTasks = [...prevTasks];
-      
-      // Cancel old tasks
       const absenteeTasks = newTasks.filter(t => t.assignee === selectedLeave.name && !t.isReallocated);
       absenteeTasks.forEach(t => t.isCancelled = true);
-
-      // Create new tasks based on prediction
       predictionResult.forEach(pred => {
         newTasks.push({
           ...pred.task,
@@ -144,32 +142,56 @@ export default function LeaveManagementTab() {
           originalAssignee: selectedLeave.name
         });
       });
-
       return newTasks;
     });
-
     setLeaves(prev => prev.map(l => l.id === selectedLeave.id ? { ...l, status: 'Approved' } : l));
     setScenarioOpen(false);
   };
 
+  // --- Employee Logic: Time Logging ---
+  const handleTaskClick = (task: Task) => {
+    if (activePersona !== 'employee' || task.isCancelled) return;
+    setSelectedTask(task);
+    setLogForm({
+      actualHours: task.actualHours || task.hours,
+      description: task.workDescription || '',
+      extraTasks: task.extraTasks || ''
+    });
+    setLogOpen(true);
+  };
+
+  const saveTimeLog = () => {
+    if (!selectedTask) return;
+    setTasks(prev => prev.map(t => t.id === selectedTask.id ? {
+      ...t,
+      status: 'Logged',
+      actualHours: logForm.actualHours,
+      workDescription: logForm.description,
+      extraTasks: logForm.extraTasks
+    } : t));
+    setLogOpen(false);
+  };
+
+  // --- View Logic ---
+  const visibleEmployees = activePersona === 'manager' 
+    ? EMPLOYEES_DATA 
+    : EMPLOYEES_DATA.filter(e => e.name === currentUser);
+
+  const sectionTitle = activePersona === 'manager' ? "Organizational Workload" : "My Work Schedule";
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-20">
       
-      {/* --- SCENARIO PLANNING DIALOG (The "Adobe" Feature) --- */}
+      {/* 1. SCENARIO DIALOG (Manager) */}
       <Dialog open={scenarioOpen} onOpenChange={setScenarioOpen}>
         <DialogContent className="sm:max-w-[600px] bg-slate-50">
           <DialogHeader>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="p-2 bg-indigo-100 rounded-lg"><BrainCircuit className="w-5 h-5 text-indigo-600"/></div>
-              <div>
-                <DialogTitle className="text-xl">Impact Analysis & Scenario Planning</DialogTitle>
-                <DialogDescription>Review AI recommendations before approving leave.</DialogDescription>
-              </div>
-            </div>
+            <DialogTitle>Impact Analysis & Scenario Planning</DialogTitle>
+            <DialogDescription>Review AI recommendations before approving leave.</DialogDescription>
           </DialogHeader>
-          
           <div className="space-y-4 my-4">
-            <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
+             {/* ... Prediction UI (Same as previous) ... */}
+             <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
                 <h4 className="text-xs font-black uppercase text-slate-500 mb-3">Reallocation Strategy</h4>
                 {predictionResult.map((item, i) => (
                   <div key={i} className="flex items-center justify-between mb-3 last:mb-0 p-3 bg-slate-50 rounded border border-slate-100">
@@ -177,7 +199,6 @@ export default function LeaveManagementTab() {
                       <div className="font-bold text-sm text-slate-800">{item.task.projectName}</div>
                       <div className="text-xs text-slate-500">{item.task.taskName} ({item.task.hours}h)</div>
                     </div>
-                    
                     <div className="flex items-center gap-3">
                       <ArrowRight className="w-4 h-4 text-slate-300" />
                       <div className="text-right">
@@ -191,30 +212,74 @@ export default function LeaveManagementTab() {
                   </div>
                 ))}
             </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setScenarioOpen(false)}>Cancel</Button>
+            <Button className="bg-indigo-600 hover:bg-indigo-700" onClick={confirmReallocation}>Confirm & Reallocate</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-            {/* Risk Assessment Box */}
-            <div className="flex gap-4">
-               <div className="flex-1 bg-emerald-50 border border-emerald-100 p-3 rounded-lg flex items-start gap-3">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600 mt-0.5"/>
-                  <div>
-                    <div className="text-sm font-bold text-emerald-800">Low Risk Scenario</div>
-                    <div className="text-xs text-emerald-600">Capacity exists to absorb workload without delaying critical paths.</div>
+      {/* 2. TIME CHARGE DIALOG (Employee) */}
+      <Dialog open={logOpen} onOpenChange={setLogOpen}>
+        <DialogContent className="sm:max-w-[500px] bg-white">
+          <DialogHeader className="border-b pb-4">
+            <div className="flex items-center gap-2">
+              <div className="p-2 bg-blue-50 rounded-lg"><Clock className="w-5 h-5 text-blue-600"/></div>
+              <div>
+                <DialogTitle className="text-lg">Log Time & Progress</DialogTitle>
+                <DialogDescription>Update your timesheet for <span className="font-bold text-slate-900">{selectedTask?.projectName}</span></DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          
+          <div className="grid gap-6 py-4">
+            {/* Planned vs Actual */}
+            <div className="grid grid-cols-2 gap-4">
+               <div className="space-y-2">
+                  <Label className="text-xs text-slate-500 uppercase font-bold">Planned Hours</Label>
+                  <div className="p-2 bg-slate-50 border rounded-md font-mono text-sm text-slate-500">
+                    {selectedTask?.hours} Hours
                   </div>
                </div>
-               <div className="flex-1 bg-indigo-50 border border-indigo-100 p-3 rounded-lg flex items-start gap-3">
-                  <Zap className="w-5 h-5 text-indigo-600 mt-0.5"/>
-                  <div>
-                    <div className="text-sm font-bold text-indigo-800">Skills Aligned</div>
-                    <div className="text-xs text-indigo-600">Replacement resources possess required React & SQL certifications.</div>
-                  </div>
+               <div className="space-y-2">
+                  <Label className="text-xs text-blue-600 uppercase font-bold">Actual Hours Worked</Label>
+                  <Input 
+                    type="number" 
+                    value={logForm.actualHours} 
+                    onChange={(e) => setLogForm({...logForm, actualHours: Number(e.target.value)})}
+                    className="font-mono font-bold"
+                  />
                </div>
+            </div>
+
+            {/* Work Performed */}
+            <div className="space-y-2">
+              <Label className="text-xs text-slate-700 uppercase font-bold flex items-center gap-1"><FileText className="w-3 h-3"/> Work Performed</Label>
+              <Textarea 
+                placeholder="Briefly describe what you achieved..."
+                className="resize-none h-20 text-sm"
+                value={logForm.description}
+                onChange={(e) => setLogForm({...logForm, description: e.target.value})}
+              />
+            </div>
+
+            {/* Extra Tasks */}
+            <div className="space-y-2">
+              <Label className="text-xs text-amber-600 uppercase font-bold flex items-center gap-1"><Zap className="w-3 h-3"/> Unplanned / Extra Tasks</Label>
+              <Textarea 
+                placeholder="Did you do anything outside the original scope? (Scope creep, hotfixes)"
+                className="resize-none h-20 bg-amber-50/50 border-amber-200 focus:border-amber-400 text-sm"
+                value={logForm.extraTasks}
+                onChange={(e) => setLogForm({...logForm, extraTasks: e.target.value})}
+              />
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setScenarioOpen(false)}>Cancel</Button>
-            <Button className="bg-indigo-600 hover:bg-indigo-700" onClick={confirmReallocation}>
-              Confirm & Reallocate
+            <Button variant="outline" onClick={() => setLogOpen(false)}>Cancel</Button>
+            <Button className="bg-blue-600 hover:bg-blue-700" onClick={saveTimeLog}>
+              Save Time Entry
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -236,12 +301,12 @@ export default function LeaveManagementTab() {
         </div>
       </div>
 
-      {/* Leave Management Table */}
+      {/* Leave Management (Unchanged - Collapsed for brevity) */}
       <div className="space-y-4">
         <div className="flex justify-between items-end">
           <div>
             <h2 className="text-2xl font-black text-gray-900 tracking-tight">Leave Requests</h2>
-            <p className="text-xs text-gray-500 font-medium">Approve to trigger AI redistribution</p>
+            <p className="text-xs text-gray-500 font-medium">{activePersona === 'manager' ? 'Approve to trigger AI redistribution' : 'Track your leave status'}</p>
           </div>
           <Button className="bg-indigo-600 px-6 font-bold shadow-indigo-100 shadow-xl">Apply for Leave</Button>
         </div>
@@ -258,28 +323,15 @@ export default function LeaveManagementTab() {
             <TableBody>
               {leaves.filter(l => activePersona === 'manager' || l.name === currentUser).map((leave) => (
                 <TableRow key={leave.id} className="hover:bg-slate-50/50">
-                  <TableCell className="font-bold text-gray-800">
-                    {leave.name}
-                    <div className="flex gap-1 mt-1">
-                       {EMPLOYEES_DATA.find(e => e.name === leave.name)?.skills.map(skill => (
-                         <span key={skill} className="text-[9px] px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded border border-slate-200">{skill}</span>
-                       ))}
-                    </div>
-                  </TableCell>
+                  <TableCell className="font-bold text-gray-800">{leave.name}</TableCell>
+                  <TableCell><div className="text-xs font-medium text-gray-600">{leave.startDate} → {leave.endDate}</div></TableCell>
                   <TableCell>
-                    <div className="text-xs font-medium text-gray-600">{leave.startDate} → {leave.endDate}</div>
-                  </TableCell>
-                  <TableCell>
-                    <div className={`inline-flex px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase ${leave.status === 'Approved' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                      {leave.status}
-                    </div>
+                    <div className={`inline-flex px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase ${leave.status === 'Approved' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{leave.status}</div>
                   </TableCell>
                   <TableCell className="text-right">
-                    {leave.status === 'Pending' && activePersona === 'manager' && (
-                      <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 h-8 font-black text-[10px]" onClick={() => runImpactAnalysis(leave)}>
-                        REVIEW IMPACT
-                      </Button>
-                    )}
+                    {leave.status === 'Pending' && activePersona === 'manager' ? (
+                      <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 h-8 font-black text-[10px]" onClick={() => runImpactAnalysis(leave)}>REVIEW IMPACT</Button>
+                    ) : ( <span className="text-[10px] text-gray-400 font-medium">--</span> )}
                   </TableCell>
                 </TableRow>
               ))}
@@ -288,9 +340,11 @@ export default function LeaveManagementTab() {
         </Card>
       </div>
 
-      {/* Gantt Chart (Unchanged logic, updated styling only) */}
+      {/* Dynamic Workload Chart */}
       <div className="space-y-4">
-        <h2 className="text-2xl font-black text-gray-900 tracking-tight flex items-center gap-2"><Briefcase className="text-indigo-600" /> Organizational Workload</h2>
+        <h2 className="text-2xl font-black text-gray-900 tracking-tight flex items-center gap-2">
+            <Briefcase className="text-indigo-600" /> {sectionTitle}
+        </h2>
 
         <Card className="rounded-xl border-none shadow-2xl overflow-hidden bg-white">
           <div className="overflow-x-auto">
@@ -302,33 +356,37 @@ export default function LeaveManagementTab() {
                 </tr>
               </thead>
               <tbody>
-                {EMPLOYEES_DATA.map(emp => (
+                {visibleEmployees.map(emp => (
                   <tr key={emp.name} className="border-b border-gray-50 align-top">
                     <td className="p-4 border-r bg-slate-50/30">
                         <div className="font-bold text-sm text-gray-800">{emp.name}</div>
                         <div className="text-[10px] text-gray-500 font-medium mb-1">{emp.role}</div>
                         <div className="flex flex-wrap gap-1">
                           {emp.skills.slice(0, 2).map(skill => <span key={skill} className="text-[8px] bg-white border border-slate-200 px-1 rounded">{skill}</span>)}
-                          {emp.skills.length > 2 && <span className="text-[8px] text-slate-400">+{emp.skills.length - 2}</span>}
                         </div>
                     </td>
                     {DAYS.map((_, dayIndex) => {
                       const dayTasks = tasks.filter(t => t.assignee === emp.name && t.day === dayIndex);
                       const totalHours = getDailyLoad(emp.name, dayIndex, tasks);
-                      const isOverCapacity = totalHours > 10;
+                      const showCapacityWarning = activePersona === 'manager' && totalHours > 10;
 
                       return (
-                        <td key={dayIndex} className={`p-2 min-w-[160px] transition-colors ${isOverCapacity ? 'bg-rose-50/50' : ''}`}>
+                        <td key={dayIndex} className={`p-2 min-w-[160px] transition-colors ${showCapacityWarning ? 'bg-rose-50/50' : ''}`}>
                           <div className="flex justify-between items-center mb-2 px-1">
-                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${isOverCapacity ? 'bg-rose-600 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${showCapacityWarning ? 'bg-rose-600 text-white' : 'bg-slate-200 text-slate-600'}`}>
                                 {totalHours}h TOTAL
                             </span>
                           </div>
                           
                           {dayTasks.map(t => (
-                            <div key={t.id} className={`p-2 mb-2 rounded-lg border text-[11px] relative transition-all shadow-sm group
+                            <div 
+                              key={t.id} 
+                              onClick={() => handleTaskClick(t)}
+                              className={`p-2 mb-2 rounded-lg border text-[11px] relative transition-all shadow-sm group
                               ${t.isCancelled ? 'bg-red-50 border-red-200 opacity-60 grayscale' : 
+                                t.status === 'Logged' ? 'bg-emerald-50 border-emerald-300 shadow-emerald-100' :
                                 t.isReallocated ? 'bg-indigo-600 text-white border-indigo-700 shadow-indigo-200' : 'bg-white border-slate-200 text-slate-700'}
+                              ${activePersona === 'employee' && !t.isCancelled ? 'cursor-pointer hover:scale-[1.02] hover:shadow-md' : ''}
                             `}>
                               <div className="flex justify-between font-black uppercase tracking-tight mb-1">
                                 <span className="truncate w-20">{t.projectName}</span>
@@ -336,10 +394,19 @@ export default function LeaveManagementTab() {
                               </div>
                               <p className={`text-[9px] mb-1 leading-tight ${t.isReallocated ? 'text-indigo-100' : 'text-slate-500'}`}>{t.taskName}</p>
                               
-                              {/* Hover Skill Tooltip */}
-                              <div className="opacity-0 group-hover:opacity-100 absolute -top-2 right-0 bg-black text-white text-[8px] px-1 rounded">
-                                Req: {t.requiredSkills.join(', ')}
-                              </div>
+                              {/* Logged Status Indicator */}
+                              {t.status === 'Logged' && (
+                                <div className="mt-1 pt-1 border-t border-emerald-200 flex items-center gap-1 text-[8px] font-bold text-emerald-700 uppercase">
+                                  <Check className="w-2.5 h-2.5" /> Logged ({t.actualHours}h)
+                                </div>
+                              )}
+                              
+                              {/* Hover Hint for Employee */}
+                              {activePersona === 'employee' && !t.isCancelled && t.status !== 'Logged' && (
+                                <div className="opacity-0 group-hover:opacity-100 absolute inset-0 bg-blue-600/90 text-white flex items-center justify-center font-bold text-xs rounded-lg transition-opacity">
+                                  Log Time
+                                </div>
+                              )}
                             </div>
                           ))}
                         </td>
