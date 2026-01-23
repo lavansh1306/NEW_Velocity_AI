@@ -1,22 +1,35 @@
 import { useState } from 'react';
-import { CalendarIcon } from 'lucide-react';
+import { 
+  LayoutDashboard, 
+  FolderKanban, 
+  Clock, 
+  Activity, 
+  BookOpen, 
+  Share2, 
+  Puzzle, 
+  RefreshCw, 
+  DollarSign, 
+  Calendar as CalendarIcon // Imported Icon
+} from 'lucide-react';
+
 interface VeloNavTabsProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
   children?: React.ReactNode;
 }
 
+// Added icons to the tabs configuration
 const tabs = [
-  { id: 'dashboard', label: 'Dashboard', icon: '' },
-  { id: 'projects', label: 'Projects', icon: '' },
-  { id: 'stc', label: 'Standard Time Catalog', icon: '' },
-  { id: 'activity', label: 'Project Activity', icon: '' },
-  { id: 'ledger', label: 'Capacity Ledger', icon: '' },
-  { id: 'hubspot', label: 'HubSpot', icon: '' },
-  { id: 'integrations', label: 'Integrations', icon: '' },
-  { id: 'redeployment', label: 'Redeployment', icon: '' },
-  { id: 'roi', label: 'ROI Verification', icon: '' },
-  { id: 'leave', label: 'Leave Management', icon: '' }
+  { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
+  { id: 'projects', label: 'Projects', icon: <FolderKanban className="w-5 h-5" /> },
+  { id: 'stc', label: 'Standard Time Catalog', icon: <Clock className="w-5 h-5" /> },
+  { id: 'activity', label: 'Project Activity', icon: <Activity className="w-5 h-5" /> },
+  { id: 'ledger', label: 'Capacity Ledger', icon: <BookOpen className="w-5 h-5" /> },
+  { id: 'hubspot', label: 'HubSpot', icon: <Share2 className="w-5 h-5" /> },
+  { id: 'integrations', label: 'Integrations', icon: <Puzzle className="w-5 h-5" /> },
+  { id: 'redeployment', label: 'Redeployment', icon: <RefreshCw className="w-5 h-5" /> },
+  { id: 'roi', label: 'ROI Verification', icon: <DollarSign className="w-5 h-5" /> },
+  { id: 'leave', label: 'Leave Management', icon: <CalendarIcon className="w-5 h-5" /> } // Added Icon
 ];
 
 export default function VeloNavTabs({ activeTab, onTabChange, children }: VeloNavTabsProps) {
@@ -28,25 +41,26 @@ export default function VeloNavTabs({ activeTab, onTabChange, children }: VeloNa
   };
 
   const currentTabLabel = tabs.find(t => t.id === activeTab)?.label || 'Dashboard';
-  const currentTabIcon = tabs.find(t => t.id === activeTab)?.icon || '';
+  const currentTabIcon = tabs.find(t => t.id === activeTab)?.icon;
 
   return (
-    <div className="flex">
+    <div className="flex min-h-[calc(100vh-80px)]"> {/* Adjusted height calculation */}
+      
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex md:w-56 h-screen sticky top-20 bg-white border-r border-gray-200 z-30">
-        <div className="flex flex-col py-6 w-full overflow-y-auto">
+      <aside className="hidden md:flex md:w-64 flex-shrink-0 sticky top-20 h-[calc(100vh-80px)] bg-white border-r border-gray-200 z-30 overflow-y-auto">
+        <div className="flex flex-col py-6 w-full">
           <div className="px-3 space-y-1">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => onTabChange(tab.id)}
-                className={`w-full text-left px-4 py-3 font-semibold text-sm rounded-lg transition-all flex items-center gap-3 ${
+                className={`w-full text-left px-4 py-3 font-medium text-sm rounded-lg transition-all flex items-center gap-3 ${
                   activeTab === tab.id
-                    ? 'border-l-4 border-blue-600 bg-blue-50 text-blue-600 ml-0 pl-3'
-                    : 'text-gray-600 hover:bg-gray-50 active:bg-gray-100'
+                    ? 'bg-indigo-50 text-indigo-700 border border-indigo-100 shadow-sm'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`}
               >
-                <span className="text-base">{tab.icon}</span>
+                {tab.icon}
                 {tab.label}
               </button>
             ))}
@@ -54,84 +68,59 @@ export default function VeloNavTabs({ activeTab, onTabChange, children }: VeloNa
         </div>
       </aside>
 
-      <div className="flex-1 w-full flex flex-col">
-        {/* Mobile Header with Hamburger */}
+      <div className="flex-1 w-full flex flex-col min-w-0">
+        {/* Mobile Header */}
         <div className="md:hidden sticky top-20 bg-white border-b border-gray-200 z-40">
           <div className="px-4 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="text-lg">{currentTabIcon}</span>
-              <span className="font-semibold text-sm text-gray-900 truncate">{currentTabLabel}</span>
+            <div className="flex items-center gap-2">
+              {currentTabIcon}
+              <span className="font-bold text-gray-900">{currentTabLabel}</span>
             </div>
             <button
               onClick={() => setMobileMenuOpen(true)}
-              className="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded-lg hover:bg-gray-100 active:bg-gray-200 transition-colors"
+              className="p-2 rounded-lg hover:bg-gray-100"
             >
-              <svg
-                className="w-6 h-6 text-gray-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
+              <span className="sr-only">Open menu</span>
+              <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
           </div>
         </div>
 
-        {/* Mobile Sidebar Drawer Overlay */}
+        {/* Mobile Drawer */}
         {mobileMenuOpen && (
-          <div
-            className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
-            onClick={() => setMobileMenuOpen(false)}
-          />
+          <div className="fixed inset-0 z-50 flex">
+            <div className="fixed inset-0 bg-black/50" onClick={() => setMobileMenuOpen(false)} />
+            <div className="relative w-64 bg-white shadow-xl h-full overflow-y-auto">
+              <div className="p-4 border-b flex justify-between items-center">
+                 <h2 className="font-bold">Menu</h2>
+                 <button onClick={() => setMobileMenuOpen(false)}>
+                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                 </button>
+              </div>
+              <div className="p-2 space-y-1">
+                {tabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => handleTabSelect(tab.id)}
+                    className={`w-full text-left px-4 py-3 font-medium rounded-lg flex items-center gap-3 ${
+                      activeTab === tab.id ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600'
+                    }`}
+                  >
+                    {tab.icon}
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
         )}
 
-        {/* Mobile Sidebar Drawer */}
-        <div
-          className={`fixed top-0 left-0 h-full w-64 bg-white border-r border-gray-200 z-50 md:hidden transition-transform duration-300 ease-in-out pt-20 ${
-            mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-          }`}
-        >
-          {/* Close button at top */}
-          <div className="px-4 py-4 border-b border-gray-200 flex items-center justify-between">
-            <h2 className="font-bold text-lg text-gray-900">Navigation</h2>
-            <button
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded-lg hover:bg-gray-100 active:bg-gray-200 transition-colors"
-            >
-              <svg
-                className="w-6 h-6 text-gray-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
-          {/* Menu items */}
-          <div className="px-2 py-4 space-y-2 overflow-y-auto max-h-[calc(100vh-140px)]">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => handleTabSelect(tab.id)}
-                className={`w-full text-left px-4 py-4 font-semibold text-base rounded-lg transition-all flex items-center gap-3 ${
-                  activeTab === tab.id
-                    ? 'bg-blue-50 text-blue-600 border-l-4 border-blue-600'
-                    : 'text-gray-700 hover:bg-gray-50 active:bg-gray-100'
-                }`}
-              >
-                <span className="text-xl">{tab.icon}</span>
-                <span>{tab.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-        {/* Main content injected by page */}
-        <div className="flex-1 w-full">
+        {/* MAIN CONTENT AREA (Injected here) */}
+        <main className="flex-1 w-full bg-gray-50/50">
           {children}
-        </div>
+        </main>
       </div>
     </div>
   );
