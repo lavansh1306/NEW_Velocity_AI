@@ -15,6 +15,7 @@ import HubSpotTab from '../components/demo2/HubSpotTab';
 import IntegrationsTab from '../components/demo2/IntegrationsTab';
 import Projects from './Projects';
 import LeaveManagementTab from '../components/leave-management'; 
+import ProjectCheckView from '@/components/ml-model';
 
 import { getJiraConnected, setJiraConnected } from '../lib/storage';
 
@@ -125,9 +126,8 @@ export default function VelocityAI() {
             {activeTab === 'activity' && <ProjectActivityTab />}
             {activeTab === 'roi' && <ROIVerificationTab />}
             {activeTab === 'security' && <SecurityAuditTab onJiraConnectionChange={handleJiraConnectionChange} />}
-            
-            {/* The Modular Leave Management Tab */}
             {activeTab === 'leave' && <LeaveManagementTab />}
+            {activeTab === 'projectcheck' && <ProjectCheckView />}
           </div>
         </VeloNavTabs>
       )}
