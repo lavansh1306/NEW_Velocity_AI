@@ -144,6 +144,15 @@ NEW_Velocity_AI
 │   │   │   ├── ManagerGantt.tsx
 │   │   │   ├── ManagerSummary.tsx
 │   │   │   └── types.ts
+│   │   ├── leave-management
+│   │   │   ├── data.ts
+│   │   │   ├── ImpactAnalysisDialog.tsx
+│   │   │   ├── index.tsx
+│   │   │   ├── LeaveRequestTable.tsx
+│   │   │   ├── ManagerView.tsx
+│   │   │   ├── TimeLoggingDialog.tsx
+│   │   │   ├── types.ts
+│   │   │   └── WorkloadTable.tsx
 │   │   ├── microsoft365
 │   │   │   ├── EmailMetrics.tsx
 │   │   │   ├── MeetingsMetrics.tsx

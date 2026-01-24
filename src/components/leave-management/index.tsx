@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { Users } from 'lucide-react';
+import { Users, Upload } from 'lucide-react'; // Added Upload icon
+import { Button } from '../ui/button'; // Need Button
 import { INITIAL_TASKS, EMPLOYEES_DATA } from './data';
 import { Task, LeaveRequest, TimeLog } from './types';
 import { ImpactAnalysisDialog } from './ImpactAnalysisDialog';
 import { TimeLoggingDialog } from './TimeLoggingDialog';
+import { TimesheetUploadDialog } from './TimeSheetUploadDialog'; // Import New Dialog
 import { WorkloadTable } from './WorkloadTable';
 import { LeaveRequestTable } from './LeaveRequestTable';
 
@@ -17,6 +19,7 @@ export default function LeaveManagementTab() {
   // Dialog States
   const [scenarioOpen, setScenarioOpen] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false); // New State
   const [selectedLeave, setSelectedLeave] = useState<LeaveRequest | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [predictions, setPredictions] = useState<any[]>([]);
@@ -27,6 +30,11 @@ export default function LeaveManagementTab() {
   const getDailyLoad = (employee: string, day: number) => {
     return tasks.filter(t => t.assignee === employee && t.day === day && !t.isCancelled)
       .reduce((sum, t) => sum + t.hours, 0);
+  };
+
+  // --- Manager: Import Logic ---
+  const handleImportTasks = (newTasks: Task[]) => {
+    setTasks(prev => [...prev, ...newTasks]);
   };
 
   // --- Manager: Impact Analysis ---
@@ -98,9 +106,20 @@ export default function LeaveManagementTab() {
             <p className="text-xs text-slate-400">Current Role: {activePersona === 'manager' ? 'HR / Manager' : 'Individual Contributor'}</p>
           </div>
         </div>
-        <div className="flex bg-slate-800 p-1 rounded-xl w-fit border border-slate-700">
-          <button onClick={() => setActivePersona('manager')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activePersona === 'manager' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400'}`}>Manager</button>
-          <button onClick={() => setActivePersona('employee')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activePersona === 'employee' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400'}`}>Employee</button>
+        
+        <div className="flex items-center gap-4">
+           {/* IMPORT BUTTON (Visible only for Managers) */}
+           {activePersona === 'manager' && (
+             <Button variant="outline" className="text-slate-200 border-slate-700 hover:bg-slate-800 hover:text-white gap-2" onClick={() => setImportOpen(true)}>
+               <Upload className="w-4 h-4" />
+               Import Timesheet
+             </Button>
+           )}
+
+           <div className="flex bg-slate-800 p-1 rounded-xl w-fit border border-slate-700">
+             <button onClick={() => setActivePersona('manager')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activePersona === 'manager' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400'}`}>Manager</button>
+             <button onClick={() => setActivePersona('employee')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activePersona === 'employee' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400'}`}>Employee</button>
+           </div>
         </div>
       </div>
 
@@ -117,6 +136,7 @@ export default function LeaveManagementTab() {
       {/* Dialogs */}
       <ImpactAnalysisDialog open={scenarioOpen} onOpenChange={setScenarioOpen} predictions={predictions} onConfirm={confirmReallocation} />
       <TimeLoggingDialog open={logOpen} onOpenChange={setLogOpen} task={selectedTask} onSave={saveLogs} />
+      <TimesheetUploadDialog open={importOpen} onOpenChange={setImportOpen} onImport={handleImportTasks} />
     </div>
   );
 }
