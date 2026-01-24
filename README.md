@@ -114,7 +114,7 @@ For detailed architecture documentation, see [docs/metrics-and-architecture.md](
 | **Tailwind CSS** | 3.4.17 | Utility-first styling |
 | **shadcn/ui** | Latest | Component library (Radix UI) |
 | **Chart.js** | 4.5.1 | Data visualization |
-| **Recharts** | 2.15.4 | React charts |
+| **Recharts** | 2.15.4 | React charts|
 | **Lucide React** | 0.462.0 | Icon library |
 | **React Hook Form** | 7.61.1 | Form management |
 | **Zod** | 3.25.76 | Schema validation |
