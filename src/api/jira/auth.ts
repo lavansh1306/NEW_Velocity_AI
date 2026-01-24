@@ -13,6 +13,7 @@ declare module 'express-session' {
     jiraCloudId?: string;
     jiraStoreKey?: string;
     jiraCodeVerifier?: string;
+    jiraAccessibleResources?: JiraResource[];
   }
 }
 
@@ -35,6 +36,8 @@ setTimeout(() => {
 const SCOPES: string = [
   'read:jira-work',
   'read:jira-user',
+  'read:issue:jira',
+  'read:project:jira',
   'offline_access'
 ].join(' ');
 
@@ -225,16 +228,20 @@ async function callback(req: Request, res: Response): Promise<void> {
       throw new Error('No Jira sites accessible with this account');
     }
 
-    // Use the first accessible resource (or let user choose in production)
+    // Store ALL accessible resources in session so user can switch
+    req.session.jiraAccessibleResources = resources;
+
+    // Use the first accessible resource by default
     const primaryResource = resources[0];
     
     console.log('[Jira OAuth] Connected to site:', primaryResource.name, primaryResource.url);
+    console.log('[Jira OAuth] Available sites:', resources.map(r => ({ name: r.name, id: r.id })));
 
-    // Store tokens
+    // Store tokens using the current sessionID
     const storeKey = req.sessionID;
     const expiresAt = Date.now() + (tokenResp.expires_in * 1000);
     
-    jiraTokens.set(storeKey, {
+    const tokenStore = {
       accessToken: tokenResp.access_token,
       refreshToken: tokenResp.refresh_token,
       expiresAt: expiresAt,
@@ -242,6 +249,18 @@ async function callback(req: Request, res: Response): Promise<void> {
       userId: storeKey, // Use sessionID as userId
       siteName: primaryResource.name,
       siteUrl: primaryResource.url,
+    };
+    
+    jiraTokens.set(storeKey, tokenStore);
+
+    console.log('[Jira OAuth] Stored token with storeKey:', storeKey);
+    console.log('[Jira OAuth] Token details:', {
+      accessTokenLength: tokenResp.access_token.length,
+      refreshTokenExists: !!tokenResp.refresh_token,
+      expiresIn: tokenResp.expires_in,
+      expiresAt: new Date(expiresAt),
+      cloudId: primaryResource.id,
+      siteName: primaryResource.name,
     });
 
     // Store cloudId and user info in session
@@ -249,13 +268,20 @@ async function callback(req: Request, res: Response): Promise<void> {
     req.session.jiraUserId = storeKey;
     req.session.jiraStoreKey = storeKey;
 
-    // Save session
+    console.log('[Jira OAuth] Session before save:', {
+      jiraStoreKey: req.session.jiraStoreKey,
+      jiraCloudId: req.session.jiraCloudId,
+      sessionID: req.sessionID
+    });
+
+    // Save session before redirecting
     await new Promise<void>((resolve, reject) => {
       req.session.save((err) => {
         if (err) {
           console.error('[Jira OAuth] Session save failed:', err);
           reject(err);
         } else {
+          console.log('[Jira OAuth] Session saved successfully');
           resolve();
         }
       });
@@ -306,6 +332,10 @@ async function refreshAccessToken(refreshToken: string): Promise<TokenResponse> 
 // Get valid access token for user (with automatic refresh)
 export async function getAccessToken(req: Request): Promise<string | null> {
   const storeKey = req.session?.jiraStoreKey;
+  console.log('[Jira OAuth] getAccessToken - sessionID:', req.sessionID);
+  console.log('[Jira OAuth] getAccessToken - jiraStoreKey:', storeKey);
+  console.log('[Jira OAuth] getAccessToken - available keys:', Array.from(jiraTokens.keys()));
+  
   if (!storeKey) {
     console.log('[Jira OAuth] No jiraStoreKey in session');
     return null;
@@ -313,7 +343,7 @@ export async function getAccessToken(req: Request): Promise<string | null> {
 
   const tokenStore = jiraTokens.get(storeKey);
   if (!tokenStore) {
-    console.log('[Jira OAuth] No tokens found for user');
+    console.log('[Jira OAuth] No tokens found for user with key:', storeKey);
     return null;
   }
 
@@ -347,6 +377,12 @@ export async function getAccessToken(req: Request): Promise<string | null> {
 
 // Get Jira Cloud ID for user
 export function getCloudId(req: Request): string | null {
+  // FIRST check if user switched to a different site (session.jiraCloudId takes precedence)
+  if (req.session?.jiraCloudId) {
+    return req.session.jiraCloudId;
+  }
+  
+  // Fallback to token store's original cloudId
   const storeKey = req.session?.jiraStoreKey;
   if (!storeKey) return null;
   
