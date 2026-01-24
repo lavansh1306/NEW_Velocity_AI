@@ -38,11 +38,11 @@ const App = () => (
             <Route path="/roi-report" element={<ROIReport />} />
             <Route path="/velocity-ai" element={<VelocityAI />} />
             <Route path="/projects" element={<Projects />} />
-            <Route path="/projects/:id" element={<ProjectDetailNew />} />
             <Route path="/projects/jira-dashboard" element={<JiraDashboard />} />
             <Route path="/projects/asana-dashboard" element={<AsanaDashboard />} />
             <Route path="/projects/hubspot-dashboard" element={<HubSpotDashboard />} />
             <Route path="/projects/microsoft365-dashboard" element={<Microsoft365Dashboard />} />
+            <Route path="/projects/:id" element={<ProjectDetailNew />} />
             <Route path="/debug-normalization" element={<DebugNormalization />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

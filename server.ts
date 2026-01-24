@@ -111,57 +111,54 @@ const extractDescription = (desc: any): string => {
 
 // OLD ROUTE - Disabled in favor of OAuth multi-tenant route at /api/jira/issues
 /*
+// Deprecated: Use /api/jira/issues instead which supports OAuth
 app.get("/api/issues", async (req: Request, res: Response) => {
-  // Get project key from query parameter or use default from env
   const projectKey = (req.query.projectKey as string) || PROJECT_KEY
-
-  console.log('[/api/issues] Request for:', projectKey, 'Auth ready:', !!auth)
-
-  if (!projectKey) {
-    return res.status(400).json({ error: "Project key is required. Provide it as ?projectKey=YOURKEY or set JIRA_PROJECT_KEY in .env" })
-  }
-
-  if (!isJiraConfigReady) {
-    console.warn('[/api/issues] Jira not configured - returning empty issues list')
-    return res.json({ issues: [] })
-  }
-
+  
+  console.log('[/api/issues] Fetching with OAuth, projectKey:', projectKey)
+  
   try {
-    const jql = `project = "${projectKey}"`
-    // Use correct Jira Cloud API v3 endpoint format
-    const url = `https://${DOMAIN}/rest/api/3/search/jql?jql=${encodeURIComponent(jql)}&maxResults=500&fields=key,summary,created,duedate,description,priority,status,assignee,issuetype,*all`
+    // Import jiraAuth to use OAuth tokens
+    const { jiraAuth } = await import('./src/api/jira/auth.js');
     
-    console.log('[Jira Request] URL:', url)
-    console.log('[Jira Request] Auth present:', !!auth)
+    const accessToken = await jiraAuth.getAccessToken(req);
+    const cloudId = jiraAuth.getCloudId(req);
     
-    const response = await fetch(url, {
+    if (!accessToken || !cloudId) {
+      console.log('[/api/issues] Not authenticated');
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    
+    const jql = `project = "${projectKey}"`;
+    const fields = 'key,summary,created,duedate,description,priority,status,assignee,issuetype,customfield_10015';
+    const fullUrl = `https://api.atlassian.com/ex/jira/${cloudId}/rest/api/3/search/jql?jql=${encodeURIComponent(jql)}&maxResults=500&fields=${encodeURIComponent(fields)}`;
+    
+    console.log('[/api/issues] Fetching from OAuth:', fullUrl);
+    
+    const response = await fetch(fullUrl, {
       method: 'GET',
       headers: {
-        'Authorization': `Basic ${auth}`,
+        'Authorization': `Bearer ${accessToken}`,
         'Accept': 'application/json',
-        'Content-Type': 'application/json',
       },
-    })
-
-    console.log('[Jira Response] Status:', response.status)
-
+    });
+    
+    console.log('[/api/issues] Response status:', response.status);
+    
     if (!response.ok) {
-      const errText = await response.text()
-      console.error(`[Jira] Failed with status ${response.status}:`, errText.substring(0, 300))
-      // Return empty list instead of 500 so UI doesn't break in production
-      return res.json({ issues: [] })
+      const errorText = await response.text();
+      console.error('[/api/issues] Fetch failed:', response.status, errorText.substring(0, 200));
+      return res.status(response.status).json({ error: 'Failed to fetch issues', details: errorText });
     }
-
-    const data = await response.json() as any
+    
+    const data = await response.json() as any;
     const issues = (data.issues || []).map((issue: any) => {
-      const fields = issue.fields || {}
-      const created = fields.created || null
-      const due = fields.duedate || null
-      const duration = created && due ? Math.ceil((new Date(due).getTime() - new Date(created).getTime()) / MS_PER_DAY) : ""
-
-      // Use customfield_10015 as the start date
-      const startDate = fields.customfield_10015 || null
-
+      const fields = issue.fields || {};
+      const created = fields.created || null;
+      const due = fields.duedate || null;
+      const duration = created && due ? Math.ceil((new Date(due).getTime() - new Date(created).getTime()) / (1000 * 60 * 60 * 24)) : "";
+      const startDate = fields.customfield_10015 || null;
+      
       return {
         key: issue.key || "-",
         issueType: fields.issuetype?.name || "-",
@@ -170,20 +167,25 @@ app.get("/api/issues", async (req: Request, res: Response) => {
         priority: fields.priority?.name || "-",
         status: fields.status?.name || "-",
         assignee: fields.assignee?.displayName || "Unassigned",
-        team: TEAM_FIELD && fields[TEAM_FIELD] ? String(fields[TEAM_FIELD]) : "Team 1",
+        team: projectKey,
         created,
         due,
         duration,
         start: startDate,
         customfield_10015: fields.customfield_10015 || null,
-      }
-    })
-
-    res.json({ issues })
+      };
+    });
+    
+    console.log('[/api/issues] Returning', issues.length, 'issues');
+    res.json({ issues });
   } catch (err) {
-    console.error("[Jira API]", err)
-    // Return an empty issues array rather than a 500 so UI can render in production
-    console.warn('[Jira API] Failed to fetch issues:', err)
+    console.error('[/api/issues] Error:', err);
+    res.status(500).json({ error: String(err) });
+  }
+})
+
+// OLD ENDPOINT - Disabled in favor of OAuth multi-tenant route
+/*
     res.json({ issues: [] })
   }
 })

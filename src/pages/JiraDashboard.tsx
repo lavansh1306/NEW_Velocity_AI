@@ -18,6 +18,108 @@ export default function JiraDashboard() {
   const [currentProject, setCurrentProject] = useState<string | null>(null)
   const [loadedProjects, setLoadedProjects] = useState<string[]>([])
   const [refreshing, setRefreshing] = useState(false)
+  const [availableProjects, setAvailableProjects] = useState<Array<{ key: string; title: string }>>([])
+  const [projectsLoaded, setProjectsLoaded] = useState(false)
+  const [availableSites, setAvailableSites] = useState<Array<{ id: string; name: string; url: string }>>([])
+  const [currentSiteId, setCurrentSiteId] = useState<string | null>(null)
+
+  useEffect(() => {
+    // Check Jira connection status and get available sites
+    const checkJiraStatus = async () => {
+      try {
+        const response = await fetch(apiUrl('/api/jira/auth/status'), { 
+          credentials: 'include' 
+        })
+        if (response.ok) {
+          const data = await response.json()
+          setCurrentSiteId(data.site?.cloudId || null)
+          if (data.availableSites && Array.isArray(data.availableSites)) {
+            setAvailableSites(data.availableSites)
+          }
+        }
+      } catch (err) {
+        console.error('[JiraDashboard] Error checking status:', err)
+      }
+    }
+    checkJiraStatus()
+  }, [])
+
+  const handleSwitchSite = async (siteId: string) => {
+    try {
+      console.log('[JiraDashboard] Switching to site:', siteId);
+      setRefreshing(true);
+      
+      const response = await fetch(apiUrl(`/api/jira/auth/switch-site/${siteId}`), {
+        method: 'POST',
+        credentials: 'include',
+      })
+      
+      console.log('[JiraDashboard] Switch site response status:', response.status);
+      
+      if (response.ok) {
+        const data = await response.json()
+        console.log('[JiraDashboard] Switched to site:', data.site);
+        setCurrentSiteId(data.site.id)
+        setAvailableProjects([])
+        setCurrentProject(null)
+        
+        // Wait a moment then re-fetch projects from the new site
+        setTimeout(() => {
+          fetchProjectsFromNewSite();
+        }, 500);
+      } else {
+        console.error('[JiraDashboard] Failed to switch site:', response.status);
+        setRefreshing(false);
+      }
+    } catch (err) {
+      console.error('[JiraDashboard] Error switching site:', err)
+      setRefreshing(false);
+    }
+  }
+
+  const fetchProjectsFromNewSite = async () => {
+    try {
+      console.log('[JiraDashboard] Fetching projects from new site');
+      const url = apiUrl('/api/jira/projects')
+      const response = await fetch(url, { credentials: 'include' })
+      
+      if (response.ok) {
+        const data = await response.json()
+        const projects = data.projects || []
+        console.log('[JiraDashboard] Fetched projects from new site:', projects.length);
+        setAvailableProjects(projects)
+        setRefreshing(false);
+        
+        // Auto-load first project if available
+        if (projects.length > 0) {
+          const firstProjectKey = projects[0].key
+          console.log('[JiraDashboard] Auto-loading first project from new site:', firstProjectKey)
+          handleSwitchProject(firstProjectKey)
+        }
+      } else {
+        console.error('[JiraDashboard] Failed to fetch projects:', response.status);
+        setRefreshing(false);
+      }
+    } catch (err) {
+      console.error('[JiraDashboard] Error fetching projects from new site:', err)
+      setRefreshing(false);
+    }
+  }
+
+  const handleFetchProjects = async () => {
+    try {
+      const url = apiUrl('/api/jira/projects')
+      const response = await fetch(url, { credentials: 'include' })
+      
+      if (response.ok) {
+        const data = await response.json()
+        const projects = data.projects || []
+        setAvailableProjects(projects)
+      }
+    } catch (err) {
+      console.error('[JiraDashboard] Error fetching projects:', err)
+    }
+  }
 
   useEffect(() => {
     // Auto-fetch available projects on mount
@@ -27,16 +129,19 @@ export default function JiraDashboard() {
         const response = await fetch(url, { credentials: 'include' })
         
         if (response.status === 401) {
-          // Not authenticated
-          setError('Please connect your Jira account first')
+          // Not authenticated - skip auto load
+          console.log('[JiraDashboard] Not authenticated, skipping auto-load')
           setLoading(false)
+          setProjectsLoaded(true)
           return
         }
         
         if (response.ok) {
           const data = await response.json()
           const projects = data.projects || []
-          console.log('[JiraDashboard] Found projects:', projects.length)
+          console.log('[JiraDashboard] Found projects:', projects.length, projects)
+          setAvailableProjects(projects)
+          setProjectsLoaded(true)
           
           // Auto-load first project if available
           if (projects.length > 0) {
@@ -47,10 +152,13 @@ export default function JiraDashboard() {
             setLoading(false)
           }
         } else {
+          console.log('[JiraDashboard] Failed to fetch projects, status:', response.status)
+          setProjectsLoaded(true)
           setLoading(false)
         }
       } catch (err) {
         console.error('[JiraDashboard] Error fetching projects:', err)
+        setProjectsLoaded(true)
         setLoading(false)
       }
     }
@@ -86,25 +194,17 @@ export default function JiraDashboard() {
 
   const fetchProjectData = async (projectKey: string): Promise<Issue[]> => {
     try {
-      const url = apiUrl(`/api/jira/issues?projectKey=${projectKey}`)
+      // Add cache-busting timestamp to prevent browser caching 410 responses
+      const url = apiUrl(`/api/jira/issues?projectKey=${projectKey}&_t=${Date.now()}`)
       console.log('[fetchProjectData] Fetching from:', url)
       const response = await fetch(url, {
         credentials: 'include', // Include session cookies
+        cache: 'no-store', // Prevent caching
       })
       console.log('[fetchProjectData] Response status:', response.status)
       
-      if (response.status === 401) {
-        // Not authenticated - redirect to OAuth
-        const data = await response.json()
-        if (data.requiresAuth) {
-          alert('Please connect your Jira account first. Redirecting to login...')
-          window.location.href = '/api/jira/auth/connect'
-          throw new Error('Authentication required')
-        }
-      }
-      
       if (!response.ok) {
-        throw new Error('Failed to fetch project issues')
+        throw new Error(`Failed to fetch project issues: ${response.status}`)
       }
       const projectIssues = await response.json()
       console.log('[fetchProjectData] Received data:', projectIssues)
@@ -242,6 +342,69 @@ export default function JiraDashboard() {
 
         {/* Controls */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          {/* Site Selector or Re-connect Button */}
+          {projectsLoaded && availableSites.length > 0 ? (
+            <div className="mb-6 pb-6 border-b border-gray-200">
+              <label className="block text-sm font-semibold text-gray-700 mb-3">
+                Select Jira Site:
+              </label>
+              <select
+                value={currentSiteId || ''}
+                onChange={(e) => {
+                  const siteId = e.target.value
+                  if (siteId) {
+                    handleSwitchSite(siteId)
+                  }
+                }}
+                className="w-full md:w-96 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+              >
+                <option value="">Choose a site...</option>
+                {availableSites.map((site) => (
+                  <option key={site.id} value={site.id}>
+                    {site.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : projectsLoaded ? (
+            <div className="mb-6 pb-6 border-b border-gray-200 bg-yellow-50 p-4 rounded-lg">
+              <p className="text-sm text-yellow-800 mb-4">No Jira sites loaded. You may need to re-connect.</p>
+              <Button 
+                onClick={() => window.location.href = apiUrl('/api/jira/auth/connect')}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                Re-connect to Jira
+              </Button>
+            </div>
+          ) : null}
+
+          {/* Project Selector */}
+          {projectsLoaded && availableProjects.length > 0 && (
+            <div className="mb-6">
+              <label className="block text-sm font-semibold text-gray-700 mb-3">
+                Select Project:
+              </label>
+              <select
+                value={currentProject || ''}
+                onChange={(e) => {
+                  const projectKey = e.target.value
+                  if (projectKey) {
+                    handleSwitchProject(projectKey)
+                  }
+                }}
+                disabled={refreshing}
+                className="w-full md:w-96 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition disabled:bg-gray-100"
+              >
+                <option value="">Choose a project...</option>
+                {availableProjects.map((project) => (
+                  <option key={project.key} value={project.key}>
+                    {project.title} ({project.key})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          
           {/* Controls area (Add Project UI removed) */}
           <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
             <p className="text-sm text-gray-600">Manage Jira project loading via the Projects page. Project auto-loads when provided via the Projects list.</p>
