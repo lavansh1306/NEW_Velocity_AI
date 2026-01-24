@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import VeloHeader from '../components/demo2/VeloHeader';
 import VeloNavTabs from '../components/demo2/VeloNavTabs';
 import VPDashboard from '../components/demo2/VPDashboard';
+
+// Feature Components
 import DashboardTab from '../components/demo2/DashboardTab';
 import StandardTimeCatalogTab from '../components/demo2/StandardTimeCatalogTab';
 import CapacityLedgerTab from '../components/demo2/CapacityLedgerTab';
-import HotspotScoringTab from '../components/demo2/HotspotScoringTab';
 import RedeploymentTab from '../components/demo2/RedeploymentTab';
 import ROIVerificationTab from '../components/demo2/ROIVerificationTab';
 import ProjectActivityTab from '../components/demo2/ProjectActivityTab';
@@ -13,7 +14,8 @@ import SecurityAuditTab from '../components/demo2/SecurityAuditTab';
 import HubSpotTab from '../components/demo2/HubSpotTab';
 import IntegrationsTab from '../components/demo2/IntegrationsTab';
 import Projects from './Projects';
-import LeaveManagementTab from '@/components/demo2/LeaveManagementTab';
+import LeaveManagementTab from '../components/leave-management'; 
+
 import { getJiraConnected, setJiraConnected } from '../lib/storage';
 
 export default function VelocityAI() {
@@ -54,7 +56,15 @@ export default function VelocityAI() {
         }
       `}</style>
 
-      {currentView === 'manager' && <VeloHeader currentView={currentView} onViewChange={setCurrentView} onSecurityAuditClick={handleSecurityAuditClick} />}
+      {/* --- HEADERS --- */}
+      {currentView === 'manager' && (
+        <VeloHeader 
+          currentView={currentView} 
+          onViewChange={setCurrentView} 
+          onSecurityAuditClick={handleSecurityAuditClick} 
+        />
+      )}
+
       {currentView === 'vp' && (
         <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-center">
@@ -93,30 +103,34 @@ export default function VelocityAI() {
           </div>
         </header>
       )}
-      <div className="flex">
-        {currentView === 'manager' && <VeloNavTabs activeTab={activeTab} onTabChange={setActiveTab} />}
-        <main className="flex-1 w-full">
-          {currentView === 'vp' ? (
-            <VPDashboard />
-          ) : (
-            <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-7xl mx-auto">
-              {activeTab === 'dashboard' && (
-                <DashboardTab />
-              )}
-              {activeTab === 'projects' && <Projects jiraConnected={jiraConnected} withNav={false} />}
-              {activeTab === 'stc' && <StandardTimeCatalogTab />}
-              {activeTab === 'ledger' && <CapacityLedgerTab />}
-              {activeTab === 'hubspot' && <HubSpotTab />}
-              {activeTab === 'integrations' && <IntegrationsTab />}
-              {activeTab === 'redeployment' && <RedeploymentTab />}
-              {activeTab === 'activity' && <ProjectActivityTab />}
-              {activeTab === 'roi' && <ROIVerificationTab />}
-              {activeTab === 'security' && <SecurityAuditTab onJiraConnectionChange={handleJiraConnectionChange} />}
-              {activeTab === 'leave' && <LeaveManagementTab currentView={currentView} />}
-            </div>
-          )}
+
+      {/* --- MAIN CONTENT LAYOUT --- */}
+      
+      {currentView === 'vp' ? (
+        // VP VIEW: Full width, no sidebar
+        <main className="w-full">
+          <VPDashboard />
         </main>
-      </div>
+      ) : (
+        // MANAGER VIEW: Wrapped in NavTabs Sidebar
+        <VeloNavTabs activeTab={activeTab} onTabChange={setActiveTab}>
+          <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-7xl mx-auto animate-in fade-in duration-300">
+            {activeTab === 'dashboard' && <DashboardTab />}
+            {activeTab === 'projects' && <Projects jiraConnected={jiraConnected} withNav={false} />}
+            {activeTab === 'stc' && <StandardTimeCatalogTab />}
+            {activeTab === 'ledger' && <CapacityLedgerTab />}
+            {activeTab === 'hubspot' && <HubSpotTab />}
+            {activeTab === 'integrations' && <IntegrationsTab />}
+            {activeTab === 'redeployment' && <RedeploymentTab />}
+            {activeTab === 'activity' && <ProjectActivityTab />}
+            {activeTab === 'roi' && <ROIVerificationTab />}
+            {activeTab === 'security' && <SecurityAuditTab onJiraConnectionChange={handleJiraConnectionChange} />}
+            
+            {/* The Modular Leave Management Tab */}
+            {activeTab === 'leave' && <LeaveManagementTab />}
+          </div>
+        </VeloNavTabs>
+      )}
     </div>
   );
 }

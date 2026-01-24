@@ -30,6 +30,7 @@ NEW_Velocity_AI
 ├── INTEGRATION_SUMMARY.md
 ├── LICENSE
 ├── node_modules/
+├── package-lock.json
 ├── package.json
 ├── pnpm-lock.yaml
 ├── postcss.config.js
@@ -115,6 +116,7 @@ NEW_Velocity_AI
 │   │   │   ├── HubSpotTab.tsx
 │   │   │   ├── image.png
 │   │   │   ├── IntegrationsTab.tsx
+│   │   │   ├── LeaveManagementTab.tsx
 │   │   │   ├── ProjectActivityTab.tsx
 │   │   │   ├── RedeploymentTab.tsx
 │   │   │   ├── ROIVerificationTab.tsx
