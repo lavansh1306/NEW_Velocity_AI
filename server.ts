@@ -21,6 +21,7 @@ import m365MetricsRoutes from "./src/api/microsoft365/routes/metrics.js"
 import m365RoiRoutes from "./src/api/microsoft365/routes/roi.js"
 import hubspotRoutes from "./src/api/hubspot/routes.js"
 import * as hubspotAuth from "./src/api/hubspot/auth.js"
+import jiraRoutes from "./src/api/jira/routes.js"
 
 const app = express()
 
@@ -108,6 +109,8 @@ const extractDescription = (desc: any): string => {
   return ""
 }
 
+// OLD ROUTE - Disabled in favor of OAuth multi-tenant route at /api/jira/issues
+/*
 app.get("/api/issues", async (req: Request, res: Response) => {
   // Get project key from query parameter or use default from env
   const projectKey = (req.query.projectKey as string) || PROJECT_KEY
@@ -184,7 +187,10 @@ app.get("/api/issues", async (req: Request, res: Response) => {
     res.json({ issues: [] })
   }
 })
+*/
 
+// OLD ROUTE - Disabled in favor of OAuth multi-tenant route at /api/jira/projects
+/*
 // Fetch list of projects from Jira (requires JIRA_DOMAIN + auth)
 app.get('/api/projects', async (_req: Request, res: Response) => {
   if (!isJiraConfigReady || !DOMAIN) {
@@ -226,6 +232,7 @@ app.get('/api/projects', async (_req: Request, res: Response) => {
     res.json({ projects: [] })
   }
 })
+*/
 
 // ============ ASANA API Endpoints ============
 app.get("/api/asana/issues", async (req: Request, res: Response) => {
@@ -406,6 +413,11 @@ app.use('/api/microsoft365/roi', m365RoiRoutes);
 console.log('[Server] Mounting HubSpot routes:', !!hubspotRoutes, Object.prototype.toString.call(hubspotRoutes).slice(8, -1));
 app.use('/api/hubspot', hubspotRoutes);
 console.log('[Server] HubSpot routes mounted');
+
+// ============ Jira OAuth & API Routes (multi-tenant) ============
+app.use('/api/jira', jiraRoutes);
+console.log('[Server] Jira OAuth routes mounted');
+
 // try {
 //   const stack = (hubspotRoutes as any)?.stack || []
 //   const routes = stack.map((layer: any) => {

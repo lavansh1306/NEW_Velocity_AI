@@ -6,6 +6,7 @@ import session from "express-session"
 
 import hubspotRoutes from "../src/api/hubspot/routes.js"
 import * as hubspotAuth from "../src/api/hubspot/auth.js"
+import jiraRoutes from "../src/api/jira/routes.js"
 
 // Load env
 dotenv.config()
@@ -157,7 +158,10 @@ app.get("/api/issues", async (req: Request, res: Response) => {
     res.status(500).json({ error: "Failed to fetch Jira issues", details: err instanceof Error ? err.message : "Unknown error" })
   }
 })
+*/
 
+// OLD ROUTE - Disabled in favor of OAuth multi-tenant route at /api/jira/projects
+/*
 app.get('/api/projects', async (_req: Request, res: Response) => {
   if (!isJiraConfigReady || !DOMAIN) {
     return res.status(500).json({ error: 'Jira configuration missing' })
@@ -194,6 +198,7 @@ app.get('/api/projects', async (_req: Request, res: Response) => {
     res.status(500).json({ error: 'Failed to fetch Jira projects', details: err instanceof Error ? err.message : 'Unknown' })
   }
 })
+*/
 
 app.get("/api/asana/issues", async (req: Request, res: Response) => {
   const projectId = (req.query.projectKey as string) || DEFAULT_ASANA_PROJECT_ID
@@ -314,6 +319,9 @@ app.get('/oauth/hubspot/callback', hubspotAuth.callback)
 
 // ============ HubSpot API Routes (serverless)
 app.use('/api/hubspot', hubspotRoutes)
+
+// ============ Jira OAuth & API Routes (multi-tenant)
+app.use('/api/jira', jiraRoutes)
 
 app.get("/api/health", (_req: Request, res: Response) => {
   res.json({ status: "ok" })

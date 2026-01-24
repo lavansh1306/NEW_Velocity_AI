@@ -102,7 +102,7 @@ export default function DashboardTab() {
     const fetchAllJiraIssues = async () => {
       try {
         // First, fetch all available projects
-        const projectsResponse = await fetch(apiUrl('/api/projects'));
+        const projectsResponse = await fetch(apiUrl('/api/jira/projects'), { credentials: 'include' });
         
         if (!projectsResponse.ok) {
           throw new Error('Failed to fetch projects list');
@@ -116,7 +116,7 @@ export default function DashboardTab() {
         // If no projects, try default fetch
         if (!projects || projects.length === 0) {
           console.warn('[DashboardTab] No projects found, attempting default fetch');
-          const defaultResponse = await fetch(apiUrl('/api/issues'));
+          const defaultResponse = await fetch(apiUrl('/api/jira/issues'), { credentials: 'include' });
           if (defaultResponse.ok) {
             const defaultData = await defaultResponse.json();
             const issues = defaultData.issues || [];
@@ -139,7 +139,7 @@ export default function DashboardTab() {
         const allIssues: any[] = [];
         for (const projectKey of projectKeys) {
           try {
-            const issuesResponse = await fetch(apiUrl(`/api/issues?projectKey=${projectKey}`));
+            const issuesResponse = await fetch(apiUrl(`/api/jira/issues?projectKey=${projectKey}`), { credentials: 'include' });
             if (issuesResponse.ok) {
               const issuesData = await issuesResponse.json();
               const issues = issuesData.issues || [];
