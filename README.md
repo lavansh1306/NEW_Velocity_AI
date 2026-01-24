@@ -1,4 +1,4 @@
-# 🚀 Velocity AI - Workforce Intelligence Platform
+# 🚀 Velocity AI - Workforce Intelligence Platformm
 
 <div align="center">
 
