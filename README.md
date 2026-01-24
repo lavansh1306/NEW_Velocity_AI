@@ -25,7 +25,7 @@
 
 ## 📖 Overview
 
-**Velocity AI** is a comprehensive workforce intelligence platform that transforms raw project events from multiple sources (Jira, Asana, HubSpot, Microsoft 365, Zapier) into actionable CFO-ready insights. The platform provides:
+**Velocity AI** isa comprehensive workforce intelligence platform that transforms raw project events from multiple sources (Jira, Asana, HubSpot, Microsoft 365, Zapier) into actionable CFO-ready insights. The platform provides:
 
 - **Automation Coverage Analysis**: Track what percentage of work is automated vs. manual
 - **Human-Hours Saved**: Calculate time savings from AI and automation tools
