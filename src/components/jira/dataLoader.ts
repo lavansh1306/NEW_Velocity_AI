@@ -72,7 +72,7 @@ function parseJSONField(jsonStr: string): Record<string, any> {
 export async function loadJiraIssuesFromCSV(): Promise<Issue[]> {
   try {
     // Use live Jira via backend proxy
-    const resp = await fetch('/api/issues')
+    const resp = await fetch('/api/jira/issues', { credentials: 'include' })
     if (!resp.ok) throw new Error(`Failed to load Jira issues: ${resp.status}`)
     const data = await resp.json()
     const issuesRaw = data.issues || []

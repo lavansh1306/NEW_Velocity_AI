@@ -128,6 +128,12 @@ export default function SecurityAuditTab({ onJiraConnectionChange }: SecurityAud
       return;
     }
 
+    if (id === 'jira') {
+      // Redirect to Jira OAuth login
+      window.location.href = '/api/jira/auth/connect';
+      return;
+    }
+
     // For other integrations, use the existing toggle logic
     const current = integrations[id];
     if (!current) return;

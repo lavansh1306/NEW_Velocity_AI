@@ -20,8 +20,42 @@ export default function JiraDashboard() {
   const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => {
-    // No initial data load - teams start empty
-    setLoading(false)
+    // Auto-fetch available projects on mount
+    const fetchAvailableProjects = async () => {
+      try {
+        const url = apiUrl('/api/jira/projects')
+        const response = await fetch(url, { credentials: 'include' })
+        
+        if (response.status === 401) {
+          // Not authenticated
+          setError('Please connect your Jira account first')
+          setLoading(false)
+          return
+        }
+        
+        if (response.ok) {
+          const data = await response.json()
+          const projects = data.projects || []
+          console.log('[JiraDashboard] Found projects:', projects.length)
+          
+          // Auto-load first project if available
+          if (projects.length > 0) {
+            const firstProjectKey = projects[0].key
+            console.log('[JiraDashboard] Auto-loading first project:', firstProjectKey)
+            handleSwitchProject(firstProjectKey)
+          } else {
+            setLoading(false)
+          }
+        } else {
+          setLoading(false)
+        }
+      } catch (err) {
+        console.error('[JiraDashboard] Error fetching projects:', err)
+        setLoading(false)
+      }
+    }
+    
+    fetchAvailableProjects()
   }, [])
 
   // Auto-load project if `project` query param is present
@@ -52,10 +86,23 @@ export default function JiraDashboard() {
 
   const fetchProjectData = async (projectKey: string): Promise<Issue[]> => {
     try {
-      const url = apiUrl(`/api/issues?projectKey=${projectKey}`)
+      const url = apiUrl(`/api/jira/issues?projectKey=${projectKey}`)
       console.log('[fetchProjectData] Fetching from:', url)
-      const response = await fetch(url)
+      const response = await fetch(url, {
+        credentials: 'include', // Include session cookies
+      })
       console.log('[fetchProjectData] Response status:', response.status)
+      
+      if (response.status === 401) {
+        // Not authenticated - redirect to OAuth
+        const data = await response.json()
+        if (data.requiresAuth) {
+          alert('Please connect your Jira account first. Redirecting to login...')
+          window.location.href = '/api/jira/auth/connect'
+          throw new Error('Authentication required')
+        }
+      }
+      
       if (!response.ok) {
         throw new Error('Failed to fetch project issues')
       }

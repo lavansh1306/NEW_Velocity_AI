@@ -122,9 +122,8 @@ export default function IntegrationsTab() {
         window.location.href = '/api/hubspot/auth/connect';
         break;
       case 'jira':
-        // For Jira, you might want to show a configuration modal or redirect to settings
-        alert('Jira integration requires API token configuration. Please go to Security Audit > Integrations to configure.');
-        setLoadingStates(prev => ({ ...prev, [integrationId]: false }));
+        // Redirect to Jira OAuth flow
+        window.location.href = '/api/jira/auth/connect';
         break;
       case 'asana':
         // For Asana, similar to Jira
@@ -144,6 +143,8 @@ export default function IntegrationsTab() {
         // M365 disconnect would need to be implemented
         alert('Microsoft 365 disconnect not yet implemented');
         return;
+      } else if (integrationId === 'jira') {
+        await fetch('/api/jira/auth/disconnect', { method: 'POST' });
       }
 
       setIntegrations(prev =>

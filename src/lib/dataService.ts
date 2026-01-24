@@ -93,7 +93,7 @@ async function fetchCSV(path: string): Promise<string> {
 // Fetch Jira issues via the backend proxy (/api/issues) and map to RawJiraRow[]
 async function fetchJiraRowsFromApi(projectKey?: string): Promise<RawJiraRow[]> {
   try {
-    const url = projectKey ? apiUrl(`/api/issues?projectKey=${encodeURIComponent(projectKey)}`) : apiUrl('/api/issues')
+    const url = projectKey ? apiUrl(`/api/jira/issues?projectKey=${encodeURIComponent(projectKey)}`) : apiUrl('/api/jira/issues')
     const resp = await fetch(url)
     if (!resp.ok) return []
     const data = await resp.json()
@@ -180,8 +180,8 @@ const projectImages: Record<string, string> = {
 export async function loadProjects(): Promise<ProjectItem[]> {
   // Fetch Jira and Asana project lists in parallel. If one fails, continue with the other.
   const [jiraRes, asanaRes] = await Promise.all([
-    fetch(apiUrl('/api/projects')).catch(() => null),
-    fetch(apiUrl('/api/asana/projects')).catch(() => null),
+    fetch(apiUrl('/api/jira/projects'), { credentials: 'include' }).catch(() => null),
+    fetch(apiUrl('/api/asana/projects'), { credentials: 'include' }).catch(() => null),
   ]);
 
   let jiraList: any[] = [];
@@ -364,13 +364,13 @@ export async function computeAllBlockedHours(): Promise<number | null> {
 
     // Fetch Jira projects
     try {
-      const pjRes = await fetch('/api/projects');
+      const pjRes = await fetch('/api/jira/projects', { credentials: 'include' });
       if (pjRes.ok) {
         const pjData = await pjRes.json();
         const projects = pjData.projects || [];
         for (const p of projects) {
           try {
-            const issuesRes = await fetch(`/api/issues?projectKey=${encodeURIComponent(p.key)}`);
+            const issuesRes = await fetch(`/api/jira/issues?projectKey=${encodeURIComponent(p.key)}`, { credentials: 'include' });
             if (!issuesRes.ok) continue;
             const issuesJson = await issuesRes.json();
             const issues = issuesJson.issues || [];

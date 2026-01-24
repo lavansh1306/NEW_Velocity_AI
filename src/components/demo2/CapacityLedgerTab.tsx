@@ -102,22 +102,22 @@ export default function CapacityLedgerTab({ projectId, asanaTasks = [], teamMemb
         try {
           let jiraCount = 0
           let jiraHours = 0
-          const pjRes = await fetch('/api/projects')
-          setEndpointDebug((prev) => [...prev, { url: '/api/projects', ok: pjRes.ok, status: pjRes.status, tag: 'global-projects' }])
+          const pjRes = await fetch('/api/jira/projects', { credentials: 'include' })
+          setEndpointDebug((prev) => [...prev, { url: '/api/jira/projects', ok: pjRes.ok, status: pjRes.status, tag: 'global-projects' }])
           if (pjRes.ok) {
             const pjData = await pjRes.json()
             const projects = pjData.projects || []
             for (const p of projects) {
               try {
                 let projectBlocked = 0
-                const issuesRes = await fetch(`/api/issues?projectKey=${encodeURIComponent(p.key)}`)
+                const issuesRes = await fetch(`/api/jira/issues?projectKey=${encodeURIComponent(p.key)}`, { credentials: 'include' })
                 if (!issuesRes.ok) {
                   try {
                     const txt = await issuesRes.text()
-                    console.error(`[CapacityLedger][Global] Failed to fetch /api/issues url=/api/issues?projectKey=${encodeURIComponent(p.key)} status=${issuesRes.status} body=${txt}`)
-                    setEndpointDebug((prev) => [...prev, { url: `/api/issues?projectKey=${encodeURIComponent(p.key)}`, ok: false, status: issuesRes.status, body: txt, tag: 'global-issues' }])
+                    console.error(`[CapacityLedger][Global] Failed to fetch /api/jira/issues url=/api/jira/issues?projectKey=${encodeURIComponent(p.key)} status=${issuesRes.status} body=${txt}`)
+                    setEndpointDebug((prev) => [...prev, { url: `/api/jira/issues?projectKey=${encodeURIComponent(p.key)}`, ok: false, status: issuesRes.status, body: txt, tag: 'global-issues' }])
                   } catch (e) {
-                    console.error(`[CapacityLedger][Global] Failed to fetch /api/issues url=/api/issues?projectKey=${encodeURIComponent(p.key)} status=${issuesRes.status} (no body)`)
+                    console.error(`[CapacityLedger][Global] Failed to fetch /api/jira/issues url=/api/jira/issues?projectKey=${encodeURIComponent(p.key)} status=${issuesRes.status} (no body)`)
                     setEndpointDebug((prev) => [...prev, { url: `/api/issues?projectKey=${encodeURIComponent(p.key)}`, ok: false, status: issuesRes.status, tag: 'global-issues' }])
                   }
                   continue
