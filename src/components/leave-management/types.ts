@@ -34,3 +34,11 @@ export interface EmployeeProfile {
   role: string;
   skills: string[];
 }
+
+export const SCHEMA_MAP = {
+  assignee: ['employee', 'name', 'staff', 'resource', 'user', 'member'],
+  projectName: ['project', 'project name', 'job', 'client', 'account'],
+  taskName: ['task', 'task name', 'description', 'activity', 'detail'],
+  hours: ['hours', 'hr', 'duration', 'time spent', 'effort'],
+  day: ['day', 'date', 'weekday', 'timestamp']
+};
