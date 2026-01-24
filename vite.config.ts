@@ -20,4 +20,13 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  // --- ADD THESE SECTIONS TO FIX PDF LOADING ---
+  build: {
+    target: "esnext", // Allows top-level await used by PDF.js
+  },
+  optimizeDeps: {
+    esbuildOptions: {
+      target: "esnext", // Ensures dependencies are bundled correctly
+    },
+  },
 }));
