@@ -1,10 +1,10 @@
-import { VercelRequest, VercelResponse } from '@vercel/node';
+import { Request, Response } from 'express';
 
 /**
  * Diagnostic endpoint to help debug authentication issues
  * Endpoint: GET /api/diagnose
  */
-export default function handler(req: VercelRequest, res: VercelResponse) {
+export default function handler(req: Request, res: Response) {
   const {step} = req.query;
 
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
