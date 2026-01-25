@@ -3,15 +3,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { LeaveRequest } from './types';
+import { Plus } from 'lucide-react';
 
 interface LeaveRequestTableProps {
   leaves: LeaveRequest[];
   persona: 'manager' | 'employee';
   currentUser: string;
   onReview: (leave: LeaveRequest) => void;
+  onApply: () => void; // <--- ADDED PROP
 }
 
-export const LeaveRequestTable: React.FC<LeaveRequestTableProps> = ({ leaves, persona, currentUser, onReview }) => {
+export const LeaveRequestTable: React.FC<LeaveRequestTableProps> = ({ leaves, persona, currentUser, onReview, onApply }) => {
   const visibleLeaves = leaves.filter(l => persona === 'manager' || l.name === currentUser);
 
   return (
@@ -23,7 +25,13 @@ export const LeaveRequestTable: React.FC<LeaveRequestTableProps> = ({ leaves, pe
             {persona === 'manager' ? 'Approve to trigger AI redistribution' : 'Track your leave status'}
           </p>
         </div>
-        <Button className="bg-indigo-600 px-6 font-bold shadow-indigo-100 shadow-xl">Apply for Leave</Button>
+        {/* WIRED UP THE BUTTON */}
+        <Button 
+          onClick={onApply}
+          className="bg-indigo-600 px-6 font-bold shadow-indigo-100 shadow-xl flex items-center gap-2"
+        >
+          <Plus className="w-4 h-4" /> Apply for Leave
+        </Button>
       </div>
       <Card className="rounded-xl border-none shadow-sm overflow-hidden bg-white">
         <Table>
@@ -36,26 +44,32 @@ export const LeaveRequestTable: React.FC<LeaveRequestTableProps> = ({ leaves, pe
             </TableRow>
           </TableHeader>
           <TableBody>
-            {visibleLeaves.map((leave) => (
-              <TableRow key={leave.id} className="hover:bg-slate-50/50">
-                <TableCell className="font-bold text-gray-800">{leave.name}</TableCell>
-                <TableCell className="text-xs font-medium text-gray-600">{leave.startDate} → {leave.endDate}</TableCell>
-                <TableCell>
-                  <div className={`inline-flex px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase ${leave.status === 'Approved' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                    {leave.status}
-                  </div>
-                </TableCell>
-                <TableCell className="text-right">
-                  {leave.status === 'Pending' && persona === 'manager' ? (
-                    <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 h-8 font-black text-[10px]" onClick={() => onReview(leave)}>
-                      REVIEW IMPACT
-                    </Button>
-                  ) : (
-                    <span className="text-[10px] text-gray-400 font-medium">--</span>
-                  )}
-                </TableCell>
+            {visibleLeaves.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={4} className="text-center py-8 text-slate-400 text-xs">No leave requests found.</TableCell>
               </TableRow>
-            ))}
+            ) : (
+              visibleLeaves.map((leave) => (
+                <TableRow key={leave.id} className="hover:bg-slate-50/50">
+                  <TableCell className="font-bold text-gray-800">{leave.name}</TableCell>
+                  <TableCell className="text-xs font-medium text-gray-600">{leave.startDate} → {leave.endDate}</TableCell>
+                  <TableCell>
+                    <div className={`inline-flex px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase ${leave.status === 'Approved' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                      {leave.status}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {leave.status === 'Pending' && persona === 'manager' ? (
+                      <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 h-8 font-black text-[10px]" onClick={() => onReview(leave)}>
+                        REVIEW IMPACT
+                      </Button>
+                    ) : (
+                      <span className="text-[10px] text-gray-400 font-medium">--</span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </Card>
