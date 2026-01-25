@@ -1,0 +1,1178 @@
+# 🚀 Velocity AI - Comprehensive Project Documentation
+
+## Executive Summary
+
+**Velocity AI** is a full-stack workforce intelligence platform that transforms raw project events from multiple sources (Jira, Asana, HubSpot, Microsoft 365, Zapier) into actionable CFO-ready insights. It tracks productivity gains from AI tools, reallocates freed capacity to high-impact initiatives, and proves ROI through causal attribution.
+
+**Key Value Proposition:** Convert efficiency gains into measurable business outcomes with real-time dashboards, automation coverage metrics, cost savings analysis, and capacity forecasting.
+
+---
+
+## 📊 Project Overview
+
+### Core Problem Solved
+Organizations struggle to:
+- Quantify productivity gains from AI/automation tools
+- Allocate freed-up workforce capacity strategically
+- Prove ROI of automation investments to executives
+- Connect tool usage to actual business outcomes
+
+### Solution Provided
+A unified platform that:
+1. **Ingests** data from 6+ platforms via APIs and CSV
+2. **Normalizes** platform-specific events into canonical format
+3. **Calculates** metrics (automation coverage, hours saved, cost impact)
+4. **Visualizes** insights through role-specific dashboards
+5. **Recommends** capacity redeployment strategies
+
+---
+
+## 🏗️ Technical Architecture
+
+### Architecture Layers
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  EXTERNAL DATA SOURCES (Jira, Asana, HubSpot, M365, Zapier)   │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  DATA INGESTION LAYER (Express + OAuth/Token Auth)             │
+│  • Jira OAuth 2.0 (Multi-tenant SaaS)                          │
+│  • HubSpot OAuth flow with session management                  │
+│  • Microsoft 365 Graph API integration                         │
+│  • Asana & Zapier token-based auth                             │
+│  • CSV file uploads from /public/data/                         │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  NORMALIZATION LAYER (src/lib/normalizers/)                    │
+│  • Convert platform-specific → Canonical NormalizedEvent       │
+│  • Map timestamps, classify automation vs manual               │
+│  • Enrich with business context (project ID, team)             │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  METRICS CALCULATION LAYER (src/lib/metrics.ts)                │
+│  • Automation Coverage %                                        │
+│  • Human-Hours Saved                                           │
+│  • Cost Impact ($)                                             │
+│  • Capacity Forecasts                                          │
+│  • Redeployment Recommendations                                │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  FRONTEND VISUALIZATION LAYER (React + TypeScript)             │
+│  • Role-based dashboards (Manager, CFO, CHRO, VP)             │
+│  • Interactive charts (Recharts, Chart.js)                     │
+│  • Real-time data updates                                      │
+│  • Editable metrics for scenario planning                      │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Tech Stack
+
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| **Frontend** | React 18, TypeScript, Vite | UI Framework & bundling |
+| **Styling** | Tailwind CSS, shadcn/ui | Responsive design & components |
+| **Charting** | Recharts, Chart.js | Data visualization |
+| **Backend** | Node.js, Express, TypeScript | API server |
+| **Auth** | OAuth 2.0 (PKCE), express-session | Secure platform integration |
+| **Data** | CSV parsing, JSON files | Event storage |
+| **Deployment** | Vercel | Production hosting |
+| **Package Mgr** | Bun/pnpm | Dependency management |
+
+---
+
+## 📁 Complete Project Structure
+
+```
+NEW_Velocity_AI/
+│
+├── 📋 ROOT CONFIGURATION FILES
+│   ├── package.json                  # Dependencies & build scripts
+│   ├── tsconfig.json               # TypeScript base config
+│   ├── tsconfig.app.json           # App-specific TypeScript
+│   ├── tsconfig.node.json          # Node-specific TypeScript
+│   ├── vite.config.ts              # Vite bundler config
+│   ├── tailwind.config.ts          # Tailwind CSS config
+│   ├── postcss.config.js           # PostCSS plugins
+│   ├── eslint.config.js            # Linting rules
+│   ├── components.json             # shadcn/ui components
+│   ├── vercel.json                 # Vercel deployment
+│   └── .env                        # Environment variables (secrets)
+│
+├── 📚 DOCUMENTATION
+│   ├── README.md                   # Main project documentation
+│   ├── QUICK_START.md              # 5-minute setup guide
+│   ├── ARCHITECTURE.md             # Deep system architecture
+│   ├── PROJECT_STRUCTURE.md        # Detailed file structure
+│   ├── COMPLETION_REPORT.md        # Integration completion status
+│   ├── INTEGRATION_GUIDE.md        # Setup & integration steps
+│   ├── JIRA_SAAS_COMPLETE.md       # Jira multi-tenant implementation
+│   ├── JIRA_TRANSFORMATION_COMPLETE.md
+│   ├── HUBSPOT_INTEGRATION_COMPLETE.md
+│   ├── VERIFICATION_CHECKLIST.md   # QA verification checklist
+│   ├── TOAST_SYSTEM.md             # Notification system docs
+│   ├── TOAST_EXAMPLES.md           # Toast usage examples
+│   ├── IMPLEMENTATION_SUMMARY.md   # Technical summary
+│   ├── LICENSE                     # MIT License
+│   │
+│   └── 📁 docs/
+│       ├── data-pipeline.md        # Data ingestion & processing
+│       ├── metrics-and-architecture.md  # Metrics calculation
+│       ├── QUICK-REFERENCE.md      # Quick reference guide
+│       └── JIRA_OAUTH_SETUP.md     # Jira OAuth detailed guide
+│
+├── 📁 public/
+│   ├── data/                       # CSV data files for demo
+│   │   ├── asana_events.csv
+│   │   ├── github_events.csv
+│   │   ├── hubspot_events.csv
+│   │   ├── integrations-analytics.csv
+│   │   ├── jira_events.csv
+│   │   ├── microsoft365_events.csv
+│   │   ├── projects-analytics.csv
+│   │   ├── projects-asana.csv
+│   │   ├── projects-hubspot.csv
+│   │   ├── projects-microsoft365.csv
+│   │   ├── projects-zapier.csv
+│   │   └── zapier_events.csv
+│   ├── placeholder.svg
+│   ├── robots.txt
+│   └── googleba79ddad728eb1f3.html
+│
+├── 📁 src/
+│   │
+│   ├── 🔌 API INTEGRATION LAYER (Backend Routes)
+│   │   │
+│   │   ├── 📁 api/
+│   │   │   │
+│   │   │   ├── 📁 jira/                    # Jira Multi-Tenant SaaS
+│   │   │   │   ├── auth.ts                 # OAuth 2.0 PKCE flow
+│   │   │   │   ├── routes.ts               # API endpoints
+│   │   │   │   └── [Jira-specific logic]
+│   │   │   │
+│   │   │   ├── 📁 hubspot/                 # HubSpot Integration
+│   │   │   │   ├── auth.ts                 # OAuth flow
+│   │   │   │   ├── routes.ts               # Deal, contact, ticket endpoints
+│   │   │   │   ├── oauth-errors.ts         # Error handling
+│   │   │   │   └── session-store.ts        # Session management
+│   │   │   │
+│   │   │   ├── 📁 microsoft365/            # Microsoft 365 Integration
+│   │   │   │   ├── auth.ts                 # OAuth 2.0 flow
+│   │   │   │   ├── graphClient.ts          # Microsoft Graph client
+│   │   │   │   └── 📁 routes/
+│   │   │   │       ├── metrics.ts          # M365 metrics endpoint
+│   │   │   │       └── roi.ts              # ROI calculation endpoint
+│   │   │   │
+│   │   │   └── 📁 projects/                # Project API
+│   │   │       ├── index.ts                # Project listing endpoint
+│   │   │       └── 📁 [projectId]/
+│   │   │           └── metrics.ts          # Per-project metrics
+│   │   │
+│   │   ├── index.ts                         # API route aggregation
+│   │   └── diagnose.ts                      # Diagnostic endpoints
+│   │
+│   ├── 🎨 COMPONENTS (React Components)
+│   │   │
+│   │   ├── 📁 ui/                          # shadcn/ui Components (40+)
+│   │   │   ├── button.tsx, input.tsx
+│   │   │   ├── select.tsx, textarea.tsx
+│   │   │   ├── dialog.tsx, card.tsx
+│   │   │   ├── table.tsx, tooltip.tsx
+│   │   │   └── [other shadcn components]
+│   │   │
+│   │   ├── 📁 analytics/                   # Analytics & Charts
+│   │   │   ├── AnalyticsPanel.tsx          # Main analytics container
+│   │   │   ├── AIUsageChart.tsx            # AI tool usage visualization
+│   │   │   ├── AsanaTasksChart.tsx         # Asana task analytics
+│   │   │   ├── BurndownChart.tsx           # Sprint burndown
+│   │   │   ├── GanttChart.tsx              # Gantt chart visualization
+│   │   │   ├── HubSpotDealsChart.tsx       # HubSpot deals pipeline
+│   │   │   ├── JiraQualityChart.tsx        # Jira quality metrics
+│   │   │   ├── Microsoft365MeetingsChart.tsx # M365 meetings analytics
+│   │   │   ├── PlannedVsActualChart.tsx    # Plan vs actual comparison
+│   │   │   ├── ZapierRunsChart.tsx         # Zapier automation runs
+│   │   │   ├── chartSetup.ts               # Chart configuration
+│   │   │   ├── types.ts                    # Analytics type definitions
+│   │   │   └── 📁 custom/                  # Custom chart components
+│   │   │
+│   │   ├── 📁 asana/                       # Asana-Specific
+│   │   │   ├── GanttChart.tsx              # Asana Gantt view
+│   │   │   ├── IssuesTable.tsx             # Task table display
+│   │   │   ├── ManagerGantt.tsx            # Manager-level Gantt
+│   │   │   ├── ManagerSummary.tsx          # Manager summary
+│   │   │   ├── index.ts                    # Export barrel
+│   │   │   └── types.ts                    # Asana types
+│   │   │
+│   │   ├── 📁 jira/                        # Jira-Specific
+│   │   │   ├── [Jira component files]
+│   │   │
+│   │   ├── 📁 hubspot/                     # HubSpot-Specific
+│   │   │   ├── DealsList.tsx               # Deals pipeline view
+│   │   │   ├── ContactsList.tsx            # CRM contacts
+│   │   │   ├── CampaignsList.tsx           # Marketing campaigns
+│   │   │   ├── TicketsList.tsx             # Support tickets
+│   │   │   ├── RealizationDeals.tsx        # AI impact on deals
+│   │   │   ├── HubSpotHub.tsx              # Main HubSpot container
+│   │   │   └── types.ts                    # HubSpot types
+│   │   │
+│   │   ├── 📁 microsoft365/                # Microsoft 365-Specific
+│   │   │   ├── Microsoft365Hub.tsx         # Main M365 container
+│   │   │   ├── MeetingsMetrics.tsx         # Meeting analytics
+│   │   │   ├── EmailMetrics.tsx            # Email metrics
+│   │   │   └── ROICalculator.tsx           # M365 ROI calc
+│   │   │
+│   │   ├── 📁 ml-model/                    # AI Resource Allocator
+│   │   │   ├── index.tsx                   # Main ML model view
+│   │   │   ├── ProjectCheckInput.tsx       # SRS upload & text input
+│   │   │   ├── ProjectCheckOutput.tsx      # AI recommendations output
+│   │   │   ├── RecommendationEngine.ts     # AI logic
+│   │   │   ├── pdfParser.ts                # PDF extraction
+│   │   │   ├── types.ts                    # ML types
+│   │   │   └── datasets/                   # Sample datasets
+│   │   │
+│   │   ├── 📁 demo/                        # Demo Components
+│   │   │   ├── LiveFeed.tsx                # Live event feed
+│   │   │   ├── RedeploymentView.tsx        # Redeployment UI
+│   │   │   ├── ROIMetrics.tsx              # ROI metrics display
+│   │   │   └── TimeTracking.tsx            # Time tracking demo
+│   │   │
+│   │   ├── 📁 demo2/                       # Advanced Demo Components
+│   │   │   ├── VPDashboard.tsx             # VP/exec dashboard
+│   │   │   ├── DashboardTab.tsx            # Dashboard tab
+│   │   │   ├── StandardTimeCatalogTab.tsx  # Catalog of standard times
+│   │   │   ├── CapacityLedgerTab.tsx       # Capacity ledger
+│   │   │   ├── LeaveManagementTab.tsx      # Leave & workforce mgmt
+│   │   │   ├── RedeploymentTab.tsx         # Redeployment engine
+│   │   │   ├── ROIVerificationTab.tsx      # ROI verification
+│   │   │   ├── ProjectActivityTab.tsx      # Project activity log
+│   │   │   ├── SecurityAuditTab.tsx        # Security audit logs
+│   │   │   ├── HubSpotTab.tsx              # HubSpot integration tab
+│   │   │   ├── IntegrationsTab.tsx         # All integrations overview
+│   │   │   ├── CausalAttributionAnalysis.tsx # Attribution engine UI
+│   │   │   ├── HotspotScoringTab.tsx       # Hotspot analysis
+│   │   │   ├── VeloHeader.tsx              # Header navigation
+│   │   │   ├── VeloNavTabs.tsx             # Tab navigation
+│   │   │   ├── image.png                   # Asset
+│   │   │   └── types.ts                    # Tab types
+│   │   │
+│   │   ├── 📁 leave-management/            # Leave Management System
+│   │   │   ├── index.tsx                   # Main leave management
+│   │   │   ├── types.ts                    # Leave types
+│   │   │   ├── WorkloadTable.tsx           # Employee workload display
+│   │   │   ├── LeaveRequestTable.tsx       # Leave request display
+│   │   │   ├── ImpactAnalysisDialog.tsx    # Impact analysis on leave
+│   │   │   ├── TimeLoggingDialog.tsx       # Time entry dialog
+│   │   │   ├── TimesheetUploadDialog.tsx   # Bulk import
+│   │   │   ├── LeaveApplicationDialog.tsx  # Apply for leave
+│   │   │   └── datasets/
+│   │   │       └── master_employee_task_report.csv
+│   │   │
+│   │   ├── ToastContainer.tsx              # Toast notification container
+│   │   ├── Header.tsx                      # Main header navigation
+│   │   ├── Footer.tsx                      # Footer component
+│   │   ├── Hero.tsx                        # Hero section
+│   │   ├── CTA.tsx                         # Call-to-action
+│   │   ├── Features.tsx                    # Features showcase
+│   │   ├── Stats.tsx                       # Statistics display
+│   │   ├── Architecture.tsx                # Architecture diagram
+│   │   ├── NavLink.tsx                     # Navigation link
+│   │   └── DebugNormalization.tsx          # Debug view for normalization
+│   │
+│   ├── 📄 PAGES (Route Components)
+│   │   │
+│   │   ├── 📁 pages/
+│   │   │   ├── Index.tsx                   # Landing page (/)
+│   │   │   ├── Demo.tsx                    # Main demo (/demo)
+│   │   │   ├── VelocityAI.tsx              # VP dashboard (/velocity-ai)
+│   │   │   ├── Projects.tsx                # Projects list (/projects)
+│   │   │   ├── ProjectDetail.tsx           # Project details (legacy)
+│   │   │   ├── ProjectDetailNew.tsx        # Project details (new)
+│   │   │   ├── AsanaDashboard.tsx          # Asana dashboard (/projects/asana-dashboard)
+│   │   │   ├── JiraDashboard.tsx           # Jira dashboard (/projects/jira-dashboard)
+│   │   │   ├── JiraEmployeeExtractor.tsx   # Jira employee extractor
+│   │   │   ├── HubSpotDashboard.tsx        # HubSpot dashboard
+│   │   │   ├── Microsoft365Dashboard.tsx   # M365 dashboard (/microsoft365)
+│   │   │   ├── ROICalculator.tsx           # ROI calculator (/roi-calculator)
+│   │   │   ├── ROIReport.tsx               # ROI report (/roi-report)
+│   │   │   ├── UseCases.tsx                # Use cases (/use-cases)
+│   │   │   ├── GlobalCapacity.tsx          # Global capacity view
+│   │   │   ├── DebugNormalization.tsx      # Debug page
+│   │   │   └── NotFound.tsx                # 404 page
+│   │   │
+│   │   ├── App.tsx                         # Main app router
+│   │   ├── main.tsx                        # React entry point
+│   │   │
+│   │
+│   ├── 📚 LIBRARY/UTILITIES
+│   │   │
+│   │   ├── 📁 lib/
+│   │   │   │
+│   │   │   ├── types.ts                    # Global TypeScript types
+│   │   │   │   ├── ProjectItem interface
+│   │   │   │   ├── MetricsResponse interface
+│   │   │   │   ├── Task, Deployment, Meeting interfaces
+│   │   │   │   ├── M365 and HubSpot types
+│   │   │   │   └── [All project types]
+│   │   │   │
+│   │   │   ├── dataService.ts              # Data loading service
+│   │   │   │   ├── loadProjects()          # Load project list
+│   │   │   │   ├── loadMetrics()           # Load project metrics
+│   │   │   │   ├── loadCommitsByProject()  # Load Git commits
+│   │   │   │   ├── loadPullRequestsByProject()
+│   │   │   │   ├── loadTeamMembersByProject()
+│   │   │   │   ├── loadAsanaTasksByProject()
+│   │   │   │   ├── loadJiraIssuesByProject()
+│   │   │   │   ├── loadZapierWorkflowsByProject()
+│   │   │   │   ├── loadHubSpotEventsByProject()
+│   │   │   │   ├── loadM365ActivitiesByProject()
+│   │   │   │   └── [All data loading functions]
+│   │   │   │
+│   │   │   ├── metrics.ts                  # Metrics calculation
+│   │   │   │   ├── calculateAutomationCoverage()
+│   │   │   │   ├── calculateHoursSaved()
+│   │   │   │   ├── calculateCostSaved()
+│   │   │   │   ├── forecastCapacity()
+│   │   │   │   └── [Metric functions]
+│   │   │   │
+│   │   │   ├── 📁 normalizers/             # Data normalization
+│   │   │   │   ├── index.ts                # Normalizer exports
+│   │   │   │   ├── jira.ts                 # Normalize Jira events
+│   │   │   │   ├── asana.ts                # Normalize Asana tasks
+│   │   │   │   ├── hubspot.ts              # Normalize HubSpot data
+│   │   │   │   ├── microsoft365.ts         # Normalize M365 events
+│   │   │   │   └── zapier.ts               # Normalize Zapier runs
+│   │   │   │
+│   │   │   ├── storage.ts                  # Local storage utilities
+│   │   │   │   ├── getJiraConnected()
+│   │   │   │   ├── setJiraConnected()
+│   │   │   │   └── [Storage helpers]
+│   │   │   │
+│   │   │   ├── api.ts                      # API client utilities
+│   │   │   ├── csvLoader.ts                # CSV parsing & loading
+│   │   │   └── utils.ts                    # General utilities
+│   │   │
+│   │   ├── 📁 hooks/                       # Custom React hooks
+│   │   │   ├── use-toast.ts                # Toast notification hook
+│   │   │   ├── use-mobile.tsx              # Mobile detection hook
+│   │   │   └── useNotification.ts          # Notification hook
+│   │   │
+│   │   ├── 📁 contexts/                    # React contexts
+│   │   │   └── ToastContext.tsx            # Toast provider context
+│   │   │
+│   │   ├── index.css                       # Global CSS
+│   │   └── vite-env.d.ts                   # Vite type definitions
+│   │
+│   └── App.css                             # App-level styles
+│
+├── 🖥️ BACKEND
+│   ├── server.ts                           # Express server
+│   │   ├── OAuth middleware setup
+│   │   ├── Session management
+│   │   ├── API route mounting
+│   │   ├── CORS configuration
+│   │   └── Vite dev server integration
+│   │
+│   ├── test-server.ts                      # Test server
+│   └── api/
+│       └── index.ts                        # API aggregation
+│
+├── 📁 archives/                            # Old/archived files
+│   └── VelocityAI.tsx (previous version)
+│
+├── 🚀 DEPLOYMENT
+│   └── vercel.json                         # Vercel deployment config
+│
+└── 📝 ROOT FILES
+    ├── .env                                # Environment variables
+    ├── .env.example                        # Env template
+    ├── .gitignore                          # Git ignore rules
+    ├── bun.lockb                           # Bun lock file
+    ├── pnpm-lock.yaml                      # pnpm lock file
+    ├── vite.config.ts
+    ├── tsconfig.json
+    ├── package.json
+    └── [Configuration files]
+```
+
+---
+
+## 🔌 Core Features & Functionality
+
+### 1. **Multi-Platform Data Integration**
+
+#### Jira Integration (Multi-Tenant SaaS)
+- **Authentication:** OAuth 2.0 with PKCE (Proof Key Code Exchange)
+- **Features:**
+  - Real-time issue fetching from multiple Jira instances
+  - Multi-site support (users can access all their Jira Cloud sites)
+  - Automatic token refresh
+  - Session-based state management
+- **API Endpoints:**
+  - `GET /api/jira/auth/connect` - Start OAuth flow
+  - `GET /api/jira/auth/callback` - OAuth callback handler
+  - `POST /api/jira/auth/disconnect` - Disconnect account
+  - `GET /api/jira/auth/status` - Check connection status
+  - `GET /api/jira/issues?projectKey=PROJ` - Fetch issues
+  - `GET /api/jira/projects` - List accessible projects
+- **Files:** src/api/jira/auth.ts, src/api/jira/routes.ts
+
+#### HubSpot Integration
+- **Authentication:** OAuth 2.0 flow with secure session storage
+- **Features:**
+  - Deals pipeline management
+  - Contact & lead management
+  - Campaign tracking
+  - Support ticket management
+  - AI impact analysis on deals
+- **Endpoints:**
+  - `GET /api/hubspot/deals` - Fetch deals
+  - `GET /api/hubspot/contacts` - Fetch contacts
+  - `GET /api/hubspot/campaigns` - Fetch campaigns
+  - `GET /api/hubspot/tickets` - Fetch support tickets
+- **Files:** src/api/hubspot/auth.ts, src/api/hubspot/routes.ts
+
+#### Microsoft 365 Integration
+- **Authentication:** OAuth 2.0 with Microsoft Graph API
+- **Features:**
+  - Meeting analytics and insights
+  - Email activity tracking
+  - Calendar event analysis
+  - Teams/chat data access
+  - ROI calculation from M365 tools
+- **Endpoints:**
+  - `GET /api/microsoft365/meetings` - Fetch meetings
+  - `GET /api/microsoft365/emails` - Email metrics
+  - `GET /api/microsoft365/roi` - ROI calculations
+- **Files:** src/api/microsoft365/auth.ts, src/api/microsoft365/graphClient.ts
+
+#### Asana Integration
+- **Features:**
+  - Project and task management
+  - Team workload visibility
+  - Timeline/Gantt chart visualization
+  - Task progress tracking
+- **Dashboard:** src/pages/AsanaDashboard.tsx
+
+#### Zapier Integration
+- **Features:**
+  - Automation workflow tracking
+  - Execution metrics
+  - Integration mapping
+  - Automation coverage analysis
+
+#### CSV Data Import
+- **Location:** /public/data/
+- **Supported Files:**
+  - jira_events.csv - Jira event data
+  - asana_events.csv - Asana task data
+  - hubspot_events.csv - HubSpot interactions
+  - microsoft365_events.csv - M365 activities
+  - zapier_events.csv - Zapier workflow runs
+  - projects-*.csv - Project metadata
+  - integrations-analytics.csv - Integration metrics
+
+---
+
+### 2. **Data Normalization Pipeline**
+
+**Purpose:** Transform platform-specific events into a canonical format for unified analytics.
+
+**Canonical NormalizedEvent Model:**
+```
+{
+  eventId: string,              // Unique identifier
+  timestamp: string,            // ISO 8601 UTC format
+  app: string,                  // "jira"|"asana"|"hubspot"|"zapier"|"m365"
+  actionType: string,           // "automation"|"manual"
+  units: number,                // Count of items (default 1)
+  avgManualMinutes: number,     // Estimated manual time per unit
+  projectId: string,            // Join key for aggregation
+  payload: object               // Original platform data
+}
+```
+
+**Normalizers Location:** src/lib/normalizers/
+- jira.ts - Normalize Jira issues
+- asana.ts - Normalize Asana tasks
+- hubspot.ts - Normalize HubSpot deals/contacts
+- microsoft365.ts - Normalize M365 meetings
+- zapier.ts - Normalize Zapier runs
+
+**Data Flow:**
+Raw CSV/API Data → Normalizer → NormalizedEvent
+                                      ↓
+                            Metrics Calculation
+                                      ↓
+                            JSON Storage or DB
+                                      ↓
+                            loadMetrics() Function
+                                      ↓
+                            UI Charts & Dashboards
+
+---
+
+### 3. **Metrics & Analytics Engine**
+
+**Core Metrics Calculated:**
+
+#### Automation Coverage %
+= (# Automated Events / Total Events) × 100
+Represents percentage of work handled by automation vs. manual effort.
+
+#### Human-Hours Saved
+= Σ(units × avgManualMinutes / 60) for automated events
+Estimated hours freed up by automation per project/week/integration.
+
+#### Cost Impact
+= Hours Saved × Hourly Rate USD
+Financial impact of automation in dollars. Configurable hourly rate (default: $100/hr).
+
+#### Capacity Forecasting
+= Current Hours Freed + Projected Savings × Forecast Weeks
+Predict future capacity based on automation trends.
+
+#### Redeployment Recommendations
+AI-driven suggestions to allocate freed capacity to:
+- High-impact projects
+- Strategic initiatives
+- Revenue-generating work
+- Customer-facing activities
+
+**Metrics Calculation File:** src/lib/metrics.ts
+
+**Data Service:** src/lib/dataService.ts
+- loadMetrics(projectId) - Load calculated metrics for a project
+- loadProjects() - Load all projects with metadata
+- loadCommitsByProject() - Git commits per project
+- loadAsanaTasksByProject() - Asana tasks per project
+- loadJiraIssuesByProject() - Jira issues per project
+- loadHubSpotEventsByProject() - HubSpot events per project
+- loadM365ActivitiesByProject() - Microsoft 365 activities per project
+- loadZapierWorkflowsByProject() - Zapier automation runs
+
+---
+
+### 4. **Interactive Dashboards & Visualizations**
+
+#### A. VP/Executive Dashboard (/velocity-ai)
+**Location:** src/pages/VelocityAI.tsx
+
+**Tabs & Features:**
+1. **Dashboard** - Overview KPIs
+   - Team Velocity (story points)
+   - Active Projects count
+   - Resource Health %
+   - Team Capacity
+
+2. **Projects** - Portfolio view
+   - Project cards with metrics
+   - Asana & Jira project listing
+   - Real-time status indicators
+
+3. **Standard Time Catalog** - Estimation baseline
+   - Time estimates for common tasks
+   - Skill-based duration mapping
+   - Accuracy tracking
+
+4. **Capacity Ledger** - Workload management
+   - Team member utilization
+   - Task blocking analysis
+   - Capacity allocation visualization
+
+5. **HubSpot Integration** - CRM analytics
+   - Deals pipeline
+   - Contact management
+   - Campaign performance
+   - AI impact on revenue
+
+6. **Integrations** - All platform connections
+   - Connection status
+   - Data sync frequency
+   - Performance metrics
+
+7. **ML Model / ProjectCheck** - AI resource allocator
+   - Upload SRS documents (PDF)
+   - AI extracts requirements
+   - Recommends team composition
+   - Skills matching engine
+
+#### B. Project Detail Dashboard (/projects/:id)
+**Location:** src/pages/ProjectDetailNew.tsx
+
+**Tabs:**
+1. **Overview** - Project health metrics
+   - Timeline status
+   - Team performance
+   - Key milestones
+   - Risk indicators
+
+2. **Team & Tasks** - Resource view
+   - Team member list
+   - Assigned tasks
+   - Workload distribution
+   - Skills inventory
+
+3. **Capacity Ledger** - Capacity planning
+   - Available vs. allocated hours
+   - Blocking issues
+   - Redeployment opportunities
+
+4. **Development** - GitHub integration
+   - Commits timeline
+   - Pull requests
+   - Code quality metrics
+   - Deployment frequency
+
+#### C. Jira Dashboard (/projects/jira-dashboard)
+**Location:** src/pages/JiraDashboard.tsx
+
+**Features:**
+- Issue Created vs. Due Date analysis
+- Multi-site Jira instance support
+- Real-time issue fetching
+- Issue filtering by type, priority, status
+- Assignee-based workload view
+- Timeline visualization
+
+#### D. Asana Dashboard (/projects/asana-dashboard)
+**Location:** src/pages/AsanaDashboard.tsx
+
+**Features:**
+- Task management interface
+- Gantt chart visualization
+- Manager/individual task views
+- Team workload summary
+- Project progress tracking
+
+#### E. HubSpot Dashboard
+**Location:** src/pages/HubSpotDashboard.tsx
+
+**Features:**
+- Deals pipeline view
+- Contacts management
+- Campaign analytics
+- Ticket tracking
+- AI impact on deals
+
+#### F. Microsoft 365 Dashboard
+**Location:** src/pages/Microsoft365Dashboard.tsx
+
+**Features:**
+- Meeting analytics
+- Email activity tracking
+- Teams collaboration metrics
+- Calendar insights
+- ROI from M365 tools
+
+#### G. ROI Calculator & Reports
+**Locations:** 
+- src/pages/ROICalculator.tsx
+- src/pages/ROIReport.tsx
+
+**Features:**
+- Interactive ROI scenarios
+- Automation cost-benefit analysis
+- Time savings calculator
+- Investment justification
+- Executive summary reports
+
+---
+
+### 5. **Advanced Features**
+
+#### Leave & Workforce Management
+**Location:** src/components/leave-management/
+
+**Dual-Persona System:**
+- **Manager View:**
+  - Team workload monitoring
+  - Leave request approval
+  - Impact analysis when team member is absent
+  - Workload rebalancing
+  - Time log imports
+
+- **Employee View:**
+  - Apply for leave
+  - View personal workload
+  - Log time on tasks
+  - Track availability
+
+**Components:**
+- WorkloadTable.tsx - Display tasks
+- LeaveRequestTable.tsx - Leave requests
+- ImpactAnalysisDialog.tsx - Analyze impact
+- LeaveApplicationDialog.tsx - Apply for leave
+- TimeLoggingDialog.tsx - Log work hours
+- TimesheetUploadDialog.tsx - Bulk import
+
+#### AI-Powered Resource Allocator (ProjectCheck)
+**Location:** src/components/ml-model/
+
+**Workflow:**
+1. **Input:** Upload SRS (Requirements) PDF or describe project manually
+2. **Extraction:** AI extracts requirements, tech stack, skills needed
+3. **Analysis:** ML model evaluates team capabilities
+4. **Output:** Recommends optimal team composition
+5. **Matching:** Suggests engineers based on skill overlap
+
+**Components:**
+- ProjectCheckInput.tsx - Upload & input
+- ProjectCheckOutput.tsx - Results display
+- RecommendationEngine.ts - ML logic
+- pdfParser.ts - PDF text extraction
+
+**Features:**
+- PDF upload with drag-and-drop
+- Manual project description input
+- AI requirement extraction
+- Team skill matching
+- Skill gap analysis
+- Recommendations scoring
+
+#### Causal Attribution Analysis
+**Location:** src/components/demo2/CausalAttributionAnalysis.tsx
+
+**Purpose:** Link specific tools to business outcomes
+
+**Methodology:**
+- Track automation events from each integration
+- Correlate with project KPIs (delivery speed, cost reduction, quality)
+- Generate attribution scores
+- Quantify tool impact on business metrics
+
+#### Hotspot Scoring
+**Location:** src/components/demo2/HotspotScoringTab.tsx
+
+**Purpose:** Identify bottlenecks and opportunities
+
+**Scoring Factors:**
+- Task blocking frequency
+- Skill gaps
+- Team member overallocation
+- Project delays
+- Automation coverage gaps
+
+#### Security Audit Trail
+**Location:** src/components/demo2/SecurityAuditTab.tsx
+
+**Features:**
+- Log all data access events
+- Track API calls and platform integrations
+- Monitor user actions
+- Compliance reporting
+- SOC 2 readiness
+
+---
+
+## 📊 Charts & Visualizations
+
+### Analytics Components
+**Location:** src/components/analytics/
+
+#### Chart Types:
+1. **Weekly Commits Bar Chart** - Git activity per week
+2. **Automation Growth Line Chart** - Trend in automation coverage
+3. **Manual vs Auto Stacked Bars** - Breakdown by integration
+4. **Burndown Chart** - Sprint progress
+5. **Gantt Chart** - Project timeline
+6. **HubSpot Deals Pipeline** - Sales funnel
+7. **Jira Quality Metrics** - Issue types, priorities, status distribution
+8. **Microsoft 365 Meetings Analytics** - Meeting frequency, duration, attendees
+9. **Zapier Runs Chart** - Automation execution frequency
+10. **Planned vs Actual Chart** - Schedule adherence
+
+**Chart Libraries:**
+- **Recharts** - Interactive React charts (Bar, Line, Pie, Area)
+- **Chart.js** - Advanced charting with custom plugins
+
+---
+
+## 🔐 Authentication & Security
+
+### OAuth 2.0 Implementation
+
+#### PKCE Flow (Proof Key Code Exchange)
+- **Why:** Prevents authorization code interception
+- **Implementation:** Jira, HubSpot, Microsoft 365
+- **Steps:**
+  1. Generate code_verifier (random string)
+  2. Create code_challenge (SHA256 hash)
+  3. Redirect to platform with code_challenge
+  4. Platform returns authorization code
+  5. Exchange code + code_verifier for tokens
+
+#### Session Management
+- **Library:** express-session
+- **Storage:** In-memory (configurable to DB)
+- **Security:**
+  - Secure cookies (HTTPOnly, Secure flags)
+  - CSRF token validation
+  - Session expiry
+  - Multi-tenant isolation
+
+#### Token Management
+- **Automatic Refresh:** Tokens refreshed before expiry
+- **Secure Storage:** Session-based (not localStorage)
+- **Revocation:** User can disconnect anytime
+
+### Security Features
+- ✅ PKCE for OAuth flows
+- ✅ HTTPOnly cookies for session tokens
+- ✅ CORS configured for production domains
+- ✅ Input validation with Zod schemas
+- ✅ Environment variables for secrets
+- ✅ No credentials in code
+- ✅ Session-based state management
+- ✅ Multi-tenant data isolation
+
+---
+
+## 📚 API Reference
+
+### Project Endpoints
+```
+GET  /api/projects              - List all projects
+GET  /api/projects/:id/metrics  - Get project metrics
+```
+
+### Jira Endpoints
+```
+GET  /api/jira/auth/connect           - Start OAuth
+GET  /api/jira/auth/callback          - OAuth callback
+GET  /api/jira/auth/status            - Check auth status
+POST /api/jira/auth/disconnect        - Disconnect
+GET  /api/jira/projects               - List projects
+GET  /api/jira/issues?projectKey=PROJ - Fetch issues
+```
+
+### HubSpot Endpoints
+```
+GET /api/hubspot/deals              - List deals
+GET /api/hubspot/contacts           - List contacts
+GET /api/hubspot/campaigns          - List campaigns
+GET /api/hubspot/tickets            - List tickets
+```
+
+### Microsoft 365 Endpoints
+```
+GET /api/microsoft365/meetings - List meetings
+GET /api/microsoft365/emails   - Email metrics
+GET /api/microsoft365/roi      - ROI calculations
+```
+
+### Asana Endpoints
+```
+GET /api/asana/issues?projectKey=PROJECT_ID - Fetch tasks
+```
+
+---
+
+## 🛠️ Development & Deployment
+
+### Build & Development Scripts
+```
+npm run dev              # Start Vite dev server (port 5173)
+npm run api             # Start Express backend (port 4000)
+npm run build           # Production build
+npm run build:dev       # Development build
+npm run lint            # Run ESLint
+npm run preview         # Preview production build
+```
+
+### Environment Variables
+**Required .env file:**
+```
+# Jira OAuth
+VITE_JIRA_CLIENT_ID=xxx
+JIRA_CLIENT_SECRET=xxx
+JIRA_REDIRECT_URI=http://localhost:5173/api/jira/auth/callback
+
+# HubSpot OAuth
+VITE_HUBSPOT_CLIENT_ID=xxx
+HUBSPOT_CLIENT_SECRET=xxx
+HUBSPOT_REDIRECT_URI=http://localhost:5173/api/hubspot/callback
+
+# Microsoft 365 OAuth
+VITE_MICROSOFT_CLIENT_ID=xxx
+MICROSOFT_CLIENT_SECRET=xxx
+MICROSOFT_REDIRECT_URI=http://localhost:5173/api/microsoft365/callback
+
+# Asana & Zapier Tokens
+VITE_ASANA_TOKEN=xxx
+VITE_ZAPIER_TOKEN=xxx
+
+# Server Config
+VITE_API_BASE_URL=http://localhost:4000/api
+PORT=4000
+```
+
+### Deployment (Vercel)
+1. Push code to GitHub repository
+2. Connect Vercel to GitHub
+3. Configure environment variables in Vercel dashboard
+4. Deploy automatically on push to main branch
+
+**Config File:** vercel.json
+
+---
+
+## 📊 Data Pipeline Summary
+
+```
+┌─────────────────────────────┐
+│   RAW DATA SOURCES          │
+│ (CSVs, APIs, Webhooks)      │
+└──────────────┬──────────────┘
+               │
+               ▼
+┌─────────────────────────────────────────┐
+│   DATA INGESTION & NORMALIZATION        │
+│ • Fetch from platforms                  │
+│ • Normalize to canonical format         │
+│ • Classify automation vs manual         │
+│ • Add business context                  │
+└──────────────┬──────────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────────┐
+│   METRICS CALCULATION                   │
+│ • Automation Coverage %                 │
+│ • Hours Saved                           │
+│ • Cost Impact                           │
+│ • Capacity Forecasts                    │
+│ • Redeployment Recommendations          │
+└──────────────┬──────────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────────┐
+│   STORAGE (JSON or Database)            │
+│ • public/normalized/ (dev)              │
+│ • Database records (production)         │
+└──────────────┬──────────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────────┐
+│   API LAYER (loadMetrics())             │
+│ • Retrieve calculated metrics           │
+│ • Filter by timeframe/project           │
+│ • Return structured JSON                │
+└──────────────┬──────────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────────┐
+│   FRONTEND VISUALIZATION                │
+│ • Render charts (Recharts/Chart.js)    │
+│ • Display KPIs in dashboards            │
+│ • Interactive filtering                 │
+│ • Scenario planning (editable)          │
+└─────────────────────────────────────────┘
+```
+
+---
+
+## 🎯 Key Use Cases
+
+### 1. Automation ROI Justification
+**Problem:** CTO needs to justify automation investment costs to CFO
+
+**Solution:**
+- Velocity AI quantifies hours saved per integration
+- Shows cost savings: (Hours Saved × Hourly Rate)
+- Compares against tool subscription costs
+- Demonstrates payback period
+
+### 2. Capacity Redeployment Planning
+**Problem:** Team members freed up by automation need reallocation
+
+**Solution:**
+- Identify freed-up hours per person
+- Score high-impact projects for redeployment
+- AI recommendations for optimal allocation
+- Track redeployment success
+
+### 3. Multi-Team Workload Balancing
+**Problem:** Some teams overloaded while others have capacity
+
+**Solution:**
+- Leave Management system shows per-person workload
+- Impact analysis when team members absent
+- Rebalance tasks across team
+- Forecast future capacity needs
+
+### 4. Cross-Platform Analytics
+**Problem:** Data scattered across Jira, Asana, HubSpot, M365
+
+**Solution:**
+- Unified dashboard shows all platforms
+- Normalized metrics across sources
+- Cross-platform KPI correlation
+- Single source of truth for leadership
+
+### 5. AI Skill-Based Staffing
+**Problem:** Match projects to teams with right skills
+
+**Solution:**
+- ProjectCheck analyzes project requirements
+- AI recommends team members by skill match
+- Identifies skill gaps
+- Suggests training opportunities
+
+---
+
+## 📈 Success Metrics
+
+### Platform KPIs
+1. **Automation Coverage** - % of work automated
+2. **Time Savings** - Hours freed up per week
+3. **Cost Savings** - $ Impact of automation
+4. **Team Velocity** - Story points delivered
+5. **Resource Health** - Team utilization %
+6. **Project Delivery** - % On-time completion
+7. **Quality** - Bug rate, deployment frequency
+8. **Capacity Utilization** - Active vs. idle hours
+
+### Business Outcomes
+- ✅ Faster project delivery
+- ✅ Reduced operational costs
+- ✅ Improved team morale (less manual work)
+- ✅ Better resource allocation
+- ✅ Data-driven decision making
+- ✅ Quantified ROI for AI investments
+
+---
+
+## 🚀 Integration Completeness
+
+### ✅ Completed Integrations
+- [x] **Jira** - Multi-tenant SaaS with OAuth 2.0
+- [x] **HubSpot** - CRM with deals, contacts, campaigns
+- [x] **Microsoft 365** - Meetings, emails, calendar analytics
+- [x] **Asana** - Task management and Gantt charts
+- [x] **Zapier** - Automation workflow tracking
+- [x] **CSV Import** - Custom data sources
+
+### ✅ Features Completed
+- [x] Data normalization pipeline
+- [x] Metrics calculation engine
+- [x] Interactive dashboards (VP, Manager, Employee)
+- [x] Real-time data synchronization
+- [x] Leave & workforce management
+- [x] AI resource allocation (ProjectCheck)
+- [x] Causal attribution analysis
+- [x] Security audit trails
+- [x] ROI calculator
+- [x] Multi-tenant architecture
+
+### 📋 Documentation
+- [x] README with quick start
+- [x] Architecture documentation
+- [x] Data pipeline guide
+- [x] Metrics & calculations guide
+- [x] OAuth setup instructions
+- [x] API reference
+- [x] Toast system documentation
+- [x] Project structure guide
+
+---
+
+## 🎓 Quick Start for New Users
+
+### For Managers
+1. Go to /velocity-ai → Dashboard tab
+2. View team velocity, active projects, resource health
+3. Check Capacity Ledger for workload distribution
+4. Approve/reject leave requests in Leave Management
+5. Review redeployment recommendations
+
+### For CFOs/Executives
+1. Go to /roi-calculator to understand ROI
+2. View /roi-report for executive summary
+3. Check project portfolio in /projects
+4. Monitor automation coverage trends
+5. Track cost savings by integration
+
+### For Project Managers
+1. Go to /projects/:id for detailed project view
+2. Monitor team performance in Capacity Ledger
+3. Review GitHub development metrics
+4. Track project timeline vs. plan
+5. Manage team member assignments
+
+### For HR/CHROs
+1. Access Leave Management tab
+2. Monitor workforce capacity
+3. Approve leave requests
+4. Track team member utilization
+5. Identify capacity gaps
+
+---
+
+## 📞 Support & Resources
+
+### Documentation Files
+- README.md - Main project overview
+- QUICK_START.md - 5-minute setup
+- docs/data-pipeline.md - Data flow
+- docs/metrics-and-architecture.md - Metrics details
+- docs/QUICK-REFERENCE.md - Quick reference
+- TOAST_SYSTEM.md - Notifications
+- INTEGRATION_GUIDE.md - Setup guide
+
+### API Documentation
+- docs/JIRA_OAUTH_SETUP.md - Jira setup
+- JIRA_SAAS_COMPLETE.md - Jira implementation
+- HUBSPOT_INTEGRATION_COMPLETE.md - HubSpot setup
+- COMPLETION_REPORT.md - Integration status
+
+### Issue Tracking
+- GitHub Issues: https://github.com/lavansh1306/NEW_Velocity_AI/issues
+- Check existing documentation in /docs folder
+
+---
+
+## 🏆 Notable Achievements
+
+✅ End-to-end analytics pipeline from 6+ data sources
+✅ Causal attribution engine linking tools to outcomes
+✅ Redeployment intelligence for capacity allocation
+✅ CFO-ready insights with ROI and cost analysis
+✅ Modular architecture for easy integration additions
+✅ Production-ready with Vercel deployment
+✅ Multi-tenant support with data isolation
+✅ AI-powered resource allocation (ProjectCheck)
+✅ Leave management system with impact analysis
+✅ Real-time dashboards with live data sync
+✅ Security audit trails for compliance
+✅ Comprehensive documentation for all features
+
+---
+
+## 📝 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+---
+
+## 🙏 Acknowledgments
+
+Built with:
+- React 18 - UI Framework
+- TypeScript - Type Safety
+- Vite - Fast bundling
+- Tailwind CSS - Styling
+- shadcn/ui - Components
+- Recharts & Chart.js - Visualizations
+- Express - Backend server
+- Vercel - Deployment
+
+---
+
+This comprehensive documentation provides a complete understanding of the Velocity AI platform, its features, architecture, and how to use it effectively.
