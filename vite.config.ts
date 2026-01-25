@@ -21,7 +21,7 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    target: "esnext", // REQUIRED for pdfjs-dist top-level await
+    target: "esnext", 
   },
   optimizeDeps: {
     esbuildOptions: {
