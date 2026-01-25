@@ -259,6 +259,8 @@ export default function JiraDashboard() {
       setError(`Failed to add project: ${err instanceof Error ? err.message : 'Unknown error'}`)
     } finally {
       setAddingProject(false)
+      // Ensure initial loading state is cleared after adding/loading a project
+      if (loading) setLoading(false)
     }
   }
 
@@ -279,6 +281,8 @@ export default function JiraDashboard() {
       setError(`Failed to load project: ${err instanceof Error ? err.message : 'Unknown error'}`)
     } finally {
       setRefreshing(false)
+      // Clear initial loading if still set (first load via URL or auto-load)
+      if (loading) setLoading(false)
     }
   }
 
@@ -296,6 +300,7 @@ export default function JiraDashboard() {
       setError(`Failed to refresh project: ${err instanceof Error ? err.message : 'Unknown error'}`)
     } finally {
       setRefreshing(false)
+      if (loading) setLoading(false)
     }
   }
 

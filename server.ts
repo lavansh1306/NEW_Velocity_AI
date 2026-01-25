@@ -1,15 +1,14 @@
 import dotenv from "dotenv"
+import path from "path"
+import { fileURLToPath } from "url"
 
 // Load .env FIRST before any other imports
 dotenv.config()
-console.log('dotenv loaded, MS_CLIENT_ID:', process.env.MS_CLIENT_ID ? 'YES' : 'NO')
 
 import express, { Request, Response } from "express"
 import cors from "cors"
 import fetch from "node-fetch"
 import session from "express-session"
-import { fileURLToPath } from "url"
-import path from "path"
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url)
@@ -22,6 +21,7 @@ import m365RoiRoutes from "./src/api/microsoft365/routes/roi.js"
 import hubspotRoutes from "./src/api/hubspot/routes.js"
 import * as hubspotAuth from "./src/api/hubspot/auth.js"
 import jiraRoutes from "./src/api/jira/routes.js"
+import deployedRoutes from "./src/api/deployed/routes.js"
 
 const app = express()
 
@@ -419,6 +419,10 @@ console.log('[Server] HubSpot routes mounted');
 // ============ Jira OAuth & API Routes (multi-tenant) ============
 app.use('/api/jira', jiraRoutes);
 console.log('[Server] Jira OAuth routes mounted');
+
+// ============ Deployed API Routes ============
+app.use('/api/deployed', deployedRoutes);
+console.log('[Server] Deployed routes mounted');
 
 // try {
 //   const stack = (hubspotRoutes as any)?.stack || []

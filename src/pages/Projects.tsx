@@ -239,6 +239,51 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
               </div>
             )}
 
+            {/* Jira Employee Skills Extractor */}
+            <div className="mb-8">
+              <h2 className="text-xl font-semibold mb-4">Jira Integration Tools</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-6">
+                <article className="rounded-lg bg-white shadow-sm border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow">
+                  <div className="flex flex-col sm:flex-row">
+                    <div className="w-full sm:w-1/2 md:w-2/5 flex-shrink-0 bg-gradient-to-br from-blue-500 to-cyan-500 h-56 sm:h-full flex items-center justify-center">
+                      <svg className="w-16 h-16 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                    </div>
+                    <div className="p-4 sm:p-5 lg:p-6 flex-1 flex flex-col">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-2">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-base sm:text-lg lg:text-xl font-semibold text-gray-900 truncate">Employee Skills Extractor</h3>
+                          <div className="text-xs sm:text-sm text-gray-500">Jira Integration</div>
+                        </div>
+                      </div>
+
+                      <p className="text-xs sm:text-sm lg:text-base text-gray-700 line-clamp-2 sm:line-clamp-3">
+                        Extract employee skills from Jira projects and automatically populate the employee database for AI-powered task assignments.
+                      </p>
+
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <span className="text-xs px-2.5 py-1 bg-green-50 text-green-700 rounded-full font-medium">Jira</span>
+                        <span className="text-xs px-2.5 py-1 bg-purple-50 text-purple-700 rounded-full font-medium">AI</span>
+                        <span className="text-xs px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full font-medium">Skills</span>
+                      </div>
+
+                      <div className="mt-auto pt-4">
+                        <Button asChild className="w-full sm:w-auto text-xs sm:text-sm">
+                          <Link
+                            to="/projects/jira-employee-extractor"
+                            className="inline-block"
+                          >
+                            Extract Skills
+                          </Link>
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              </div>
+            </div>
+
             {/* Upcoming Projects Section */}
             <div className="mt-16 sm:mt-20">
               <div className="mb-8">

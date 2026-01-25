@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 import { TimeTracking } from "@/components/demo/TimeTracking";
-import { RedeploymentView } from "@/components/demo/RedeploymentView";
+import { DeploymentView } from "@/components/demo/DeploymentView";
 import { ROIMetrics } from "@/components/demo/ROIMetrics";
 import { LiveFeed } from "@/components/demo/LiveFeed";
 
@@ -46,11 +46,11 @@ const Demo = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 lg:w-[700px]">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:w-[600px]">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="integrations">Integrations</TabsTrigger>
             <TabsTrigger value="timesaved">Time Saved</TabsTrigger>
-            <TabsTrigger value="redeployment">Redeployment</TabsTrigger>
+            <TabsTrigger value="deployment">Deployment</TabsTrigger>
             <TabsTrigger value="roi">ROI Impact</TabsTrigger>
           </TabsList>
 
@@ -157,8 +157,8 @@ const Demo = () => {
             <TimeTracking detailed />
           </TabsContent>
 
-          <TabsContent value="redeployment">
-            <RedeploymentView />
+          <TabsContent value="deployment">
+            <DeploymentView />
           </TabsContent>
 
           <TabsContent value="roi">

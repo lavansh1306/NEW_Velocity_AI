@@ -15,6 +15,7 @@ import Projects from "./pages/Projects";
 import ProjectDetailNew from "./pages/ProjectDetailNew";
 import DebugNormalization from "./pages/DebugNormalization";
 import JiraDashboard from "./pages/JiraDashboard";
+import JiraEmployeeExtractor from "./pages/JiraEmployeeExtractor";
 import AsanaDashboard from "./pages/AsanaDashboard";
 import HubSpotDashboard from "./pages/HubSpotDashboard";
 import Microsoft365Dashboard from "./pages/Microsoft365Dashboard";
@@ -39,6 +40,7 @@ const App = () => (
             <Route path="/velocity-ai" element={<VelocityAI />} />
             <Route path="/projects" element={<Projects />} />
             <Route path="/projects/jira-dashboard" element={<JiraDashboard />} />
+            <Route path="/projects/jira-employee-extractor" element={<JiraEmployeeExtractor />} />
             <Route path="/projects/asana-dashboard" element={<AsanaDashboard />} />
             <Route path="/projects/hubspot-dashboard" element={<HubSpotDashboard />} />
             <Route path="/projects/microsoft365-dashboard" element={<Microsoft365Dashboard />} />
