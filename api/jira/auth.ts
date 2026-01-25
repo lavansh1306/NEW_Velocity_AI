@@ -86,13 +86,16 @@ export async function handleJiraCallback(req: Request, res: Response) {
       throw new Error(`Token exchange failed: ${tokenResponse.statusText}`);
     }
 
-    const tokenData = await tokenResponse.json() as { access_token: string };
+    const tokenData = await tokenResponse.json() as { access_token: string; refresh_token?: string };
+    const accessToken = tokenData.access_token;
     
-    res.json({
-      success: true,
-      access_token: tokenData.access_token,
-      message: 'Successfully authenticated with Jira'
-    });
+    // Store token in secure cookie
+    res.setHeader('Set-Cookie', 
+      `jira_access_token=${accessToken}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${24*60*60}`
+    );
+    
+    // Redirect to dashboard
+    res.redirect('/velocity-ai');
   } catch (error) {
     console.error('Jira callback error:', error);
     res.status(500).json({ error: 'Callback failed' });
