@@ -19,7 +19,6 @@ import JiraEmployeeExtractor from "./pages/JiraEmployeeExtractor";
 import AsanaDashboard from "./pages/AsanaDashboard";
 import HubSpotDashboard from "./pages/HubSpotDashboard";
 import Microsoft365Dashboard from "./pages/Microsoft365Dashboard";
-import { JiraDashboard as JiraOAuthDashboard } from "./components/jira/JiraDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,7 +37,7 @@ const App = () => (
             <Route path="/roi-calculator" element={<ROICalculator />} />
             <Route path="/use-cases" element={<UseCases />} />
             <Route path="/roi-report" element={<ROIReport />} />
-            <Route path="/velocity-ai" element={<JiraOAuthDashboard />} />
+            <Route path="/velocity-ai" element={<VelocityAI />} />
             <Route path="/projects" element={<Projects />} />
             <Route path="/projects/jira-dashboard" element={<JiraDashboard />} />
             <Route path="/projects/jira-employee-extractor" element={<JiraEmployeeExtractor />} />
