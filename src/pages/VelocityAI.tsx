@@ -28,6 +28,56 @@ import ProjectCheckView from '@/components/ml-model';
 
 import { getJiraConnected, setJiraConnected } from '../lib/storage';
 
+// Fetch Jira resources using OAuth token
+async function fetchJiraData() {
+  const token = document.cookie
+    .split('; ')
+    .find(row => row.startsWith('jira_access_token='))
+    ?.split('=')[1];
+
+  if (!token) {
+    console.warn('No Jira token found');
+    return null;
+  }
+
+  try {
+    // Fetch accessible Jira resources
+    const resourcesRes = await fetch('https://api.atlassian.com/oauth/token/accessible-resources', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (!resourcesRes.ok) {
+      throw new Error(`Failed to fetch Jira resources: ${resourcesRes.statusText}`);
+    }
+
+    const resources = await resourcesRes.json();
+    
+    if (!resources || resources.length === 0) {
+      console.warn('No Jira resources found');
+      return null;
+    }
+
+    const cloudId = resources[0].id;
+    
+    // Fetch projects from the first resource
+    const projectsRes = await fetch(`https://api.atlassian.com/ex/jira/${cloudId}/rest/api/3/project`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (!projectsRes.ok) {
+      throw new Error(`Failed to fetch projects: ${projectsRes.statusText}`);
+    }
+
+    const projects = await projectsRes.json();
+    
+    console.log('Jira data fetched successfully:', { resources, projects });
+    return { resources, projects, cloudId, token };
+  } catch (error) {
+    console.error('Error fetching Jira data:', error);
+    return null;
+  }
+}
+
 // --- NEW MODERN DASHBOARD COMPONENT (Placeholder) ---
 const ModernDashboard = () => {
   return (
@@ -141,6 +191,18 @@ export default function VelocityAI() {
   const [jiraConnected, setJiraConnectionState] = useState<boolean>(() => {
     return getJiraConnected();
   });
+  const [jiraData, setJiraData] = useState<any>(null);
+
+  // Fetch Jira data on mount if token exists
+  useEffect(() => {
+    fetchJiraData().then(data => {
+      if (data) {
+        setJiraData(data);
+        setJiraConnectionState(true);
+        console.log('Jira connected with data:', data);
+      }
+    });
+  }, []);
 
   // Save to localStorage whenever jiraConnected changes
   useEffect(() => {
