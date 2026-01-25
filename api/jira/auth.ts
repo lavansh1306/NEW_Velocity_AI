@@ -9,11 +9,10 @@ const getRedirectUri = (req?: Request) => {
   if (process.env.JIRA_OAUTH_REDIRECT_URI) {
     return process.env.JIRA_OAUTH_REDIRECT_URI;
   }
-  if (req?.headers.host) {
-    const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-    return `${protocol}://${req.headers.host}/api/jira/callback`;
-  }
-  return 'https://joinvelocity.co/api/jira/callback';
+  // Always use production URL for Vercel
+  const host = req?.headers?.host || 'joinvelocity.co';
+  const protocol = host.includes('localhost') ? 'http' : 'https';
+  return `${protocol}://${host}/api/jira/auth/callback`;
 };
 
 const AUTHORIZE_URL = 'https://auth.atlassian.com/authorize';
