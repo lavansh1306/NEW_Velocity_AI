@@ -64,13 +64,13 @@ const mockTasks: Record<string, any> = {
   "task1": {
     id: "task1",
     title: "Mobile App Development",
-    requiredSkills: ["React Native", "iOS"],
+    description: "Develop a cross-platform mobile app using React Native with iOS and Android support",
     jiraIssueId: "TEST-123"
   }
 }
 
-async function getGeminiSkillMatch(taskSkill: string, employeeSkills: string[]): Promise<{ match: boolean, confidence: number }> {
-  const cacheKey = `${taskSkill}-${employeeSkills.join(',')}`
+async function getGeminiSkillMatch(taskDescription: string, employeeSkills: string[]): Promise<{ match: boolean, confidence: number }> {
+  const cacheKey = `${taskDescription}-${employeeSkills.join(',')}`
 
   if (skillMatchCache[cacheKey] && (Date.now() - skillMatchCache[cacheKey].createdAt.getTime()) < 24 * 60 * 60 * 1000) {
     return skillMatchCache[cacheKey]
@@ -78,11 +78,12 @@ async function getGeminiSkillMatch(taskSkill: string, employeeSkills: string[]):
 
   const prompt = `You are a technical skill matcher.
 
-Task required skill: ${taskSkill}
+Task description: ${taskDescription}
 
 Employee skills: ${JSON.stringify(employeeSkills)}
 
-Return JSON: { "match": boolean, "confidence": number }`
+Analyze if the employee's skills match the requirements in the task description.
+Return JSON: { "match": boolean, "confidence": number between 0 and 1 }`
 
   try {
     const result = await model.generateContent(prompt)
@@ -176,22 +177,20 @@ router.post('/add-skill-and-reassign', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Task not found' })
     }
 
-    // Add new skill to task
-    if (!task.requiredSkills.includes(newSkill)) {
-      task.requiredSkills.push(newSkill)
-    }
+    // Update task description with new skill
+    task.description += ` Required skill: ${newSkill}`
 
     // Calculate scores for all employees
     const employeeScores = await Promise.all(
-      mockEmployees.map(emp => calculateEmployeeScore(emp, task.requiredSkills))
+      employees.map(emp => calculateEmployeeScore(emp, task.description))
     )
 
     // Find best employee
     const bestEmployee = employeeScores.reduce((best, current) =>
-      current.finalScore > best.finalScore ? current : best
+      current.score > best.score ? current : best
     )
 
-    const assignedEmployee = mockEmployees.find(emp => emp.id === bestEmployee.employeeId)
+    const assignedEmployee = employees.find(emp => emp.id === bestEmployee.employeeId)
 
     // Auto-assign in Jira (mock assignee ID for now)
     try {
@@ -204,7 +203,7 @@ router.post('/add-skill-and-reassign', async (req: Request, res: Response) => {
     res.json({
       taskId,
       assignedEmployeeId: bestEmployee.employeeId,
-      score: bestEmployee.finalScore,
+      score: bestEmployee.score,
       skillMatchConfidence: bestEmployee.skillMatchConfidence
     })
 
