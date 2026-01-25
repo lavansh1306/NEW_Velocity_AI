@@ -9,8 +9,6 @@ import express, { Request, Response } from "express"
 import cors from "cors"
 import fetch from "node-fetch"
 import session from "express-session"
-import { fileURLToPath } from "url"
-import path from "path"
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url)

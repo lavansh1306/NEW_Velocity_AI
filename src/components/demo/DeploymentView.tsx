@@ -96,9 +96,10 @@ export const DeploymentView = () => {
 
   const { toast } = useToast();
 
-  // Load employees on mount
+  // Load employees and check Jira status on mount
   useEffect(() => {
     loadEmployees();
+    checkJiraStatus();
   }, []);
 
   const loadEmployees = async () => {
@@ -375,8 +376,101 @@ export const DeploymentView = () => {
           </p>
         </div>
 
-        {/* Data Source Setup */}
-        {employees.length === 0 && (
+        {/* Jira Project Selection */}
+        {jiraConnected && employees.length === 0 && (
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Select Jira Projects for Data Extraction
+              </CardTitle>
+              <CardDescription>
+                Choose which Jira projects to extract employee skills from
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-green-600 mb-4">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span className="text-sm">Connected to Jira</span>
+                </div>
+
+                {jiraProjects.length > 0 ? (
+                  <div>
+                    <Label className="text-sm font-medium mb-2 block">
+                      Available Projects ({jiraProjects.length}):
+                    </Label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto border rounded-lg p-4">
+                      {jiraProjects.map(project => (
+                        <div
+                          key={project.key}
+                          className={`p-3 border rounded-lg cursor-pointer transition-all hover:shadow-sm ${
+                            selectedJiraProjects.includes(project.key)
+                              ? 'border-blue-500 bg-blue-50 shadow-sm'
+                              : 'border-gray-200 hover:border-gray-300'
+                          }`}
+                          onClick={() => {
+                            setSelectedJiraProjects(prev =>
+                              prev.includes(project.key)
+                                ? prev.filter(key => key !== project.key)
+                                : [...prev, project.key]
+                            );
+                          }}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-sm truncate">{project.title}</div>
+                              <div className="text-xs text-gray-500 mt-1">{project.key}</div>
+                              {project.description && (
+                                <div className="text-xs text-gray-600 mt-1 line-clamp-2">
+                                  {project.description}
+                                </div>
+                              )}
+                            </div>
+                            {selectedJiraProjects.includes(project.key) && (
+                              <CheckCircle2 className="h-4 w-4 text-blue-500 flex-shrink-0 ml-2" />
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center justify-between mt-4">
+                      <div className="text-sm text-gray-600">
+                        {selectedJiraProjects.length} project{selectedJiraProjects.length !== 1 ? 's' : ''} selected
+                      </div>
+                      <Button
+                        onClick={handleJiraProjectExtract}
+                        disabled={selectedJiraProjects.length === 0 || extractingJira}
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        {extractingJira ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            Extracting Skills...
+                          </>
+                        ) : (
+                          <>
+                            <Users className="h-4 w-4 mr-2" />
+                            Extract from {selectedJiraProjects.length || 'Selected'} Project{selectedJiraProjects.length !== 1 ? 's' : ''}
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600">Loading Jira projects...</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Data Source Setup - CSV Upload */}
+        {!jiraConnected && employees.length === 0 && (
           <Card className="mb-8">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -433,79 +527,17 @@ export const DeploymentView = () => {
                 </TabsContent>
 
                 <TabsContent value="jira" className="space-y-4">
-                  {!jiraConnected ? (
-                    <div className="text-center py-8">
-                      <ExternalLink className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium mb-2">Connect to Jira</h3>
-                      <p className="text-gray-600 mb-4">
-                        Extract employee skills automatically from your Jira projects
-                      </p>
-                      <Button onClick={handleJiraConnect} className="bg-blue-600 hover:bg-blue-700">
-                        <ExternalLink className="h-4 w-4 mr-2" />
-                        Connect Jira Account
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-2 text-green-600">
-                        <CheckCircle2 className="h-4 w-4" />
-                        <span className="text-sm">Connected to Jira</span>
-                      </div>
-
-                      <div>
-                        <Label className="text-sm font-medium mb-2 block">
-                          Select Projects to Extract From:
-                        </Label>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
-                          {jiraProjects.map(project => (
-                            <div
-                              key={project.key}
-                              className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                                selectedJiraProjects.includes(project.key)
-                                  ? 'border-blue-500 bg-blue-50'
-                                  : 'border-gray-200 hover:border-gray-300'
-                              }`}
-                              onClick={() => {
-                                setSelectedJiraProjects(prev =>
-                                  prev.includes(project.key)
-                                    ? prev.filter(key => key !== project.key)
-                                    : [...prev, project.key]
-                                );
-                              }}
-                            >
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <div className="font-medium">{project.title}</div>
-                                  <div className="text-sm text-gray-500">{project.key}</div>
-                                </div>
-                                {selectedJiraProjects.includes(project.key) && (
-                                  <CheckCircle2 className="h-4 w-4 text-blue-500" />
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <Button
-                        onClick={handleJiraProjectExtract}
-                        disabled={selectedJiraProjects.length === 0 || extractingJira}
-                        className="w-full bg-green-600 hover:bg-green-700"
-                      >
-                        {extractingJira ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                            Extracting Skills...
-                          </>
-                        ) : (
-                          <>
-                            <Users className="h-4 w-4 mr-2" />
-                            Extract from {selectedJiraProjects.length} Project{selectedJiraProjects.length !== 1 ? 's' : ''}
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  )}
+                  <div className="text-center py-8">
+                    <ExternalLink className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium mb-2">Connect to Jira</h3>
+                    <p className="text-gray-600 mb-4">
+                      Extract employee skills automatically from your Jira projects
+                    </p>
+                    <Button onClick={handleJiraConnect} className="bg-blue-600 hover:bg-blue-700">
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      Connect Jira Account
+                    </Button>
+                  </div>
                 </TabsContent>
               </Tabs>
             </CardContent>
