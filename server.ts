@@ -1,8 +1,9 @@
 import dotenv from "dotenv"
+import path from "path"
+import { fileURLToPath } from "url"
 
 // Load .env FIRST before any other imports
 dotenv.config()
-console.log('dotenv loaded, MS_CLIENT_ID:', process.env.MS_CLIENT_ID ? 'YES' : 'NO')
 
 import express, { Request, Response } from "express"
 import cors from "cors"

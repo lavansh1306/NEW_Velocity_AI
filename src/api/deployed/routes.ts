@@ -4,12 +4,28 @@ import fetch from "node-fetch"
 import * as fs from "fs"
 import * as path from "path"
 import Papa from "papaparse"
+import dotenv from "dotenv"
+
+// Load environment variables
+dotenv.config()
 
 const router = express.Router()
 
 // Initialize Gemini
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" })
+let genAI: GoogleGenerativeAI | null = null
+try {
+  console.log('GEMINI_API_KEY from env:', process.env.GEMINI_API_KEY ? 'SET' : 'NOT SET')
+  if (process.env.GEMINI_API_KEY) {
+    genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+    console.log('Gemini initialized successfully')
+  } else {
+    console.warn('GEMINI_API_KEY not set, Gemini features will be disabled')
+  }
+} catch (error) {
+  console.error('Failed to initialize Gemini:', error)
+}
+
+const model = genAI ? genAI.getGenerativeModel({ model: "gemini-1.5-flash" }) : null
 
 // In-memory cache for skill matches (since DB is ignored)
 interface SkillMatchCache {
@@ -35,20 +51,23 @@ let employees: Employee[] = []
 async function loadEmployees(): Promise<void> {
   try {
     const csvPath = path.join(process.cwd(), 'public', 'data', 'employees.csv')
+    console.log('Loading employees from:', csvPath)
     const csvText = fs.readFileSync(csvPath, 'utf-8')
+    console.log('CSV text length:', csvText.length)
     
     const parsed = Papa.parse(csvText, {
       header: true,
       skipEmptyLines: true
     })
     
+    console.log('Parsed data:', parsed.data)
     employees = parsed.data.map((row: any, index: number) => ({
       id: `emp${index + 1}`,
       name: row.name,
       skills: row.skills ? row.skills.split(',').map((s: string) => s.trim()) : []
     }))
     
-    console.log(`Loaded ${employees.length} employees from CSV`)
+    console.log(`Loaded ${employees.length} employees from CSV:`, employees)
   } catch (error) {
     console.error('Error loading employees CSV:', error)
     // Fallback to empty array
@@ -70,6 +89,11 @@ const mockTasks: Record<string, any> = {
 }
 
 async function getGeminiSkillMatch(taskDescription: string, employeeSkills: string[]): Promise<{ match: boolean, confidence: number }> {
+  if (!model) {
+    console.warn('Gemini model not available, returning default confidence')
+    return { match: true, confidence: 0.5 }
+  }
+
   const cacheKey = `${taskDescription}-${employeeSkills.join(',')}`
 
   if (skillMatchCache[cacheKey] && (Date.now() - skillMatchCache[cacheKey].createdAt.getTime()) < 24 * 60 * 60 * 1000) {
@@ -86,6 +110,9 @@ Analyze if the employee's skills match the requirements in the task description.
 Return JSON: { "match": boolean, "confidence": number between 0 and 1 }`
 
   try {
+    // Add small delay to avoid rate limiting
+    await new Promise(resolve => setTimeout(resolve, 500))
+    
     const result = await model.generateContent(prompt)
     const response = await result.response
     const text = response.text()
@@ -99,20 +126,9 @@ Return JSON: { "match": boolean, "confidence": number between 0 and 1 }`
     return { match, confidence }
   } catch (error) {
     console.error('Gemini API error:', error)
-    return { match: false, confidence: 0 }
+    // Return a default score instead of failing
+    return { match: false, confidence: 0.1 }
   }
-}
-
-function calculateCosineSimilarity(taskSkills: string[], employeeSkills: string[]): number {
-  const allSkills = Array.from(new Set([...taskSkills, ...employeeSkills]))
-  const taskVector = allSkills.map(skill => taskSkills.includes(skill) ? 1 : 0)
-  const employeeVector = allSkills.map(skill => employeeSkills.includes(skill) ? 1 : 0)
-
-  const dotProduct = taskVector.reduce((sum, a, i) => sum + a * employeeVector[i], 0)
-  const taskMagnitude = Math.sqrt(taskVector.reduce((sum, a) => sum + a * a, 0))
-  const employeeMagnitude = Math.sqrt(employeeVector.reduce((sum, e) => sum + e * e, 0))
-
-  return taskMagnitude && employeeMagnitude ? dotProduct / (taskMagnitude * employeeMagnitude) : 0
 }
 
 async function calculateEmployeeScore(employee: Employee, taskDescription: string): Promise<{
@@ -120,8 +136,10 @@ async function calculateEmployeeScore(employee: Employee, taskDescription: strin
   score: number
   skillMatchConfidence: number
 }> {
+  console.log(`Calculating score for employee ${employee.name} with skills:`, employee.skills)
   // Get Gemini confidence for skill matching based on task description
   const geminiResult = await getGeminiSkillMatch(taskDescription, employee.skills)
+  console.log(`Gemini result for ${employee.name}:`, geminiResult)
   
   return {
     employeeId: employee.id,
@@ -180,10 +198,27 @@ router.post('/add-skill-and-reassign', async (req: Request, res: Response) => {
     // Update task description with new skill
     task.description += ` Required skill: ${newSkill}`
 
-    // Calculate scores for all employees
-    const employeeScores = await Promise.all(
-      employees.map(emp => calculateEmployeeScore(emp, task.description))
-    )
+    // Calculate scores for all employees sequentially to avoid rate limiting
+    const employeeScores: Array<{
+      employeeId: string
+      score: number
+      skillMatchConfidence: number
+    }> = []
+    
+    for (const emp of employees) {
+      try {
+        const score = await calculateEmployeeScore(emp, task.description)
+        employeeScores.push(score)
+      } catch (error) {
+        console.error(`Error calculating score for ${emp.name}:`, error)
+        // Add default score
+        employeeScores.push({
+          employeeId: emp.id,
+          score: 0.1,
+          skillMatchConfidence: 0.1
+        })
+      }
+    }
 
     // Find best employee
     const bestEmployee = employeeScores.reduce((best, current) =>

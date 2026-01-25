@@ -31,6 +31,21 @@ interface AssignmentResult {
   skillMatchConfidence: number;
 }
 
+const mockEmployees = [
+  { id: "emp1", name: "Sarah Chen" },
+  { id: "emp2", name: "Mike Rodriguez" },
+  { id: "emp3", name: "Emily Watson" },
+  { id: "emp4", name: "David Kim" },
+  { id: "emp5", name: "Lisa Park" },
+  { id: "emp6", name: "James Wilson" },
+  { id: "emp7", name: "Anna Martinez" },
+];
+
+const getEmployeeName = (employeeId: string): string => {
+  const employee = mockEmployees.find(emp => emp.id === employeeId);
+  return employee ? employee.name : "Unknown Employee";
+};
+
 const initialTasks: Task[] = [
   {
     id: "task1",
