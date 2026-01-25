@@ -79,9 +79,24 @@ async function fetchJiraData() {
 }
 
 // --- NEW MODERN DASHBOARD COMPONENT (Placeholder) ---
-const ModernDashboard = () => {
+const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {/* Jira Connection Status Banner */}
+      {jiraData && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-green-900">Jira Connected</h3>
+              <p className="text-sm text-green-700">
+                {jiraData.resources?.length || 0} workspace(s) • {jiraData.projects?.length || 0} project(s) loaded
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Welcome Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -97,6 +112,29 @@ const ModernDashboard = () => {
           </button>
         </div>
       </div>
+
+      {/* Jira Projects List */}
+      {jiraData?.projects && jiraData.projects.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Your Jira Projects</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {jiraData.projects.slice(0, 9).map((project: any) => (
+              <div key={project.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                <div className="flex items-start gap-3">
+                  {project.avatarUrls?.['48x48'] && (
+                    <img src={project.avatarUrls['48x48']} alt={project.name} className="w-10 h-10 rounded" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-semibold text-gray-900 truncate">{project.name}</h4>
+                    <p className="text-sm text-gray-500">{project.key}</p>
+                    <p className="text-xs text-gray-400 mt-1">{project.projectTypeKey}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* KPI Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -296,7 +334,7 @@ export default function VelocityAI() {
           <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-7xl mx-auto animate-in fade-in duration-300">
             
             {/* 1. UPDATED DASHBOARD: Uses the new pleasant component */}
-            {activeTab === 'dashboard' && <ModernDashboard />}
+            {activeTab === 'dashboard' && <ModernDashboard jiraData={jiraData} />}
             
             {activeTab === 'projects' && <Projects jiraConnected={jiraConnected} withNav={false} />}
             {activeTab === 'stc' && <StandardTimeCatalogTab />}
