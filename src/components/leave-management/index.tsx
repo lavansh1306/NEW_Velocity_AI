@@ -13,7 +13,7 @@ import {
 import { Task, LeaveRequest, TimeLog, EmployeeProfile } from './types';
 import { ImpactAnalysisDialog } from './ImpactAnalysisDialog';
 import { TimeLoggingDialog } from './TimeLoggingDialog';
-import { TimesheetUploadDialog } from './TimesheetUploadDialog';
+import { TimesheetUploadDialog } from './TimeSheetUploadDialog';
 import { WorkloadTable } from './WorkloadTable';
 import { LeaveRequestTable } from './LeaveRequestTable';
 import { LeaveApplicationDialog } from './LeaveApplicationDialog';
