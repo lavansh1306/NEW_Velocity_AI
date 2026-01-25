@@ -4,7 +4,6 @@ import {
   FolderKanban, 
   Clock, 
   BookOpen, 
-  Share2, 
   Puzzle, 
   Calendar as CalendarIcon ,
   BrainCircuit
@@ -21,7 +20,6 @@ const tabs = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
   { id: 'projects', label: 'Projects', icon: <FolderKanban className="w-5 h-5" /> },
   { id: 'ledger', label: 'Capacity Ledger', icon: <BookOpen className="w-5 h-5" /> },
-  { id: 'hubspot', label: 'HubSpot', icon: <Share2 className="w-5 h-5" /> },
   { id: 'integrations', label: 'Integrations', icon: <Puzzle className="w-5 h-5" /> },
   
   { id: 'leave', label: 'Leave Management', icon: <CalendarIcon className="w-5 h-5" /> }, 
