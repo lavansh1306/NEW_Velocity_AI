@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Upload, RefreshCw } from 'lucide-react'; 
+import { Users, Upload } from 'lucide-react'; 
 import { Button } from '../ui/button';
 import { 
   Select, 
@@ -13,7 +13,7 @@ import {
 import { Task, LeaveRequest, TimeLog, EmployeeProfile } from './types';
 import { ImpactAnalysisDialog } from './ImpactAnalysisDialog';
 import { TimeLoggingDialog } from './TimeLoggingDialog';
-import { TimesheetUploadDialog } from './TimeSheetUploadDialog';
+import { TimesheetUploadDialog } from './TimesheetUploadDialog';
 import { WorkloadTable } from './WorkloadTable';
 import { LeaveRequestTable } from './LeaveRequestTable';
 import { LeaveApplicationDialog } from './LeaveApplicationDialog';
@@ -27,10 +27,10 @@ export default function LeaveManagementTab() {
   // State for Real Data
   const [tasks, setTasks] = useState<Task[]>([]);
   const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
-  const [currentUser, setCurrentUser] = useState<string>("Aarav Sharma"); // Default to first user in CSV
+  const [currentUser, setCurrentUser] = useState<string>("Aarav Sharma"); 
   const [isLoadingData, setIsLoadingData] = useState(true);
 
-  // Leave State (Mocked for now as CSV doesn't have leaves)
+  // Leave State
   const [leaves, setLeaves] = useState<LeaveRequest[]>([
     { id: 1, name: "Aarav Sharma", startDate: "2024-06-10", endDate: "2024-06-11", reason: "Family Event", status: "Pending" }
   ]);
@@ -49,7 +49,6 @@ export default function LeaveManagementTab() {
     const fetchData = async () => {
       try {
         const csvUrl = new URL('../ml-model/datasets/master_employee_task_report.csv', import.meta.url).href;
-        // We use 'any' here because the raw CSV shape is different from our Task shape
         const rawData: any[] = await parseCSV(csvUrl);
         
         // Transform CSV Data -> System Task Model
@@ -59,27 +58,24 @@ export default function LeaveManagementTab() {
           taskName: row["Task Name"] || "Untitled Task",
           assignee: row.Assignee || "Unassigned",
           hours: row["Planned Hours"] || 0,
-          // Assign random day (0-4) for demo visualization since CSV lacks dates
           day: Math.floor(Math.random() * 5), 
           requiredSkills: row["Skill Used"] ? [row["Skill Used"]] : [],
           isReallocated: false,
           isCancelled: false,
-          totalLogged: row["Actual Hours"] || 0, // Pre-fill actuals from history
+          totalLogged: row["Actual Hours"] || 0,
           logs: [] 
         }));
 
         setTasks(loadedTasks);
 
-        // Extract Unique Employees for the Selector
         const uniqueNames = Array.from(new Set(loadedTasks.map(t => t.assignee)));
         const loadedEmployees: EmployeeProfile[] = uniqueNames.map(name => {
-          // Find their skills from their tasks
           const userTasks = loadedTasks.filter(t => t.assignee === name);
           const skills = Array.from(new Set(userTasks.flatMap(t => t.requiredSkills)));
           return {
             name,
-            role: skills[0] || "Developer", // Infer role from primary skill
-            skills: skills.slice(0, 4) // Top 4 skills
+            role: skills[0] || "Developer",
+            skills: skills.slice(0, 4)
           };
         });
 
@@ -97,22 +93,15 @@ export default function LeaveManagementTab() {
   }, []);
 
   // --- Logic Helpers ---
-  const getDailyLoad = (employee: string, day: number) => {
-    return tasks.filter(t => t.assignee === employee && t.day === day && !t.isCancelled)
-      .reduce((sum, t) => sum + t.hours, 0);
-  };
-
-  // --- Manager Logic ---
   const handleImportTasks = (newTasks: Task[]) => {
     setTasks(prev => [...prev, ...newTasks]);
   };
 
   const handleReviewLeave = (leave: LeaveRequest) => {
     const absenteeTasks = tasks.filter(t => t.assignee === leave.name && !t.isReallocated && !t.isCancelled);
-    // (Simplied prediction logic for brevity - reuses existing logic)
     const newPredictions = absenteeTasks.map(task => ({
       task,
-      newAssignee: "AI Recommendation", // Placeholder for complex logic
+      newAssignee: "AI Recommendation", 
       reason: "Capacity Available",
       score: 85
     }));
@@ -126,14 +115,12 @@ export default function LeaveManagementTab() {
     setTasks(prev => {
       const newTasks = [...prev];
       newTasks.filter(t => t.assignee === selectedLeave.name && !t.isReallocated).forEach(t => t.isCancelled = true);
-      // Logic to add new tasks would go here
       return newTasks;
     });
     setLeaves(prev => prev.map(l => l.id === selectedLeave.id ? { ...l, status: 'Approved' } : l));
     setScenarioOpen(false);
   };
 
-  // --- Employee Logic ---
   const handleTaskClick = (task: Task) => {
     if (activePersona === 'employee' && !task.isCancelled) {
       setSelectedTask(task);
@@ -159,7 +146,6 @@ export default function LeaveManagementTab() {
     setLeaves(prev => [newLeave, ...prev]);
   };
 
-
   if (isLoadingData) {
     return <div className="p-10 text-center text-gray-500 animate-pulse">Loading Workforce Data...</div>;
   }
@@ -182,20 +168,22 @@ export default function LeaveManagementTab() {
         
         <div className="flex items-center gap-4 flex-wrap">
            
-           {/* EMPLOYEE SELECTOR (Only visible in Employee View or for Manager to snoop) */}
-           <div className="flex items-center gap-2">
-             <span className="text-xs font-bold text-slate-400 uppercase">View As:</span>
-             <Select value={currentUser} onValueChange={setCurrentUser}>
-               <SelectTrigger className="w-[180px] h-8 text-xs bg-slate-800 border-slate-700 text-white">
-                 <SelectValue placeholder="Select Employee" />
-               </SelectTrigger>
-               <SelectContent className="max-h-[200px]">
-                 {employees.map(emp => (
-                   <SelectItem key={emp.name} value={emp.name}>{emp.name}</SelectItem>
-                 ))}
-               </SelectContent>
-             </Select>
-           </div>
+           {/* FIX: EMPLOYEE SELECTOR - ONLY SHOW IN EMPLOYEE MODE */}
+           {activePersona === 'employee' && (
+             <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-4">
+               <span className="text-xs font-bold text-slate-400 uppercase">View As:</span>
+               <Select value={currentUser} onValueChange={setCurrentUser}>
+                 <SelectTrigger className="w-[180px] h-8 text-xs bg-slate-800 border-slate-700 text-white">
+                   <SelectValue placeholder="Select Employee" />
+                 </SelectTrigger>
+                 <SelectContent className="max-h-[200px]">
+                   {employees.map(emp => (
+                     <SelectItem key={emp.name} value={emp.name}>{emp.name}</SelectItem>
+                   ))}
+                 </SelectContent>
+               </Select>
+             </div>
+           )}
 
            {/* IMPORT BUTTON (Manager Only) */}
            {activePersona === 'manager' && (
