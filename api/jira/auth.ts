@@ -89,10 +89,31 @@ export async function handleJiraCallback(req: Request, res: Response) {
     const tokenData = await tokenResponse.json() as { access_token: string; refresh_token?: string };
     const accessToken = tokenData.access_token;
     
-    // Store token in secure cookie
-    res.setHeader('Set-Cookie', 
+    // Fetch accessible resources to get cloudId
+    const resourcesRes = await fetch('https://api.atlassian.com/oauth/token/accessible-resources', {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    });
+
+    let cloudId = null;
+    if (resourcesRes.ok) {
+      const resources = await resourcesRes.json() as any[];
+      if (resources && resources.length > 0) {
+        cloudId = resources[0].id;
+      }
+    }
+    
+    // Store token and cloudId in secure cookies
+    const cookiesToSet = [
       `jira_access_token=${accessToken}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${24*60*60}`
-    );
+    ];
+    
+    if (cloudId) {
+      cookiesToSet.push(
+        `jira_cloud_id=${cloudId}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${24*60*60}`
+      );
+    }
+    
+    res.setHeader('Set-Cookie', cookiesToSet);
     
     // Redirect to dashboard
     res.redirect('/velocity-ai');

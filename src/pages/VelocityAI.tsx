@@ -27,51 +27,68 @@ import LeaveManagementTab from '../components/leave-management';
 import ProjectCheckView from '@/components/ml-model';
 
 import { getJiraConnected, setJiraConnected } from '../lib/storage';
+import { apiUrl } from '../lib/api';
+
+// Fetch Jira connection status using API
+async function fetchJiraStatus() {
+  try {
+    const response = await fetch(apiUrl('/api/jira/auth/status'), {
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = await response.json();
+    return data.connected ? data : null;
+  } catch (error) {
+    console.error('Error fetching Jira status:', error);
+    return null;
+  }
+}
 
 // Fetch Jira resources using OAuth token
 async function fetchJiraData() {
-  const token = document.cookie
-    .split('; ')
-    .find(row => row.startsWith('jira_access_token='))
-    ?.split('=')[1];
-
-  if (!token) {
-    console.warn('No Jira token found');
+  const status = await fetchJiraStatus();
+  
+  if (!status || !status.connected) {
+    console.warn('No Jira connection found');
     return null;
   }
 
   try {
-    // Fetch accessible Jira resources
-    const resourcesRes = await fetch('https://api.atlassian.com/oauth/token/accessible-resources', {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-
-    if (!resourcesRes.ok) {
-      throw new Error(`Failed to fetch Jira resources: ${resourcesRes.statusText}`);
-    }
-
-    const resources = await resourcesRes.json();
+    const cloudId = status.site?.cloudId;
     
-    if (!resources || resources.length === 0) {
-      console.warn('No Jira resources found');
+    if (!cloudId) {
+      console.warn('No Jira cloudId found');
       return null;
     }
-
-    const cloudId = resources[0].id;
     
-    // Fetch projects from the first resource
-    const projectsRes = await fetch(`https://api.atlassian.com/ex/jira/${cloudId}/rest/api/3/project`, {
-      headers: { 'Authorization': `Bearer ${token}` }
+    // Fetch projects from Jira API through our backend
+    const projectsRes = await fetch(apiUrl('/api/jira/projects'), {
+      credentials: 'include'
     });
 
     if (!projectsRes.ok) {
       throw new Error(`Failed to fetch projects: ${projectsRes.statusText}`);
     }
 
-    const projects = await projectsRes.json();
+    const projectsData = await projectsRes.json();
+    const projects = projectsData.projects || [];
     
-    console.log('Jira data fetched successfully:', { resources, projects });
-    return { resources, projects, cloudId, token };
+    console.log('Jira data fetched successfully:', { 
+      site: status.site,
+      availableSites: status.availableSites,
+      projects: projects.length 
+    });
+    
+    return { 
+      resources: status.availableSites,
+      projects, 
+      cloudId,
+      site: status.site
+    };
   } catch (error) {
     console.error('Error fetching Jira data:', error);
     return null;
