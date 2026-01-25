@@ -1,0 +1,217 @@
+import express, { Request, Response } from "express"
+import { GoogleGenerativeAI } from "@google/generative-ai"
+import fetch from "node-fetch"
+import * as fs from "fs"
+import * as path from "path"
+import Papa from "papaparse"
+
+const router = express.Router()
+
+// Initialize Gemini
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" })
+
+// In-memory cache for skill matches (since DB is ignored)
+interface SkillMatchCache {
+  [key: string]: {
+    match: boolean
+    confidence: number
+    createdAt: Date
+  }
+}
+
+const skillMatchCache: SkillMatchCache = {}
+
+// Employee data loaded from CSV
+interface Employee {
+  id: string
+  name: string
+  skills: string[]
+}
+
+let employees: Employee[] = []
+
+// Load employees from CSV
+async function loadEmployees(): Promise<void> {
+  try {
+    const csvPath = path.join(process.cwd(), 'public', 'data', 'employees.csv')
+    const csvText = fs.readFileSync(csvPath, 'utf-8')
+    
+    const parsed = Papa.parse(csvText, {
+      header: true,
+      skipEmptyLines: true
+    })
+    
+    employees = parsed.data.map((row: any, index: number) => ({
+      id: `emp${index + 1}`,
+      name: row.name,
+      skills: row.skills ? row.skills.split(',').map((s: string) => s.trim()) : []
+    }))
+    
+    console.log(`Loaded ${employees.length} employees from CSV`)
+  } catch (error) {
+    console.error('Error loading employees CSV:', error)
+    // Fallback to empty array
+    employees = []
+  }
+}
+
+// Load employees on startup
+loadEmployees()
+
+// Mock task data
+const mockTasks: Record<string, any> = {
+  "task1": {
+    id: "task1",
+    title: "Mobile App Development",
+    requiredSkills: ["React Native", "iOS"],
+    jiraIssueId: "TEST-123"
+  }
+}
+
+async function getGeminiSkillMatch(taskSkill: string, employeeSkills: string[]): Promise<{ match: boolean, confidence: number }> {
+  const cacheKey = `${taskSkill}-${employeeSkills.join(',')}`
+
+  if (skillMatchCache[cacheKey] && (Date.now() - skillMatchCache[cacheKey].createdAt.getTime()) < 24 * 60 * 60 * 1000) {
+    return skillMatchCache[cacheKey]
+  }
+
+  const prompt = `You are a technical skill matcher.
+
+Task required skill: ${taskSkill}
+
+Employee skills: ${JSON.stringify(employeeSkills)}
+
+Return JSON: { "match": boolean, "confidence": number }`
+
+  try {
+    const result = await model.generateContent(prompt)
+    const response = await result.response
+    const text = response.text()
+
+    // Parse JSON response
+    const parsed = JSON.parse(text.trim())
+    const match = parsed.match || false
+    const confidence = Math.max(0, Math.min(1, parsed.confidence || 0))
+
+    skillMatchCache[cacheKey] = { match, confidence, createdAt: new Date() }
+    return { match, confidence }
+  } catch (error) {
+    console.error('Gemini API error:', error)
+    return { match: false, confidence: 0 }
+  }
+}
+
+function calculateCosineSimilarity(taskSkills: string[], employeeSkills: string[]): number {
+  const allSkills = Array.from(new Set([...taskSkills, ...employeeSkills]))
+  const taskVector = allSkills.map(skill => taskSkills.includes(skill) ? 1 : 0)
+  const employeeVector = allSkills.map(skill => employeeSkills.includes(skill) ? 1 : 0)
+
+  const dotProduct = taskVector.reduce((sum, a, i) => sum + a * employeeVector[i], 0)
+  const taskMagnitude = Math.sqrt(taskVector.reduce((sum, a) => sum + a * a, 0))
+  const employeeMagnitude = Math.sqrt(employeeVector.reduce((sum, e) => sum + e * e, 0))
+
+  return taskMagnitude && employeeMagnitude ? dotProduct / (taskMagnitude * employeeMagnitude) : 0
+}
+
+async function calculateEmployeeScore(employee: Employee, taskDescription: string): Promise<{
+  employeeId: string
+  score: number
+  skillMatchConfidence: number
+}> {
+  // Get Gemini confidence for skill matching based on task description
+  const geminiResult = await getGeminiSkillMatch(taskDescription, employee.skills)
+  
+  return {
+    employeeId: employee.id,
+    score: geminiResult.confidence,
+    skillMatchConfidence: geminiResult.confidence
+  }
+}
+
+async function assignJiraIssue(issueId: string, assigneeAccountId: string): Promise<void> {
+  if (!process.env.AUTO_ASSIGN_ENABLED || process.env.AUTO_ASSIGN_ENABLED !== 'true') {
+    console.log('Auto-assign disabled, skipping Jira assignment')
+    return
+  }
+
+  const domain = process.env.JIRA_DOMAIN
+  const email = process.env.JIRA_EMAIL
+  const apiToken = process.env.JIRA_API_TOKEN
+
+  if (!domain || !email || !apiToken) {
+    throw new Error('Jira configuration missing')
+  }
+
+  const auth = Buffer.from(`${email}:${apiToken}`).toString('base64')
+  const url = `https://${domain}/rest/api/3/issue/${issueId}/assignee`
+
+  const response = await fetch(url, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Basic ${auth}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      accountId: assigneeAccountId
+    })
+  })
+
+  if (!response.ok) {
+    throw new Error(`Jira assignment failed: ${response.statusText}`)
+  }
+}
+
+// POST /api/deployed/add-skill-and-reassign
+router.post('/add-skill-and-reassign', async (req: Request, res: Response) => {
+  try {
+    const { taskId, newSkill } = req.body
+
+    if (!taskId || !newSkill) {
+      return res.status(400).json({ error: 'taskId and newSkill are required' })
+    }
+
+    const task = mockTasks[taskId]
+    if (!task) {
+      return res.status(404).json({ error: 'Task not found' })
+    }
+
+    // Add new skill to task
+    if (!task.requiredSkills.includes(newSkill)) {
+      task.requiredSkills.push(newSkill)
+    }
+
+    // Calculate scores for all employees
+    const employeeScores = await Promise.all(
+      mockEmployees.map(emp => calculateEmployeeScore(emp, task.requiredSkills))
+    )
+
+    // Find best employee
+    const bestEmployee = employeeScores.reduce((best, current) =>
+      current.finalScore > best.finalScore ? current : best
+    )
+
+    const assignedEmployee = mockEmployees.find(emp => emp.id === bestEmployee.employeeId)
+
+    // Auto-assign in Jira (mock assignee ID for now)
+    try {
+      await assignJiraIssue(task.jiraIssueId, bestEmployee.employeeId)
+    } catch (error) {
+      console.error('Jira assignment failed:', error)
+      // Continue anyway
+    }
+
+    res.json({
+      taskId,
+      assignedEmployeeId: bestEmployee.employeeId,
+      score: bestEmployee.finalScore,
+      skillMatchConfidence: bestEmployee.skillMatchConfidence
+    })
+
+  } catch (error) {
+    console.error('Error in add-skill-and-reassign:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+export default router
