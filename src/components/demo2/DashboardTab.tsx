@@ -116,13 +116,16 @@ export default function DashboardTab() {
         // If no projects, try default fetch
         if (!projects || projects.length === 0) {
           console.warn('[DashboardTab] No projects found, attempting default fetch');
-          const defaultResponse = await fetch(apiUrl('/api/jira/issues'), { credentials: 'include' });
+          const defaultResponse = await fetch(apiUrl(`/api/jira/issues?_t=${Date.now()}`), { credentials: 'include' });
           if (defaultResponse.ok) {
             const defaultData = await defaultResponse.json();
             const issues = defaultData.issues || [];
             if (mounted && issues.length > 0) {
               setJiraIssues(issues);
             }
+          } else {
+            const txt = await defaultResponse.text().catch(() => '')
+            console.warn('[DashboardTab] Default fetch failed with status', defaultResponse.status, txt)
           }
           return;
         }
@@ -139,14 +142,16 @@ export default function DashboardTab() {
         const allIssues: any[] = [];
         for (const projectKey of projectKeys) {
           try {
-            const issuesResponse = await fetch(apiUrl(`/api/jira/issues?projectKey=${projectKey}`), { credentials: 'include' });
+            const encodedKey = encodeURIComponent(String(projectKey))
+            const issuesResponse = await fetch(apiUrl(`/api/jira/issues?projectKey=${encodedKey}&_t=${Date.now()}`), { credentials: 'include' });
             if (issuesResponse.ok) {
               const issuesData = await issuesResponse.json();
               const issues = issuesData.issues || [];
               console.log(`[DashboardTab] Fetched ${issues.length} issues from ${projectKey}`);
               allIssues.push(...issues);
             } else {
-              console.warn(`[DashboardTab] Failed to fetch issues from ${projectKey}:`, issuesResponse.status);
+              const txt = await issuesResponse.text().catch(() => '')
+              console.warn(`[DashboardTab] Failed to fetch issues from ${projectKey}:`, issuesResponse.status, txt);
             }
           } catch (err) {
             console.warn(`[DashboardTab] Error fetching issues from ${projectKey}:`, err);
