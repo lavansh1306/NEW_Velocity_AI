@@ -16,6 +16,7 @@ import IntegrationsTab from '../components/demo2/IntegrationsTab';
 import Projects from './Projects';
 import LeaveManagementTab from '../components/leave-management'; 
 import ProjectCheckView from '@/components/ml-model';
+import { DeploymentView } from '@/components/demo/DeploymentView';
 
 import { getJiraConnected, setJiraConnected } from '../lib/storage';
 
@@ -127,7 +128,7 @@ export default function VelocityAI() {
             {activeTab === 'roi' && <ROIVerificationTab />}
             {activeTab === 'security' && <SecurityAuditTab onJiraConnectionChange={handleJiraConnectionChange} />}
             {activeTab === 'leave' && <LeaveManagementTab />}
-            {activeTab === 'projectcheck' && <ProjectCheckView />}
+            {activeTab === 'deployment' && <DeploymentView />}
           </div>
         </VeloNavTabs>
       )}

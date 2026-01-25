@@ -31,7 +31,7 @@ const tabs = [
   { id: 'redeployment', label: 'Redeployment', icon: <RefreshCw className="w-5 h-5" /> },
   { id: 'roi', label: 'ROI Verification', icon: <DollarSign className="w-5 h-5" /> },
   { id: 'leave', label: 'Leave Management', icon: <CalendarIcon className="w-5 h-5" /> }, 
-  { id: 'projectcheck', label: 'ProjectCheck AI', icon: <BrainCircuit className="w-5 h-5" /> }
+  { id: 'deployment', label: 'Deployment', icon: <BrainCircuit className="w-5 h-5" /> }
 ];
 
 export default function VeloNavTabs({ activeTab, onTabChange, children }: VeloNavTabsProps) {

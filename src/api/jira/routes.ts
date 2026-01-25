@@ -315,4 +315,153 @@ function extractDescription(desc: any): string {
   return "";
 }
 
+// Extract employee skills from selected Jira projects
+router.post('/extract-employee-skills', async (req: Request, res: Response) => {
+  try {
+    const { projectKeys } = req.body;
+
+    if (!projectKeys || !Array.isArray(projectKeys) || projectKeys.length === 0) {
+      return res.status(400).json({ error: 'projectKeys array is required' });
+    }
+
+    if (!jiraAuth.isConnected(req)) {
+      return res.status(401).json({ error: 'Not connected to Jira' });
+    }
+
+    const employees: { [key: string]: { name: string; skills: Set<string>; projects: string[] } } = {};
+
+    // Process each project
+    for (const projectKey of projectKeys) {
+      try {
+        console.log(`[Jira Extract] Processing project: ${projectKey}`);
+
+        // Get project issues
+        const issuesResponse = await jiraAuth.apiRequest(req, `/rest/api/3/search?jql=project=${projectKey}&maxResults=1000`);
+        if (!issuesResponse.ok) {
+          console.warn(`[Jira Extract] Failed to fetch issues for project ${projectKey}`);
+          continue;
+        }
+
+        const issuesData = await issuesResponse.json();
+        const issues = issuesData.issues || [];
+
+        console.log(`[Jira Extract] Found ${issues.length} issues in project ${projectKey}`);
+
+        // Extract assignees and their work
+        for (const issue of issues) {
+          const assignee = issue.fields?.assignee;
+          if (!assignee) continue;
+
+          const assigneeName = assignee.displayName || assignee.name;
+          const issueType = issue.fields?.issuetype?.name || '';
+          const summary = issue.fields?.summary || '';
+          const description = extractDescription(issue.fields?.description);
+
+          // Initialize employee if not exists
+          if (!employees[assigneeName]) {
+            employees[assigneeName] = {
+              name: assigneeName,
+              skills: new Set(),
+              projects: []
+            };
+          }
+
+          // Add project if not already added
+          if (!employees[assigneeName].projects.includes(projectKey)) {
+            employees[assigneeName].projects.push(projectKey);
+          }
+
+          // Extract skills from issue type
+          if (issueType) {
+            employees[assigneeName].skills.add(issueType);
+          }
+
+          // Extract skills from summary and description using basic keyword analysis
+          const text = `${summary} ${description}`.toLowerCase();
+
+          // Common tech skills to look for
+          const skillKeywords = [
+            'react', 'angular', 'vue', 'javascript', 'typescript', 'python', 'java', 'c#', 'php', 'ruby',
+            'node.js', 'express', 'django', 'flask', 'spring', 'hibernate', '.net', 'asp.net',
+            'html', 'css', 'sass', 'less', 'bootstrap', 'tailwind',
+            'sql', 'mysql', 'postgresql', 'mongodb', 'redis', 'elasticsearch',
+            'aws', 'azure', 'gcp', 'docker', 'kubernetes', 'jenkins', 'gitlab', 'github',
+            'api', 'rest', 'graphql', 'microservices', 'testing', 'qa', 'devops',
+            'mobile', 'ios', 'android', 'flutter', 'react native',
+            'data analysis', 'machine learning', 'ai', 'ml', 'data science',
+            'ui', 'ux', 'design', 'figma', 'sketch', 'photoshop'
+          ];
+
+          for (const skill of skillKeywords) {
+            if (text.includes(skill)) {
+              employees[assigneeName].skills.add(skill.charAt(0).toUpperCase() + skill.slice(1));
+            }
+          }
+        }
+      } catch (error) {
+        console.error(`[Jira Extract] Error processing project ${projectKey}:`, error);
+        continue;
+      }
+    }
+
+    // Convert to array format
+    const employeeArray = Object.values(employees).map(emp => ({
+      name: emp.name,
+      skills: Array.from(emp.skills),
+      source: `Jira Projects: ${emp.projects.join(', ')}`
+    }));
+
+    console.log(`[Jira Extract] Extracted ${employeeArray.length} employees with skills`);
+
+    res.json({
+      employees: employeeArray,
+      totalProjects: projectKeys.length,
+      totalEmployees: employeeArray.length
+    });
+
+  } catch (error) {
+    console.error('[Jira Extract] Error extracting employee skills:', error);
+    res.status(500).json({ error: 'Failed to extract employee skills' });
+  }
+});
+
+// Save extracted employee skills to CSV
+router.post('/save-employee-skills', async (req: Request, res: Response) => {
+  try {
+    const { employees } = req.body;
+
+    if (!employees || !Array.isArray(employees)) {
+      return res.status(400).json({ error: 'employees array is required' });
+    }
+
+    // Convert to CSV format
+    const csvLines = ['name,skills'];
+    for (const employee of employees) {
+      const skillsString = employee.skills.map(skill => `"${skill}"`).join(',');
+      csvLines.push(`${employee.name},"${skillsString}"`);
+    }
+
+    const csvContent = csvLines.join('\n');
+
+    // Write to CSV file
+    const fs = require('fs');
+    const path = require('path');
+    const csvPath = path.join(process.cwd(), 'public', 'data', 'employees.csv');
+
+    fs.writeFileSync(csvPath, csvContent, 'utf-8');
+
+    console.log(`[Jira Save] Saved ${employees.length} employees to CSV`);
+
+    res.json({
+      success: true,
+      message: `Saved ${employees.length} employees to CSV`,
+      filePath: csvPath
+    });
+
+  } catch (error) {
+    console.error('[Jira Save] Error saving employee skills:', error);
+    res.status(500).json({ error: 'Failed to save employee skills' });
+  }
+});
+
 export default router;
