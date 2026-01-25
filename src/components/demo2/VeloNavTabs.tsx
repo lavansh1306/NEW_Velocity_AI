@@ -3,12 +3,8 @@ import {
   LayoutDashboard, 
   FolderKanban, 
   Clock, 
-  Activity, 
   BookOpen, 
-  Share2, 
   Puzzle, 
-  RefreshCw, 
-  DollarSign, 
   Calendar as CalendarIcon ,
   BrainCircuit
 } from 'lucide-react';
@@ -23,13 +19,9 @@ interface VeloNavTabsProps {
 const tabs = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
   { id: 'projects', label: 'Projects', icon: <FolderKanban className="w-5 h-5" /> },
-  { id: 'stc', label: 'Standard Time Catalog', icon: <Clock className="w-5 h-5" /> },
-  { id: 'activity', label: 'Project Activity', icon: <Activity className="w-5 h-5" /> },
   { id: 'ledger', label: 'Capacity Ledger', icon: <BookOpen className="w-5 h-5" /> },
-  { id: 'hubspot', label: 'HubSpot', icon: <Share2 className="w-5 h-5" /> },
   { id: 'integrations', label: 'Integrations', icon: <Puzzle className="w-5 h-5" /> },
-  { id: 'redeployment', label: 'Redeployment', icon: <RefreshCw className="w-5 h-5" /> },
-  { id: 'roi', label: 'ROI Verification', icon: <DollarSign className="w-5 h-5" /> },
+  
   { id: 'leave', label: 'Leave Management', icon: <CalendarIcon className="w-5 h-5" /> }, 
   { id: 'deployment', label: 'Deployment', icon: <BrainCircuit className="w-5 h-5" /> }
 ];

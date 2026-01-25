@@ -63,23 +63,7 @@
                     </div>
                 </div>
                 
-                <!-- View Toggle -->
-                <div class="flex items-center bg-gray-100 rounded-xl p-1">
-                    <button id="toggle-manager" class="view-toggle px-5 py-2 rounded-lg text-sm font-semibold transition-all bg-white shadow-sm text-gray-900">
-                        <span class="flex items-center gap-2">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
-                            </svg>
-                            Manager View
-                        </span>
-                    </button>
-                    <button id="toggle-vp" class="view-toggle px-5 py-2 rounded-lg text-sm font-semibold transition-all text-gray-500 hover:text-gray-700">
-                        <span class="flex items-center gap-2">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-                            </svg>
-                            VP Executive View
-                        </span>
+                <!-- VP Executive view removed -->
                     </button>
                 </div>
 
@@ -615,104 +599,7 @@
 
         <!-- MANAGER VIEW WRAPPER -->
         <div id="manager-view">
-        <!-- Dashboard Tab -->
-        <div id="tab-dashboard" class="tab-content">
-            <div class="mb-6">
-                <h2 class="text-2xl font-bold text-gray-900">Pilot Overview</h2>
-                <p class="text-gray-600 mt-1">Marketing Operations • 90-Day Pilot • Integration: Asana + HubSpot</p>
-            </div>
-
-            <!-- ROI Metrics -->
-            <div class="grid grid-cols-4 gap-6 mb-8">
-                <div class="roi-metric">
-                    <div class="text-sm opacity-90 mb-1">Total Realized Value</div>
-                    <div class="text-3xl font-bold">$127,450</div>
-                    <div class="text-sm mt-2 opacity-75">3.2x Platform Fee ROI</div>
-                </div>
-                <div class="bg-white rounded-lg border border-gray-200 p-6">
-                    <div class="text-sm text-gray-600 mb-1">Operational ROI (Tier A)</div>
-                    <div class="text-3xl font-bold text-green-600">$68,200</div>
-                    <div class="text-xs text-gray-500 mt-2">12 verified accelerations</div>
-                </div>
-                <div class="bg-white rounded-lg border border-gray-200 p-6">
-                    <div class="text-sm text-gray-600 mb-1">Cost Avoidance (Tier B)</div>
-                    <div class="text-3xl font-bold text-orange-600">$42,500</div>
-                    <div class="text-xs text-gray-500 mt-2">8 harvest tasks completed</div>
-                </div>
-                <div class="bg-white rounded-lg border border-gray-200 p-6">
-                    <div class="text-sm text-gray-600 mb-1">Revenue Impact (Tier C)</div>
-                    <div class="text-3xl font-bold text-purple-600">$16,750</div>
-                    <div class="text-xs text-gray-500 mt-2">3 deal accelerations</div>
-                </div>
-            </div>
-
-            <!-- Capacity Summary -->
-            <div class="grid grid-cols-2 gap-6 mb-8">
-                <div class="bg-white rounded-lg border border-gray-200 p-6">
-                    <h3 class="text-lg font-bold text-gray-900 mb-4">Weekly Capacity Minted</h3>
-                    <div class="space-y-4">
-                        <div>
-                            <div class="flex justify-between mb-2">
-                                <span class="text-sm font-semibold text-gray-700">Block Capacity</span>
-                                <span class="text-sm font-bold text-green-600">84.5 hours</span>
-                            </div>
-                            <div class="w-full bg-gray-100 rounded-full h-3">
-                                <div class="capacity-bar" style="width: 70%"></div>
-                            </div>
-                            <div class="text-xs text-gray-500 mt-1">From automation & workflow optimization</div>
-                        </div>
-                        <div>
-                            <div class="flex justify-between mb-2">
-                                <span class="text-sm font-semibold text-gray-700">AI-SAVED TIME</span>
-                                <span class="text-sm font-bold text-blue-600">32.3 hours</span>
-                            </div>
-                            <div class="w-full bg-gray-100 rounded-full h-3">
-                                <div class="capacity-bar bg-blue-500" style="width: 40%"></div>
-                            </div>
-                            <div class="text-xs text-gray-500 mt-1">From meeting efficiency improvements</div>
-                        </div>
-                        <div class="pt-4 border-t border-gray-200">
-                            <div class="flex justify-between">
-                                <span class="font-bold text-gray-900">Total Available</span>
-                                <span class="font-bold text-lg text-gray-900">116.8 hours/week</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-white rounded-lg border border-gray-200 p-6">
-                    <h3 class="text-lg font-bold text-gray-900 mb-4">Integration Health</h3>
-                    <div class="space-y-3">
-                        <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                            <div class="flex items-center gap-3">
-                                <div class="w-8 h-8 bg-orange-100 rounded flex items-center justify-center font-bold text-orange-600">H</div>
-                                <div>
-                                    <div class="font-semibold text-sm text-gray-900">HubSpot</div>
-                                    <div class="text-xs text-gray-500">Deal Lifecycle • Activities</div>
-                                </div>
-                            </div>
-                            <span class="text-xs font-semibold text-green-700">Connected • Read-Only</span>
-                        </div>
-                        <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                            <div class="flex items-center gap-3">
-                                <div class="w-8 h-8 bg-pink-100 rounded flex items-center justify-center font-bold text-pink-600">A</div>
-                                <div>
-                                    <div class="font-semibold text-sm text-gray-900">Asana</div>
-                                    <div class="text-xs text-gray-500">Tasks • Dependencies • CoD</div>
-                                </div>
-                            </div>
-                            <span class="text-xs font-semibold text-green-700">Connected • Read-Only</span>
-                        </div>
-                        <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                            <div class="flex items-center gap-3">
-                                <div class="w-8 h-8 bg-blue-100 rounded flex items-center justify-center font-bold text-blue-600">M</div>
-                                <div>
-                                    <div class="font-semibold text-sm text-gray-900">Microsoft 365</div>
-                                    <div class="text-xs text-gray-500">Calendar Metadata Only</div>
-                                </div>
-                            </div>
-                            <span class="text-xs font-semibold text-green-700">Connected • Read-Only</span>
-                        </div>
+        <!-- VP Executive dashboard removed -->
                         <div class="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
                             <div class="flex items-center gap-3">
                                 <div class="w-8 h-8 bg-purple-100 rounded flex items-center justify-center font-bold text-purple-600">Z</div>
