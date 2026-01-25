@@ -10,6 +10,8 @@ export default async function handler(req: Request, res: Response) {
   try {
     const projectKey = req.query.projectKey as string;
 
+    console.log('[Jira Issues] Request for project:', projectKey);
+
     if (!projectKey) {
       return res.status(400).json({ error: 'Project key is required' });
     }
@@ -18,7 +20,10 @@ export default async function handler(req: Request, res: Response) {
     const token = req.cookies?.jira_access_token || 
                   req.headers.cookie?.split('; ').find((row: string) => row.startsWith('jira_access_token='))?.split('=')[1];
 
+    console.log('[Jira Issues] Token exists:', !!token);
+
     if (!token) {
+      console.log('[Jira Issues] No token found');
       return res.status(401).json({ 
         error: 'Not authenticated',
         message: 'Please connect your Jira account first',
@@ -31,13 +36,18 @@ export default async function handler(req: Request, res: Response) {
       headers: { 'Authorization': `Bearer ${token}` }
     });
 
+    console.log('[Jira Issues] Resources response:', resourcesRes.status);
+
     if (!resourcesRes.ok) {
+      console.error('[Jira Issues] Failed to fetch resources:', resourcesRes.status);
       return res.status(resourcesRes.status).json({ error: 'Failed to fetch Jira resources' });
     }
 
     const resources = await resourcesRes.json() as any[];
+    console.log('[Jira Issues] Found resources:', resources?.length || 0);
     
     if (!resources || resources.length === 0) {
+      console.log('[Jira Issues] No resources available');
       return res.json({ issues: [] });
     }
 
@@ -46,11 +56,14 @@ export default async function handler(req: Request, res: Response) {
                           req.headers.cookie?.split('; ').find((row: string) => row.startsWith('jira_cloud_id='))?.split('=')[1];
     
     const cloudId = cookieCloudId || resources[0].id;
+    console.log('[Jira Issues] Using cloudId:', cloudId, 'from', cookieCloudId ? 'cookie' : 'first resource');
 
     // Fetch issues from Jira
     const jql = `project = ${projectKey}`;
     const fields = 'key,summary,created,duedate,description,priority,status,assignee,issuetype,customfield_10015';
     const searchUrl = `https://api.atlassian.com/ex/jira/${cloudId}/rest/api/3/search/jql?jql=${encodeURIComponent(jql)}&maxResults=100&fields=${encodeURIComponent(fields)}`;
+
+    console.log('[Jira Issues] Fetching from:', searchUrl);
 
     const response = await fetch(searchUrl, {
       method: 'GET',
@@ -59,6 +72,8 @@ export default async function handler(req: Request, res: Response) {
         'Accept': 'application/json',
       },
     });
+
+    console.log('[Jira Issues] Issues response:', response.status);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -70,6 +85,8 @@ export default async function handler(req: Request, res: Response) {
     }
 
     const data = await response.json() as any;
+    console.log('[Jira Issues] Raw issues count:', data.issues?.length || 0);
+    
     const MS_PER_DAY = 1000 * 60 * 60 * 24;
     
     const issues = (data.issues || []).map((issue: any) => {
@@ -95,12 +112,13 @@ export default async function handler(req: Request, res: Response) {
         status: fields.status?.name || '-',
         assignee: fields.assignee?.displayName || 'Unassigned',
         team: '-',
-        startDate: startDate || created?.split('T')[0] || null,
-        dueDate: due,
+        start: startDate || (created ? created.split('T')[0] : null),  // Field name: 'start' not 'startDate'
+        due: due,  // Field name: 'due' not 'dueDate'
         duration,
       };
     });
 
+    console.log('[Jira Issues] Formatted issues:', issues.length);
     res.json({ issues });
   } catch (error) {
     console.error('[Jira Issues] Error:', error);
