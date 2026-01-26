@@ -95,7 +95,15 @@ async function fetchJiraData() {
           
           // Sum up hours and collect assignees
           issues.forEach((issue: any) => {
-            totalHours += (issue.duration || 8);
+            // Safely parse duration - convert to number and validate
+            let hours = 8; // default
+            if (issue.duration) {
+              const parsed = parseInt(String(issue.duration), 10);
+              if (!isNaN(parsed) && parsed > 0 && parsed < 10000) {
+                hours = parsed;
+              }
+            }
+            totalHours += hours;
             if (issue.assignee) {
               assigneesSet.add(issue.assignee);
             }
