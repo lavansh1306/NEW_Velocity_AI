@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { 
   BarChart3, 
   Users, 
@@ -31,6 +31,8 @@ import { getJiraConnected, setJiraConnected } from '../lib/storage';
 import { apiUrl } from '../lib/api';
 
 import { OrganizationalWorkloadTable } from '../components/leave-management/OrganizationalWorkloadTable';
+import { JiraCapacityMap } from '../components/leave-management/JiraCapacityMap';
+import { useJiraData } from '../hooks/useJiraData';
 import { parseCSV } from '../components/ml-model/RecommendationEngine';
 import { Task, EmployeeProfile } from '../components/leave-management/types';
 
@@ -147,12 +149,37 @@ async function fetchJiraData() {
 
 // --- NEW MODERN DASHBOARD COMPONENT (Placeholder) ---
 const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
-  // --- NEW: State for Organizational Workload ---
+  // --- State for view mode (Timeline vs Capacity) ---
+  const [viewMode, setViewMode] = useState<'timeline' | 'capacity'>('timeline');
+
+  // --- State for Organizational Workload ---
   const [tasks, setTasks] = useState<Task[]>([]);
   const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [csvLoading, setCsvLoading] = useState(true);
 
-  // --- NEW: Fetch CSV Data for the Graph ---
+  // --- Fetch Jira data using the custom hook ---
+  const { issues: jiraIssues, loading: jiraLoading } = useJiraData();
+
+  // --- Calculate stats from Jira issues ---
+  const stats = useMemo(() => {
+    const uniqueProjects = new Set(jiraIssues.map(i => i.project || i.projectKey || 'Unknown'));
+    const uniqueAssignees = new Set(jiraIssues.map(i => i.assignee || 'Unassigned'));
+    
+    // Calculate total hours, ensuring duration is a valid positive number
+    const totalHours = jiraIssues.reduce((sum, issue) => {
+      const duration = Number(issue.duration) || 0;
+      return sum + (duration > 0 ? duration : 0);
+    }, 0);
+    
+    return {
+      totalTasks: jiraIssues.length,
+      totalProjects: uniqueProjects.size,
+      teamMembers: uniqueAssignees.size,
+      totalHours: Math.max(totalHours, 0), // Ensure non-negative
+    };
+  }, [jiraIssues]);
+
+  // --- Fetch CSV Data for the Graph (fallback/demo data) ---
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -188,7 +215,7 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
       } catch (err) {
         console.error("Workload data load failed", err);
       } finally {
-        setLoading(false);
+        setCsvLoading(false);
       }
     };
     fetchData();
@@ -228,9 +255,6 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
         </div>
       </div>
 
-      {/* Global Gantt Chart */}
-      <ManagerGantt autoFetch={true} />
-
       {/* 3. Jira Projects List (PRESERVED) */}
       {jiraData?.projects && jiraData.projects.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-200 p-6">
@@ -257,10 +281,10 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
       {/* 4. KPI Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total Tasks', value: jiraData?.stats?.totalTasks || '0', change: '+12%', icon: Zap, color: 'text-amber-500', bg: 'bg-amber-50' },
-          { label: 'Total Projects', value: jiraData?.stats?.totalProjects || '0', change: 'On Track', icon: BarChart3, color: 'text-blue-500', bg: 'bg-blue-50' },
-          { label: 'Team Members', value: jiraData?.stats?.teamMembers || '0', change: '+2.4%', icon: Activity, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-          { label: 'Total Hours', value: jiraData?.stats?.totalHours || '0', change: 'Full Capacity', icon: Users, color: 'text-indigo-500', bg: 'bg-indigo-50' },
+          { label: 'Total Tasks', value: stats.totalTasks, change: '+12%', icon: Zap, color: 'text-amber-500', bg: 'bg-amber-50' },
+          { label: 'Total Projects', value: stats.totalProjects, change: 'On Track', icon: BarChart3, color: 'text-blue-500', bg: 'bg-blue-50' },
+          { label: 'Team Members', value: stats.teamMembers, change: '+2.4%', icon: Activity, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+          { label: 'Total Hours', value: stats.totalHours, change: 'Full Capacity', icon: Users, color: 'text-indigo-500', bg: 'bg-indigo-50' },
         ].map((stat, i) => (
           <div key={i} className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all group">
             <div className="flex justify-between items-start mb-4">
@@ -277,62 +301,98 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
         ))}
       </div>
 
-      {/* 5. Main Charts Area */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* === REPLACED: SPRINT PERFORMANCE WITH ORGANIZATIONAL WORKLOAD === */}
-        <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-gray-400" />
-              Real-time Capacity Map
-            </h3>
-            <span className="text-xs font-medium px-2 py-1 bg-indigo-50 text-indigo-700 rounded-full">
-               Live Data
-            </span>
-          </div>
-          
-          {loading ? (
-             <div className="h-64 flex items-center justify-center text-gray-400 bg-slate-50 rounded-lg border-2 border-dashed">
-                Loading Workforce Data...
-             </div>
-          ) : (
-             <OrganizationalWorkloadTable 
-               tasks={tasks} 
-               employees={employees} 
-               title="" 
-               className="flex-1"
-             />
-          )}
+      {/* 5. Main Charts Area with View Toggle */}
+      <div className="space-y-4">
+        {/* View Toggle */}
+        <div className="flex items-center gap-2 bg-white p-1 rounded-lg border border-gray-200 shadow-sm w-fit">
+          <button
+            onClick={() => setViewMode('timeline')}
+            className={`px-4 py-2 rounded-md text-sm font-semibold transition-all ${
+              viewMode === 'timeline'
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+            }`}
+          >
+            📊 Employee Timeline
+          </button>
+          <button
+            onClick={() => setViewMode('capacity')}
+            className={`px-4 py-2 rounded-md text-sm font-semibold transition-all ${
+              viewMode === 'capacity'
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+            }`}
+          >
+            👥 Capacity Map
+          </button>
         </div>
 
-        {/* Recent Activity List (PRESERVED) */}
-        <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-          <h3 className="font-semibold text-gray-900 mb-6 flex items-center gap-2">
-            <Clock className="w-5 h-5 text-gray-400" />
-            Recent Updates
-          </h3>
-          <div className="space-y-6">
-            {[
-              { title: 'Deployment Success', time: '2 hours ago', desc: 'Velocity AI v2.0 deployed to prod', color: 'bg-emerald-500' },
-              { title: 'New Alert', time: '4 hours ago', desc: 'High capacity usage in Design Team', color: 'bg-amber-500' },
-              { title: 'Jira Sync', time: '5 hours ago', desc: 'Automatic synchronization complete', color: 'bg-blue-500' },
-            ].map((item, i) => (
-              <div key={i} className="flex gap-4">
-                <div className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${item.color}`} />
-                <div>
-                  <p className="text-sm font-medium text-gray-900">{item.title}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{item.desc}</p>
-                  <p className="text-[10px] text-gray-400 mt-1 font-medium">{item.time}</p>
+        {/* Timeline View */}
+        {viewMode === 'timeline' && (
+          <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <ManagerGantt autoFetch={true} jiraIssues={jiraIssues} />
+          </div>
+        )}
+
+        {/* Capacity Map View */}
+        {viewMode === 'capacity' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <div className="lg:col-span-2">
+              <JiraCapacityMap jiraIssues={jiraIssues} loading={jiraLoading} />
+            </div>
+
+            {/* Recent Activity List (PRESERVED) */}
+            <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
+              <h3 className="font-semibold text-gray-900 mb-6 flex items-center gap-2">
+                <Clock className="w-5 h-5 text-gray-400" />
+                Recent Updates
+              </h3>
+              <div className="space-y-6">
+                {[
+                  { title: 'Deployment Success', time: '2 hours ago', desc: 'Velocity AI v2.0 deployed to prod', color: 'bg-emerald-500' },
+                  { title: 'New Alert', time: '4 hours ago', desc: 'High capacity usage in Design Team', color: 'bg-amber-500' },
+                  { title: 'Jira Sync', time: '5 hours ago', desc: 'Automatic synchronization complete', color: 'bg-blue-500' },
+                ].map((item, i) => (
+                  <div key={i} className="flex gap-4">
+                    <div className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${item.color}`} />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{item.title}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{item.desc}</p>
+                      <p className="text-[10px] text-gray-400 mt-1 font-medium">{item.time}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button className="w-full mt-6 py-2 text-sm text-indigo-600 font-medium hover:bg-indigo-50 rounded-lg transition-colors">
+                View All Activity
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 6. Jira Projects List (shown in both views, below the toggle section) */}
+      {jiraData?.projects && jiraData.projects.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-200 p-6 mt-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Your Jira Projects</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {jiraData.projects.slice(0, 9).map((project: any) => (
+              <div key={project.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                <div className="flex items-start gap-3">
+                  {project.avatarUrls?.['48x48'] && (
+                    <img src={project.avatarUrls['48x48']} alt={project.name} className="w-10 h-10 rounded" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-semibold text-gray-900 truncate">{project.name}</h4>
+                    <p className="text-sm text-gray-500">{project.key}</p>
+                    <p className="text-xs text-gray-400 mt-1">{project.projectTypeKey}</p>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
-          <button className="w-full mt-6 py-2 text-sm text-indigo-600 font-medium hover:bg-indigo-50 rounded-lg transition-colors">
-            View All Activity
-          </button>
         </div>
-      </div>
+      )}
     </div>
   );
 };
