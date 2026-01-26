@@ -5,7 +5,6 @@ import { ArrowLeft, Filter } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useToast } from '@/contexts/ToastContext'
 import { apiUrl } from '@/lib/api'
-import { hubspotFetch } from '@/lib/hubspot-fetch'
 
 interface GlobalTask {
   key: string
@@ -53,72 +52,54 @@ export default function GlobalGanttDashboard() {
         // ======== JIRA ========
         console.log('[GlobalGantt] Fetching Jira data...')
         try {
-          const jiraResp = await fetch(apiUrl('/api/jira/issues'), {
+          // First get projects list
+          const projectsResp = await fetch(apiUrl('/api/jira/projects'), {
             credentials: 'include',
           })
-          if (jiraResp.ok) {
-            const jiraData = await jiraResp.json()
-            const issues = jiraData.issues || []
-            console.log('[GlobalGantt] Jira issues:', issues.length)
+          if (projectsResp.ok) {
+            const projectsData = await projectsResp.json()
+            const projects = projectsData.projects || []
+            console.log('[GlobalGantt] Found', projects.length, 'Jira projects')
 
-            const jiraTasks = issues.map((iss: any) => {
-              const dueDate = iss.fields?.duedate || iss.duedate
-              const startDate = iss.fields?.customfield_10015 || null
+            // Fetch issues for each project
+            for (const project of projects) {
+              try {
+                const issuesResp = await fetch(apiUrl(`/api/jira/issues?projectKey=${encodeURIComponent(project.key)}`), {
+                  credentials: 'include',
+                })
+                if (issuesResp.ok) {
+                  const issuesData = await issuesResp.json()
+                  const issues = issuesData.issues || []
+                  console.log(`[GlobalGantt] Jira project ${project.key}: ${issues.length} issues`)
 
-              return {
-                key: iss.key || iss.id || '',
-                title: iss.fields?.summary || iss.summary || '',
-                project: iss.fields?.project?.key || iss.project || 'JIRA',
-                assignee: iss.fields?.assignee?.displayName || iss.assignee || 'Unassigned',
-                team: iss.fields?.customfield_10000 || 'Engineering',
-                status: iss.fields?.status?.name || iss.status || 'Open',
-                priority: iss.fields?.priority?.name || iss.priority || 'Medium',
-                startDate: startDate,
-                dueDate: dueDate,
-                estimatedHours: iss.fields?.timeestimate ? iss.fields.timeestimate / 3600 : 8,
-                source: 'jira' as const,
+                  const jiraTasks = issues.map((iss: any) => ({
+                    key: iss.key || iss.id || '',
+                    title: iss.summary || '',
+                    project: project.key,
+                    assignee: iss.assignee || 'Unassigned',
+                    team: 'Engineering',
+                    status: iss.status || 'Open',
+                    priority: iss.priority || 'Medium',
+                    startDate: iss.start || null,
+                    dueDate: iss.due || null,
+                    estimatedHours: 8,
+                    source: 'jira' as const,
+                  }))
+                  allCollectedTasks.push(...jiraTasks)
+                }
+              } catch (e) {
+                console.warn(`[GlobalGantt] Failed to fetch issues for project ${project.key}:`, e)
               }
-            })
-            allCollectedTasks.push(...jiraTasks)
+            }
           }
         } catch (e) {
           console.warn('[GlobalGantt] Jira fetch failed:', e)
         }
 
-        // ======== ASANA ========
-        console.log('[GlobalGantt] Fetching Asana data...')
-        try {
-          const asanaResp = await fetch(apiUrl('/api/asana/tasks'), {
-            credentials: 'include',
-          })
-          if (asanaResp.ok) {
-            const asanaData = await asanaResp.json()
-            const tasks = asanaData.tasks || []
-            console.log('[GlobalGantt] Asana tasks:', tasks.length)
-
-            const asanaTasks = tasks.map((task: any) => ({
-              key: task.gid || task.id || '',
-              title: task.name || '',
-              project: task.projects?.[0]?.name || task.project || 'Asana',
-              assignee: task.assignee?.name || 'Unassigned',
-              team: 'Engineering',
-              status: task.completed ? 'Done' : 'In Progress',
-              priority: task.priority || 'Medium',
-              startDate: task.start_on || null,
-              dueDate: task.due_on || null,
-              estimatedHours: task.estimated_minutes ? task.estimated_minutes / 60 : 8,
-              source: 'asana' as const,
-            }))
-            allCollectedTasks.push(...asanaTasks)
-          }
-        } catch (e) {
-          console.warn('[GlobalGantt] Asana fetch failed:', e)
-        }
-
         // ======== HUBSPOT ========
         console.log('[GlobalGantt] Fetching HubSpot data...')
         try {
-          const hubspotResp = await hubspotFetch(apiUrl('/api/hubspot/tickets'), {
+          const hubspotResp = await fetch(apiUrl('/api/hubspot/tickets'), {
             credentials: 'include',
           })
           if (hubspotResp.ok) {
@@ -127,9 +108,9 @@ export default function GlobalGanttDashboard() {
             console.log('[GlobalGantt] HubSpot tickets:', tickets.length)
 
             const hubspotTasks = tickets.map((ticket: any) => ({
-              key: ticket.ticketId || ticket.id || '',
+              key: ticket.id || ticket.ticketId || '',
               title: ticket.subject || ticket.name || '',
-              project: ticket.pipeline || 'HubSpot',
+              project: 'HubSpot',
               assignee: ticket.assignee || 'Unassigned',
               team: 'Sales',
               status: ticket.stage || ticket.status || 'Open',
