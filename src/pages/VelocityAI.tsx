@@ -78,17 +78,54 @@ async function fetchJiraData() {
     const projectsData = await projectsRes.json();
     const projects = projectsData.projects || [];
     
+    // Fetch all issues from all projects to calculate stats
+    let allIssues = [];
+    let totalHours = 0;
+    const assigneesSet = new Set<string>();
+    
+    for (const project of projects) {
+      try {
+        const issuesRes = await fetch(apiUrl(`/api/jira/issues?projectKey=${encodeURIComponent(project.key)}`), {
+          credentials: 'include'
+        });
+        if (issuesRes.ok) {
+          const issuesData = await issuesRes.json();
+          const issues = issuesData.issues || [];
+          allIssues.push(...issues);
+          
+          // Sum up hours and collect assignees
+          issues.forEach((issue: any) => {
+            totalHours += (issue.duration || 8);
+            if (issue.assignee) {
+              assigneesSet.add(issue.assignee);
+            }
+          });
+        }
+      } catch (e) {
+        console.warn(`Failed to fetch issues for project ${project.key}:`, e);
+      }
+    }
+    
+    const stats = {
+      totalTasks: allIssues.length,
+      totalProjects: projects.length,
+      teamMembers: assigneesSet.size,
+      totalHours: Math.round(totalHours)
+    };
+    
     console.log('Jira data fetched successfully:', { 
       site: status.site,
       availableSites: status.availableSites,
-      projects: projects.length 
+      projects: projects.length,
+      stats
     });
     
     return { 
       resources: status.availableSites,
       projects, 
       cloudId,
-      site: status.site
+      site: status.site,
+      stats
     };
   } catch (error) {
     console.error('Error fetching Jira data:', error);
@@ -160,10 +197,10 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
       {/* KPI Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Team Velocity', value: '124 pts', change: '+12%', icon: Zap, color: 'text-amber-500', bg: 'bg-amber-50' },
-          { label: 'Active Projects', value: '8', change: 'On Track', icon: BarChart3, color: 'text-blue-500', bg: 'bg-blue-50' },
-          { label: 'Resource Health', value: '94%', change: '+2.4%', icon: Activity, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-          { label: 'Team Members', value: '24', change: 'Full Capacity', icon: Users, color: 'text-indigo-500', bg: 'bg-indigo-50' },
+          { label: 'Total Tasks', value: jiraData?.stats?.totalTasks || '0', change: '+12%', icon: Zap, color: 'text-amber-500', bg: 'bg-amber-50' },
+          { label: 'Total Projects', value: jiraData?.stats?.totalProjects || '0', change: 'On Track', icon: BarChart3, color: 'text-blue-500', bg: 'bg-blue-50' },
+          { label: 'Team Members', value: jiraData?.stats?.teamMembers || '0', change: '+2.4%', icon: Activity, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+          { label: 'Total Hours', value: jiraData?.stats?.totalHours || '0', change: 'Full Capacity', icon: Users, color: 'text-indigo-500', bg: 'bg-indigo-50' },
         ].map((stat, i) => (
           <div key={i} className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all group">
             <div className="flex justify-between items-start mb-4">
