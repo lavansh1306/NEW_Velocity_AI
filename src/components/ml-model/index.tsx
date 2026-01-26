@@ -1,118 +1,138 @@
 import React, { useState, useEffect } from 'react';
 import { ProjectCheckInput } from './ProjectCheckInput';
-import { RecommendationCard } from './RecommendationCard';
+import { ProjectCheckDashboard } from './ProjectCheckDashboard';
 import { runRecommendationModel, parseCSV } from './RecommendationEngine';
 import { EmployeeRecord, PredictionResult } from './types';
-import { BrainCircuit, Loader2, AlertCircle, FileX } from 'lucide-react';
+import { Bot, Sparkles, Loader2, FileX } from 'lucide-react';
 
 export default function ProjectCheckView() {
+  // --- 1. DATA & STATE MANAGEMENT ---
   const [dataset, setDataset] = useState<EmployeeRecord[]>([]);
   const [results, setResults] = useState<PredictionResult[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isDataLoading, setIsDataLoading] = useState(true);
+  
+  // UI States
+  const [viewMode, setViewMode] = useState<'input' | 'dashboard'>('input');
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
-  const [hasSearched, setHasSearched] = useState(false);
 
+  // --- 2. LOAD DATASET ON MOUNT ---
   useEffect(() => {
     const loadData = async () => {
       try {
-        // VITE SPECIFIC: This resolves the file path correctly inside src/
         const csvUrl = new URL('./datasets/master_employee_task_report.csv', import.meta.url).href;
-        
         const data = await parseCSV(csvUrl);
         setDataset(data);
-        setIsDataLoading(false);
+        setIsLoadingData(false);
       } catch (error) {
         console.error("ML Data Load Error:", error);
         setDataError("Could not load 'master_employee_task_report.csv'. Ensure it exists in 'components/ml-model/datasets/'.");
-        setIsDataLoading(false);
+        setIsLoadingData(false);
       }
     };
     loadData();
   }, []);
 
-  const handleAnalysis = async (description: string) => {
+  // --- 3. HANDLE ANALYSIS ---
+  const handleAnalyze = async (description: string) => {
     if (dataset.length === 0) return;
 
-    setIsLoading(true);
-    setHasSearched(true);
-    setResults([]); 
-
-    // Simulate Processing Delay for UX
+    setIsAnalyzing(true);
+    
+    // Artificial delay for "AI Thinking" effect
     setTimeout(() => {
       try {
         const predictions = runRecommendationModel(description, dataset);
         setResults(predictions);
+        setViewMode('dashboard'); // Switch View
       } catch (e) {
-        console.error(e);
+        console.error("Prediction Failed", e);
       } finally {
-        setIsLoading(false);
+        setIsAnalyzing(false);
       }
-    }, 1000);
+    }, 1500);
   };
 
+  const handleReset = () => {
+    setViewMode('input');
+    setResults([]);
+  };
+
+  // --- 4. RENDER ---
   return (
-    <div className="space-y-8 pb-20 animate-in fade-in duration-500">
-      <div className="flex items-center gap-3">
-        <div className="p-3 bg-indigo-100 rounded-xl">
-           <BrainCircuit className="w-8 h-8 text-indigo-600" />
-        </div>
+    <div className="space-y-6 animate-in fade-in duration-500 pb-20">
+      
+      {/* Header */}
+      <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-black text-gray-900 tracking-tight">ProjectCheck AI</h2>
-          <p className="text-gray-500">Predictive Resource Allocation Engine (Powered by Live Data)</p>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+            <div className="p-2 bg-indigo-600 rounded-lg shadow-lg shadow-indigo-200">
+              <Bot className="w-6 h-6 text-white" />
+            </div>
+            Project Check AI
+          </h1>
+          <p className="text-gray-500 mt-1 ml-1">
+            Upload SRS documents to predict delivery risks and resource gaps.
+          </p>
         </div>
+        
+        {viewMode === 'dashboard' && (
+           <button 
+             onClick={handleReset}
+             className="text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-indigo-50"
+           >
+             <Sparkles className="w-4 h-4" /> New Analysis
+           </button>
+        )}
       </div>
 
-      {/* DATA LOADING ERROR STATE */}
-      {dataError && (
-        <div className="p-6 bg-red-50 border border-red-200 rounded-xl flex items-center gap-4 text-red-700">
-           <FileX className="w-8 h-8 shrink-0" />
-           <div>
-             <h4 className="font-bold text-lg">Dataset Missing</h4>
-             <p className="text-sm">{dataError}</p>
-           </div>
+      {/* Main Content Card */}
+      <div className="min-h-[600px] bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden relative">
+        
+        {/* Background Gradients */}
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-50/50 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-blue-50/50 rounded-full blur-3xl -ml-20 -mb-20 pointer-events-none" />
+
+        <div className="relative z-10 p-6 md:p-8">
+          
+          {/* Error State */}
+          {dataError && (
+            <div className="flex flex-col items-center justify-center h-[400px] text-red-600">
+              <FileX className="w-12 h-12 mb-4" />
+              <h3 className="font-bold text-lg">Dataset Error</h3>
+              <p>{dataError}</p>
+            </div>
+          )}
+
+          {/* Loading State */}
+          {(isLoadingData || isAnalyzing) && !dataError && (
+             <div className="flex flex-col items-center justify-center h-[400px] animate-in fade-in">
+               <Loader2 className="w-12 h-12 text-indigo-600 animate-spin mb-4" />
+               <h3 className="font-bold text-xl text-slate-800">
+                 {isLoadingData ? "Initializing Neural Engine..." : "Analyzing SRS Document..."}
+               </h3>
+               <p className="text-slate-500 mt-2">
+                 {isLoadingData ? "Loading 140+ employee records" : "Matching skills against project requirements"}
+               </p>
+             </div>
+          )}
+
+          {/* View: INPUT */}
+          {!isLoadingData && !isAnalyzing && !dataError && viewMode === 'input' && (
+            <div className="max-w-3xl mx-auto py-10 animate-in slide-in-from-bottom-4 duration-500">
+              <ProjectCheckInput onAnalyze={handleAnalyze} />
+            </div>
+          )}
+
+          {/* View: DASHBOARD */}
+          {!isLoadingData && !isAnalyzing && !dataError && viewMode === 'dashboard' && (
+            <div className="animate-in slide-in-from-bottom-4 duration-500">
+              <ProjectCheckDashboard results={results} />
+            </div>
+          )}
+
         </div>
-      )}
-
-      {/* NORMAL STATE */}
-      {!dataError && (
-        <>
-          <ProjectCheckInput onAnalyze={handleAnalysis} isAnalyzing={isLoading || isDataLoading} />
-
-          {/* LOADING SPINNER */}
-          {(isLoading || isDataLoading) && (
-            <div className="py-12 flex flex-col items-center justify-center text-gray-400 animate-in fade-in">
-              <Loader2 className="w-10 h-10 animate-spin mb-4 text-indigo-500" />
-              <p>{isDataLoading ? "Initializing Dataset..." : "Running Prediction Model..."}</p>
-            </div>
-          )}
-
-          {/* RESULTS */}
-          {!isLoading && results.length > 0 && (
-            <div className="space-y-4 animate-in slide-in-from-bottom-4 duration-500">
-              <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                AI Recommendations
-                <span className="bg-indigo-100 text-indigo-700 text-xs px-2 py-1 rounded-full">{results.length} Matches</span>
-              </h3>
-              
-              <div className="grid md:grid-cols-2 gap-4">
-                {results.map((res, idx) => (
-                  <RecommendationCard key={idx} result={res} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* EMPTY SEARCH RESULTS */}
-          {!isLoading && hasSearched && results.length === 0 && (
-            <div className="p-8 border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center text-slate-400">
-              <AlertCircle className="w-10 h-10 mb-2 opacity-50" />
-              <h4 className="font-bold text-slate-600">No matching talent found</h4>
-              <p className="text-sm">The model analyzed {dataset.length} records but found no employees matching your skill requirements.</p>
-            </div>
-          )}
-        </>
-      )}
+      </div>
     </div>
   );
 }
