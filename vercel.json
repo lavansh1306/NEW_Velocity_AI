@@ -13,9 +13,15 @@
     "NODE_ENV": "production"
   },
   "rewrites": [
-    { "source": "/oauth/hubspot/callback", "destination": "/api/index.ts" },
-    { "source": "/api/(.*)", "destination": "/api/index.ts" },
-    { "source": "/auth/callback", "destination": "/api/index.ts" },
+    { "source": "/oauth/hubspot/callback", "destination": "/api/hubspot-callback" },
+    { "source": "/api/jira/auth/connect", "destination": "/api/jira/auth/connect" },
+    { "source": "/api/jira/auth/callback", "destination": "/api/jira/auth/callback" },
+    { "source": "/api/jira/auth/status", "destination": "/api/jira/auth/status" },
+    { "source": "/api/jira/auth/switch-site/:siteId", "destination": "/api/jira/auth/switch-site?siteId=:siteId" },
+    { "source": "/api/jira/auth/disconnect", "destination": "/api/jira/auth/disconnect" },
+    { "source": "/api/jira/projects", "destination": "/api/jira/projects" },
+    { "source": "/api/jira/issues", "destination": "/api/jira/issues" },
+    { "source": "/api/(.*)", "destination": "/api/index" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

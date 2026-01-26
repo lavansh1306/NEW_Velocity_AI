@@ -110,7 +110,13 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-3">Projects</h1>
             <p className="text-gray-600 text-sm sm:text-base leading-relaxed">Selected case studies and platform projects demonstrating impact and outcomes.</p>
           </div>
-          {/* Add Project removed */}
+          <div className="flex gap-2">
+            <Link to="/projects/global-gantt">
+              <Button className="gap-2 bg-blue-600 hover:bg-blue-700">
+                <span>📊</span> Global Gantt Chart
+              </Button>
+            </Link>
+          </div>
         </div>
 
         {/* Integration Dashboards removed per request */}

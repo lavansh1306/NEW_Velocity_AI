@@ -74,6 +74,22 @@ export default function IntegrationsTab() {
   const checkAllConnections = async () => {
     const updatedIntegrations = [...integrations];
 
+    // Check Jira
+    try {
+      const jiraResponse = await fetch('/api/jira/auth/status', { credentials: 'include' });
+      const jiraData = await jiraResponse.json();
+      const jiraIndex = updatedIntegrations.findIndex(i => i.id === 'jira');
+      if (jiraIndex !== -1) {
+        updatedIntegrations[jiraIndex].connected = jiraData.connected;
+        updatedIntegrations[jiraIndex].status = jiraData.connected ? 'connected' : 'disconnected';
+        if (jiraData.connected) {
+          updatedIntegrations[jiraIndex].lastSync = '1 minute ago';
+        }
+      }
+    } catch (error) {
+      console.error('Failed to check Jira:', error);
+    }
+
     // Check HubSpot
     try {
       const hubspotResponse = await fetch('/api/hubspot/auth/status');
@@ -106,8 +122,6 @@ export default function IntegrationsTab() {
       console.error('Failed to check M365:', error);
     }
 
-    // For Jira and Asana, check localStorage or assume disconnected for now
-    // In a real implementation, you'd check their respective APIs
     setIntegrations(updatedIntegrations);
   };
 
