@@ -6,17 +6,17 @@ import { EmployeeRecord, PredictionResult } from './types';
 import { Bot, Sparkles, Loader2, FileX } from 'lucide-react';
 
 export default function ProjectCheckView() {
-  // --- 1. DATA & STATE MANAGEMENT ---
   const [dataset, setDataset] = useState<EmployeeRecord[]>([]);
   const [results, setResults] = useState<PredictionResult[]>([]);
   
-  // UI States
+  // Track the project description for the final payload
+  const [projectDesc, setProjectDesc] = useState(''); 
+  
   const [viewMode, setViewMode] = useState<'input' | 'dashboard'>('input');
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
 
-  // --- 2. LOAD DATASET ON MOUNT ---
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -33,18 +33,17 @@ export default function ProjectCheckView() {
     loadData();
   }, []);
 
-  // --- 3. HANDLE ANALYSIS ---
   const handleAnalyze = async (description: string) => {
     if (dataset.length === 0) return;
 
     setIsAnalyzing(true);
-    
-    // Artificial delay for "AI Thinking" effect
+    setProjectDesc(description); // Save for later
+
     setTimeout(() => {
       try {
         const predictions = runRecommendationModel(description, dataset);
         setResults(predictions);
-        setViewMode('dashboard'); // Switch View
+        setViewMode('dashboard');
       } catch (e) {
         console.error("Prediction Failed", e);
       } finally {
@@ -53,16 +52,41 @@ export default function ProjectCheckView() {
     }, 1500);
   };
 
+  // --- NEW: HANDLE FINAL CONFIRMATION ---
+  const handleConfirmProject = (selectedEmployees: EmployeeRecord[]) => {
+    console.log("----------------------------------------------------");
+    console.log("🚀 [JIRA INTEGRATION PAYLOAD] Ready for Export");
+    console.log("----------------------------------------------------");
+    console.log("Project Context:", projectDesc.slice(0, 100) + "...");
+    console.log("Selected Team Members:", selectedEmployees.length);
+    console.log("Payload JSON:", JSON.stringify({
+      project: {
+        description: projectDesc,
+        created_at: new Date().toISOString(),
+        source: "VelocityAI_ProjectCheck"
+      },
+      team: selectedEmployees.map(e => ({
+        jira_user_id: `user_${e.id}`, // Mock ID
+        name: e.name,
+        role: e.role,
+        skills: e.skills
+      }))
+    }, null, 2));
+    console.log("----------------------------------------------------");
+    
+    alert(`Project Created! ${selectedEmployees.length} members assigned. Check Console for Jira Payload.`);
+    handleReset();
+  };
+
   const handleReset = () => {
     setViewMode('input');
     setResults([]);
+    setProjectDesc('');
   };
 
-  // --- 4. RENDER ---
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
       
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
@@ -86,16 +110,12 @@ export default function ProjectCheckView() {
         )}
       </div>
 
-      {/* Main Content Card */}
       <div className="min-h-[600px] bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden relative">
-        
-        {/* Background Gradients */}
         <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-50/50 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-blue-50/50 rounded-full blur-3xl -ml-20 -mb-20 pointer-events-none" />
 
         <div className="relative z-10 p-6 md:p-8">
           
-          {/* Error State */}
           {dataError && (
             <div className="flex flex-col items-center justify-center h-[400px] text-red-600">
               <FileX className="w-12 h-12 mb-4" />
@@ -104,7 +124,6 @@ export default function ProjectCheckView() {
             </div>
           )}
 
-          {/* Loading State */}
           {(isLoadingData || isAnalyzing) && !dataError && (
              <div className="flex flex-col items-center justify-center h-[400px] animate-in fade-in">
                <Loader2 className="w-12 h-12 text-indigo-600 animate-spin mb-4" />
@@ -117,17 +136,20 @@ export default function ProjectCheckView() {
              </div>
           )}
 
-          {/* View: INPUT */}
           {!isLoadingData && !isAnalyzing && !dataError && viewMode === 'input' && (
             <div className="max-w-3xl mx-auto py-10 animate-in slide-in-from-bottom-4 duration-500">
               <ProjectCheckInput onAnalyze={handleAnalyze} />
             </div>
           )}
 
-          {/* View: DASHBOARD */}
           {!isLoadingData && !isAnalyzing && !dataError && viewMode === 'dashboard' && (
             <div className="animate-in slide-in-from-bottom-4 duration-500">
-              <ProjectCheckDashboard results={results} />
+              {/* Pass fullDataset and Handler */}
+              <ProjectCheckDashboard 
+                results={results} 
+                fullDataset={dataset} 
+                onConfirmProject={handleConfirmProject} 
+              />
             </div>
           )}
 
