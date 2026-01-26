@@ -4,15 +4,23 @@ import { ProjectCheckDashboard } from './ProjectCheckDashboard';
 import { runRecommendationModel, parseCSV } from './RecommendationEngine';
 import { EmployeeRecord, PredictionResult } from './types';
 import { Bot, Sparkles, Loader2, FileX } from 'lucide-react';
+// IMPORT THE NEW DIALOG
+import { JsonOutputDialog } from './JsonOutputDialog';
 
 export default function ProjectCheckView() {
   const [dataset, setDataset] = useState<EmployeeRecord[]>([]);
   const [results, setResults] = useState<PredictionResult[]>([]);
   const [projectDesc, setProjectDesc] = useState(''); 
+  
+  // UI States
   const [viewMode, setViewMode] = useState<'input' | 'dashboard'>('input');
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
+
+  // --- NEW: Output Modal State ---
+  const [outputOpen, setOutputOpen] = useState(false);
+  const [finalPayload, setFinalPayload] = useState<any>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -23,7 +31,7 @@ export default function ProjectCheckView() {
         setIsLoadingData(false);
       } catch (error) {
         console.error("ML Data Load Error:", error);
-        setDataError("Could not load 'master_employee_task_report.csv'.");
+        setDataError("Could not load 'master_employee_task_report.csv'. Ensure it exists in 'components/ml-model/datasets/'.");
         setIsLoadingData(false);
       }
     };
@@ -48,44 +56,43 @@ export default function ProjectCheckView() {
     }, 1500);
   };
 
-  // --- UPDATED: ROBUST PRINTING ---
   const handleConfirmProject = (selectedEmployees: EmployeeRecord[]) => {
-    // 1. Prepare Data
+    // 1. Construct Payload
     const payload = {
       project: {
-        description: projectDesc || "No description provided",
+        description: projectDesc || "Manual Project Entry",
         created_at: new Date().toISOString(),
-        source: "VelocityAI_ProjectCheck"
+        source: "VelocityAI_ProjectCheck",
+        status: "Draft"
       },
       team: selectedEmployees.map(e => ({
-        jira_user_id: `user_${e.id}`, 
+        id: e.id,
         name: e.name,
         role: e.role,
-        skills: e.skills
+        skills: e.skills,
+        jira_account_id: `jira_${e.id}_${e.name.split(' ')[0]}` // Mock ID for integration
       }))
     };
 
-    const jsonString = JSON.stringify(payload, null, 2);
-
-    // 2. Force Print to Console (Using warn to bypass filters)
-    console.warn("👇👇👇 JIRA INTEGRATION PAYLOAD 👇👇👇");
-    console.log(jsonString);
-    console.warn("👆👆👆 COPY THE JSON ABOVE 👆👆👆");
-
-    // 3. Show Alert with Data Preview (To verify it worked)
-    alert(`Project Created with ${selectedEmployees.length} members!\n\nCheck the Console (F12) for the full JSON payload.\n\nPreview:\n${jsonString.slice(0, 200)}...`);
-
-    handleReset();
+    // 2. Set Data and Open Dialog
+    setFinalPayload(payload);
+    setOutputOpen(true);
+    
+    // Optional: Log to console as backup
+    console.log("JIRA PAYLOAD:", payload);
   };
 
   const handleReset = () => {
     setViewMode('input');
     setResults([]);
     setProjectDesc('');
+    setOutputOpen(false);
   };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
+      
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
@@ -153,6 +160,14 @@ export default function ProjectCheckView() {
 
         </div>
       </div>
+
+      {/* --- NEW: JSON OUTPUT DIALOG --- */}
+      <JsonOutputDialog 
+        open={outputOpen} 
+        onOpenChange={setOutputOpen} 
+        data={finalPayload} 
+      />
+
     </div>
   );
 }
