@@ -19,6 +19,7 @@ import JiraEmployeeExtractor from "./pages/JiraEmployeeExtractor";
 import AsanaDashboard from "./pages/AsanaDashboard";
 import HubSpotDashboard from "./pages/HubSpotDashboard";
 import Microsoft365Dashboard from "./pages/Microsoft365Dashboard";
+import GlobalGanttDashboard from "./pages/GlobalGanttDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -39,6 +40,7 @@ const App = () => (
             <Route path="/roi-report" element={<ROIReport />} />
             <Route path="/velocity-ai" element={<VelocityAI />} />
             <Route path="/projects" element={<Projects />} />
+            <Route path="/projects/global-gantt" element={<GlobalGanttDashboard />} />
             <Route path="/projects/jira-dashboard" element={<JiraDashboard />} />
             <Route path="/projects/jira-employee-extractor" element={<JiraEmployeeExtractor />} />
             <Route path="/projects/asana-dashboard" element={<AsanaDashboard />} />
