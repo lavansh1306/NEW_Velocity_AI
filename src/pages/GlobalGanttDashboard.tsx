@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { Header } from '@/components/Header'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Download, Filter } from 'lucide-react'
+import { ArrowLeft, Filter } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useToast } from '@/contexts/ToastContext'
 import { apiUrl } from '@/lib/api'
+import { hubspotFetch } from '@/lib/hubspot-fetch'
 
 interface GlobalTask {
   key: string
@@ -18,11 +19,6 @@ interface GlobalTask {
   dueDate: string | null
   estimatedHours: number
   source: 'jira' | 'asana' | 'hubspot'
-}
-
-interface TasksByProject {
-  projectName: string
-  tasks: GlobalTask[]
 }
 
 interface AssigneeStats {
@@ -39,7 +35,6 @@ export default function GlobalGanttDashboard() {
   const { addToast } = useToast()
   const [loading, setLoading] = useState(true)
   const [allTasks, setAllTasks] = useState<GlobalTask[]>([])
-  const [tasksByProject, setTasksByProject] = useState<TasksByProject[]>([])
   const [assigneeStats, setAssigneeStats] = useState<AssigneeStats[]>([])
   const [viewType, setViewType] = useState<'day' | 'week' | 'month'>('week')
   const [zoom, setZoom] = useState(1.5)
@@ -53,46 +48,58 @@ export default function GlobalGanttDashboard() {
     const fetchAllTasks = async () => {
       try {
         setLoading(true)
+        const allCollectedTasks: GlobalTask[] = []
 
-        // Fetch from Jira
-        const jiraResp = await fetch(apiUrl('/api/jira/issues'), {
-          credentials: 'include',
-        }).catch(() => null)
-        const jiraIssues: GlobalTask[] = []
-        if (jiraResp?.ok) {
-          const jiraData = await jiraResp.json()
-          const issues = jiraData.issues || []
-          jiraIssues.push(
-            ...issues.map((iss: any) => ({
-              key: iss.key || iss.id || '',
-              title: iss.summary || iss.fields?.summary || '',
-              project: iss.fields?.project?.key || iss.project || '',
-              assignee: iss.fields?.assignee?.displayName || iss.assignee || 'Unassigned',
-              team: iss.fields?.customfield_10000 || 'Engineering',
-              status: iss.fields?.status?.name || iss.status || 'Open',
-              priority: iss.fields?.priority?.name || 'Medium',
-              startDate: iss.fields?.customfield_10001 || null,
-              dueDate: iss.fields?.duedate || null,
-              estimatedHours:
-                parseFloat(iss.fields?.customfield_10002) || parseFloat(iss.fields?.timeestimate) / 3600 || 8,
-              source: 'jira' as const,
-            }))
-          )
+        // ======== JIRA ========
+        console.log('[GlobalGantt] Fetching Jira data...')
+        try {
+          const jiraResp = await fetch(apiUrl('/api/jira/issues'), {
+            credentials: 'include',
+          })
+          if (jiraResp.ok) {
+            const jiraData = await jiraResp.json()
+            const issues = jiraData.issues || []
+            console.log('[GlobalGantt] Jira issues:', issues.length)
+
+            const jiraTasks = issues.map((iss: any) => {
+              const dueDate = iss.fields?.duedate || iss.duedate
+              const startDate = iss.fields?.customfield_10015 || null
+
+              return {
+                key: iss.key || iss.id || '',
+                title: iss.fields?.summary || iss.summary || '',
+                project: iss.fields?.project?.key || iss.project || 'JIRA',
+                assignee: iss.fields?.assignee?.displayName || iss.assignee || 'Unassigned',
+                team: iss.fields?.customfield_10000 || 'Engineering',
+                status: iss.fields?.status?.name || iss.status || 'Open',
+                priority: iss.fields?.priority?.name || iss.priority || 'Medium',
+                startDate: startDate,
+                dueDate: dueDate,
+                estimatedHours: iss.fields?.timeestimate ? iss.fields.timeestimate / 3600 : 8,
+                source: 'jira' as const,
+              }
+            })
+            allCollectedTasks.push(...jiraTasks)
+          }
+        } catch (e) {
+          console.warn('[GlobalGantt] Jira fetch failed:', e)
         }
 
-        // Fetch from Asana (if available via API)
-        const asanaResp = await fetch(apiUrl('/api/asana/tasks'), {
-          credentials: 'include',
-        }).catch(() => null)
-        const asanaTasks: GlobalTask[] = []
-        if (asanaResp?.ok) {
-          const asanaData = await asanaResp.json()
-          const tasks = asanaData.tasks || []
-          asanaTasks.push(
-            ...tasks.map((task: any) => ({
+        // ======== ASANA ========
+        console.log('[GlobalGantt] Fetching Asana data...')
+        try {
+          const asanaResp = await fetch(apiUrl('/api/asana/tasks'), {
+            credentials: 'include',
+          })
+          if (asanaResp.ok) {
+            const asanaData = await asanaResp.json()
+            const tasks = asanaData.tasks || []
+            console.log('[GlobalGantt] Asana tasks:', tasks.length)
+
+            const asanaTasks = tasks.map((task: any) => ({
               key: task.gid || task.id || '',
               title: task.name || '',
-              project: task.projects?.[0]?.name || 'Asana Project',
+              project: task.projects?.[0]?.name || task.project || 'Asana',
               assignee: task.assignee?.name || 'Unassigned',
               team: 'Engineering',
               status: task.completed ? 'Done' : 'In Progress',
@@ -102,59 +109,87 @@ export default function GlobalGanttDashboard() {
               estimatedHours: task.estimated_minutes ? task.estimated_minutes / 60 : 8,
               source: 'asana' as const,
             }))
-          )
+            allCollectedTasks.push(...asanaTasks)
+          }
+        } catch (e) {
+          console.warn('[GlobalGantt] Asana fetch failed:', e)
         }
 
-        // Combine all tasks
-        const combined = [...jiraIssues, ...asanaTasks]
-        setAllTasks(combined)
+        // ======== HUBSPOT ========
+        console.log('[GlobalGantt] Fetching HubSpot data...')
+        try {
+          const hubspotResp = await hubspotFetch(apiUrl('/api/hubspot/tickets'), {
+            credentials: 'include',
+          })
+          if (hubspotResp.ok) {
+            const hubspotData = await hubspotResp.json()
+            const tickets = hubspotData.tickets || []
+            console.log('[GlobalGantt] HubSpot tickets:', tickets.length)
 
-        // Group by project
-        const byProject: Record<string, GlobalTask[]> = {}
-        combined.forEach((task) => {
-          if (!byProject[task.project]) {
-            byProject[task.project] = []
+            const hubspotTasks = tickets.map((ticket: any) => ({
+              key: ticket.ticketId || ticket.id || '',
+              title: ticket.subject || ticket.name || '',
+              project: ticket.pipeline || 'HubSpot',
+              assignee: ticket.assignee || 'Unassigned',
+              team: 'Sales',
+              status: ticket.stage || ticket.status || 'Open',
+              priority: ticket.priority || 'Medium',
+              startDate: ticket.createdAt || null,
+              dueDate: ticket.closedAt || null,
+              estimatedHours: 8,
+              source: 'hubspot' as const,
+            }))
+            allCollectedTasks.push(...hubspotTasks)
           }
-          byProject[task.project].push(task)
-        })
+        } catch (e) {
+          console.warn('[GlobalGantt] HubSpot fetch failed:', e)
+        }
 
-        const projectsData = Object.entries(byProject).map(([projectName, tasks]) => ({
-          projectName,
-          tasks,
-        }))
-        setTasksByProject(projectsData)
+        console.log('[GlobalGantt] Total tasks collected:', allCollectedTasks.length)
+        setAllTasks(allCollectedTasks)
 
         // Calculate assignee stats
         const byAssignee: Record<string, GlobalTask[]> = {}
-        combined.forEach((task) => {
+        allCollectedTasks.forEach((task) => {
           if (!byAssignee[task.assignee]) {
             byAssignee[task.assignee] = []
           }
           byAssignee[task.assignee].push(task)
         })
 
-        const statsData: AssigneeStats[] = Object.entries(byAssignee).map(([assignee, tasks]) => ({
-          name: assignee,
-          totalTasks: tasks.length,
-          completedTasks: tasks.filter((t) => t.status === 'Done' || t.status === 'Closed').length,
-          inProgressTasks: tasks.filter((t) => t.status === 'In Progress').length,
-          totalHours: tasks.reduce((sum, t) => sum + t.estimatedHours, 0),
-          assignedProjects: [...new Set(tasks.map((t) => t.project))],
-        }))
-        setAssigneeStats(statsData.sort((a, b) => b.totalTasks - a.totalTasks))
+        const statsData: AssigneeStats[] = Object.entries(byAssignee)
+          .map(([assignee, tasks]) => ({
+            name: assignee,
+            totalTasks: tasks.length,
+            completedTasks: tasks.filter((t) => t.status === 'Done' || t.status === 'Closed').length,
+            inProgressTasks: tasks.filter((t) => t.status === 'In Progress').length,
+            totalHours: tasks.reduce((sum, t) => sum + t.estimatedHours, 0),
+            assignedProjects: [...new Set(tasks.map((t) => t.project))],
+          }))
+          .sort((a, b) => b.totalTasks - a.totalTasks)
+        setAssigneeStats(statsData)
 
-        addToast({
-          type: 'success',
-          title: 'Global Data Loaded',
-          description: `Loaded ${combined.length} tasks from all sources`,
-          duration: 4000,
-        })
+        if (allCollectedTasks.length > 0) {
+          addToast({
+            type: 'success',
+            title: 'Global Data Loaded',
+            description: `Loaded ${allCollectedTasks.length} tasks from all sources`,
+            duration: 4000,
+          })
+        } else {
+          addToast({
+            type: 'info',
+            title: 'No Tasks Found',
+            description: 'No tasks available from connected integrations. Check your API connections.',
+            duration: 4000,
+          })
+        }
       } catch (error) {
-        console.error('Error fetching tasks:', error)
+        console.error('[GlobalGantt] Error fetching tasks:', error)
         addToast({
           type: 'error',
           title: 'Failed to Load Data',
-          description: 'Could not load global task data',
+          description: 'Could not load global task data. Check console for details.',
           duration: 5000,
         })
       } finally {
@@ -188,7 +223,7 @@ export default function GlobalGanttDashboard() {
   }
 
   // Calculate timeline
-  const { minDate, maxDate, totalDays, dateMarkers } = useMemo(() => {
+  const { minDate, maxDate, dateMarkers } = useMemo(() => {
     let min: Date | null = null
     let max: Date | null = null
 
@@ -214,28 +249,27 @@ export default function GlobalGanttDashboard() {
     min = new Date(min.getFullYear(), min.getMonth(), 1)
     max = new Date(max.getFullYear(), max.getMonth() + 3, 1)
 
-    let totalUnits = 0
     let markers: Date[] = []
 
     if (viewType === 'day') {
-      totalUnits = Math.ceil((max.getTime() - min.getTime()) / (1000 * 60 * 60 * 24))
+      const totalUnits = Math.ceil((max.getTime() - min.getTime()) / (1000 * 60 * 60 * 24))
       for (let i = 0; i < totalUnits; i++) {
         markers.push(new Date(min.getTime() + i * 24 * 60 * 60 * 1000))
       }
     } else if (viewType === 'week') {
-      totalUnits = Math.ceil((max.getTime() - min.getTime()) / (1000 * 60 * 60 * 24 * 7))
+      const totalUnits = Math.ceil((max.getTime() - min.getTime()) / (1000 * 60 * 60 * 24 * 7))
       for (let i = 0; i < totalUnits; i++) {
         markers.push(new Date(min.getTime() + i * 7 * 24 * 60 * 60 * 1000))
       }
     } else {
-      totalUnits = (max.getFullYear() - min.getFullYear()) * 12 + (max.getMonth() - min.getMonth()) + 1
+      const totalUnits = (max.getFullYear() - min.getFullYear()) * 12 + (max.getMonth() - min.getMonth()) + 1
       for (let i = 0; i < totalUnits; i++) {
         const m = new Date(min.getFullYear(), min.getMonth() + i, 1)
         markers.push(m)
       }
     }
 
-    return { minDate: min, maxDate: max, totalDays: totalUnits, dateMarkers: markers }
+    return { minDate: min, maxDate: max, dateMarkers: markers }
   }, [filteredTasks, viewType])
 
   // Calculate position for task bar
@@ -297,12 +331,7 @@ export default function GlobalGanttDashboard() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate(-1)}
-              className="gap-2"
-            >
+            <Button variant="outline" size="sm" onClick={() => navigate(-1)} className="gap-2">
               <ArrowLeft className="w-4 h-4" />
               Back
             </Button>
@@ -335,7 +364,7 @@ export default function GlobalGanttDashboard() {
         {loading ? (
           <div className="bg-white rounded-lg shadow p-12 text-center">
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-            <p className="text-lg text-gray-600">Loading global task data...</p>
+            <p className="text-lg text-gray-600">Loading global task data from all integrations...</p>
           </div>
         ) : (
           <>
@@ -506,41 +535,47 @@ export default function GlobalGanttDashboard() {
             {/* Assignee Summary */}
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-2xl font-bold text-gray-900 mb-6">👥 Team Members Overview</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {assigneeStats.map((assignee) => (
-                  <div key={assignee.name} className="border border-gray-200 rounded-lg p-4">
-                    <h3 className="font-semibold text-lg text-gray-900 mb-4">{assignee.name}</h3>
-                    <div className="space-y-3">
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Total Tasks:</span>
-                        <span className="font-semibold text-gray-900">{assignee.totalTasks}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Completed:</span>
-                        <span className="font-semibold text-green-600">{assignee.completedTasks}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">In Progress:</span>
-                        <span className="font-semibold text-purple-600">{assignee.inProgressTasks}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Total Hours:</span>
-                        <span className="font-semibold text-orange-600">{assignee.totalHours.toFixed(1)}h</span>
-                      </div>
-                      <div className="pt-3 border-t border-gray-200">
-                        <p className="text-xs font-semibold text-gray-700 mb-2">Projects:</p>
-                        <div className="flex flex-wrap gap-1">
-                          {assignee.assignedProjects.map((proj) => (
-                            <span key={proj} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">
-                              {proj}
-                            </span>
-                          ))}
+              {assigneeStats.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <p>No team member data available</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {assigneeStats.map((assignee) => (
+                    <div key={assignee.name} className="border border-gray-200 rounded-lg p-4">
+                      <h3 className="font-semibold text-lg text-gray-900 mb-4">{assignee.name}</h3>
+                      <div className="space-y-3">
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">Total Tasks:</span>
+                          <span className="font-semibold text-gray-900">{assignee.totalTasks}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">Completed:</span>
+                          <span className="font-semibold text-green-600">{assignee.completedTasks}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">In Progress:</span>
+                          <span className="font-semibold text-purple-600">{assignee.inProgressTasks}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">Total Hours:</span>
+                          <span className="font-semibold text-orange-600">{assignee.totalHours.toFixed(1)}h</span>
+                        </div>
+                        <div className="pt-3 border-t border-gray-200">
+                          <p className="text-xs font-semibold text-gray-700 mb-2">Projects:</p>
+                          <div className="flex flex-wrap gap-1">
+                            {assignee.assignedProjects.map((proj) => (
+                              <span key={proj} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">
+                                {proj}
+                              </span>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           </>
         )}
