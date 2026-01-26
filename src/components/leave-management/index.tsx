@@ -13,13 +13,13 @@ import {
 import { Task, LeaveRequest, TimeLog, EmployeeProfile } from './types';
 import { ImpactAnalysisDialog } from './ImpactAnalysisDialog';
 import { TimeLoggingDialog } from './TimeLoggingDialog';
-import { TimesheetUploadDialog } from './TimeSheetUploadDialog';
+import { TimesheetUploadDialog } from './TimesheetUploadDialog';
 import { WorkloadTable } from './WorkloadTable';
 import { LeaveRequestTable } from './LeaveRequestTable';
 import { LeaveApplicationDialog } from './LeaveApplicationDialog';
 
-// Reuse the parser from the ML module to load real data
-import { parseCSV } from '../ml-model/RecommendationEngine';
+// FIX: Import 'fetchRawCSV' to get the actual Task data, not the ML Summary
+import { fetchRawCSV } from '../ml-model/RecommendationEngine';
 
 export default function LeaveManagementTab() {
   const [activePersona, setActivePersona] = useState<'manager' | 'employee'>('manager');
@@ -49,25 +49,37 @@ export default function LeaveManagementTab() {
     const fetchData = async () => {
       try {
         const csvUrl = new URL('../ml-model/datasets/master_employee_task_report.csv', import.meta.url).href;
-        const rawData: any[] = await parseCSV(csvUrl);
         
+        // FIX: Use fetchRawCSV to get raw rows (Project, Task Name, etc.)
+        const rawData: any[] = await fetchRawCSV(csvUrl);
+        
+        // Helper for consistent days
+        const getStableDay = (str: string) => {
+           let hash = 0;
+           for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+           return Math.abs(hash) % 5;
+        };
+
         // Transform CSV Data -> System Task Model
-        const loadedTasks: Task[] = rawData.map((row, index) => ({
-          id: index,
-          projectName: row.Project || "Unassigned",
-          taskName: row["Task Name"] || "Untitled Task",
-          assignee: row.Assignee || "Unassigned",
-          hours: row["Planned Hours"] || 0,
-          day: Math.floor(Math.random() * 5), 
-          requiredSkills: row["Skill Used"] ? [row["Skill Used"]] : [],
-          isReallocated: false,
-          isCancelled: false,
-          totalLogged: row["Actual Hours"] || 0,
-          logs: [] 
-        }));
+        const loadedTasks: Task[] = rawData
+          .filter(row => row.Assignee && row["Task Name"]) // Ensure row has data
+          .map((row, index) => ({
+            id: index,
+            projectName: row.Project || "Unassigned",
+            taskName: row["Task Name"] || "Untitled Task",
+            assignee: row.Assignee || "Unassigned",
+            hours: parseFloat(row["Planned Hours"]) || 1,
+            day: getStableDay(row["Task Name"] || index.toString()), 
+            requiredSkills: row["Skill Used"] ? [row["Skill Used"]] : [],
+            isReallocated: false,
+            isCancelled: false,
+            totalLogged: parseFloat(row["Actual Hours"]) || 0,
+            logs: [] 
+          }));
 
         setTasks(loadedTasks);
 
+        // Extract Employees from the loaded tasks
         const uniqueNames = Array.from(new Set(loadedTasks.map(t => t.assignee)));
         const loadedEmployees: EmployeeProfile[] = uniqueNames.map(name => {
           const userTasks = loadedTasks.filter(t => t.assignee === name);
@@ -80,7 +92,9 @@ export default function LeaveManagementTab() {
         });
 
         setEmployees(loadedEmployees);
-        if (uniqueNames.length > 0) setCurrentUser(uniqueNames[0]);
+        if (uniqueNames.length > 0 && !uniqueNames.includes(currentUser)) {
+            setCurrentUser(uniqueNames[0]);
+        }
         
       } catch (error) {
         console.error("Failed to load live data:", error);
@@ -168,7 +182,6 @@ export default function LeaveManagementTab() {
         
         <div className="flex items-center gap-4 flex-wrap">
            
-           {/* FIX: EMPLOYEE SELECTOR - ONLY SHOW IN EMPLOYEE MODE */}
            {activePersona === 'employee' && (
              <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-4">
                <span className="text-xs font-bold text-slate-400 uppercase">View As:</span>
@@ -185,14 +198,12 @@ export default function LeaveManagementTab() {
              </div>
            )}
 
-           {/* IMPORT BUTTON (Manager Only) */}
            {activePersona === 'manager' && (
              <Button variant="outline" size="sm" className="text-slate-200 border-slate-700 hover:bg-slate-800 hover:text-white gap-2 h-8 text-xs" onClick={() => setImportOpen(true)}>
                <Upload className="w-3 h-3" /> Import
              </Button>
            )}
 
-           {/* TOGGLE */}
            <div className="flex bg-slate-800 p-1 rounded-lg border border-slate-700">
              <button onClick={() => setActivePersona('manager')} className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${activePersona === 'manager' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400'}`}>Manager</button>
              <button onClick={() => setActivePersona('employee')} className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${activePersona === 'employee' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400'}`}>Employee</button>
@@ -210,9 +221,7 @@ export default function LeaveManagementTab() {
       />
       
       <WorkloadTable 
-        // FILTER TASKS: Manager sees ALL, Employee sees ONLY THEIRS (based on dropdown)
         tasks={activePersona === 'manager' ? tasks : tasks.filter(t => t.assignee === currentUser)} 
-        // FILTER EMPLOYEES: Same logic
         employees={activePersona === 'manager' ? employees : employees.filter(e => e.name === currentUser)}
         persona={activePersona}
         onTaskClick={handleTaskClick}

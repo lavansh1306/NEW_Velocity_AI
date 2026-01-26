@@ -8,10 +8,7 @@ import { Bot, Sparkles, Loader2, FileX } from 'lucide-react';
 export default function ProjectCheckView() {
   const [dataset, setDataset] = useState<EmployeeRecord[]>([]);
   const [results, setResults] = useState<PredictionResult[]>([]);
-  
-  // Track the project description for the final payload
   const [projectDesc, setProjectDesc] = useState(''); 
-  
   const [viewMode, setViewMode] = useState<'input' | 'dashboard'>('input');
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -26,7 +23,7 @@ export default function ProjectCheckView() {
         setIsLoadingData(false);
       } catch (error) {
         console.error("ML Data Load Error:", error);
-        setDataError("Could not load 'master_employee_task_report.csv'. Ensure it exists in 'components/ml-model/datasets/'.");
+        setDataError("Could not load 'master_employee_task_report.csv'.");
         setIsLoadingData(false);
       }
     };
@@ -35,9 +32,8 @@ export default function ProjectCheckView() {
 
   const handleAnalyze = async (description: string) => {
     if (dataset.length === 0) return;
-
     setIsAnalyzing(true);
-    setProjectDesc(description); // Save for later
+    setProjectDesc(description); 
 
     setTimeout(() => {
       try {
@@ -52,29 +48,33 @@ export default function ProjectCheckView() {
     }, 1500);
   };
 
-  // --- NEW: HANDLE FINAL CONFIRMATION ---
+  // --- UPDATED: ROBUST PRINTING ---
   const handleConfirmProject = (selectedEmployees: EmployeeRecord[]) => {
-    console.log("----------------------------------------------------");
-    console.log("🚀 [JIRA INTEGRATION PAYLOAD] Ready for Export");
-    console.log("----------------------------------------------------");
-    console.log("Project Context:", projectDesc.slice(0, 100) + "...");
-    console.log("Selected Team Members:", selectedEmployees.length);
-    console.log("Payload JSON:", JSON.stringify({
+    // 1. Prepare Data
+    const payload = {
       project: {
-        description: projectDesc,
+        description: projectDesc || "No description provided",
         created_at: new Date().toISOString(),
         source: "VelocityAI_ProjectCheck"
       },
       team: selectedEmployees.map(e => ({
-        jira_user_id: `user_${e.id}`, // Mock ID
+        jira_user_id: `user_${e.id}`, 
         name: e.name,
         role: e.role,
         skills: e.skills
       }))
-    }, null, 2));
-    console.log("----------------------------------------------------");
-    
-    alert(`Project Created! ${selectedEmployees.length} members assigned. Check Console for Jira Payload.`);
+    };
+
+    const jsonString = JSON.stringify(payload, null, 2);
+
+    // 2. Force Print to Console (Using warn to bypass filters)
+    console.warn("👇👇👇 JIRA INTEGRATION PAYLOAD 👇👇👇");
+    console.log(jsonString);
+    console.warn("👆👆👆 COPY THE JSON ABOVE 👆👆👆");
+
+    // 3. Show Alert with Data Preview (To verify it worked)
+    alert(`Project Created with ${selectedEmployees.length} members!\n\nCheck the Console (F12) for the full JSON payload.\n\nPreview:\n${jsonString.slice(0, 200)}...`);
+
     handleReset();
   };
 
@@ -86,7 +86,6 @@ export default function ProjectCheckView() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
-      
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
@@ -144,7 +143,6 @@ export default function ProjectCheckView() {
 
           {!isLoadingData && !isAnalyzing && !dataError && viewMode === 'dashboard' && (
             <div className="animate-in slide-in-from-bottom-4 duration-500">
-              {/* Pass fullDataset and Handler */}
               <ProjectCheckDashboard 
                 results={results} 
                 fullDataset={dataset} 
