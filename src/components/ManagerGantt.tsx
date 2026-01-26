@@ -431,6 +431,8 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
                 let displayText = ''
                 let dayName = ''
                 let isWeekend = false
+                
+                // Get actual day of week for this specific date
                 const dayOfWeek = date.getDay()
                 isWeekend = dayOfWeek === 0 || dayOfWeek === 6
 
@@ -442,9 +444,12 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
                 } else if (viewType === 'week') {
                   const weekEnd = new Date(date)
                   weekEnd.setDate(weekEnd.getDate() + 6)
+                  // Show the actual day of the week at start of week
                   displayText = `${formatDate(date)} - ${formatDate(weekEnd)}`
+                  dayName = dayNames[date.getDay()] // Ensure we use actual day of week
                 } else if (viewType === 'month') {
                   displayText = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+                  dayName = dayNames[date.getDay()]
                 }
                 return (
                   <div
@@ -480,11 +485,9 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
                       const cellDate = new Date(minDate.getTime() + idx * 24 * 60 * 60 * 1000)
                       const dayOfWeek = cellDate.getDay()
                       isWeekend = dayOfWeek === 0 || dayOfWeek === 6
-                    } else if (viewType === 'week') {
-                      const cellDate = new Date(minDate.getTime() + idx * 7 * 24 * 60 * 60 * 1000)
-                      const dayOfWeek = cellDate.getDay()
-                      isWeekend = dayOfWeek === 0 || dayOfWeek === 6
                     }
+                    // In week and month view, don't highlight weekends on the grid
+                    // since each cell represents a longer period
 
                     return (
                       <div
