@@ -29,6 +29,10 @@ import ProjectCheckView from '@/components/ml-model';
 import { getJiraConnected, setJiraConnected } from '../lib/storage';
 import { apiUrl } from '../lib/api';
 
+import { OrganizationalWorkloadTable } from '../components/leave-management/OrganizationalWorkloadTable';
+import { parseCSV } from '../components/ml-model/RecommendationEngine';
+import { Task, EmployeeProfile } from '../components/leave-management/types';
+
 // Fetch Jira connection status using API
 async function fetchJiraStatus() {
   try {
@@ -97,9 +101,57 @@ async function fetchJiraData() {
 
 // --- NEW MODERN DASHBOARD COMPONENT (Placeholder) ---
 const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
+  // --- NEW: State for Organizational Workload ---
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // --- NEW: Fetch CSV Data for the Graph ---
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const csvUrl = new URL('../components/ml-model/datasets/master_employee_task_report.csv', import.meta.url).href;
+        const rawData: any[] = await parseCSV(csvUrl);
+
+        // Transform CSV Data -> Task Model
+        const loadedTasks: Task[] = rawData.map((row, index) => ({
+          id: index,
+          projectName: row.Project || "Unassigned",
+          taskName: row["Task Name"] || "Untitled Task",
+          assignee: row.Assignee || "Unassigned",
+          hours: row["Planned Hours"] || 0,
+          day: Math.floor(Math.random() * 5), // Demo visualization (random day)
+          requiredSkills: row["Skill Used"] ? [row["Skill Used"]] : [],
+          isReallocated: false,
+          isCancelled: false,
+          totalLogged: row["Actual Hours"] || 0,
+          logs: [] 
+        }));
+
+        setTasks(loadedTasks);
+
+        // Extract Employees for Rows
+        const uniqueNames = Array.from(new Set(loadedTasks.map(t => t.assignee)));
+        const loadedEmployees: EmployeeProfile[] = uniqueNames.map(name => {
+          const userTasks = loadedTasks.filter(t => t.assignee === name);
+          const skills = Array.from(new Set(userTasks.flatMap(t => t.requiredSkills)));
+          return { name, role: skills[0] || "Developer", skills: skills.slice(0, 3) };
+        });
+        
+        setEmployees(loadedEmployees);
+      } catch (err) {
+        console.error("Workload data load failed", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Jira Connection Status Banner */}
+      
+      {/* 1. Jira Connection Status Banner (PRESERVED) */}
       {jiraData && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
           <div className="flex items-center gap-3">
@@ -114,7 +166,7 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
         </div>
       )}
 
-      {/* Welcome Section */}
+      {/* 2. Welcome Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Welcome back, Manager</h1>
@@ -130,7 +182,7 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
         </div>
       </div>
 
-      {/* Jira Projects List */}
+      {/* 3. Jira Projects List (PRESERVED) */}
       {jiraData?.projects && jiraData.projects.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Your Jira Projects</h3>
@@ -153,7 +205,7 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
         </div>
       )}
 
-      {/* KPI Stats Grid */}
+      {/* 4. KPI Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: 'Team Velocity', value: '124 pts', change: '+12%', icon: Zap, color: 'text-amber-500', bg: 'bg-amber-50' },
@@ -176,39 +228,36 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
         ))}
       </div>
 
-      {/* Main Charts Area (Visual Placeholder) */}
+      {/* 5. Main Charts Area */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Large Chart Area */}
-        <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-          <div className="flex items-center justify-between mb-6">
+        
+        {/* === REPLACED: SPRINT PERFORMANCE WITH ORGANIZATIONAL WORKLOAD === */}
+        <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
+          <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-gray-900 flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-gray-400" />
-              Sprint Performance
+              Real-time Capacity Map
             </h3>
-            <select className="text-sm border-gray-200 rounded-md text-gray-500 bg-gray-50 px-2 py-1">
-              <option>Last 30 Days</option>
-            </select>
+            <span className="text-xs font-medium px-2 py-1 bg-indigo-50 text-indigo-700 rounded-full">
+               Live Data
+            </span>
           </div>
-          {/* Decorative Chart Bars */}
-          <div className="h-64 flex items-end justify-between gap-2 px-2">
-            {[40, 65, 45, 80, 55, 90, 70, 85, 60, 75, 50, 95].map((h, i) => (
-              <div key={i} className="w-full bg-indigo-50 rounded-t-sm relative group">
-                <div 
-                  className="absolute bottom-0 w-full bg-indigo-500 rounded-t-sm transition-all duration-500 group-hover:bg-indigo-600"
-                  style={{ height: `${h}%` }}
-                ></div>
-              </div>
-            ))}
-          </div>
-          <div className="flex justify-between mt-4 text-xs text-gray-400 font-medium">
-            <span>Sprint 1</span>
-            <span>Sprint 2</span>
-            <span>Sprint 3</span>
-            <span>Sprint 4</span>
-          </div>
+          
+          {loading ? (
+             <div className="h-64 flex items-center justify-center text-gray-400 bg-slate-50 rounded-lg border-2 border-dashed">
+                Loading Workforce Data...
+             </div>
+          ) : (
+             <OrganizationalWorkloadTable 
+               tasks={tasks} 
+               employees={employees} 
+               title="" 
+               className="flex-1"
+             />
+          )}
         </div>
 
-        {/* Recent Activity List */}
+        {/* Recent Activity List (PRESERVED) */}
         <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
           <h3 className="font-semibold text-gray-900 mb-6 flex items-center gap-2">
             <Clock className="w-5 h-5 text-gray-400" />
@@ -238,7 +287,6 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
     </div>
   );
 };
-
 
 export default function VelocityAI() {
   const [currentView, setCurrentView] = useState<'manager' | 'vp'>('manager');
