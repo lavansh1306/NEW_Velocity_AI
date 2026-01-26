@@ -36,7 +36,7 @@ export default function GlobalGanttDashboard() {
   const [allTasks, setAllTasks] = useState<GlobalTask[]>([])
   const [assigneeStats, setAssigneeStats] = useState<AssigneeStats[]>([])
   const [viewType, setViewType] = useState<'day' | 'week' | 'month'>('week')
-  const [zoom, setZoom] = useState(1.5)
+  const [zoom, setZoom] = useState(1)
   const [selectedProject, setSelectedProject] = useState<string | null>(null)
   const [selectedAssignee, setSelectedAssignee] = useState<string | null>(null)
   const [filterStatus, setFilterStatus] = useState<string>('all')
@@ -265,14 +265,7 @@ export default function GlobalGanttDashboard() {
     const duration = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
     const offset = Math.floor((start.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24))
 
-    let pixelsPerDay = 0
-    if (viewType === 'day') {
-      pixelsPerDay = zoom * 2
-    } else if (viewType === 'week') {
-      pixelsPerDay = (zoom * 14) / 7
-    } else {
-      pixelsPerDay = (zoom * 30) / 30
-    }
+    let pixelsPerDay = zoom * 2
 
     return {
       left: `${offset * pixelsPerDay}px`,
@@ -435,8 +428,8 @@ export default function GlobalGanttDashboard() {
                 <label className="text-sm font-semibold text-gray-700">Zoom:</label>
                 <input
                   type="range"
-                  min="0.5"
-                  max="3"
+                  min="0.3"
+                  max="2"
                   step="0.1"
                   value={zoom}
                   onChange={(e) => setZoom(parseFloat(e.target.value))}
@@ -451,64 +444,82 @@ export default function GlobalGanttDashboard() {
               <div className="overflow-x-auto">
                 <div className="min-w-full">
                   {/* Timeline Header */}
-                  <div className="flex sticky top-0 bg-gray-50 border-b border-gray-200 z-10">
-                    <div className="w-96 flex-shrink-0 px-4 py-3 border-r border-gray-200">
-                      <h3 className="text-sm font-semibold text-gray-700">Task Details</h3>
-                    </div>
-                    <div className="flex-1 px-4 py-3">
-                      <div className="flex gap-1">
-                        {dateMarkers.slice(0, 20).map((date, idx) => (
-                          <div key={idx} className="text-xs text-gray-600 text-center" style={{ minWidth: `${zoom * 60}px` }}>
-                            {viewType === 'day' && date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                            {viewType === 'week' && `W${Math.ceil((date.getDate() + new Date(date.getFullYear(), date.getMonth(), 1).getDay()) / 7)}`}
-                            {viewType === 'month' && date.toLocaleDateString('en-US', { month: 'short' })}
-                          </div>
-                        ))}
-                      </div>
+                  <div className="flex sticky top-0 bg-gradient-to-r from-gray-50 to-gray-50 border-b border-gray-300 z-10">
+                    <div className="w-48 flex-shrink-0 px-4 py-3 border-r border-gray-300 font-semibold text-gray-700 text-sm">Assignee</div>
+                    <div className="flex-1 px-4 py-3 flex gap-0">
+                      {dateMarkers.slice(0, 30).map((date, idx) => (
+                        <div key={idx} className="text-xs text-gray-600 text-center font-medium select-none" style={{ minWidth: `${zoom * 30}px`, flex: `0 0 ${zoom * 30}px` }}>
+                          {viewType === 'day' && date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })}
+                          {viewType === 'week' && date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          {viewType === 'month' && date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })}
+                        </div>
+                      ))}
                     </div>
                   </div>
 
-                  {/* Tasks */}
-                  {filteredTasks.length === 0 ? (
-                    <div className="px-4 py-12 text-center text-gray-500">
-                      <Filter className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                      <p>No tasks match your filters</p>
-                    </div>
-                  ) : (
-                    filteredTasks.map((task) => (
-                      <div key={`${task.source}-${task.key}`} className="flex border-b border-gray-200 hover:bg-blue-50">
-                        <div className="w-96 flex-shrink-0 px-4 py-3 border-r border-gray-200">
-                          <div className="flex flex-col gap-1">
-                            <div className="flex items-center gap-2">
-                              <span className={`text-xs px-2 py-1 rounded-full font-semibold border ${getPriorityColor(task.priority)}`}>
-                                {task.priority}
-                              </span>
-                              <span className="text-xs font-mono text-gray-600">{task.key}</span>
-                            </div>
-                            <p className="text-sm font-medium text-gray-900 line-clamp-2">{task.title}</p>
-                            <div className="flex gap-2 text-xs text-gray-600">
-                              <span className="px-2 py-1 bg-gray-100 rounded">{task.project}</span>
-                              <span className="px-2 py-1 bg-gray-100 rounded">{task.assignee}</span>
-                              <span className={`px-2 py-1 text-white rounded ${getStatusColor(task.status)}`}>{task.status}</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex-1 px-4 py-3 relative">
-                          <div className="relative h-12 bg-gray-50 rounded">
-                            {task.startDate && task.dueDate && (
-                              <div
-                                className={`absolute top-2 h-8 rounded flex items-center justify-center text-xs font-semibold text-white ${getStatusColor(task.status)} opacity-90 hover:opacity-100 cursor-pointer transition-opacity`}
-                                style={getTaskBarStyle(task)}
-                                title={`${task.title} - ${task.estimatedHours}h`}
-                              >
-                                {task.estimatedHours}h
-                              </div>
-                            )}
-                          </div>
-                        </div>
+                  {/* Vertical timeline lines */}
+                  <div className="relative">
+                    {/* Tasks grouped by assignee */}
+                    {filteredTasks.length === 0 ? (
+                      <div className="px-4 py-12 text-center text-gray-500">
+                        <Filter className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                        <p>No tasks match your filters</p>
                       </div>
-                    ))
-                  )}
+                    ) : (
+                      Object.entries(
+                        filteredTasks.reduce((acc: Record<string, GlobalTask[]>, task) => {
+                          if (!acc[task.assignee]) acc[task.assignee] = []
+                          acc[task.assignee].push(task)
+                          return acc
+                        }, {})
+                      )
+                        .sort(([a], [b]) => a.localeCompare(b))
+                        .map(([assignee, assigneeTasks]) => (
+                          <div key={assignee} className="border-b border-gray-100 last:border-b-0">
+                            {/* Assignee row header */}
+                            <div className="flex bg-gray-50 border-b border-gray-200">
+                              <div className="w-48 flex-shrink-0 px-4 py-4 border-r border-gray-200 font-semibold text-gray-900 text-sm">{assignee}</div>
+                              <div className="flex-1 px-4 py-3 flex gap-0 relative">
+                                {dateMarkers.slice(0, 30).map((date, idx) => (
+                                  <div
+                                    key={idx}
+                                    className="border-r border-gray-100"
+                                    style={{ minWidth: `${zoom * 30}px`, flex: `0 0 ${zoom * 30}px` }}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Tasks for this assignee */}
+                            {assigneeTasks.map((task) => (
+                              <div key={`${task.source}-${task.key}`} className="flex border-b border-gray-100 hover:bg-blue-50 last:border-b-0 transition-colors">
+                                <div className="w-48 flex-shrink-0 px-4 py-2 border-r border-gray-200 text-right">
+                                  <div className="flex justify-end gap-1 items-center flex-wrap">
+                                    <span className="text-xs font-mono font-bold text-blue-600">{task.key}</span>
+                                    <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${getStatusColor(task.status)} text-white`}>{task.status === 'In Progress' ? 'In' : task.status.substring(0, 1)}</span>
+                                  </div>
+                                </div>
+                                <div className="flex-1 px-4 py-2 relative" style={{ minHeight: '2.5rem' }}>
+                                  <div className="relative h-full w-full flex items-center">
+                                    {task.startDate && task.dueDate ? (
+                                      <div
+                                        className={`absolute top-1.5 h-6 rounded flex items-center justify-center text-xs font-bold text-white ${getStatusColor(task.status)} shadow-sm hover:shadow-lg hover:z-20 cursor-pointer transition-all`}
+                                        style={getTaskBarStyle(task)}
+                                        title={`${task.key}: ${task.title}\n${task.assignee} - ${task.project}`}
+                                      >
+                                        <span className="px-1 truncate text-center">{task.key}</span>
+                                      </div>
+                                    ) : (
+                                      <span className="text-xs text-gray-400">No dates</span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ))
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
