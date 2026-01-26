@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react'
 import { useToast } from '@/contexts/ToastContext'
 import { apiUrl } from '@/lib/api'
+import { useJiraData, type JiraIssue } from '@/hooks/useJiraData'
 
 export interface Issue {
   key: string
@@ -61,9 +62,10 @@ const projectColors: ColorGradient[] = [
 interface ManagerGanttProps {
   tasks?: Issue[]
   autoFetch?: boolean
+  jiraIssues?: JiraIssue[]
 }
 
-export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = true }: ManagerGanttProps) {
+export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = true, jiraIssues: externalJiraIssues }: ManagerGanttProps) {
   const { addToast } = useToast()
   const [viewType, setViewType] = useState<ViewType>('week')
   const [zoom, setZoom] = useState(1.6)
@@ -71,61 +73,46 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
   const [tasks, setTasks] = useState<Issue[]>(externalTasks)
   const [loading, setLoading] = useState(false)
 
-  // Fetch all tasks from all sources if autoFetch is enabled
+  // Use the useJiraData hook if we're fetching data and no Jira issues provided
+  const jiraHookData = useJiraData()
+  const shouldUseFallbackFetch = autoFetch && externalTasks.length === 0 && !externalJiraIssues
+
+  // When jiraIssues are provided externally, use those
+  useEffect(() => {
+    if (externalJiraIssues && externalJiraIssues.length > 0) {
+      // Convert Jira issues to internal Issue format
+      const convertedTasks = externalJiraIssues.map(issue => ({
+        ...issue,
+      }))
+      setTasks(convertedTasks)
+      setLoading(false)
+    }
+  }, [externalJiraIssues])
+
+  // Use the hook data if we're supposed to autoFetch and no external data provided
+  useEffect(() => {
+    if (!shouldUseFallbackFetch) return
+
+    if (jiraHookData.loading) {
+      setLoading(true)
+    } else if (jiraHookData.issues.length > 0) {
+      setTasks(jiraHookData.issues)
+      setLoading(false)
+    }
+  }, [jiraHookData.issues, jiraHookData.loading, shouldUseFallbackFetch])
+
+  // Fallback fetch for other data sources (Asana, HubSpot, Microsoft 365)
   useEffect(() => {
     if (!autoFetch || externalTasks.length > 0) return
 
-    const fetchAllTasks = async () => {
+    const fetchOtherSources = async () => {
       try {
         setLoading(true)
         const allCollectedTasks: Issue[] = []
 
-        // ======== JIRA ========
-        console.log('[ManagerGantt] Fetching Jira data...')
-        try {
-          const projectsResp = await fetch(apiUrl('/api/jira/projects'), {
-            credentials: 'include',
-          })
-          if (projectsResp.ok) {
-            const projectsData = await projectsResp.json()
-            const projects = projectsData.projects || []
-            console.log('[ManagerGantt] Found', projects.length, 'Jira projects')
-
-            for (const project of projects) {
-              try {
-                const issuesResp = await fetch(apiUrl(`/api/jira/issues?projectKey=${encodeURIComponent(project.key)}`), {
-                  credentials: 'include',
-                })
-                if (issuesResp.ok) {
-                  const issuesData = await issuesResp.json()
-                  const issues = issuesData.issues || []
-                  console.log(`[ManagerGantt] Jira project ${project.key}: ${issues.length} issues`)
-
-                  const jiraTasks = issues.map((iss: any) => ({
-                    key: iss.key || iss.id || '',
-                    issueType: iss.issueType || iss.type || 'Task',
-                    summary: iss.summary || iss.title || '',
-                    description: iss.description || '',
-                    project: project.key,
-                    priority: iss.priority || 'Medium',
-                    status: iss.status || 'Open',
-                    assignee: iss.assignee || 'Unassigned',
-                    team: 'Engineering',
-                    start: iss.start || null,
-                    due: iss.due || iss.duedate || null,
-                    duration: iss.duration || 8,
-                    created: iss.created || null,
-                    projectKey: project.key,
-                  }))
-                  allCollectedTasks.push(...jiraTasks)
-                }
-              } catch (e) {
-                console.warn(`[ManagerGantt] Failed to fetch issues for project ${project.key}:`, e)
-              }
-            }
-          }
-        } catch (e) {
-          console.warn('[ManagerGantt] Jira fetch failed:', e)
+        // Add Jira tasks from hook if available
+        if (jiraHookData.issues.length > 0) {
+          allCollectedTasks.push(...jiraHookData.issues)
         }
 
         // ======== ASANA ========
@@ -258,8 +245,9 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
       }
     }
 
-    fetchAllTasks()
-  }, [autoFetch, addToast])
+    fetchOtherSources()
+  }, [autoFetch, jiraHookData.issues, shouldUseFallbackFetch, addToast])
+
 
   const { assigneeRows, minDate, maxDate, totalUnits, dateMarkers, colorMap, allProjects } = useMemo(() => {
     // Helper to normalize date to UTC midnight (start of day)
