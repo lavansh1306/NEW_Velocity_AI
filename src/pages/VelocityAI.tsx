@@ -25,6 +25,7 @@ import IntegrationsTab from '../components/demo2/IntegrationsTab';
 import Projects from './Projects';
 import LeaveManagementTab from '../components/leave-management'; 
 import ProjectCheckView from '@/components/ml-model';
+import ManagerGantt from '@/components/ManagerGantt';
 
 import { getJiraConnected, setJiraConnected } from '../lib/storage';
 import { apiUrl } from '../lib/api';
@@ -129,6 +130,9 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
           </button>
         </div>
       </div>
+
+      {/* Global Gantt Chart */}
+      <ManagerGantt autoFetch={true} />
 
       {/* Jira Projects List */}
       {jiraData?.projects && jiraData.projects.length > 0 && (

@@ -5,7 +5,7 @@ import {
   Clock, 
   BookOpen, 
   Puzzle, 
-  Calendar as CalendarIcon ,
+  Calendar as CalendarIcon,
   BrainCircuit
 } from 'lucide-react';
 
