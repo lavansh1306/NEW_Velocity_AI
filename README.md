@@ -156,9 +156,8 @@ Session persistence:
 ## Quick Start
 
 ### Prerequisites
-```bash
-Node.js 18+, npm
-```
+- Node.js 18+ ([Download](https://nodejs.org/))
+- npm (included with Node.js)
 
 ### Environment Variables
 ```bash
@@ -174,23 +173,23 @@ ASANA_PROJECT_ID=default-project-id
 # HubSpot OAuth
 HUBSPOT_CLIENT_ID=your-client-id
 HUBSPOT_CLIENT_SECRET=your-secret
-HUBSPOT_REDIRECT_URI=http://localhost:3000/oauth/hubspot/callback
+HUBSPOT_REDIRECT_URI=http://localhost:4000/oauth/hubspot/callback
 
 # Jira OAuth
 JIRA_OAUTH_CLIENT_ID=your-oauth-client-id
 JIRA_OAUTH_CLIENT_SECRET=your-oauth-secret
-JIRA_OAUTH_REDIRECT_URI=http://localhost:3000/api/jira/auth/callback
+JIRA_OAUTH_REDIRECT_URI=http://localhost:4000/api/jira/auth/callback
 
 # Microsoft 365 OAuth
 MICROSOFT_CLIENT_ID=your-azure-app-id
 MICROSOFT_CLIENT_SECRET=your-azure-secret
-MICROSOFT_REDIRECT_URI=http://localhost:3000/auth/callback
+MICROSOFT_REDIRECT_URI=http://localhost:4000/auth/callback
 
 # Session
 SESSION_SECRET=random-secret-string
 
 # Server
-API_PORT=3000
+API_PORT=4000
 FRONTEND_URL=http://localhost:5173
 ```
 
@@ -199,7 +198,7 @@ FRONTEND_URL=http://localhost:5173
 # Install dependencies
 npm install
 
-# Start backend (port 3000)
+# Start backend (port 4000)
 npm run api
 
 # Start frontend (port 5173)
