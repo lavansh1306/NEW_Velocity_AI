@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { EODUploadDialog } from './EODUploadDialog';
 import { analyzeEODReport, AnalysisResult } from './ProgressAgent';
 import { CheckCircle2, Circle, Activity, ArrowRight, Zap, Loader2 } from 'lucide-react';
-import { Button } from '../../ui/button';
+import { Button } from '../ui/button';
 // Import the CSV parser
 import { fetchRawCSV } from '../ml-model/RecommendationEngine';
 
