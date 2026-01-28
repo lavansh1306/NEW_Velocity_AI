@@ -99,7 +99,7 @@ Full-stack productivity analytics platform that integrates with **Jira**, **Asan
 - `GET /api/microsoft365/metrics/email` - Fetch email statistics
 - `GET /api/microsoft365/metrics/chat` - Fetch Teams chat metrics
 - `GET /api/microsoft365/metrics/focus` - Calculate focus time metrics
-- `GET /api/microsoft365/roi` - Calculate M365 ROI metrics
+- `GET /api/microsoft365/oi` - Calculate M365 ROI metrics
 
 ---
 
