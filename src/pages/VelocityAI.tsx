@@ -26,7 +26,6 @@ import Projects from './Projects';
 import LeaveManagementTab from '../components/leave-management'; 
 import ProjectCheckView from '@/components/ml-model';
 import ManagerGantt from '@/components/ManagerGantt';
-
 import { getJiraConnected, setJiraConnected } from '../lib/storage';
 import { apiUrl } from '../lib/api';
 
@@ -35,7 +34,7 @@ import { JiraCapacityMap } from '../components/leave-management/JiraCapacityMap'
 import { useJiraData } from '../hooks/useJiraData';
 import { parseCSV } from '../components/ml-model/RecommendationEngine';
 import { Task, EmployeeProfile } from '../components/leave-management/types';
-
+import SmartProgressTracker from '../components/smart-progress';
 // Fetch Jira connection status using API
 async function fetchJiraStatus() {
   try {
@@ -515,14 +514,13 @@ export default function VelocityAI() {
             {activeTab === 'ledger' && <CapacityLedgerTab />}
             {activeTab === 'hubspot' && <HubSpotTab />}
             {activeTab === 'integrations' && <IntegrationsTab />}
-            
-            {/* 2. FIXED ROUTING: 'redeployment' AND 'projectcheck' both open the ML Model */}
             {activeTab === 'deployment' && <ProjectCheckView />}
             
             {activeTab === 'activity' && <ProjectActivityTab />}
             {activeTab === 'roi' && <ROIVerificationTab />}
             {activeTab === 'security' && <SecurityAuditTab onJiraConnectionChange={handleJiraConnectionChange} />}
             {activeTab === 'leave' && <LeaveManagementTab />}
+            {activeTab === 'progress' && <SmartProgressTracker />}
             
           </div>
         </VeloNavTabs>

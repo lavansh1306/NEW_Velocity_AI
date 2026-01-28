@@ -15,6 +15,7 @@ interface VeloNavTabsProps {
   children?: React.ReactNode;
 }
 
+
 // Added icons to the tabs configuration
 const tabs = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
@@ -23,7 +24,8 @@ const tabs = [
   { id: 'integrations', label: 'Integrations', icon: <Puzzle className="w-5 h-5" /> },
   
   { id: 'leave', label: 'Leave Management', icon: <CalendarIcon className="w-5 h-5" /> }, 
-  { id: 'deployment', label: 'Deployment', icon: <BrainCircuit className="w-5 h-5" /> }
+  { id: 'deployment', label: 'Deployment', icon: <BrainCircuit className="w-5 h-5" /> },
+  { id: 'progress', label: 'Smart Tracker', icon: ''},
 ];
 
 export default function VeloNavTabs({ activeTab, onTabChange, children }: VeloNavTabsProps) {
