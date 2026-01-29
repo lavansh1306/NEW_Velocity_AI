@@ -1,39 +1,35 @@
-// src/components/smart-progress/ProgressAgent.ts
+import { SmartTask } from './types';
 
-export interface AnalysisResult {
-  taskId: number;
-  extractedProgress: number; // e.g., 50 (percent)
-  itemsCompleted: string[];
-  itemsPending: string[];
-  summary: string;
-}
-
-// SIMULATED AGENT LOGIC
-// In a real app, this would send the file content to an LLM (OpenAI/Gemini)
 export const analyzeEODReport = async (
-  taskScope: string[], 
-  fileContent: string
-): Promise<AnalysisResult> => {
+  task: SmartTask, 
+  reportContent: string
+): Promise<Partial<SmartTask>> => {
   
   return new Promise((resolve) => {
+    // Simulate AI Analysis Delay
     setTimeout(() => {
-      // 1. Simple heuristic: Check which scope items are mentioned in the file
-      // We look for keywords like "Done", "Completed", "Fixed" near the scope item
-      const completedItems = taskScope.filter(item => {
-        const keyword = item.toLowerCase().split(' ')[0]; // Grab first word "API", "Login", etc.
-        return fileContent.toLowerCase().includes(keyword);
+      const contentLower = reportContent.toLowerCase();
+      
+      // 1. Detect which scope items are mentioned as done
+      // (Simple heuristic: matching words from scope in the report)
+      const newlyDetectedItems = task.scope.filter(item => {
+        const keywords = item.toLowerCase().split(' ').filter(w => w.length > 3);
+        // If report contains significant words from the scope item
+        return keywords.some(k => contentLower.includes(k));
       });
 
-      const progress = Math.round((completedItems.length / taskScope.length) * 100);
-      const pendingItems = taskScope.filter(item => !completedItems.includes(item));
+      // 2. Merge with previously completed items (prevent regression)
+      const allCompleted = Array.from(new Set([...task.completedScope, ...newlyDetectedItems]));
+
+      // 3. Calculate new Percentage
+      const newProgress = Math.round((allCompleted.length / task.scope.length) * 100);
 
       resolve({
-        taskId: 0, // Placeholder
-        extractedProgress: progress,
-        itemsCompleted: completedItems,
-        itemsPending: pendingItems,
-        summary: `Agent detected completion of ${completedItems.length} out of ${taskScope.length} subtasks based on EOD report.`
+        completedScope: allCompleted,
+        progress: newProgress,
+        lastUpdate: `Agent verified completion of: ${newlyDetectedItems.join(', ') || 'No new items'}.`,
+        lastUpdatedTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       });
-    }, 2000); // 2 second "Thinking" delay
+    }, 2000);
   });
 };
