@@ -6,28 +6,33 @@ export const analyzeEODReport = async (
 ): Promise<Partial<SmartTask>> => {
   
   return new Promise((resolve) => {
-    // Simulate AI Analysis Delay
     setTimeout(() => {
       const contentLower = reportContent.toLowerCase();
       
-      // 1. Detect which scope items are mentioned as done
-      // (Simple heuristic: matching words from scope in the report)
-      const newlyDetectedItems = task.scope.filter(item => {
-        const keywords = item.toLowerCase().split(' ').filter(w => w.length > 3);
-        // If report contains significant words from the scope item
-        return keywords.some(k => contentLower.includes(k));
+      // 1. Detect which items are done (Keep existing done items + new ones)
+      const newScope = task.scope.map(item => {
+        // If already done, keep it done
+        if (item.isCompleted) return item;
+
+        // Check content for keywords
+        const keywords = item.name.toLowerCase().split(' ').filter(w => w.length > 3);
+        const mentioned = keywords.some(k => contentLower.includes(k));
+        
+        return mentioned ? { ...item, isCompleted: true } : item;
       });
 
-      // 2. Merge with previously completed items (prevent regression)
-      const allCompleted = Array.from(new Set([...task.completedScope, ...newlyDetectedItems]));
+      // 2. Calculate Weighted Progress
+      const newProgress = newScope
+        .filter(i => i.isCompleted)
+        .reduce((sum, item) => sum + item.weight, 0);
 
-      // 3. Calculate new Percentage
-      const newProgress = Math.round((allCompleted.length / task.scope.length) * 100);
+      const newlyCompleted = newScope.filter(i => i.isCompleted && !task.scope.find(old => old.id === i.id)?.isCompleted);
+      const names = newlyCompleted.map(i => i.name).join(", ");
 
       resolve({
-        completedScope: allCompleted,
-        progress: newProgress,
-        lastUpdate: `Agent verified completion of: ${newlyDetectedItems.join(', ') || 'No new items'}.`,
+        scope: newScope,
+        progress: Math.min(100, newProgress),
+        lastUpdate: names ? `Agent verified completion of: ${names}` : "No new items detected in report.",
         lastUpdatedTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       });
     }, 2000);
