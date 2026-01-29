@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { SmartTask } from './types';
 import { analyzeEODReport } from './ProgressAgent';
-import { Button } from '../../ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../ui/dialog';
+import { Button } from '../ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../ui/dialog';
 import { UploadCloud, CheckCircle2, Loader2, Zap } from 'lucide-react';
 
 interface EmployeeViewProps {
