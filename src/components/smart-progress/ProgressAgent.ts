@@ -1,39 +1,40 @@
-// src/components/smart-progress/ProgressAgent.ts
+import { SmartTask } from './types';
 
-export interface AnalysisResult {
-  taskId: number;
-  extractedProgress: number; // e.g., 50 (percent)
-  itemsCompleted: string[];
-  itemsPending: string[];
-  summary: string;
-}
-
-// SIMULATED AGENT LOGIC
-// In a real app, this would send the file content to an LLM (OpenAI/Gemini)
 export const analyzeEODReport = async (
-  taskScope: string[], 
-  fileContent: string
-): Promise<AnalysisResult> => {
+  task: SmartTask, 
+  reportContent: string
+): Promise<Partial<SmartTask>> => {
   
   return new Promise((resolve) => {
     setTimeout(() => {
-      // 1. Simple heuristic: Check which scope items are mentioned in the file
-      // We look for keywords like "Done", "Completed", "Fixed" near the scope item
-      const completedItems = taskScope.filter(item => {
-        const keyword = item.toLowerCase().split(' ')[0]; // Grab first word "API", "Login", etc.
-        return fileContent.toLowerCase().includes(keyword);
+      const contentLower = reportContent.toLowerCase();
+      
+      // 1. Detect which items are done (Keep existing done items + new ones)
+      const newScope = task.scope.map(item => {
+        // If already done, keep it done
+        if (item.isCompleted) return item;
+
+        // Check content for keywords
+        const keywords = item.name.toLowerCase().split(' ').filter(w => w.length > 3);
+        const mentioned = keywords.some(k => contentLower.includes(k));
+        
+        return mentioned ? { ...item, isCompleted: true } : item;
       });
 
-      const progress = Math.round((completedItems.length / taskScope.length) * 100);
-      const pendingItems = taskScope.filter(item => !completedItems.includes(item));
+      // 2. Calculate Weighted Progress
+      const newProgress = newScope
+        .filter(i => i.isCompleted)
+        .reduce((sum, item) => sum + item.weight, 0);
+
+      const newlyCompleted = newScope.filter(i => i.isCompleted && !task.scope.find(old => old.id === i.id)?.isCompleted);
+      const names = newlyCompleted.map(i => i.name).join(", ");
 
       resolve({
-        taskId: 0, // Placeholder
-        extractedProgress: progress,
-        itemsCompleted: completedItems,
-        itemsPending: pendingItems,
-        summary: `Agent detected completion of ${completedItems.length} out of ${taskScope.length} subtasks based on EOD report.`
+        scope: newScope,
+        progress: Math.min(100, newProgress),
+        lastUpdate: names ? `Agent verified completion of: ${names}` : "No new items detected in report.",
+        lastUpdatedTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       });
-    }, 2000); // 2 second "Thinking" delay
+    }, 2000);
   });
 };
