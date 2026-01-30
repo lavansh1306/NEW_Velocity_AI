@@ -12,7 +12,6 @@ interface AllocatorEngineProps {
   onConfirmAllocation: (projectId: string, selectedEmployeeIds: number[]) => void;
 }
 
-// THE "RL" SCORING MODEL
 interface ScoredEmployee extends UnifiedEmployee {
   matchScore: number;
   matchReasons: string[];
@@ -25,49 +24,61 @@ export const AllocatorEngine: React.FC<AllocatorEngineProps> = ({
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [isComputing, setIsComputing] = useState(false);
 
-  // 1. RUN THE ALGORITHM
   useEffect(() => {
-    if (open && project) {
+    if (open && project && employees.length > 0) {
       setIsComputing(true);
       
-      // Simulate "Thinking" time for the AI
       setTimeout(() => {
         const scored = employees.map(emp => {
           let score = 0;
           const reasons: string[] = [];
 
+          // SAFEGUARD: Ensure skills array exists
+          const empSkills = emp.skills || [];
+          const projSkills = project.requiredSkills || [];
+
           // FACTOR 1: SKILL MATCH (40%)
-          // Check how many of the project's required skills the employee has
-          const skillMatches = project.requiredSkills.filter(req => 
-            emp.skills.some(es => es.toLowerCase().includes(req.toLowerCase()))
+          // We use a looser check: verify if the string includes the keyword
+          const skillMatches = projSkills.filter(req => 
+            empSkills.some(es => es && typeof es === 'string' && es.toLowerCase().includes(req.toLowerCase()))
           );
-          const skillRatio = skillMatches.length / Math.max(project.requiredSkills.length, 1);
+          
+          const skillRatio = projSkills.length > 0 ? skillMatches.length / projSkills.length : 0;
           score += skillRatio * 40;
-          if (skillRatio > 0.5) reasons.push(`Matches ${skillMatches.length} skills`);
+          
+          if (skillMatches.length > 0) {
+            reasons.push(`Matches: ${skillMatches.slice(0, 2).join(', ')}`);
+          }
 
-          // FACTOR 2: EFFICIENCY RATING (Simulated RL) (30%)
-          // Base rating is 1.0. If rating is 1.2, they get full points.
-          const efficiencyScore = Math.min(emp.efficiencyRating, 1.5) / 1.5; 
-          score += efficiencyScore * 30;
-          if (emp.efficiencyRating > 1.1) reasons.push("High Efficiency Rating");
+          // FACTOR 2: EFFICIENCY (30%)
+          // Default to 1.0 if missing
+          const efficiency = emp.efficiencyRating || 1.0;
+          score += (efficiency / 2) * 30; 
+          if (efficiency > 1.2) reasons.push("Top Performer");
 
-          // FACTOR 3: CURRENT LOAD (20%)
-          // Invert load: 0% load = 100 points, 100% load = 0 points
-          const loadScore = Math.max(0, (100 - emp.currentLoad) / 100);
+          // FACTOR 3: AVAILABILITY (20%)
+          const load = emp.currentLoad || 0;
+          const loadScore = Math.max(0, (100 - load) / 100);
           score += loadScore * 20;
-          if (emp.currentLoad < 20) reasons.push("High Availability");
+          if (load < 30) reasons.push("Available Now");
 
-          // FACTOR 4: HISTORICAL VOLUME (10%)
-          const volScore = Math.min(emp.totalProjectsCompleted, 10) / 10;
-          score += volScore * 10;
+          // FACTOR 4: EXPERIENCE (10%)
+          score += Math.min((emp.totalProjectsCompleted || 0), 10);
 
-          return { ...emp, matchScore: Math.round(score), matchReasons: reasons };
+          // BASE SCORE: Give everyone at least 10 points so they show up
+          score = Math.max(10, Math.round(score));
+
+          return { ...emp, matchScore: score, matchReasons: reasons };
         });
 
-        // Sort by Score Descending
+        // Sort: Highest Score first
         setCandidates(scored.sort((a, b) => b.matchScore - a.matchScore));
         setIsComputing(false);
-      }, 1500);
+      }, 800);
+    } else if (open && employees.length === 0) {
+        // Handle case where no employees exist
+        setCandidates([]);
+        setIsComputing(false);
     }
   }, [open, project, employees]);
 
@@ -94,7 +105,7 @@ export const AllocatorEngine: React.FC<AllocatorEngineProps> = ({
             AI Resource Allocator
           </DialogTitle>
           <DialogDescription>
-            Optimizing team for <strong>{project.title}</strong> based on skills, availability, and past performance.
+            Finding best candidates for <strong>{project.title}</strong>
           </DialogDescription>
         </DialogHeader>
 
@@ -102,22 +113,26 @@ export const AllocatorEngine: React.FC<AllocatorEngineProps> = ({
           
           {isComputing ? (
             <div className="flex flex-col items-center justify-center h-48 space-y-4">
-              <div className="relative">
-                <div className="w-12 h-12 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>
-                <div className="absolute inset-0 flex items-center justify-center font-bold text-xs text-purple-600">AI</div>
-              </div>
+              <LoaderSpinner />
               <p className="text-sm text-slate-500 animate-pulse">Running reinforcement logic...</p>
+            </div>
+          ) : candidates.length === 0 ? (
+            <div className="text-center p-8 text-slate-500 bg-slate-50 rounded-xl border border-dashed">
+                <AlertTriangle className="w-8 h-8 mx-auto mb-2 text-amber-500" />
+                <p>No employees found in the database.</p>
+                <p className="text-xs">Please check if the CSV data loaded correctly.</p>
             </div>
           ) : (
             <div className="space-y-3">
               <div className="flex justify-between items-center text-xs font-bold text-slate-400 uppercase mb-2">
-                 <span>Recommended Candidates</span>
+                 <span>Recommended Candidates ({candidates.length})</span>
                  <span>Match Score</span>
               </div>
 
-              {candidates.slice(0, 8).map((candidate, idx) => {
-                const isTopPick = idx < 3; // Highlight top 3
+              {candidates.map((candidate, idx) => {
                 const isSelected = selectedIds.includes(candidate.id);
+                // Top 3 get special styling
+                const isTopPick = idx < 3 && candidate.matchScore > 40; 
 
                 return (
                   <div 
@@ -131,16 +146,15 @@ export const AllocatorEngine: React.FC<AllocatorEngineProps> = ({
                     <div className="flex justify-between items-start">
                       <div className="flex items-center gap-3">
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${isTopPick ? 'bg-gradient-to-br from-purple-100 to-indigo-100 text-purple-700' : 'bg-slate-100 text-slate-500'}`}>
-                          {candidate.name.substring(0,2).toUpperCase()}
+                          {candidate.name ? candidate.name.substring(0,2).toUpperCase() : "??"}
                         </div>
                         <div>
                           <div className="font-bold text-gray-900 flex items-center gap-2">
                             {candidate.name}
                             {isTopPick && <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 rounded-full flex items-center gap-1"><TrendingUp className="w-3 h-3"/> Top Fit</span>}
                           </div>
-                          <div className="text-xs text-slate-500">{candidate.role} • Rating: {candidate.efficiencyRating.toFixed(1)}</div>
+                          <div className="text-xs text-slate-500">{candidate.role || "Developer"} • Load: {candidate.currentLoad}%</div>
                           
-                          {/* Reasons */}
                           <div className="flex flex-wrap gap-1 mt-1.5">
                             {candidate.matchReasons.map((r, i) => (
                               <span key={i} className="text-[10px] px-1.5 py-0.5 bg-white border border-slate-200 rounded text-slate-600">
@@ -152,7 +166,7 @@ export const AllocatorEngine: React.FC<AllocatorEngineProps> = ({
                       </div>
 
                       <div className="text-right">
-                        <div className={`text-xl font-black ${candidate.matchScore > 80 ? 'text-emerald-600' : candidate.matchScore > 50 ? 'text-amber-500' : 'text-slate-400'}`}>
+                        <div className={`text-xl font-black ${candidate.matchScore > 70 ? 'text-emerald-600' : candidate.matchScore > 40 ? 'text-amber-500' : 'text-slate-400'}`}>
                           {candidate.matchScore}%
                         </div>
                         {isSelected && <CheckCircle2 className="w-5 h-5 text-purple-600 ml-auto mt-1" />}
@@ -170,19 +184,24 @@ export const AllocatorEngine: React.FC<AllocatorEngineProps> = ({
             <div className="text-sm text-slate-500">
               <strong className="text-purple-700">{selectedIds.length}</strong> members selected
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-              <Button 
-                onClick={handleConfirm} 
-                disabled={selectedIds.length === 0}
-                className="bg-purple-600 hover:bg-purple-700 text-white"
-              >
-                Allocate & Start Project
-              </Button>
-            </div>
+            <Button 
+              onClick={handleConfirm} 
+              disabled={selectedIds.length === 0}
+              className="bg-purple-600 hover:bg-purple-700 text-white"
+            >
+              Allocate & Start Project
+            </Button>
           </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 };
+
+// Simple Spinner Helper
+const LoaderSpinner = () => (
+    <div className="relative">
+        <div className="w-12 h-12 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>
+        <div className="absolute inset-0 flex items-center justify-center font-bold text-xs text-purple-600">AI</div>
+    </div>
+);
