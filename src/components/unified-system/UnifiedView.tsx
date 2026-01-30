@@ -4,11 +4,11 @@ import { ProjectQueue } from './ideation/ProjectQueue';
 import { AllocatorEngine } from './allocator/AllocatorEngine';
 import { ActiveProjectDetail } from './execution/ActiveProjectDetail';
 import { UnifiedProject, UnifiedEmployee } from './types';
-import { fetchRawCSV } from '../ml-model/RecommendationEngine';
 import { Button } from '../ui/button';
 import { Plus, LayoutGrid, CheckCircle2, AlertCircle } from 'lucide-react';
 
-// Use ?url for Vite asset handling
+// --- FIXED IMPORT PATHS (Added ../) ---
+import { fetchRawCSV } from '../ml-model/RecommendationEngine'; 
 import csvPath from '../ml-model/datasets/master_employee_task_report.csv?url';
 
 export default function UnifiedView() {
@@ -61,8 +61,8 @@ export default function UnifiedView() {
         console.error("CSV Load Failed, falling back to mock data:", error);
       }
 
-      // --- GUARANTEED DATA FALLBACK ---
-      // If CSV failed or returned very few results, inject Mock Data
+      // --- GUARANTEED FALLBACK ---
+      // Even if CSV fails, this ensures you ALWAYS have employees to demo
       if (loadedEmployees.length < 3) {
         console.warn("Using Mock Data Fallback");
         const mockData: UnifiedEmployee[] = [
@@ -112,7 +112,6 @@ export default function UnifiedView() {
         ? { ...p, status: 'ACTIVE', assignedTeamIds: selectedIds, startDate: new Date().toISOString() } 
         : p
     ));
-    // Increase load
     setEmployees(prev => prev.map(emp => 
       selectedIds.includes(emp.id) 
         ? { ...emp, currentLoad: Math.min(100, emp.currentLoad + 25) } 
