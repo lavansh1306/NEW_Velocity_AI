@@ -3,7 +3,6 @@ import {
   BarChart3, 
   Users, 
   Zap, 
-  TrendingUp, 
   Activity,
   ArrowUpRight,
   Clock 
@@ -26,15 +25,17 @@ import Projects from './Projects';
 import LeaveManagementTab from '../components/leave-management'; 
 import ProjectCheckView from '@/components/ml-model';
 import ManagerGantt from '@/components/ManagerGantt';
+import SmartProgressTracker from '../components/smart-progress';
+import UnifiedView from '../components/unified-system/UnifiedView'; 
+
 import { getJiraConnected, setJiraConnected } from '../lib/storage';
 import { apiUrl } from '../lib/api';
 
-import { OrganizationalWorkloadTable } from '../components/leave-management/OrganizationalWorkloadTable';
 import { JiraCapacityMap } from '../components/leave-management/JiraCapacityMap';
 import { useJiraData } from '../hooks/useJiraData';
 import { parseCSV } from '../components/ml-model/RecommendationEngine';
 import { Task, EmployeeProfile } from '../components/leave-management/types';
-import SmartProgressTracker from '../components/smart-progress';
+
 // Fetch Jira connection status using API
 async function fetchJiraStatus() {
   try {
@@ -100,7 +101,6 @@ async function fetchJiraData() {
           
           // Sum up hours and collect assignees
           issues.forEach((issue: any) => {
-            // Safely parse duration - convert to number and validate
             let hours = 8; // default
             if (issue.duration) {
               const parsed = parseInt(String(issue.duration), 10);
@@ -146,25 +146,19 @@ async function fetchJiraData() {
   }
 }
 
-// --- NEW MODERN DASHBOARD COMPONENT (Placeholder) ---
+// --- NEW MODERN DASHBOARD COMPONENT ---
 const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
-  // --- State for view mode (Timeline vs Capacity) ---
   const [viewMode, setViewMode] = useState<'timeline' | 'capacity'>('timeline');
-
-  // --- State for Organizational Workload ---
   const [tasks, setTasks] = useState<Task[]>([]);
   const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
   const [csvLoading, setCsvLoading] = useState(true);
 
-  // --- Fetch Jira data using the custom hook ---
   const { issues: jiraIssues, loading: jiraLoading } = useJiraData();
 
-  // --- Calculate stats from Jira issues ---
   const stats = useMemo(() => {
     const uniqueProjects = new Set(jiraIssues.map(i => i.project || i.projectKey || 'Unknown'));
     const uniqueAssignees = new Set(jiraIssues.map(i => i.assignee || 'Unassigned'));
     
-    // Calculate total hours, ensuring duration is a valid positive number
     const totalHours = jiraIssues.reduce((sum, issue) => {
       const duration = Number(issue.duration) || 0;
       return sum + (duration > 0 ? duration : 0);
@@ -174,25 +168,23 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
       totalTasks: jiraIssues.length,
       totalProjects: uniqueProjects.size,
       teamMembers: uniqueAssignees.size,
-      totalHours: Math.max(totalHours, 0), // Ensure non-negative
+      totalHours: Math.max(totalHours, 0),
     };
   }, [jiraIssues]);
 
-  // --- Fetch CSV Data for the Graph (fallback/demo data) ---
   useEffect(() => {
     const fetchData = async () => {
       try {
         const csvUrl = new URL('../components/ml-model/datasets/master_employee_task_report.csv', import.meta.url).href;
         const rawData: any[] = await parseCSV(csvUrl);
 
-        // Transform CSV Data -> Task Model
         const loadedTasks: Task[] = rawData.map((row, index) => ({
           id: index,
           projectName: row.Project || "Unassigned",
           taskName: row["Task Name"] || "Untitled Task",
           assignee: row.Assignee || "Unassigned",
           hours: row["Planned Hours"] || 0,
-          day: Math.floor(Math.random() * 5), // Demo visualization (random day)
+          day: Math.floor(Math.random() * 5),
           requiredSkills: row["Skill Used"] ? [row["Skill Used"]] : [],
           isReallocated: false,
           isCancelled: false,
@@ -202,7 +194,6 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
 
         setTasks(loadedTasks);
 
-        // Extract Employees for Rows
         const uniqueNames = Array.from(new Set(loadedTasks.map(t => t.assignee)));
         const loadedEmployees: EmployeeProfile[] = uniqueNames.map(name => {
           const userTasks = loadedTasks.filter(t => t.assignee === name);
@@ -223,7 +214,7 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       
-      {/* 1. Jira Connection Status Banner (PRESERVED) */}
+      {/* Jira Connection Status Banner */}
       {jiraData && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
           <div className="flex items-center gap-3">
@@ -238,7 +229,7 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
         </div>
       )}
 
-      {/* 2. Welcome Section */}
+      {/* Welcome Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Welcome back, Manager</h1>
@@ -254,30 +245,7 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
         </div>
       </div>
 
-      {/* 3. Jira Projects List (PRESERVED) */}
-      {jiraData?.projects && jiraData.projects.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Your Jira Projects</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {jiraData.projects.slice(0, 9).map((project: any) => (
-              <div key={project.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                <div className="flex items-start gap-3">
-                  {project.avatarUrls?.['48x48'] && (
-                    <img src={project.avatarUrls['48x48']} alt={project.name} className="w-10 h-10 rounded" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-semibold text-gray-900 truncate">{project.name}</h4>
-                    <p className="text-sm text-gray-500">{project.key}</p>
-                    <p className="text-xs text-gray-400 mt-1">{project.projectTypeKey}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 4. KPI Stats Grid */}
+      {/* KPI Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: 'Total Tasks', value: stats.totalTasks, change: '+12%', icon: Zap, color: 'text-amber-500', bg: 'bg-amber-50' },
@@ -300,9 +268,8 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
         ))}
       </div>
 
-      {/* 5. Main Charts Area with View Toggle */}
+      {/* Main Charts Area with View Toggle */}
       <div className="space-y-4">
-        {/* View Toggle */}
         <div className="flex items-center gap-2 bg-white p-1 rounded-lg border border-gray-200 shadow-sm w-fit">
           <button
             onClick={() => setViewMode('timeline')}
@@ -326,21 +293,18 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
           </button>
         </div>
 
-        {/* Timeline View */}
         {viewMode === 'timeline' && (
           <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
             <ManagerGantt autoFetch={true} jiraIssues={jiraIssues} />
           </div>
         )}
 
-        {/* Capacity Map View */}
         {viewMode === 'capacity' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
             <div className="lg:col-span-2">
               <JiraCapacityMap jiraIssues={jiraIssues} loading={jiraLoading} />
             </div>
 
-            {/* Recent Activity List (PRESERVED) */}
             <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
               <h3 className="font-semibold text-gray-900 mb-6 flex items-center gap-2">
                 <Clock className="w-5 h-5 text-gray-400" />
@@ -370,7 +334,7 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
         )}
       </div>
 
-      {/* 6. Jira Projects List (shown in both views, below the toggle section) */}
+      {/* Jira Projects List */}
       {jiraData?.projects && jiraData.projects.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-200 p-6 mt-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Your Jira Projects</h3>
@@ -404,7 +368,6 @@ export default function VelocityAI() {
   });
   const [jiraData, setJiraData] = useState<any>(null);
 
-  // Fetch Jira data on mount if token exists
   useEffect(() => {
     fetchJiraData().then(data => {
       if (data) {
@@ -415,7 +378,6 @@ export default function VelocityAI() {
     });
   }, []);
 
-  // Save to localStorage whenever jiraConnected changes
   useEffect(() => {
     setJiraConnected(jiraConnected);
   }, [jiraConnected]);
@@ -495,20 +457,16 @@ export default function VelocityAI() {
       )}
 
       {/* --- MAIN CONTENT LAYOUT --- */}
-      
       {currentView === 'vp' ? (
-        // VP VIEW: Full width, no sidebar
         <main className="w-full">
           <VPDashboard />
         </main>
       ) : (
-        // MANAGER VIEW: Wrapped in NavTabs Sidebar
         <VeloNavTabs activeTab={activeTab} onTabChange={setActiveTab}>
           <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-7xl mx-auto animate-in fade-in duration-300">
             
-            {/* 1. UPDATED DASHBOARD: Uses the new pleasant component */}
             {activeTab === 'dashboard' && <ModernDashboard jiraData={jiraData} />}
-            
+            {activeTab === 'unified' && <UnifiedView />} {/* NEW TAB */}
             {activeTab === 'projects' && <Projects jiraConnected={jiraConnected} withNav={false} />}
             {activeTab === 'stc' && <StandardTimeCatalogTab />}
             {activeTab === 'ledger' && <CapacityLedgerTab />}

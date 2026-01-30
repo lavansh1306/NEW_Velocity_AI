@@ -1,43 +1,49 @@
 NEW_Velocity_AI
 ├── .env
+├── .env.example
 ├── .git/
+├── .github
+│   └── appmod
+│       └── appcat
 ├── .gitignore
 ├── api
 │   ├── diagnose.ts
+│   ├── health.ts
 │   ├── hubspot-callback.ts
-│   └── index.ts
+│   ├── index.ts
+│   └── jira
+│       ├── auth
+│       │   ├── callback.ts
+│       │   ├── connect.ts
+│       │   ├── disconnect.ts
+│       │   ├── status.ts
+│       │   └── switch-site.ts
+│       ├── auth.ts
+│       ├── issues.ts
+│       └── projects.ts
 ├── architecture-old.svg
 ├── architecture.svg
+├── archives
+│   └── VelocityAI.tsx
 ├── asana
-├── bun.lockb
-├── COMPLETION_REPORT.md
 ├── components.json
 ├── demo
 │   ├── LiveFeed.tsx
-│   ├── RedeploymentView.tsx
 │   ├── ROIMetrics.tsx
 │   └── TimeTracking.tsx
-├── docs
-│   ├── data-pipeline.md
-│   ├── metrics-and-architecture.md
-│   └── QUICK-REFERENCE.md
 ├── eslint.config.js
 ├── googleba79ddad728eb1f3.html
-├── HUBSPOT_CORRECTION.md
-├── HUBSPOT_INTEGRATION_COMPLETE.md
 ├── index.html
-├── INTEGRATION_GUIDE.md
-├── INTEGRATION_SUMMARY.md
+├── krish.txt
 ├── LICENSE
 ├── node_modules/
 ├── package-lock.json
 ├── package.json
-├── pnpm-lock.yaml
 ├── postcss.config.js
-├── PROJECT_STRUCTURE.md
 ├── public
 │   ├── data
 │   │   ├── asana_events.csv
+│   │   ├── employees.csv
 │   │   ├── github_events.csv
 │   │   ├── hubspot_events.csv
 │   │   ├── integrations-analytics.csv
@@ -53,15 +59,19 @@ NEW_Velocity_AI
 │   ├── placeholder.svg
 │   └── robots.txt
 ├── README.md
-├── README.old.md
 ├── server.ts
 ├── src
 │   ├── api
+│   │   ├── deployed
+│   │   │   └── routes.ts
 │   │   ├── hubspot
 │   │   │   ├── auth.ts
 │   │   │   ├── oauth-errors.ts
 │   │   │   ├── routes.ts
 │   │   │   └── session-store.ts
+│   │   ├── jira
+│   │   │   ├── auth.ts
+│   │   │   └── routes.ts
 │   │   ├── microsoft365
 │   │   │   ├── auth.ts
 │   │   │   ├── graphClient.ts
@@ -104,8 +114,8 @@ NEW_Velocity_AI
 │   │   │   └── types.ts
 │   │   ├── CTA.tsx
 │   │   ├── demo
+│   │   │   ├── DeploymentView.tsx
 │   │   │   ├── LiveFeed.tsx
-│   │   │   ├── RedeploymentView.tsx
 │   │   │   ├── ROIMetrics.tsx
 │   │   │   └── TimeTracking.tsx
 │   │   ├── demo2
@@ -148,74 +158,106 @@ NEW_Velocity_AI
 │   │   │   ├── data.ts
 │   │   │   ├── ImpactAnalysisDialog.tsx
 │   │   │   ├── index.tsx
+│   │   │   ├── JiraCapacityMap.tsx
+│   │   │   ├── LeaveApplicationDialog.tsx
 │   │   │   ├── LeaveRequestTable.tsx
-│   │   │   ├── ManagerView.tsx
+│   │   │   ├── OrganizationalWorkloadTable.tsx
 │   │   │   ├── TimeLoggingDialog.tsx
+│   │   │   ├── TimesheetUploadDialog.tsx
 │   │   │   ├── types.ts
 │   │   │   └── WorkloadTable.tsx
+│   │   ├── ManagerGantt.tsx
 │   │   ├── microsoft365
 │   │   │   ├── EmailMetrics.tsx
 │   │   │   ├── MeetingsMetrics.tsx
 │   │   │   ├── Microsoft365Hub.tsx
 │   │   │   └── ROICalculator.tsx
+│   │   ├── ml-model
+│   │   │   ├── datasets
+│   │   │   │   └── master_employee_task_report.csv
+│   │   │   ├── index.tsx
+│   │   │   ├── JsonOutputDialog.tsx
+│   │   │   ├── pdfParser.ts
+│   │   │   ├── ProjectCheckDashboard.tsx
+│   │   │   ├── ProjectCheckInput.tsx
+│   │   │   ├── RecommendationCard.tsx
+│   │   │   ├── RecommendationEngine.ts
+│   │   │   └── types.ts
 │   │   ├── NavLink.tsx
+│   │   ├── Results.tsx
+│   │   ├── smart-progress
+│   │   │   ├── EmployeeView.tsx
+│   │   │   ├── EODUploadDialog.tsx
+│   │   │   ├── index.tsx
+│   │   │   ├── ManagerView.tsx
+│   │   │   ├── ProgressAgent.ts
+│   │   │   └── types.ts
 │   │   ├── Stats.tsx
 │   │   ├── ToastContainer.tsx
-│   │   └── ui
-│   │       ├── accordion.tsx
-│   │       ├── alert-dialog.tsx
-│   │       ├── alert.tsx
-│   │       ├── aspect-ratio.tsx
-│   │       ├── avatar.tsx
-│   │       ├── badge.tsx
-│   │       ├── breadcrumb.tsx
-│   │       ├── button.tsx
-│   │       ├── calendar.tsx
-│   │       ├── card.tsx
-│   │       ├── carousel.tsx
-│   │       ├── chart.tsx
-│   │       ├── checkbox.tsx
-│   │       ├── collapsible.tsx
-│   │       ├── command.tsx
-│   │       ├── context-menu.tsx
-│   │       ├── dialog.tsx
-│   │       ├── drawer.tsx
-│   │       ├── dropdown-menu.tsx
-│   │       ├── form.tsx
-│   │       ├── hover-card.tsx
-│   │       ├── input-otp.tsx
-│   │       ├── input.tsx
-│   │       ├── label.tsx
-│   │       ├── menubar.tsx
-│   │       ├── navigation-menu.tsx
-│   │       ├── pagination.tsx
-│   │       ├── popover.tsx
-│   │       ├── progress.tsx
-│   │       ├── radio-group.tsx
-│   │       ├── resizable.tsx
-│   │       ├── scroll-area.tsx
-│   │       ├── select.tsx
-│   │       ├── separator.tsx
-│   │       ├── sheet.tsx
-│   │       ├── sidebar.tsx
-│   │       ├── skeleton.tsx
-│   │       ├── slider.tsx
-│   │       ├── sonner.tsx
-│   │       ├── switch.tsx
-│   │       ├── table.tsx
-│   │       ├── tabs.tsx
-│   │       ├── textarea.tsx
-│   │       ├── toast.tsx
-│   │       ├── toaster.tsx
-│   │       ├── toggle-group.tsx
-│   │       ├── toggle.tsx
-│   │       ├── tooltip.tsx
-│   │       └── use-toast.ts
+│   │   ├── ui
+│   │   │   ├── accordion.tsx
+│   │   │   ├── alert-dialog.tsx
+│   │   │   ├── alert.tsx
+│   │   │   ├── aspect-ratio.tsx
+│   │   │   ├── avatar.tsx
+│   │   │   ├── badge.tsx
+│   │   │   ├── breadcrumb.tsx
+│   │   │   ├── button.tsx
+│   │   │   ├── calendar.tsx
+│   │   │   ├── card.tsx
+│   │   │   ├── carousel.tsx
+│   │   │   ├── chart.tsx
+│   │   │   ├── checkbox.tsx
+│   │   │   ├── collapsible.tsx
+│   │   │   ├── command.tsx
+│   │   │   ├── context-menu.tsx
+│   │   │   ├── dialog.tsx
+│   │   │   ├── drawer.tsx
+│   │   │   ├── dropdown-menu.tsx
+│   │   │   ├── form.tsx
+│   │   │   ├── hover-card.tsx
+│   │   │   ├── input-otp.tsx
+│   │   │   ├── input.tsx
+│   │   │   ├── label.tsx
+│   │   │   ├── menubar.tsx
+│   │   │   ├── navigation-menu.tsx
+│   │   │   ├── pagination.tsx
+│   │   │   ├── popover.tsx
+│   │   │   ├── progress.tsx
+│   │   │   ├── radio-group.tsx
+│   │   │   ├── resizable.tsx
+│   │   │   ├── scroll-area.tsx
+│   │   │   ├── select.tsx
+│   │   │   ├── separator.tsx
+│   │   │   ├── sheet.tsx
+│   │   │   ├── sidebar.tsx
+│   │   │   ├── skeleton.tsx
+│   │   │   ├── slider.tsx
+│   │   │   ├── sonner.tsx
+│   │   │   ├── switch.tsx
+│   │   │   ├── table.tsx
+│   │   │   ├── tabs.tsx
+│   │   │   ├── textarea.tsx
+│   │   │   ├── toast.tsx
+│   │   │   ├── toaster.tsx
+│   │   │   ├── toggle-group.tsx
+│   │   │   ├── toggle.tsx
+│   │   │   ├── tooltip.tsx
+│   │   │   └── use-toast.ts
+│   │   └── unified-system
+│   │       ├── ideation
+│   │       │   ├── DraftProjectDialog.tsx
+│   │       │   ├── ProjectQueue.tsx
+│   │       │   └── UnifiedView.tsx
+│   │       ├── IdeationSandbox
+│   │       │   └── QueueList.tsx
+│   │       └── types.ts
 │   ├── contexts
 │   │   └── ToastContext.tsx
 │   ├── hooks
 │   │   ├── use-mobile.tsx
 │   │   ├── use-toast.ts
+│   │   ├── useJiraData.ts
 │   │   └── useNotification.ts
 │   ├── index.css
 │   ├── lib
@@ -240,9 +282,11 @@ NEW_Velocity_AI
 │   │   ├── DebugNormalization.tsx
 │   │   ├── Demo.tsx
 │   │   ├── GlobalCapacity.tsx
+│   │   ├── GlobalGanttDashboard.tsx
 │   │   ├── HubSpotDashboard.tsx
 │   │   ├── Index.tsx
 │   │   ├── JiraDashboard.tsx
+│   │   ├── JiraEmployeeExtractor.tsx
 │   │   ├── Microsoft365Dashboard.tsx
 │   │   ├── NotFound.tsx
 │   │   ├── ProjectDetail.tsx
@@ -255,12 +299,10 @@ NEW_Velocity_AI
 │   └── vite-env.d.ts
 ├── tailwind.config.ts
 ├── test-server.ts
-├── TOAST_EXAMPLES.md
-├── TOAST_SYSTEM.md
 ├── tsconfig.app.json
 ├── tsconfig.json
 ├── tsconfig.node.json
+├── tsconfig.server.json
 ├── velo.html
 ├── vercel.json
-├── VERIFICATION_CHECKLIST.md
 └── vite.config.ts
