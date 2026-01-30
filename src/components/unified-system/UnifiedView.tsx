@@ -1,246 +1,255 @@
-import React, { useState, useRef } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../ui/dialog';
+import React, { useState, useEffect } from 'react';
+import { DraftProjectDialog } from './ideation/DraftProjectDialog';
+import { ProjectQueue } from './ideation/ProjectQueue';
+import { AllocatorEngine } from './allocator/AllocatorEngine';
+import { ActiveProjectDetail } from './execution/ActiveProjectDetail';
+import { UnifiedProject, UnifiedEmployee } from './types';
+import { fetchRawCSV } from '../ml-model/RecommendationEngine';
 import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { Textarea } from '../ui/textarea';
-import { Sparkles, Loader2, Plus, X, UploadCloud, FileText } from 'lucide-react';
-import { UnifiedProject } from './types';
-import { extractTextFromPDF } from '../ml-model/pdfParser'; // Import the PDF Parser
+import { Plus, LayoutGrid, CheckCircle2 } from 'lucide-react';
 
-interface DraftProjectDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSave: (project: UnifiedProject) => void;
-}
+export default function UnifiedView() {
+  // --- SYSTEM DATA STATE ---
+  const [employees, setEmployees] = useState<UnifiedEmployee[]>([]);
+  const [projects, setProjects] = useState<UnifiedProject[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-export const DraftProjectDialog: React.FC<DraftProjectDialogProps> = ({ open, onOpenChange, onSave }) => {
-  const [title, setTitle] = useState('');
-  const [desc, setDesc] = useState('');
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [isUploading, setIsUploading] = useState(false); // New state for upload
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  // AI Suggested State
-  const [skills, setSkills] = useState<string[]>([]);
-  const [estHours, setEstHours] = useState<number>(0);
-  const [priority, setPriority] = useState<'Low' | 'Medium' | 'High'>('Medium');
+  // --- UI STATE: IDEATION ---
+  const [isDraftOpen, setIsDraftOpen] = useState(false);
 
-  // --- NEW: HANDLE PDF UPLOAD ---
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // --- UI STATE: ALLOCATION ---
+  const [isAllocatorOpen, setIsAllocatorOpen] = useState(false);
+  const [projectToAllocate, setProjectToAllocate] = useState<UnifiedProject | null>(null);
 
-    setIsUploading(true);
-    try {
-      // 1. Parse PDF Text
-      const text = await extractTextFromPDF(file);
-      
-      // 2. Set Description
-      setDesc(prev => (prev ? prev + "\n\n" + text : text));
-      
-      // 3. Auto-Analyze immediately after upload
-      handleAnalyze(text);
-      
-      // 4. Auto-Set Title if empty
-      if (!title) {
-        setTitle(file.name.replace('.pdf', ''));
+  // --- UI STATE: EXECUTION ---
+  const [selectedActiveProject, setSelectedActiveProject] = useState<UnifiedProject | null>(null);
+
+  // 1. INITIALIZE SYSTEM (Load Data)
+  useEffect(() => {
+    const initSystem = async () => {
+      try {
+        const csvUrl = new URL('../ml-model/datasets/master_employee_task_report.csv', import.meta.url).href;
+        const rawData = await fetchRawCSV(csvUrl);
+
+        const uniqueEmps = new Map<string, UnifiedEmployee>();
+        
+        rawData.forEach((row: any, idx: number) => {
+          if (!row.Assignee) return;
+          if (!uniqueEmps.has(row.Assignee)) {
+            uniqueEmps.set(row.Assignee, {
+              id: idx,
+              name: row.Assignee,
+              role: row.Role || "Developer",
+              skills: [row["Skill Used"]].filter(Boolean),
+              efficiencyRating: 1.0, // Baseline RL Score
+              currentLoad: Math.floor(Math.random() * 40), // Simulating some initial load
+              availableFrom: new Date().toISOString(),
+              totalProjectsCompleted: Math.floor(Math.random() * 10),
+              avgHoursPerTask: 0
+            });
+          }
+          // Aggregate skills
+          const emp = uniqueEmps.get(row.Assignee)!;
+          if(row["Skill Used"] && !emp.skills.includes(row["Skill Used"])) {
+              emp.skills.push(row["Skill Used"]);
+          }
+        });
+
+        setEmployees(Array.from(uniqueEmps.values()));
+        
+        // Seed initial data
+        setProjects([
+          {
+            id: 'seed_1',
+            title: 'Legacy Database Migration',
+            description: 'Migrate the old SQL Server data to the new MongoDB cluster.',
+            status: 'QUEUED',
+            requiredSkills: ['SQL', 'MongoDB', 'Python'],
+            estimatedHours: 40,
+            priority: 'High',
+            assignedTeamIds: []
+          }
+        ]);
+      } catch (error) {
+        console.error("Failed to load Unified System data:", error);
+      } finally {
+        setIsLoading(false);
       }
-    } catch (err) {
-      console.error("PDF Parse Error:", err);
-      alert("Failed to parse PDF. Please ensure it is a text-based PDF.");
-    } finally {
-      setIsUploading(false);
-      // Reset input so same file can be selected again if needed
-      if(fileInputRef.current) fileInputRef.current.value = '';
-    }
-  };
-
-  // Simulate AI Analysis of the Description
-  const handleAnalyze = (textToAnalyze?: string) => {
-    const content = textToAnalyze || desc;
-    if (!content) return;
-    
-    setIsAnalyzing(true);
-    
-    setTimeout(() => {
-      // 1. Simple Keyword Extraction (Heuristic)
-      const detectedSkills = [];
-      const lower = content.toLowerCase();
-      
-      // Expanded keyword list for better demo
-      if (lower.includes('react') || lower.includes('frontend') || lower.includes('ui')) detectedSkills.push('React');
-      if (lower.includes('api') || lower.includes('node') || lower.includes('backend')) detectedSkills.push('Node.js');
-      if (lower.includes('python') || lower.includes('ml') || lower.includes('ai')) detectedSkills.push('Python');
-      if (lower.includes('database') || lower.includes('sql') || lower.includes('mongo')) detectedSkills.push('SQL');
-      if (lower.includes('mobile') || lower.includes('flutter') || lower.includes('ios')) detectedSkills.push('Flutter');
-      if (lower.includes('aws') || lower.includes('cloud') || lower.includes('deploy')) detectedSkills.push('AWS');
-      
-      if (detectedSkills.length === 0) detectedSkills.push('General Development');
-
-      // 2. Estimate Hours based on length/complexity
-      const wordCount = content.split(/\s+/).length;
-      // Rough heuristic: 1 hour per 50 words of SRS complexity + base 20h
-      const hours = Math.round(20 + (wordCount / 50));
-
-      setSkills(Array.from(new Set(detectedSkills))); // Dedupe
-      setEstHours(hours);
-      setIsAnalyzing(false);
-    }, 1500);
-  };
-
-  const handleSave = () => {
-    const newProject: UnifiedProject = {
-      id: `proj_${Date.now()}`,
-      title,
-      description: desc,
-      status: 'QUEUED',
-      requiredSkills: skills,
-      estimatedHours: estHours,
-      priority,
-      assignedTeamIds: []
     };
-    onSave(newProject);
-    onOpenChange(false);
-    resetForm();
+
+    initSystem();
+  }, []);
+
+  // --- HANDLERS: IDEATION ---
+  const handleAddProject = (newProject: UnifiedProject) => {
+    setProjects(prev => [...prev, newProject]);
   };
 
-  const resetForm = () => {
-    setTitle('');
-    setDesc('');
-    setSkills([]);
-    setEstHours(0);
+  const handleDeleteProject = (id: string) => {
+    setProjects(prev => prev.filter(p => p.id !== id));
   };
 
+  // --- HANDLERS: ALLOCATION ---
+  const handleAllocateStart = (project: UnifiedProject) => {
+    setProjectToAllocate(project);
+    setIsAllocatorOpen(true);
+  };
+
+  const handleConfirmAllocation = (projectId: string, selectedIds: number[]) => {
+    // 1. Move Project to ACTIVE and Assign Team
+    setProjects(prev => prev.map(p => 
+      p.id === projectId 
+        ? { ...p, status: 'ACTIVE', assignedTeamIds: selectedIds, startDate: new Date().toISOString() } 
+        : p
+    ));
+
+    // 2. Update Employee Loads (Simulate: +25% load per assigned project)
+    setEmployees(prev => prev.map(emp => 
+      selectedIds.includes(emp.id) 
+        ? { ...emp, currentLoad: Math.min(100, emp.currentLoad + 25) } 
+        : emp
+    ));
+
+    setIsAllocatorOpen(false);
+    setProjectToAllocate(null);
+  };
+
+  // --- RENDER LOGIC ---
+
+  if (isLoading) {
+    return <div className="p-20 text-center text-slate-500 animate-pulse">Initializing Unified Resource OS...</div>;
+  }
+
+  // 1. EXECUTION VIEW (If a project is selected)
+  if (selectedActiveProject) {
+    const projectTeam = employees.filter(e => selectedActiveProject.assignedTeamIds.includes(e.id));
+    return (
+      <ActiveProjectDetail 
+        project={selectedActiveProject} 
+        team={projectTeam} 
+        onBack={() => setSelectedActiveProject(null)} 
+      />
+    );
+  }
+
+  // Filter lists for dashboard
+  const queuedProjects = projects.filter(p => p.status === 'QUEUED');
+  const activeProjects = projects.filter(p => p.status === 'ACTIVE');
+
+  // 2. MAIN DASHBOARD VIEW
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px]">
-        <DialogHeader>
-          <DialogTitle>Draft New Project</DialogTitle>
-          <DialogDescription>Upload an SRS PDF or describe the project manually.</DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4 py-4">
-          
-          {/* TITLE INPUT */}
-          <div>
-            <label className="text-xs font-bold text-slate-500 uppercase">Project Title</label>
-            <Input 
-              value={title} 
-              onChange={e => setTitle(e.target.value)} 
-              placeholder="e.g. Customer Support Chatbot"
-              className="mt-1"
-            />
-          </div>
-          
-          {/* DESCRIPTION & UPLOAD AREA */}
-          <div>
-            <div className="flex justify-between items-center mb-1">
-              <label className="text-xs font-bold text-slate-500 uppercase">Requirements (SRS)</label>
-              
-              {/* HIDDEN FILE INPUT TRIGGER */}
-              <input 
-                type="file" 
-                ref={fileInputRef}
-                accept=".pdf" 
-                className="hidden" 
-                onChange={handleFileUpload}
-              />
-              <button 
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isUploading}
-                className="text-xs flex items-center gap-1 text-indigo-600 hover:text-indigo-700 font-medium transition-colors"
-              >
-                {isUploading ? <Loader2 className="w-3 h-3 animate-spin"/> : <UploadCloud className="w-3 h-3" />}
-                {isUploading ? "Parsing..." : "Upload PDF"}
-              </button>
-            </div>
-            
-            <div className="relative">
-              <Textarea 
-                value={desc} 
-                onChange={e => setDesc(e.target.value)} 
-                placeholder="Detailed description of the project..."
-                className="h-40 pr-10 text-sm font-mono leading-relaxed"
-              />
-              
-              {/* ANALYZE BUTTON (Inside Textarea) */}
-              <button 
-                onClick={() => handleAnalyze()}
-                disabled={isAnalyzing || !desc}
-                className="absolute bottom-3 right-3 p-2 bg-indigo-100 text-indigo-600 rounded-md hover:bg-indigo-200 transition-colors shadow-sm"
-                title="Auto-Analyze Scope"
-              >
-                {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              </button>
-            </div>
-          </div>
-
-          {/* AI Results Section */}
-          {(estHours > 0 || isAnalyzing) && (
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 animate-in fade-in slide-in-from-top-2">
-              <div className="flex justify-between items-start mb-3">
-                <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-purple-500" /> 
-                  {isAnalyzing ? "AI is Analyzing..." : "AI Estimates"}
-                </h4>
-                <select 
-                  value={priority} 
-                  onChange={(e: any) => setPriority(e.target.value)}
-                  className="text-xs border rounded p-1 bg-white"
-                >
-                  <option value="Low">Low Priority</option>
-                  <option value="Medium">Medium Priority</option>
-                  <option value="High">High Priority</option>
-                </select>
-              </div>
-
-              {isAnalyzing ? (
-                 <div className="h-20 flex items-center justify-center text-xs text-slate-400">
-                    Extracting skills and calculating effort...
-                 </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                     <label className="text-[10px] text-slate-400 uppercase font-bold">Recommended Tech Stack</label>
-                     <div className="flex flex-wrap gap-1 mt-1">
-                       {skills.map(s => (
-                         <span key={s} className="text-xs bg-white border px-2 py-1 rounded flex items-center gap-1 shadow-sm">
-                           {s} <X className="w-3 h-3 cursor-pointer hover:text-red-500" onClick={() => setSkills(s_ => s_.filter(x => x !== s))} />
-                         </span>
-                       ))}
-                       <button onClick={() => {
-                           const s = prompt("Add skill manually:");
-                           if(s) setSkills([...skills, s]);
-                       }} className="text-xs bg-indigo-50 text-indigo-600 px-2 py-1 rounded hover:bg-indigo-100 border border-indigo-100">
-                         <Plus className="w-3 h-3" />
-                       </button>
-                     </div>
-                  </div>
-                  <div>
-                     <label className="text-[10px] text-slate-400 uppercase font-bold">Est. Effort</label>
-                     <div className="mt-1 flex items-center gap-2">
-                       <Input 
-                         type="number" 
-                         value={estHours} 
-                         onChange={e => setEstHours(parseInt(e.target.value))} 
-                         className="w-24 h-8 text-sm font-bold text-slate-700"
-                       />
-                       <span className="text-xs text-slate-500">Hours</span>
-                     </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+    <div className="space-y-12 animate-in fade-in duration-500 pb-20">
+      
+      {/* HEADER */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <LayoutGrid className="w-6 h-6 text-indigo-600" />
+            Unified Resource OS
+          </h1>
+          <p className="text-slate-500 mt-1 text-sm">
+            Ideation <span className="text-slate-300 mx-2">→</span> Allocation <span className="text-slate-300 mx-2">→</span> Execution
+          </p>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSave} disabled={estHours === 0 || isAnalyzing} className="bg-indigo-600 text-white shadow-lg shadow-indigo-200">
-            {isAnalyzing ? "Processing..." : "Add to Queue"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        <div className="flex items-center gap-4">
+           <div className="text-right hidden md:block border-r border-slate-200 pr-4">
+             <div className="text-2xl font-black text-slate-800">{employees.length}</div>
+             <div className="text-[10px] uppercase font-bold text-slate-400">Total Resources</div>
+           </div>
+           
+           <Button onClick={() => setIsDraftOpen(true)} className="bg-indigo-600 text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700">
+             <Plus className="w-4 h-4 mr-2" /> New Project
+           </Button>
+        </div>
+      </div>
+
+      {/* PHASE 1: IDEATION QUEUE */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+           <div className="w-6 h-6 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center font-bold text-xs">1</div>
+           <h2 className="text-lg font-bold text-gray-800">Ideation Queue ({queuedProjects.length})</h2>
+        </div>
+        
+        <ProjectQueue 
+          projects={projects} 
+          onAllocateStart={handleAllocateStart}
+          onDelete={handleDeleteProject}
+        />
+      </div>
+
+      {/* PHASE 3: ACTIVE PROJECTS */}
+      {activeProjects.length > 0 && (
+        <div className="animate-in slide-in-from-bottom-8 duration-700 space-y-4">
+          <div className="flex items-center gap-2">
+             <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-xs">2</div>
+             <h2 className="text-lg font-bold text-gray-800">Active Allocations ({activeProjects.length})</h2>
+          </div>
+          
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+             {activeProjects.map(p => (
+               <div 
+                 key={p.id} 
+                 onClick={() => setSelectedActiveProject(p)} 
+                 className="bg-white border border-emerald-100 p-5 rounded-xl shadow-sm relative overflow-hidden cursor-pointer hover:shadow-md hover:border-emerald-300 transition-all group"
+               >
+                 <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500 group-hover:w-2 transition-all"></div>
+                 
+                 <div className="flex justify-between items-start mb-2">
+                    <h3 className="font-bold text-gray-900 group-hover:text-emerald-700 transition-colors truncate pr-4">{p.title}</h3>
+                    <span className="text-[10px] font-bold bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded">RUNNING</span>
+                 </div>
+
+                 <div className="flex items-center gap-2 mt-2 text-sm text-slate-500 mb-4">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                    {p.assignedTeamIds.length} Resources Assigned
+                 </div>
+
+                 {/* Team Avatars */}
+                 <div className="flex -space-x-2 overflow-hidden">
+                    {p.assignedTeamIds.slice(0, 5).map(id => {
+                        const emp = employees.find(e => e.id === id);
+                        return (
+                            <div 
+                              key={id} 
+                              className="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600 shadow-sm" 
+                              title={emp?.name}
+                            >
+                                {emp?.name?.substring(0,2).toUpperCase()}
+                            </div>
+                        )
+                    })}
+                    {p.assignedTeamIds.length > 5 && (
+                      <div className="h-8 w-8 rounded-full ring-2 ring-white bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-400">
+                        +{p.assignedTeamIds.length - 5}
+                      </div>
+                    )}
+                 </div>
+
+                 <div className="absolute top-1/2 right-4 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0 text-xs font-bold text-emerald-600 bg-white/90 px-3 py-1 rounded-full shadow-sm">
+                    Open Control Center →
+                 </div>
+               </div>
+             ))}
+          </div>
+        </div>
+      )}
+
+      {/* DIALOGS */}
+      <DraftProjectDialog 
+        open={isDraftOpen} 
+        onOpenChange={setIsDraftOpen} 
+        onSave={handleAddProject} 
+      />
+
+      <AllocatorEngine 
+        open={isAllocatorOpen}
+        onOpenChange={setIsAllocatorOpen}
+        project={projectToAllocate}
+        employees={employees}
+        onConfirmAllocation={handleConfirmAllocation}
+      />
+
+    </div>
   );
-};
+}
