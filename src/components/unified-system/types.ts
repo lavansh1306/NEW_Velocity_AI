@@ -1,14 +1,17 @@
-// src/components/unified-system/types.ts
-
 export type ProjectCategory = 'Client Deliverable' | 'Internal Tool' | 'R&D / POC' | 'Maintenance';
+export type ProjectStatus = 'DRAFT' | 'QUEUED' | 'ACTIVE' | 'COMPLETED';
+export type LeaveStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
-/** * Lifecycle Stages:
- * QUEUED: Initial state (Draft/Queue)
- * READY_FOR_ALLOCATION: Requirements set, ready for team selection (Assignment)
- * ACTIVE: Project is running and visible to employees (Execution/Allocation)
- * COMPLETED: Project lifecycle finished
- */
-export type ProjectStatus = 'QUEUED' | 'READY_FOR_ALLOCATION' | 'ACTIVE' | 'COMPLETED';
+export interface LeaveRequest {
+  id: string;
+  employeeId: number;
+  employeeName: string;
+  startDate: string;
+  endDate: string;
+  reason: string;
+  status: LeaveStatus;
+  type: 'Sick' | 'Vacation' | 'Personal';
+}
 
 export interface UnifiedProject {
   id: string;
@@ -34,4 +37,5 @@ export interface UnifiedEmployee {
   availableFrom: string;
   totalProjectsCompleted: number;
   avgHoursPerTask: number;
+  isOnLeave?: boolean; 
 }

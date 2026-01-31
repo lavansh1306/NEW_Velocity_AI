@@ -2,12 +2,13 @@ import React, { useState } from 'react';
 import { UnifiedProject, UnifiedEmployee } from '../types';
 import { BurnoutMonitor } from './BurnoutMonitor';
 import { Button } from '../../ui/button';
-import { ArrowLeft, CheckCircle2, MoreHorizontal, Clock, Briefcase, Wrench, FlaskConical, Layers } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, MoreHorizontal, Clock, Briefcase, Wrench, FlaskConical, Layers, CheckSquare } from 'lucide-react';
 
 interface ActiveProjectDetailProps {
   project: UnifiedProject;
   team: UnifiedEmployee[];
   onBack: () => void;
+  onComplete: () => void; // <--- NEW PROP for Phase 4
 }
 
 // Helper for Icon consistency
@@ -25,12 +26,11 @@ const getCategoryStyle = (cat: string) => {
     case 'Client Deliverable': return 'bg-blue-100 text-blue-700 border-blue-200';
     case 'Internal Tool': return 'bg-slate-100 text-slate-600 border-slate-200';
     case 'R&D / POC': return 'bg-purple-100 text-purple-700 border-purple-200';
-    case 'Maintenance': return 'bg-amber-100 text-amber-700 border-amber-200';
-    default: return 'bg-slate-100 text-slate-600';
+    default: return 'bg-slate-100 text-slate-600 border-slate-200';
   }
 };
 
-export const ActiveProjectDetail: React.FC<ActiveProjectDetailProps> = ({ project, team, onBack }) => {
+export const ActiveProjectDetail: React.FC<ActiveProjectDetailProps> = ({ project, team, onBack, onComplete }) => {
   const [tasks, setTasks] = useState([
     { id: 1, title: `Initialize ${project.requiredSkills[0] || 'Core'} Architecture`, status: 'DONE', assignee: team[0]?.id },
     { id: 2, title: "Database Schema & Migration Scripts", status: 'IN_PROGRESS', progress: 65, assignee: team[0]?.id },
@@ -53,7 +53,7 @@ export const ActiveProjectDetail: React.FC<ActiveProjectDetailProps> = ({ projec
     <div className="animate-in fade-in slide-in-from-right-4 duration-500">
       
       {/* HEADER */}
-      <div className="flex flex-col md:flex-row md:items-center gap-4 mb-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="sm" onClick={onBack} className="hover:bg-slate-100">
             <ArrowLeft className="w-4 h-4 mr-2" /> Back
@@ -78,9 +78,18 @@ export const ActiveProjectDetail: React.FC<ActiveProjectDetailProps> = ({ projec
             </div>
           </div>
         </div>
-        <div className="ml-auto text-right">
-          <div className="text-3xl font-black text-indigo-600">{totalProgress}%</div>
-          <div className="text-xs uppercase font-bold text-slate-400">Completion</div>
+
+        {/* ACTION BUTTONS */}
+        <div className="flex items-center gap-4 ml-auto">
+           <div className="text-right hidden md:block">
+             <div className="text-3xl font-black text-indigo-600">{totalProgress}%</div>
+             <div className="text-xs uppercase font-bold text-slate-400">Completion</div>
+           </div>
+           
+           {/* COMPLETE BUTTON */}
+           <Button onClick={onComplete} className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-md">
+             <CheckSquare className="w-4 h-4 mr-2" /> Complete Project
+           </Button>
         </div>
       </div>
 
