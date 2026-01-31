@@ -9,7 +9,7 @@ import { Plus, LayoutGrid, CheckCircle2, AlertCircle } from 'lucide-react';
 
 // --- FIXED IMPORT PATHS (Added ../) ---
 import { fetchRawCSV } from '../ml-model/RecommendationEngine'; 
-import csvPath from '../ml-model/datasets/master_employee_task_report.csv?url';
+import csvPath from '../../ml-model/datasets/master_employee_task_report.csv?url';
 
 export default function UnifiedView() {
   const [employees, setEmployees] = useState<UnifiedEmployee[]>([]);
