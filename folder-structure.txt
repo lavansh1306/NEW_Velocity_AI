@@ -245,13 +245,18 @@ NEW_Velocity_AI
 │   │   │   ├── tooltip.tsx
 │   │   │   └── use-toast.ts
 │   │   └── unified-system
+│   │       ├── allocator
+│   │       │   └── AllocatorEngine.tsx
+│   │       ├── execution
+│   │       │   ├── ActiveProjectDetail.tsx
+│   │       │   └── BurnoutMonitor.tsx
 │   │       ├── ideation
 │   │       │   ├── DraftProjectDialog.tsx
-│   │       │   ├── ProjectQueue.tsx
-│   │       │   └── UnifiedView.tsx
+│   │       │   └── ProjectQueue.tsx
 │   │       ├── IdeationSandbox
 │   │       │   └── QueueList.tsx
-│   │       └── types.ts
+│   │       ├── types.ts
+│   │       └── UnifiedView.tsx
 │   ├── contexts
 │   │   └── ToastContext.tsx
 │   ├── hooks

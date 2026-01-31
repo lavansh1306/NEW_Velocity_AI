@@ -1,7 +1,7 @@
 import React from 'react';
 import { UnifiedProject } from '../types';
 import { Card } from '../../ui/card';
-import { Clock, Layers, ArrowRight, Trash2 } from 'lucide-react';
+import { Clock, Layers, ArrowRight, Trash2, Briefcase, Wrench, FlaskConical, ShieldAlert } from 'lucide-react'; // Import icons
 import { Button } from '../../ui/button';
 
 interface ProjectQueueProps {
@@ -9,6 +9,26 @@ interface ProjectQueueProps {
   onAllocateStart: (project: UnifiedProject) => void;
   onDelete: (id: string) => void;
 }
+
+// Helper to get icon based on category
+const getCategoryIcon = (cat: string) => {
+  switch(cat) {
+    case 'Client Deliverable': return <Briefcase className="w-3 h-3" />;
+    case 'Internal Tool': return <Wrench className="w-3 h-3" />;
+    case 'R&D / POC': return <FlaskConical className="w-3 h-3" />;
+    default: return <Layers className="w-3 h-3" />;
+  }
+};
+
+const getCategoryStyle = (cat: string) => {
+  switch(cat) {
+    case 'Client Deliverable': return 'bg-blue-50 text-blue-700 border-blue-200';
+    case 'Internal Tool': return 'bg-slate-100 text-slate-600 border-slate-200';
+    case 'R&D / POC': return 'bg-purple-50 text-purple-700 border-purple-200';
+    case 'Maintenance': return 'bg-amber-50 text-amber-700 border-amber-200';
+    default: return 'bg-slate-50 text-slate-600';
+  }
+};
 
 export const ProjectQueue: React.FC<ProjectQueueProps> = ({ projects, onAllocateStart, onDelete }) => {
   const queuedProjects = projects.filter(p => p.status === 'QUEUED');
@@ -18,7 +38,6 @@ export const ProjectQueue: React.FC<ProjectQueueProps> = ({ projects, onAllocate
       <div className="flex flex-col items-center justify-center h-64 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50">
         <Layers className="w-10 h-10 text-slate-300 mb-2" />
         <p className="text-slate-500 font-medium">No projects in queue</p>
-        <p className="text-xs text-slate-400">Draft a project to get started</p>
       </div>
     );
   }
@@ -28,13 +47,13 @@ export const ProjectQueue: React.FC<ProjectQueueProps> = ({ projects, onAllocate
       {queuedProjects.map(project => (
         <Card key={project.id} className="p-5 border-l-4 border-l-purple-500 hover:shadow-md transition-shadow relative group">
           
-          <div className="flex justify-between items-start mb-2">
-             <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${
-               project.priority === 'High' ? 'bg-red-50 text-red-600' : 
-               project.priority === 'Medium' ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-500'
-             }`}>
-               {project.priority} Priority
+          <div className="flex justify-between items-start mb-3">
+             {/* NEW: Category Badge */}
+             <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase flex items-center gap-1 border ${getCategoryStyle(project.category)}`}>
+               {getCategoryIcon(project.category)}
+               {project.category}
              </span>
+             
              <button 
                onClick={() => onDelete(project.id)}
                className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"

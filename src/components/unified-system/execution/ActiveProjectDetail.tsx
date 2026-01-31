@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { UnifiedProject, UnifiedEmployee } from '../types';
 import { BurnoutMonitor } from './BurnoutMonitor';
 import { Button } from '../../ui/button';
-import { ArrowLeft, CheckCircle2, MoreHorizontal, Clock } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, MoreHorizontal, Clock, Briefcase, Wrench, FlaskConical, Layers } from 'lucide-react';
 
 interface ActiveProjectDetailProps {
   project: UnifiedProject;
@@ -10,8 +10,27 @@ interface ActiveProjectDetailProps {
   onBack: () => void;
 }
 
+// Helper for Icon consistency
+const getCategoryIcon = (cat: string) => {
+  switch(cat) {
+    case 'Client Deliverable': return <Briefcase className="w-3 h-3" />;
+    case 'Internal Tool': return <Wrench className="w-3 h-3" />;
+    case 'R&D / POC': return <FlaskConical className="w-3 h-3" />;
+    default: return <Layers className="w-3 h-3" />;
+  }
+};
+
+const getCategoryStyle = (cat: string) => {
+  switch(cat) {
+    case 'Client Deliverable': return 'bg-blue-100 text-blue-700 border-blue-200';
+    case 'Internal Tool': return 'bg-slate-100 text-slate-600 border-slate-200';
+    case 'R&D / POC': return 'bg-purple-100 text-purple-700 border-purple-200';
+    case 'Maintenance': return 'bg-amber-100 text-amber-700 border-amber-200';
+    default: return 'bg-slate-100 text-slate-600';
+  }
+};
+
 export const ActiveProjectDetail: React.FC<ActiveProjectDetailProps> = ({ project, team, onBack }) => {
-  // Mock Tasks derived from Project Skills for the demo
   const [tasks, setTasks] = useState([
     { id: 1, title: `Initialize ${project.requiredSkills[0] || 'Core'} Architecture`, status: 'DONE', assignee: team[0]?.id },
     { id: 2, title: "Database Schema & Migration Scripts", status: 'IN_PROGRESS', progress: 65, assignee: team[0]?.id },
@@ -34,16 +53,29 @@ export const ActiveProjectDetail: React.FC<ActiveProjectDetailProps> = ({ projec
     <div className="animate-in fade-in slide-in-from-right-4 duration-500">
       
       {/* HEADER */}
-      <div className="flex items-center gap-4 mb-6">
-        <Button variant="ghost" size="sm" onClick={onBack} className="hover:bg-slate-100">
-          <ArrowLeft className="w-4 h-4 mr-2" /> Back
-        </Button>
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900">{project.title}</h2>
-          <div className="flex items-center gap-2 text-sm text-slate-500">
-            <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-xs font-bold">ACTIVE</span>
-            <span>•</span>
-            <span>Started: Today</span>
+      <div className="flex flex-col md:flex-row md:items-center gap-4 mb-6">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="sm" onClick={onBack} className="hover:bg-slate-100">
+            <ArrowLeft className="w-4 h-4 mr-2" /> Back
+          </Button>
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+               <h2 className="text-2xl font-bold text-slate-900">{project.title}</h2>
+               {/* CATEGORY BADGE */}
+               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase flex items-center gap-1 border ${getCategoryStyle(project.category)}`}>
+                 {getCategoryIcon(project.category)}
+                 {project.category}
+               </span>
+            </div>
+            
+            <div className="flex items-center gap-2 text-sm text-slate-500">
+              <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-xs font-bold flex items-center gap-1">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                ACTIVE
+              </span>
+              <span>•</span>
+              <span>Started: Today</span>
+            </div>
           </div>
         </div>
         <div className="ml-auto text-right">
