@@ -13,7 +13,7 @@ import {
 import { Task, LeaveRequest, TimeLog, EmployeeProfile } from './types';
 import { ImpactAnalysisDialog } from './ImpactAnalysisDialog';
 import { TimeLoggingDialog } from './TimeLoggingDialog';
-import { TimeSheetUploadDialog } from './TimeSheetUploadDialog';
+import { TimesheetUploadDialog } from './TimeSheetUploadDialog';
 import { WorkloadTable } from './WorkloadTable';
 import { LeaveRequestTable } from './LeaveRequestTable';
 import { LeaveApplicationDialog } from './LeaveApplicationDialog';
@@ -230,7 +230,7 @@ export default function LeaveManagementTab() {
       {/* Dialogs */}
       <ImpactAnalysisDialog open={scenarioOpen} onOpenChange={setScenarioOpen} predictions={predictions} onConfirm={confirmReallocation} />
       <TimeLoggingDialog open={logOpen} onOpenChange={setLogOpen} task={selectedTask} onSave={saveLogs} />
-      <TimeSheetUploadDialog open={importOpen} onOpenChange={setImportOpen} onImport={handleImportTasks} />
+      <TimesheetUploadDialog open={importOpen} onOpenChange={setImportOpen} onImport={handleImportTasks} />
       <LeaveApplicationDialog 
         open={applyOpen} 
         onOpenChange={setApplyOpen} 
