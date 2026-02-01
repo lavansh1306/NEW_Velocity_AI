@@ -4,7 +4,7 @@ import Papa from 'papaparse';
 // --- NEW: EXPORT RAW PARSER (For Dashboard/Gantt Charts) ---
 export const fetchRawCSV = async (filePath: string): Promise<any[]> => {
   return new Promise((resolve, reject) => {
-    Papa.parse(filePath, {
+    (Papa as any).parse(filePath, {
       download: true,
       header: true,
       skipEmptyLines: true,
@@ -19,7 +19,7 @@ export const fetchRawCSV = async (filePath: string): Promise<any[]> => {
 // --- EXISTING: ML PARSER (Keeps cleaning data for AI) ---
 export const parseCSV = async (filePath: string): Promise<EmployeeRecord[]> => {
   return new Promise((resolve, reject) => {
-    Papa.parse(filePath, {
+    (Papa as any).parse(filePath, {
       download: true,
       header: true,
       skipEmptyLines: true,
