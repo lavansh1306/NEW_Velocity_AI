@@ -6,8 +6,8 @@
       "maxDuration": 30
     }
   },
-  "buildCommand": "bun run build",
-  "devCommand": "bun run dev",
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
   "outputDirectory": "dist",
   "env": {
     "NODE_ENV": "production"
