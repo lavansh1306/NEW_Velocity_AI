@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { 
   LayoutDashboard, 
   FolderKanban, 
-  Clock, 
   BookOpen, 
   Puzzle, 
   Calendar as CalendarIcon,
-  BrainCircuit
+  BrainCircuit,
+  Activity,
+  LayoutGrid // Imported for Unified OS
 } from 'lucide-react';
 
 interface VeloNavTabsProps {
@@ -15,17 +16,16 @@ interface VeloNavTabsProps {
   children?: React.ReactNode;
 }
 
-
-// Added icons to the tabs configuration
+// Updated tabs configuration
 const tabs = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
+  { id: 'unified', label: 'Unified OS', icon: <LayoutGrid className="w-5 h-5" /> }, // NEW TAB
   { id: 'projects', label: 'Projects', icon: <FolderKanban className="w-5 h-5" /> },
   { id: 'ledger', label: 'Capacity Ledger', icon: <BookOpen className="w-5 h-5" /> },
   { id: 'integrations', label: 'Integrations', icon: <Puzzle className="w-5 h-5" /> },
-  
   { id: 'leave', label: 'Leave Management', icon: <CalendarIcon className="w-5 h-5" /> }, 
   { id: 'deployment', label: 'Deployment', icon: <BrainCircuit className="w-5 h-5" /> },
-  { id: 'progress', label: 'Smart Tracker', icon: ''},
+  { id: 'progress', label: 'Smart Tracker', icon: <Activity className="w-5 h-5" /> },
 ];
 
 export default function VeloNavTabs({ activeTab, onTabChange, children }: VeloNavTabsProps) {
@@ -40,7 +40,7 @@ export default function VeloNavTabs({ activeTab, onTabChange, children }: VeloNa
   const currentTabIcon = tabs.find(t => t.id === activeTab)?.icon;
 
   return (
-    <div className="flex min-h-[calc(100vh-80px)]"> {/* Adjusted height calculation */}
+    <div className="flex min-h-[calc(100vh-80px)]"> 
       
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex md:w-64 flex-shrink-0 sticky top-20 h-[calc(100vh-80px)] bg-white border-r border-gray-200 z-30 overflow-y-auto">
@@ -113,7 +113,7 @@ export default function VeloNavTabs({ activeTab, onTabChange, children }: VeloNa
           </div>
         )}
 
-        {/* MAIN CONTENT AREA (Injected here) */}
+        {/* MAIN CONTENT AREA */}
         <main className="flex-1 w-full bg-gray-50/50">
           {children}
         </main>
