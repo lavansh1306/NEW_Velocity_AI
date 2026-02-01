@@ -32,7 +32,7 @@ export const CTA = () => {
                 size="lg" 
                 className="gap-2 bg-white text-blue-600 hover:bg-blue-50 shadow-lg font-semibold"
               >
-                Start Your Free Trial
+                Book a Call
                 <ArrowRight className="h-4 w-4" />
               </Button>
               <Button 
