@@ -8,7 +8,7 @@ import { LeaveManagementDialog } from './leaves/LeaveManagementDialog';
 import { TimetableView } from './timetable/TimetableView';
 import { NotificationPanel } from './notifications/NotificationPanel';
 import { UnifiedProject, UnifiedEmployee, LeaveRequest, ProjectCategory, Notification } from './types';
-import { Button } from '../../ui/button';
+import { Button } from '../ui/button';
 import { 
   Plus, LayoutGrid, CheckCircle2, Briefcase, Wrench, FlaskConical, 
   Layers, User, UserCog, Calendar, CalendarOff, LayoutDashboard, CalendarRange, Filter, X, Bell 
@@ -217,7 +217,7 @@ export default function UnifiedView() {
     }));
     
     // Notify Manager
-    const completer = employees.find(e => e.id === currentUserId[0]); // Using state directly if needed or lookup
+    const completer = employees.find(e => e.id === currentUserId);
     sendNotification('MANAGER', 'Project Completed', `A project "${projectToComplete.title}" has been marked as complete.`, 'COMPLETION');
 
     setIsCompletionOpen(false); setSelectedActiveProject(null); setProjectToComplete(null);
@@ -456,5 +456,5 @@ export default function UnifiedView() {
       <ProjectCompletionDialog open={isCompletionOpen} onOpenChange={setIsCompletionOpen} project={projectToComplete} team={employees.filter(e => projectToComplete?.assignedTeamIds.includes(e.id))} onConfirm={finalizeCompletion} />
       <LeaveManagementDialog open={isLeaveOpen} onOpenChange={setIsLeaveOpen} userRole={userRole} currentUserId={actualUserId} currentUser={currentUser} requests={leaveRequests} onRequestLeave={handleRequestLeave} onApproveReject={handleLeaveDecision} />
     </div>
-}
   );
+}
