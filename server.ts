@@ -8,6 +8,7 @@ dotenv.config()
 import express, { Request, Response } from "express"
 import cors from "cors"
 import fetch from "node-fetch"
+import { createClient } from '@supabase/supabase-js';
 import session from "express-session"
 
 // Get __dirname equivalent in ESM
@@ -461,6 +462,49 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`  - Asana API: ${isAsanaConfigReady ? 'configured' : 'NOT configured'}`)
   console.log(`  - Microsoft 365 API: ${process.env.MS_CLIENT_ID ? 'configured' : 'NOT configured'}`)
 })
+
+// Waitlist endpoint: accepts { email } and writes to Supabase (server key) and/or forwards to a Google Sheets webhook
+app.post('/api/waitlist', async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body || {};
+    if (!email || typeof email !== 'string' || !/\S+@\S+\.\S+/.test(email)) {
+      return res.status(400).json({ error: 'Invalid email' });
+    }
+
+    // Insert into Supabase if SERVICE key present
+    const supabaseUrl = process.env.VITE_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY;
+
+    if (supabaseUrl && supabaseServiceKey) {
+      try {
+        const sb = createClient(supabaseUrl, supabaseServiceKey);
+        const { error } = await sb.from('waitlist').insert({ email });
+        if (error) console.error('[Waitlist] Supabase insert error:', error);
+      } catch (err) {
+        console.error('[Waitlist] Supabase error:', err);
+      }
+    }
+
+    // Forward to a Google Sheets webhook if configured (e.g., Apps Script web app URL)
+    const gsWebhook = process.env.GOOGLE_SHEETS_WEBHOOK_URL;
+    if (gsWebhook) {
+      try {
+        await fetch(gsWebhook, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+      } catch (err) {
+        console.error('[Waitlist] Google Sheets webhook error:', err);
+      }
+    }
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('[Waitlist] Unexpected error:', err);
+    return res.status(500).json({ error: 'internal' });
+  }
+});
 
 // The Express server keeps the event loop alive
 

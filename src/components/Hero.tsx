@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowRight, Sparkles } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+// POST to server-side endpoint instead of calling Supabase from the client
 
 export const Hero = () => {
   const [email, setEmail] = useState("");
@@ -18,18 +18,23 @@ export const Hero = () => {
 
     setLoading(true);
     try {
-      // Try inserting into Supabase `waitlist` table. Ensure you have set VITE_SUPABASE_* env vars.
-      const { data, error } = await supabase.from("waitlist").insert({ email }).select();
-      if (error) {
-        console.error("Supabase insert error:", error);
-        alert("Failed to join waitlist. Check server logs or Supabase credentials.");
+      const res = await fetch('/api/waitlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+
+      if (!res.ok) {
+        const txt = await res.text();
+        console.error('Waitlist POST failed:', res.status, txt);
+        alert('Failed to join waitlist.');
       } else {
-        alert("Thanks — you joined the waitlist!");
-        setEmail("");
+        alert('Thanks — you joined the waitlist!');
+        setEmail('');
       }
     } catch (err) {
       console.error(err);
-      alert("Unexpected error while joining waitlist.");
+      alert('Unexpected error while joining waitlist.');
     } finally {
       setLoading(false);
     }
