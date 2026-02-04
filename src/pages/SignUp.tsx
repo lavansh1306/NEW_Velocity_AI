@@ -82,13 +82,10 @@ export default function SignUp() {
       setEmail('');
       setPassword('');
       setConfirmPassword('');
+      setLoading(false);
     } catch (err: any) {
       setError(err.message || 'Failed to sign up');
       setLoading(false);
-    } finally {
-      if (!success) {
-        setLoading(false);
-      }
     }
   };
 
@@ -178,6 +175,7 @@ export default function SignUp() {
             )}
 
             {/* Google Sign Up Button */}
+            {!success && (
             <div className="mb-6">
               <Button
                 type="button"
@@ -296,8 +294,10 @@ export default function SignUp() {
                 Sign In
               </Link>
             </form>
+            )}
 
             {/* Footer Text */}
+            {!success && (
             <p className="text-center text-xs text-slate-500 mt-6">
               By signing up, you agree to our{' '}
               <a href="#" className="text-blue-600 hover:underline">
@@ -308,6 +308,7 @@ export default function SignUp() {
                 Privacy Policy
               </a>
             </p>
+            )}
           </div>
         </div>
       </div>
