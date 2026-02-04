@@ -1,4 +1,4 @@
-# Velocity AI - Project Management Dashboard
+# Velocity AI - Project Management Dashboar
 
 ## Overview
 Full-stack productivity analytics platform that integrates with **Jira**, **Asana**, **HubSpot**, and **Microsoft 365** to provide real-time insights, Gantt charts, ROI calculations, and resource optimization.
