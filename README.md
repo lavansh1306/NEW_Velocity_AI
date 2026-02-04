@@ -187,7 +187,7 @@ MICROSOFT_REDIRECT_URI=http://localhost:4000/auth/callback
 
 # Session
 SESSION_SECRET=random-secret-string
-
+okk
 # Server
 API_PORT=4000
 FRONTEND_URL=http://localhost:5173
