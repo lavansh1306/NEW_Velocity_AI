@@ -8,8 +8,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
-import Login from "./pages/Login";
-import SignUp from "./pages/SignUp";
+import AuthCallback from "./pages/AuthCallback";
 import Demo from "./pages/Demo";
 import ROICalculator from "./pages/ROICalculator";
 import ROIReport from "./pages/ROIReport";
@@ -39,8 +38,7 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               {/* Public Routes - Authentication Only */}
-              <Route path="/login" element={<Login />} />
-              <Route path="/signup" element={<SignUp />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
               
               {/* Protected Routes - Require Authentication */}
               <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />

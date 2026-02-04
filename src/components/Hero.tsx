@@ -7,31 +7,50 @@ import { supabase } from "@/lib/supabase";
 export const Hero = () => {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
 
   const isValidEmail = (e: string) => /\S+@\S+\.\S+/.test(e);
 
   const handleJoin = async () => {
     if (!isValidEmail(email)) {
-      alert("Please enter a valid email address.");
+      setMessage("Please enter a valid email address.");
       return;
     }
 
     setLoading(true);
+    setMessage("");
+    
     try {
-      // Try inserting into Supabase `waitlist` table. Ensure you have set VITE_SUPABASE_* env vars.
-      const { data, error } = await supabase.from("waitlist").insert({ email }).select();
+      // Insert into Supabase `waitlist` table
+      const { data, error } = await supabase
+        .from("waitlist")
+        .insert([{ 
+          email: email.toLowerCase().trim(),
+          created_at: new Date().toISOString(),
+          source: "homepage_hero"
+        }])
+        .select();
+      
       if (error) {
         console.error("Supabase insert error:", error);
-        alert("Failed to join waitlist. Check server logs or Supabase credentials.");
+        setMessage("Failed to join waitlist. Please try again later.");
       } else {
-        alert("Thanks — you joined the waitlist!");
+        console.log("Email saved:", data);
+        setMessage("Thanks for joining! Check your email for updates.");
         setEmail("");
+        setTimeout(() => setMessage(""), 5000);
       }
     } catch (err) {
       console.error(err);
-      alert("Unexpected error while joining waitlist.");
+      setMessage("Unexpected error. Please try again.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !loading && isValidEmail(email)) {
+      handleJoin();
     }
   };
 
@@ -69,19 +88,28 @@ export const Hero = () => {
               placeholder="Enter your work email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              onKeyPress={handleKeyPress}
+              disabled={loading}
               className="h-12 border-none bg-transparent text-base focus-visible:ring-0 focus-visible:ring-offset-0"
             />
             <Button
               aria-label="Join the waitlist"
               size="lg"
               onClick={handleJoin}
-              disabled={loading}
-              className="w-full sm:w-auto h-12 px-8 gap-2 bg-blue-600 hover:bg-blue-700 hover:scale-[1.02] active:scale-[0.98] transition-all text-white shadow-md shadow-blue-200"
+              disabled={loading || !isValidEmail(email)}
+              className="w-full sm:w-auto h-12 px-8 gap-2 bg-blue-600 hover:bg-blue-700 hover:scale-[1.02] active:scale-[0.98] transition-all text-white shadow-md shadow-blue-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "Joining..." : "JOIN THE WAITLIST"}
               <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
+          
+          {/* Status Message */}
+          {message && (
+            <p className={`mt-4 text-sm font-medium ${message.includes("Failed") || message.includes("Unexpected") ? "text-red-600" : "text-emerald-600"}`}>
+              {message}
+            </p>
+          )}
           
           {/* Enhanced Trust Section */}
           <div className="mt-12 flex flex-wrap items-center justify-center gap-x-8 gap-y-4 text-sm font-medium text-slate-500">

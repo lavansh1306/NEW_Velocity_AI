@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Zap, ArrowRight, CheckCircle2 } from 'lucide-react';
@@ -55,12 +56,37 @@ export default function SignUp() {
     try {
       setLoading(true);
       setError('');
+      // Save email to Supabase if provided
+      if (email.trim()) {
+        await saveEmailInterest(email);
+      }
       // signInWithGoogle() redirects to Google, which redirects back to /
       // The page will redirect so no navigate() needed here
       await signInWithGoogle();
     } catch (err: any) {
       setError(err.message || 'Failed to sign up with Google');
       setLoading(false);
+    }
+  };
+
+  const saveEmailInterest = async (emailAddress: string) => {
+    try {
+      const { error } = await supabase
+        .from('email_interests')
+        .insert([
+          {
+            email: emailAddress,
+            source: 'signup_form',
+            created_at: new Date().toISOString(),
+          }
+        ]);
+      if (error) {
+        console.error('Error saving email interest:', error);
+      } else {
+        console.log('[Email Interest] Saved:', emailAddress);
+      }
+    } catch (err) {
+      console.error('Failed to save email interest:', err);
     }
   };
 
@@ -83,6 +109,9 @@ export default function SignUp() {
     }
 
     try {
+      // Save email interest before signing up
+      await saveEmailInterest(email);
+      
       await signUp(email, password);
       setSuccess('Account created! Please check your email (including spam folder) to confirm your account before logging in.');
       // Don't redirect automatically - let user see the email confirmation message

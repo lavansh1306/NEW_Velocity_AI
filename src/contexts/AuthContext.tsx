@@ -84,14 +84,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     let redirectUrl: string;
     
     if (import.meta.env.DEV) {
-      redirectUrl = `${window.location.origin}/`;
+      redirectUrl = `${window.location.origin}/auth/callback`;
     } else {
       // In production, use the actual domain from window.location.origin
       // This ensures it works regardless of the deployment domain
-      redirectUrl = window.location.origin + '/';
+      redirectUrl = window.location.origin + '/auth/callback';
     }
 
-    console.log('[OAuth] Redirecting to:', redirectUrl);
+    console.log('[OAuth] Signing in with Google, redirect to:', redirectUrl);
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
