@@ -114,9 +114,9 @@ export default function SignUp() {
               <span className="text-blue-600">AI-Powered Workforce Intelligence</span>
             </div>
 
-            <h2 className="text-4xl font-bold text-slate-900 mb-6 leading-tight">
-              Join thousands of teams<br />
-              <span className="bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">
+            <h2 className="mb-6 text-4xl font-bold leading-tight text-slate-900 md:text-5xl lg:text-6xl">
+              Join thousands of teams
+              <span className="block italic bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">
                 driving real outcomes
               </span>
             </h2>
