@@ -1,8 +1,40 @@
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowRight, Sparkles } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 export const Hero = () => {
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const isValidEmail = (e: string) => /\S+@\S+\.\S+/.test(e);
+
+  const handleJoin = async () => {
+    if (!isValidEmail(email)) {
+      alert("Please enter a valid email address.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Try inserting into Supabase `waitlist` table. Ensure you have set VITE_SUPABASE_* env vars.
+      const { data, error } = await supabase.from("waitlist").insert({ email }).select();
+      if (error) {
+        console.error("Supabase insert error:", error);
+        alert("Failed to join waitlist. Check server logs or Supabase credentials.");
+      } else {
+        alert("Thanks — you joined the waitlist!");
+        setEmail("");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Unexpected error while joining waitlist.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <section className="relative overflow-hidden bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-blue-50 via-white to-white pt-32 pb-20 md:pt-40 md:pb-32">
       {/* Subtle Background Decoration */}
@@ -32,13 +64,21 @@ export const Hero = () => {
           
           {/* Action Area with Shadow Depth */}
           <div className="flex flex-col items-center justify-center gap-3 sm:flex-row max-w-lg mx-auto p-2 rounded-2xl bg-white/50 backdrop-blur-md border border-slate-100 shadow-xl shadow-blue-500/5">
-            <Input 
-              type="email" 
-              placeholder="Enter your work email" 
+            <Input
+              type="email"
+              placeholder="Enter your work email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="h-12 border-none bg-transparent text-base focus-visible:ring-0 focus-visible:ring-offset-0"
             />
-            <Button size="lg" className="w-full sm:w-auto h-12 px-8 gap-2 bg-blue-600 hover:bg-blue-700 hover:scale-[1.02] active:scale-[0.98] transition-all text-white shadow-md shadow-blue-200">
-              Get Started
+            <Button
+              aria-label="Join the waitlist"
+              size="lg"
+              onClick={handleJoin}
+              disabled={loading}
+              className="w-full sm:w-auto h-12 px-8 gap-2 bg-blue-600 hover:bg-blue-700 hover:scale-[1.02] active:scale-[0.98] transition-all text-white shadow-md shadow-blue-200"
+            >
+              {loading ? "Joining..." : "JOIN THE WAITLIST"}
               <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
