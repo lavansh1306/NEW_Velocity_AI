@@ -20,22 +20,19 @@ export const Header = () => {
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-8">
-            <Link to="#features" className="text-slate-600 hover:text-slate-900 transition">
-              Features
+            <Link to="#how it works" className="text-slate-600 hover:text-slate-900 transition">
+              How it works
             </Link>
-            <Link to="#benefits" className="text-slate-600 hover:text-slate-900 transition">
-              Benefits
+            <Link to="#pricing" className="text-slate-600 hover:text-slate-900 transition">
+              Pricing
             </Link>
-            <Link to="#results" className="text-slate-600 hover:text-slate-900 transition">
-              Results
+            <Link to="#book a call" className="text-slate-600 hover:text-slate-900 transition">
+              Book a Call
             </Link>
           </nav>
 
           {/* CTA Buttons */}
           <div className="hidden md:flex items-center gap-3">
-            <Button variant="ghost" className="text-slate-900">
-              Sign In
-            </Button>
             <Button className="bg-blue-600 hover:bg-blue-700 text-white">
               Get Started
             </Button>

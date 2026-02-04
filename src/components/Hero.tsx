@@ -27,15 +27,8 @@ export const Hero = () => {
           
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Button size="lg" className="gap-2 bg-blue-600 hover:bg-blue-700 text-white shadow-lg">
-              Start Free Trial
+              Book a Call
               <ArrowRight className="h-4 w-4" />
-            </Button>
-            <Button 
-              size="lg" 
-              variant="outline" 
-              className="border-slate-300 text-blue-600 hover:bg-slate-50"
-            >
-              <span className="mr-2">▶</span> Watch Demo
             </Button>
           </div>
           
