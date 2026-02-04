@@ -33,9 +33,11 @@ export const Header = () => {
 
           {/* Right Section */}
           <div className="flex items-center gap-3">
-            <Button className="hidden md:block bg-blue-600 hover:bg-blue-700 text-white">
-              Get Started
-            </Button>
+            <Link to="/velocity-ai">
+              <Button className="hidden md:block bg-blue-600 hover:bg-blue-700 text-white">
+                Get Started
+              </Button>
+            </Link>
           </div>
 
           {/* Mobile Menu Button */}
