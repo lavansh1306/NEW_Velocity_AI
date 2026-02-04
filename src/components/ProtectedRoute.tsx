@@ -1,5 +1,6 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEffect, useState } from 'react';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -7,8 +8,18 @@ interface ProtectedRouteProps {
 
 export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { user, loading } = useAuth();
+  const location = useLocation();
+  const [hasCheckedAuth, setHasCheckedAuth] = useState(false);
 
-  if (loading) {
+  useEffect(() => {
+    // Wait for auth check to complete
+    if (!loading) {
+      setHasCheckedAuth(true);
+    }
+  }, [loading]);
+
+  // Show loading while checking auth
+  if (!hasCheckedAuth) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -19,8 +30,9 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     );
   }
 
+  // If not authenticated after auth check, redirect to login
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   return <>{children}</>;

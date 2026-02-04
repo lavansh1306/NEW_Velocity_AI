@@ -42,9 +42,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Listen for auth changes (including OAuth callbacks)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('[Auth] State changed:', event, session ? 'authenticated' : 'not authenticated');
+        
+        // Important: Set session and user state immediately when auth state changes
         setSession(session);
         setUser(session?.user ?? null);
-        console.log('[Auth] State changed:', event, session ? 'authenticated' : 'not authenticated');
+        
+        // Ensure loading is false after auth state change
+        setLoading(false);
         
         // When user authenticates via OAuth, they'll be on the redirect page
         // Just update state - ProtectedRoute will handle navigation
@@ -75,9 +80,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signInWithGoogle = async () => {
     // Use environment-specific redirect URL
     // This is the URL users will be redirected to after authenticating with Google
-    const redirectUrl = import.meta.env.DEV
-      ? `${window.location.origin}/`
-      : 'https://www.joinvelocity.co/';
+    // IMPORTANT: This must match the URL configured in Google OAuth Console and Supabase
+    let redirectUrl: string;
+    
+    if (import.meta.env.DEV) {
+      redirectUrl = `${window.location.origin}/`;
+    } else {
+      // In production, use the actual domain from window.location.origin
+      // This ensures it works regardless of the deployment domain
+      redirectUrl = window.location.origin + '/';
+    }
+
+    console.log('[OAuth] Redirecting to:', redirectUrl);
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
