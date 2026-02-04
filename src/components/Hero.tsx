@@ -21,6 +21,8 @@ export const Hero = () => {
     setMessage("");
     
     try {
+      console.log('[Waitlist] Attempting to save email:', email);
+      
       // Insert into Supabase `waitlist` table
       const { data, error } = await supabase
         .from("waitlist")
@@ -32,17 +34,28 @@ export const Hero = () => {
         .select();
       
       if (error) {
-        console.error("Supabase insert error:", error);
-        setMessage("Failed to join waitlist. Please try again later.");
+        console.error('[Waitlist] Supabase error:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        });
+        
+        // Check if it's a duplicate email error
+        if (error.code === '23505' || error.message?.includes('unique')) {
+          setMessage("You've already joined the waitlist!");
+        } else {
+          setMessage(`Failed to join waitlist: ${error.message || 'Please try again later.'}`);
+        }
       } else {
-        console.log("Email saved:", data);
+        console.log('[Waitlist] Email saved successfully:', data);
         setMessage("Thanks for joining! Check your email for updates.");
         setEmail("");
         setTimeout(() => setMessage(""), 5000);
       }
-    } catch (err) {
-      console.error(err);
-      setMessage("Unexpected error. Please try again.");
+    } catch (err: any) {
+      console.error('[Waitlist] Unexpected error:', err);
+      setMessage(`Error: ${err?.message || 'Unexpected error. Please try again.'}`);
     } finally {
       setLoading(false);
     }
