@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -6,27 +6,27 @@ export default function AuthCallback() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
   const [error, setError] = useState('');
+  const hasRedirectedRef = useRef(false);
 
   useEffect(() => {
-    console.log('[AuthCallback] Page mounted');
-    console.log('[AuthCallback] Loading:', loading);
-    console.log('[AuthCallback] User:', user);
+    if (loading) return; // Don't do anything while loading
 
-    // Wait a bit for Supabase to process the OAuth callback
-    const timer = setTimeout(() => {
-      if (!loading) {
-        if (user) {
-          console.log('[AuthCallback] User authenticated, redirecting to home');
-          navigate('/', { replace: true });
-        } else {
-          console.log('[AuthCallback] No user found, redirecting to login');
-          setError('Authentication failed. Please try again.');
-          navigate('/login', { replace: true });
-        }
-      }
-    }, 500);
+    // Only redirect once
+    if (hasRedirectedRef.current) return;
+    hasRedirectedRef.current = true;
 
-    return () => clearTimeout(timer);
+    console.log('[AuthCallback] Auth check complete');
+    console.log('[AuthCallback] User:', user ? 'authenticated' : 'not authenticated');
+
+    if (user) {
+      console.log('[AuthCallback] Redirecting to home');
+      navigate('/', { replace: true });
+    } else {
+      console.log('[AuthCallback] No user, redirecting to home');
+      setError('Authentication failed. Please try again.');
+      // Redirect to home (public page) instead of /login which doesn't exist
+      navigate('/', { replace: true });
+    }
   }, [loading, user, navigate]);
 
   return (
