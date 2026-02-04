@@ -5,7 +5,6 @@ Full-stack productivity analytics platform that integrates with **Jira**, **Asan
 
 **Stack:** React + TypeScript + Express + OAut
 
-h
 
 ## Architecture
 hh
