@@ -24,7 +24,7 @@ Supabase authentication has been successfully integrated into your VelocityAI pr
 3. Keep these credentials secure
 
 ## Step 4: Configure Environment Variables
-1. Open `.env.local` in your project root
+1. Open `.env` in your project root
 2. Replace the placeholder values:
    ```
    VITE_SUPABASE_URL=https://your-project-id.supabase.co
@@ -67,7 +67,7 @@ Follow Supabase docs for specific provider setup instructions.
 - **`src/pages/Login.tsx`** - Login page
 - **`src/pages/SignUp.tsx`** - Sign up page
 - **`src/components/ProtectedRoute.tsx`** - Route protection component
-- **`.env.local`** - Environment variables
+- **`.env`** - Environment variables
 
 ### Updated Files:
 - **`src/App.tsx`** - Added AuthProvider and protected routes
@@ -165,7 +165,7 @@ USING (auth.uid() = id);
 
 ## Security Best Practices
 
-1. **Never commit `.env.local`** - Add it to `.gitignore` (already done)
+1. **Never commit sensitive credentials** - Add `.env` to `.gitignore` for sensitive values (already done)
 2. **Use RLS (Row Level Security)** - Restrict database access by user
 3. **Enable HTTPS** - Always use HTTPS in production
 4. **Rotate Keys** - Periodically rotate your API keys
@@ -174,7 +174,7 @@ USING (auth.uid() = id);
 ## Troubleshooting
 
 ### "Missing Supabase credentials"
-- Check `.env.local` exists and has correct values
+- Check `.env` exists and has correct values
 - Restart development server: `npm run dev`
 
 ### "User not authenticated"

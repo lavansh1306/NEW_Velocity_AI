@@ -105,10 +105,10 @@ Redirect URLs:
 - Go to **Console** tab
 - Look for `[Auth] State changed` messages
 - Check if user is authenticated
-- Verify Supabase credentials in `.env.local`
+- Verify Supabase credentials in `.env`
 
 ### Google Sign-in Button Not Working
-- Check `VITE_GOOGLE_CLIENT_ID` is set in `.env.local`
+- Check `VITE_GOOGLE_CLIENT_ID` is set in `.env`
 - Check Google API is enabled in Google Cloud Console
 - Check browser console for errors
 
@@ -126,7 +126,7 @@ Redirect URLs:
 - [ ] Redirect URIs include Google's callback URL
 - [ ] Redirect URIs include your app URLs
 
-✅ **Your App (.env.local)**
+✅ **Your App (.env)**
 - [ ] `VITE_SUPABASE_URL` is set
 - [ ] `VITE_SUPABASE_ANON_KEY` is set
 - [ ] `VITE_GOOGLE_CLIENT_ID` is set
@@ -142,7 +142,7 @@ Redirect URLs:
 
 ## Environment Variables Reference
 
-### .env.local (Development)
+### .env (Development)
 ```env
 # Supabase
 VITE_SUPABASE_URL=https://igxolhrgcujwuexzokrd.supabase.co

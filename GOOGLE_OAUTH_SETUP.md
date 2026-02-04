@@ -36,7 +36,7 @@ Your VelocityAI app now requires authentication to access any page. Here's how t
 
 ## Step 4: Update Environment Variables
 
-1. Open `.env.local` in your project
+1. Open `.env` in your project
 2. Replace `your-google-client-id-here` with your actual Client ID:
    ```
    VITE_GOOGLE_CLIENT_ID=your-actual-client-id.apps.googleusercontent.com
