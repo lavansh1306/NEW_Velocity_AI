@@ -2,9 +2,12 @@ import { Button } from "@/components/ui/button";
 import { Menu, X, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState } from "react";
+import { UserProfile } from "./UserProfile";
+import { useAuth } from "@/contexts/AuthContext";
 
 export const Header = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const { user } = useAuth();
 
   return (
     <header className="fixed top-0 w-full bg-white/95 backdrop-blur-sm border-b border-slate-200 z-50">
@@ -31,11 +34,17 @@ export const Header = () => {
             </Link>
           </nav>
 
-          {/* CTA Buttons */}
-          <div className="hidden md:flex items-center gap-3">
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-              Get Started
-            </Button>
+          {/* Right Section */}
+          <div className="flex items-center gap-3">
+            {/* User Profile (if logged in) */}
+            {user && <UserProfile />}
+            
+            {/* CTA Button (if not logged in) */}
+            {!user && (
+              <Button className="hidden md:block bg-blue-600 hover:bg-blue-700 text-white">
+                Get Started
+              </Button>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
