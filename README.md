@@ -3,7 +3,7 @@
 ## Overview
 Full-stack productivity analytics platform that integrates with **Jira**, **Asana**, **HubSpot**, and **Microsoft 365** to provide real-time insights, Gantt charts, ROI calculations, and resource optimization.
 
-**Stack:** React + TypeScript + Express + OAuth 
+**Stack:** React + TypeScript + Express + OAut
 
 ---
 
