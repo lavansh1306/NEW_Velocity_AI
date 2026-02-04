@@ -68,10 +68,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const signInWithGoogle = async () => {
+    // Use environment-specific redirect URL
+    const redirectUrl = import.meta.env.DEV
+      ? `${window.location.origin}/`
+      : 'https://www.joinvelocity.co/';
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/`,
+        redirectTo: redirectUrl,
         queryParams: {
           access_type: 'offline',
           prompt: 'consent',

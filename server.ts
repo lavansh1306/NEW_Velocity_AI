@@ -37,7 +37,7 @@ app.use((req: Request, res: Response, next) => {
 // CORS configuration for cross-origin requests
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? process.env.FRONTEND_URL || 'https://example.com'
+    ? process.env.FRONTEND_URL_PROD || 'https://www.joinvelocity.co'
     : ['http://localhost:5173', 'http://localhost:3000'],
   credentials: true
 }))

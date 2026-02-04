@@ -22,7 +22,15 @@ declare module 'express-session' {
 // Environment variables (accessed at runtime)
 const getClientId = () => process.env.HUBSPOT_CLIENT_ID || '';
 const getClientSecret = () => process.env.HUBSPOT_CLIENT_SECRET || '';
-const getRedirectUri = () => process.env.HUBSPOT_REDIRECT_URI || 'https://www.joinvelocity.co/oauth/hubspot/callback';
+const getRedirectUri = () => {
+  // Use environment-specific redirect URI
+  const isProduction = process.env.NODE_ENV === 'production';
+  if (isProduction) {
+    return process.env.HUBSPOT_REDIRECT_URI_PROD || 'https://www.joinvelocity.co/oauth/hubspot/callback';
+  } else {
+    return process.env.HUBSPOT_REDIRECT_URI_LOCAL || 'http://localhost:5173/oauth/hubspot/callback';
+  }
+};
 const AUTHORIZE_URL: string = 'https://app.hubspot.com/oauth/authorize';
 const TOKEN_URL: string = 'https://api.hubapi.com/oauth/v1/token';
 

@@ -21,7 +21,15 @@ declare module 'express-session' {
 // Environment variables (accessed at runtime)
 const getClientId = () => process.env.MS_CLIENT_ID || '';
 const getClientSecret = () => process.env.MS_CLIENT_SECRET || '';
-const getRedirectUri = () => process.env.MS_REDIRECT_URI || 'http://localhost:3000/auth/callback';
+const getRedirectUri = () => {
+  // Use environment-specific redirect URI
+  const isProduction = process.env.NODE_ENV === 'production';
+  if (isProduction) {
+    return process.env.MS_REDIRECT_URI_PROD || 'https://www.joinvelocity.co/auth/callback';
+  } else {
+    return process.env.MS_REDIRECT_URI_LOCAL || 'http://localhost:5173/auth/callback';
+  }
+};
 const AUTHORIZE_URL: string = 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize';
 const TOKEN_URL: string = 'https://login.microsoftonline.com/common/oauth2/v2.0/token';
 
