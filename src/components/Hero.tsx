@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input"; 
 import { ArrowRight } from "lucide-react";
 
 export const Hero = () => {
@@ -25,9 +26,15 @@ export const Hero = () => {
             Eliminate redundant operational work with AI-powered scheduling, workforce optimization, and intelligent redeployment. Let your managers drive outcomes, not logistics.
           </p>
           
-          <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <Button size="lg" className="gap-2 bg-blue-600 hover:bg-blue-700 text-white shadow-lg">
-              Book a Call
+          {/* Updated Action Area */}
+          <div className="flex flex-col items-center justify-center gap-3 sm:flex-row max-w-lg mx-auto">
+            <Input 
+              type="email" 
+              placeholder="Enter your email" 
+              className="h-11 bg-white border-slate-200 focus:border-blue-500 focus:ring-blue-500"
+            />
+            <Button size="lg" className="w-full sm:w-auto gap-2 bg-blue-600 hover:bg-blue-700 text-white shadow-lg shrink-0">
+              Get Started
               <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
