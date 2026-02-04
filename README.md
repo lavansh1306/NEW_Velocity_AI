@@ -7,7 +7,7 @@ Full-stack productivity analytics platform that integrates with **Jira**, **Asan
 
 
 ## Architecture
-hh
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                         FRONTEND (React)                         │
