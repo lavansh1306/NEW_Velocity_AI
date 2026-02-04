@@ -1,56 +1,62 @@
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input"; 
-import { ArrowRight } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { ArrowRight, Sparkles } from "lucide-react";
 
 export const Hero = () => {
   return (
-    <section className="relative overflow-hidden bg-white pt-32 pb-20 md:pt-40 md:pb-32">
+    <section className="relative overflow-hidden bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-blue-50 via-white to-white pt-32 pb-20 md:pt-40 md:pb-32">
+      {/* Subtle Background Decoration */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full -z-10 opacity-40">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-blue-200/30 blur-[120px] rounded-full" />
+      </div>
+
       <div className="container relative mx-auto px-4">
         <div className="mx-auto max-w-4xl text-center">
-          <div className="mb-8 inline-flex items-center gap-2 rounded-full bg-blue-50 border border-blue-200 px-4 py-2 text-sm backdrop-blur-sm">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-pulse rounded-full bg-blue-400 opacity-75"></span>
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-blue-500"></span>
-            </span>
-            <span className="text-blue-600">AI-Powered Workforce Intelligence</span>
+          {/* Refined Badge */}
+          <div className="mb-8 inline-flex items-center gap-2 rounded-full bg-white border border-blue-100 px-4 py-1.5 text-sm font-medium text-blue-700 shadow-sm transition-all hover:border-blue-200">
+            <Sparkles className="h-3.5 w-3.5 fill-blue-500 text-blue-500" />
+            <span>AI-Powered Workforce Intelligence</span>
           </div>
           
-          <h1 className="mb-6 text-5xl font-bold leading-tight text-slate-900 md:text-6xl lg:text-7xl">
+          <h1 className="mb-6 text-5xl font-extrabold tracking-tight text-slate-900 md:text-6xl lg:text-7xl">
             Focus on What
-            <span className="block bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">
+            <span className="block bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-600 bg-clip-text text-transparent italic pb-2">
               Actually Matters
             </span>
           </h1>
           
-          <p className="mb-10 text-lg text-slate-600 md:text-xl">
-            Eliminate redundant operational work with AI-powered scheduling, workforce optimization, and intelligent redeployment. Let your managers drive outcomes, not logistics.
+          <p className="mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-slate-600 md:text-xl">
+            Eliminate redundant operational work with AI-powered scheduling and workforce optimization. 
+            <span className="font-medium text-slate-800"> Let your managers drive outcomes, not logistics.</span>
           </p>
           
-          {/* Updated Action Area */}
-          <div className="flex flex-col items-center justify-center gap-3 sm:flex-row max-w-lg mx-auto">
+          {/* Action Area with Shadow Depth */}
+          <div className="flex flex-col items-center justify-center gap-3 sm:flex-row max-w-lg mx-auto p-2 rounded-2xl bg-white/50 backdrop-blur-md border border-slate-100 shadow-xl shadow-blue-500/5">
             <Input 
               type="email" 
-              placeholder="Enter your email" 
-              className="h-11 bg-white border-slate-200 focus:border-blue-500 focus:ring-blue-500"
+              placeholder="Enter your work email" 
+              className="h-12 border-none bg-transparent text-base focus-visible:ring-0 focus-visible:ring-offset-0"
             />
-            <Button size="lg" className="w-full sm:w-auto gap-2 bg-blue-600 hover:bg-blue-700 text-white shadow-lg shrink-0">
+            <Button size="lg" className="w-full sm:w-auto h-12 px-8 gap-2 bg-blue-600 hover:bg-blue-700 hover:scale-[1.02] active:scale-[0.98] transition-all text-white shadow-md shadow-blue-200">
               Get Started
               <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
           
-          <div className="mt-10 flex flex-col items-center justify-center gap-4 text-sm text-slate-600 sm:flex-row">
-            <span className="flex items-center gap-2">
-              <span className="text-blue-600">●</span> No credit card required
-            </span>
-            <span className="hidden sm:block">•</span>
-            <span className="flex items-center gap-2">
-              <span className="text-blue-600">●</span> 14-day free trial
-            </span>
-            <span className="hidden sm:block">•</span>
-            <span className="flex items-center gap-2">
-              <span className="text-blue-600">●</span> Enterprise ready
-            </span>
+          {/* Enhanced Trust Section */}
+          <div className="mt-12 flex flex-wrap items-center justify-center gap-x-8 gap-y-4 text-sm font-medium text-slate-500">
+            <div className="flex items-center gap-2">
+              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              No credit card required
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              14-day free trial
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              Enterprise ready
+            </div>
           </div>
         </div>
       </div>
