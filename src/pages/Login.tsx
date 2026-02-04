@@ -171,7 +171,7 @@ export default function Login() {
                 type="button"
                 onClick={handleGoogleSignIn}
                 disabled={loading}
-                className="w-full h-11 border border-slate-300 bg-white hover:bg-slate-50 text-slate-900 font-semibold gap-2 flex items-center justify-center"
+                className="w-full h-11 border border-slate-300 bg-white hover:bg-slate-50 text-slate-900 font-semibold gap-2 flex items-center justify-center rounded-lg transition-colors"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                   <path
@@ -217,7 +217,7 @@ export default function Login() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@company.com"
                   required
-                  className="h-11 border-slate-300 focus:border-blue-500 focus:ring-blue-500"
+                  className="h-11 border-slate-300 rounded-lg focus:border-blue-500 focus:ring-blue-500"
                 />
               </div>
 
@@ -226,8 +226,8 @@ export default function Login() {
                   <label className="block text-sm font-semibold text-slate-900">
                     Password
                   </label>
-                  <a href="#" className="text-sm text-blue-600 hover:underline">
-                    Forgot password?
+                  <a href="#" className="text-sm text-blue-600 hover:underline font-medium">
+                    Forgot?
                   </a>
                 </div>
                 <Input
@@ -236,14 +236,14 @@ export default function Login() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter your password"
                   required
-                  className="h-11 border-slate-300 focus:border-blue-500 focus:ring-blue-500"
+                  className="h-11 border-slate-300 rounded-lg focus:border-blue-500 focus:ring-blue-500"
                 />
               </div>
 
               <Button
                 type="submit"
                 disabled={loading}
-                className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-semibold gap-2 mt-6"
+                className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-semibold gap-2 mt-8 rounded-lg transition-colors"
               >
                 {loading ? (
                   <>
@@ -263,15 +263,15 @@ export default function Login() {
                   <div className="w-full border-t border-slate-200"></div>
                 </div>
                 <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white text-slate-500">Don't have an account?</span>
+                  <span className="px-2 bg-white text-slate-500">New to VelocityAI?</span>
                 </div>
               </div>
 
               <Link
                 to="/signup"
-                className="block text-center h-11 border border-slate-300 rounded-lg hover:bg-slate-50 font-semibold text-slate-700 flex items-center justify-center transition"
+                className="block text-center h-11 border border-slate-300 rounded-lg hover:bg-slate-50 font-semibold text-slate-700 flex items-center justify-center transition-colors"
               >
-                Create Account
+                Create Free Account
               </Link>
             </form>
 
