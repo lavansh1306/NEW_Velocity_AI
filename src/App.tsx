@@ -38,16 +38,16 @@ const App = () => (
           <ToastContainer />
           <BrowserRouter>
             <Routes>
-              {/* Public Routes */}
+              {/* Public Routes - Authentication Only */}
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<SignUp />} />
-              <Route path="/" element={<Index />} />
-              <Route path="/demo" element={<Demo />} />
-              <Route path="/roi-calculator" element={<ROICalculator />} />
-              <Route path="/use-cases" element={<UseCases />} />
-              <Route path="/roi-report" element={<ROIReport />} />
               
-              {/* Protected Routes */}
+              {/* Protected Routes - Require Authentication */}
+              <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+              <Route path="/demo" element={<ProtectedRoute><Demo /></ProtectedRoute>} />
+              <Route path="/roi-calculator" element={<ProtectedRoute><ROICalculator /></ProtectedRoute>} />
+              <Route path="/use-cases" element={<ProtectedRoute><UseCases /></ProtectedRoute>} />
+              <Route path="/roi-report" element={<ProtectedRoute><ROIReport /></ProtectedRoute>} />
               <Route path="/velocity-ai" element={<ProtectedRoute><VelocityAI /></ProtectedRoute>} />
               <Route path="/projects" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
               <Route path="/projects/global-gantt" element={<ProtectedRoute><GlobalGanttDashboard /></ProtectedRoute>} />
@@ -59,7 +59,7 @@ const App = () => (
               <Route path="/projects/:id" element={<ProtectedRoute><ProjectDetailNew /></ProtectedRoute>} />
               <Route path="/debug-normalization" element={<ProtectedRoute><DebugNormalization /></ProtectedRoute>} />
               
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              {/* Catch-all - 404 */}
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
