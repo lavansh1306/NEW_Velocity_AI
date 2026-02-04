@@ -6,11 +6,12 @@ import { ActiveProjectDetail } from './execution/ActiveProjectDetail';
 import { ProjectCompletionDialog } from './execution/ProjectCompletionDialog';
 import { LeaveManagementDialog } from './leaves/LeaveManagementDialog';
 import { TimetableView } from './timetable/TimetableView';
-import { UnifiedProject, UnifiedEmployee, LeaveRequest, ProjectCategory } from './types';
+import { NotificationPanel } from './notifications/NotificationPanel';
+import { UnifiedProject, UnifiedEmployee, LeaveRequest, ProjectCategory, Notification } from './types';
 import { Button } from '../ui/button';
 import { 
   Plus, LayoutGrid, CheckCircle2, Briefcase, Wrench, FlaskConical, 
-  Layers, User, UserCog, Calendar, CalendarOff, LayoutDashboard, CalendarRange, Filter, X 
+  Layers, User, UserCog, Calendar, CalendarOff, LayoutDashboard, CalendarRange, Filter, X, Bell 
 } from 'lucide-react';
 
 import { fetchRawCSV } from '../ml-model/RecommendationEngine'; 
@@ -44,21 +45,50 @@ export default function UnifiedView() {
   const [userRole, setUserRole] = useState<'MANAGER' | 'EMPLOYEE'>('MANAGER');
   const [viewMode, setViewMode] = useState<'DASHBOARD' | 'TIMETABLE'>('DASHBOARD');
   const [currentUserId] = useState<number>(101); // Mock Logged-in User
-  const [employeeFilter, setEmployeeFilter] = useState<number | 'ALL'>('ALL'); // <--- NEW FILTER STATE
+  const [employeeFilter, setEmployeeFilter] = useState<number | 'ALL'>('ALL');
   
   // Dialog States
   const [isDraftOpen, setIsDraftOpen] = useState(false);
   const [isAllocatorOpen, setIsAllocatorOpen] = useState(false);
   const [isCompletionOpen, setIsCompletionOpen] = useState(false);
   const [isLeaveOpen, setIsLeaveOpen] = useState(false); 
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
 
   // Selection States
   const [projectToAllocate, setProjectToAllocate] = useState<UnifiedProject | null>(null);
   const [selectedActiveProject, setSelectedActiveProject] = useState<UnifiedProject | null>(null);
   const [projectToComplete, setProjectToComplete] = useState<UnifiedProject | null>(null);
 
-  // Leave Data
+  // Data
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+
+  // --- NOTIFICATION HELPER ---
+  const sendNotification = (
+    role: 'MANAGER' | 'EMPLOYEE' | 'ALL', 
+    title: string, 
+    message: string, 
+    type: 'ASSIGNMENT' | 'COMPLETION' | 'LEAVE_UPDATE' | 'SYSTEM',
+    recipientId?: number
+  ) => {
+    const newNotif: Notification = {
+      id: `notif_${Date.now()}_${Math.random()}`,
+      recipientRole: role,
+      recipientId,
+      title,
+      message,
+      type,
+      timestamp: new Date().toISOString(),
+      isRead: false
+    };
+    setNotifications(prev => [newNotif, ...prev]);
+  };
+
+  const handleMarkAsRead = (id: string) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+  };
+
+  const handleClearNotifs = () => setNotifications([]);
 
   useEffect(() => {
     const initSystem = async () => {
@@ -146,11 +176,16 @@ export default function UnifiedView() {
         { id: 'lr_1', employeeId: 1002, employeeName: 'Vikram Singh', startDate: '2023-11-20', endDate: '2023-11-22', reason: 'Medical checkup', status: 'PENDING', type: 'Sick' }
       ]);
       
+      setNotifications([
+         { id: 'n1', recipientRole: 'MANAGER', title: 'System Ready', message: 'Unified Resource OS initialized successfully.', type: 'SYSTEM', timestamp: new Date().toISOString(), isRead: false }
+      ]);
+
       setIsLoading(false);
     };
     initSystem();
   }, []);
 
+  // --- HANDLERS ---
   const handleAddProject = (newProject: UnifiedProject) => setProjects(prev => [...prev, newProject]);
   const handleDeleteProject = (id: string) => setProjects(prev => prev.filter(p => p.id !== id));
   
@@ -159,6 +194,13 @@ export default function UnifiedView() {
   const handleConfirmAllocation = (projectId: string, selectedIds: number[]) => {
     setProjects(prev => prev.map(p => p.id === projectId ? { ...p, status: 'ACTIVE', assignedTeamIds: selectedIds, startDate: new Date().toISOString() } : p));
     setEmployees(prev => prev.map(emp => selectedIds.includes(emp.id) ? { ...emp, currentLoad: Math.min(100, emp.currentLoad + 25) } : emp));
+    
+    // Notify
+    const project = projects.find(p => p.id === projectId);
+    selectedIds.forEach(empId => {
+      sendNotification('EMPLOYEE', 'New Project Assigned', `You have been assigned to "${project?.title}".`, 'ASSIGNMENT', empId);
+    });
+
     setIsAllocatorOpen(false); setProjectToAllocate(null);
   };
 
@@ -173,23 +215,34 @@ export default function UnifiedView() {
       }
       return emp;
     }));
+    
+    // Notify Manager
+    const completer = employees.find(e => e.id === currentUserId);
+    sendNotification('MANAGER', 'Project Completed', `A project "${projectToComplete.title}" has been marked as complete.`, 'COMPLETION');
+
     setIsCompletionOpen(false); setSelectedActiveProject(null); setProjectToComplete(null);
   };
 
-  const handleRequestLeave = (req: LeaveRequest) => { setLeaveRequests(prev => [...prev, req]); };
+  const handleRequestLeave = (req: LeaveRequest) => { 
+    setLeaveRequests(prev => [...prev, req]);
+    sendNotification('MANAGER', 'New Leave Request', `${req.employeeName} requested leave for ${req.type}.`, 'LEAVE_UPDATE');
+  };
   
   const handleLeaveDecision = (id: string, status: 'APPROVED' | 'REJECTED') => {
     setLeaveRequests(prev => prev.map(req => {
         if (req.id === id) return { ...req, status };
         return req;
     }));
-    if (status === 'APPROVED') {
-       const req = leaveRequests.find(r => r.id === id);
-       if (req) {
+    const req = leaveRequests.find(r => r.id === id);
+    if (req) {
+       if (status === 'APPROVED') {
          setEmployees(prev => prev.map(e => e.id === req.employeeId ? { ...e, isOnLeave: true, currentLoad: 0 } : e));
        }
+       sendNotification('EMPLOYEE', `Leave ${status}`, `Your leave request for ${req.startDate} has been ${status.toLowerCase()}.`, 'LEAVE_UPDATE', req.employeeId);
     }
   };
+
+  const unreadCount = notifications.filter(n => !n.isRead && (n.recipientRole === 'ALL' || n.recipientRole === userRole)).length;
 
   if (isLoading) return <div className="p-20 text-center text-slate-500 animate-pulse">Initializing Unified Resource OS...</div>;
 
@@ -207,22 +260,22 @@ export default function UnifiedView() {
 
   const queuedProjects = projects.filter(p => p.status === 'QUEUED');
   
-  // --- FILTER LOGIC ---
+  // FILTER LOGIC
   const allActiveProjects = projects.filter(p => p.status === 'ACTIVE');
   const filteredActiveProjects = employeeFilter === 'ALL' 
     ? allActiveProjects 
     : allActiveProjects.filter(p => p.assignedTeamIds.includes(employeeFilter));
 
-  const actualUserId = employees.find(e => e.id === currentUserId[0]) ? currentUserId[0] : (employees[0]?.id || 101);
+  const actualUserId = employees.find(e => e.id === currentUserId) ? currentUserId : (employees[0]?.id || 101);
   const myProjects = allActiveProjects.filter(p => p.assignedTeamIds.includes(actualUserId));
   const currentUser = employees.find(e => e.id === actualUserId);
   const pendingLeaves = leaveRequests.filter(r => r.status === 'PENDING').length;
 
   return (
-    <div className="space-y-12 animate-in fade-in duration-500 pb-20">
+    <div className="space-y-12 animate-in fade-in duration-500 pb-20 relative">
       
-      {/* --- HEADER --- */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+      {/* HEADER */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm z-20 relative">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <LayoutGrid className="w-6 h-6 text-indigo-600" />
@@ -233,33 +286,48 @@ export default function UnifiedView() {
             <span className={`font-bold px-2 py-0.5 rounded text-xs uppercase ${userRole === 'MANAGER' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
               {userRole}
             </span>
-             <span className="text-xs text-slate-400">
-               ({currentUser?.name || 'Unknown'})
-             </span>
+             <span className="text-xs text-slate-400">({currentUser?.name || 'Unknown'})</span>
           </p>
         </div>
 
         <div className="flex items-center gap-4">
-           {/* 1. VIEW MODE TOGGLE */}
+           {/* VIEW TOGGLE */}
            <div className="bg-slate-100 p-1 rounded-lg flex items-center mr-2">
               <button onClick={() => setViewMode('DASHBOARD')} className={`p-2 rounded-md transition-all ${viewMode === 'DASHBOARD' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`} title="Dashboard"><LayoutDashboard className="w-4 h-4" /></button>
               <button onClick={() => setViewMode('TIMETABLE')} className={`p-2 rounded-md transition-all ${viewMode === 'TIMETABLE' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`} title="Timetable"><CalendarRange className="w-4 h-4" /></button>
            </div>
 
-           {/* 2. ADD PROJECT (Manager Only) */}
+           {/* ADD PROJECT */}
            {userRole === 'MANAGER' && (
              <Button onClick={() => setIsDraftOpen(true)} className="bg-indigo-600 text-white shadow-lg hover:bg-indigo-700">
                <Plus className="w-4 h-4 mr-2" /> New Project
              </Button>
            )}
 
-           {/* 3. LEAVE BUTTON */}
+           {/* NOTIFICATION BELL */}
+           <div className="relative">
+             <Button variant="ghost" className="relative text-slate-500 hover:bg-slate-50" onClick={() => setIsNotifOpen(!isNotifOpen)}>
+               <Bell className={`w-5 h-5 ${isNotifOpen ? 'text-indigo-600' : ''}`} />
+               {unreadCount > 0 && <span className="absolute top-1 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>}
+             </Button>
+             <NotificationPanel 
+                isOpen={isNotifOpen} 
+                onClose={() => setIsNotifOpen(false)}
+                notifications={notifications}
+                userRole={userRole}
+                currentUserId={actualUserId}
+                onMarkAsRead={handleMarkAsRead}
+                onClearAll={handleClearNotifs}
+             />
+           </div>
+
+           {/* LEAVE BUTTON */}
            <Button variant="outline" onClick={() => setIsLeaveOpen(true)} className="relative border-slate-200 text-slate-600 hover:bg-slate-50">
              <CalendarOff className="w-4 h-4 mr-2" /> {userRole === 'MANAGER' ? 'Approvals' : 'Time Off'}
              {userRole === 'MANAGER' && pendingLeaves > 0 && <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white text-[10px] flex items-center justify-center rounded-full shadow-sm animate-bounce">{pendingLeaves}</span>}
            </Button>
 
-           {/* 4. ROLE SWITCHER */}
+           {/* ROLE SWITCHER */}
            <div className="bg-slate-100 p-1 rounded-lg flex items-center">
               <button onClick={() => setUserRole('MANAGER')} className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-2 ${userRole === 'MANAGER' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}><UserCog className="w-4 h-4" /> Manager</button>
               <button onClick={() => setUserRole('EMPLOYEE')} className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-2 ${userRole === 'EMPLOYEE' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}><User className="w-4 h-4" /> Employee</button>
@@ -288,14 +356,13 @@ export default function UnifiedView() {
 
               <div className="animate-in slide-in-from-bottom-8 duration-700 space-y-4">
                 
-                {/* --- HEADER WITH FILTER --- */}
+                {/* FILTER HEADER */}
                 <div className="flex justify-between items-end">
                     <div className="flex items-center gap-2">
                        <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-xs">2</div>
                        <h2 className="text-lg font-bold text-gray-800">Active Allocations ({filteredActiveProjects.length})</h2>
                     </div>
 
-                    {/* NEW: EMPLOYEE FILTER DROPDOWN */}
                     <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-1.5 shadow-sm">
                         <Filter className="w-4 h-4 text-slate-400" />
                         <span className="text-xs font-bold text-slate-500 uppercase mr-1">Filter By:</span>
@@ -310,9 +377,7 @@ export default function UnifiedView() {
                             ))}
                         </select>
                         {employeeFilter !== 'ALL' && (
-                            <button onClick={() => setEmployeeFilter('ALL')} className="ml-1 text-slate-400 hover:text-red-500">
-                                <X className="w-3 h-3" />
-                            </button>
+                            <button onClick={() => setEmployeeFilter('ALL')} className="ml-1 text-slate-400 hover:text-red-500"><X className="w-3 h-3" /></button>
                         )}
                     </div>
                 </div>

@@ -1,7 +1,18 @@
 export type ProjectCategory = 'Client Deliverable' | 'Internal Tool' | 'R&D / POC' | 'Maintenance';
 export type ProjectStatus = 'DRAFT' | 'QUEUED' | 'ACTIVE' | 'COMPLETED';
 export type LeaveStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+export type NotificationType = 'ASSIGNMENT' | 'COMPLETION' | 'LEAVE_UPDATE' | 'SYSTEM';
 
+export interface Notification {
+  id: string;
+  recipientRole: 'MANAGER' | 'EMPLOYEE' | 'ALL';
+  recipientId?: number; 
+  title: string;
+  message: string;
+  timestamp: string;
+  type: NotificationType;
+  isRead: boolean;
+}
 export interface LeaveRequest {
   id: string;
   employeeId: number;
