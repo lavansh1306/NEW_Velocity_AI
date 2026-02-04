@@ -72,6 +72,8 @@ export default function Login() {
     try {
       setLoading(true);
       setError('');
+      // signInWithGoogle() redirects to Google, which redirects back to /
+      // After auth, the AuthContext will update and ProtectedRoute will allow access
       await signInWithGoogle();
     } catch (err: any) {
       setError(err.message || 'Failed to sign in with Google');
@@ -88,7 +90,13 @@ export default function Login() {
       await signIn(email, password);
       navigate('/');
     } catch (err: any) {
-      setError(err.message || 'Failed to log in');
+      const errorMessage = err.message || 'Failed to log in';
+      // Check for email confirmation error
+      if (errorMessage.includes('Email not confirmed') || errorMessage.includes('email_not_confirmed')) {
+        setError('Please confirm your email address first. Check your inbox (including spam folder) for the confirmation email.');
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }

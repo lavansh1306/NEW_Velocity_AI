@@ -48,8 +48,9 @@ export default function SignUp() {
     try {
       setLoading(true);
       setError('');
+      // signInWithGoogle() redirects to Google, which redirects back to /
+      // The page will redirect so no navigate() needed here
       await signInWithGoogle();
-      navigate('/');
     } catch (err: any) {
       setError(err.message || 'Failed to sign up with Google');
       setLoading(false);
@@ -76,12 +77,18 @@ export default function SignUp() {
 
     try {
       await signUp(email, password);
-      setSuccess('Account created! Please check your email to confirm your account.');
-      setTimeout(() => navigate('/login'), 3000);
+      setSuccess('Account created! Please check your email (including spam folder) to confirm your account before logging in.');
+      // Don't redirect automatically - let user see the email confirmation message
+      setEmail('');
+      setPassword('');
+      setConfirmPassword('');
     } catch (err: any) {
       setError(err.message || 'Failed to sign up');
-    } finally {
       setLoading(false);
+    } finally {
+      if (!success) {
+        setLoading(false);
+      }
     }
   };
 
@@ -154,8 +161,11 @@ export default function SignUp() {
               <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4 flex gap-3">
                 <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-medium text-green-900">{success}</p>
-                  <p className="text-sm text-green-800 mt-1">Redirecting to login...</p>
+                  <p className="font-medium text-green-900">Email confirmation sent!</p>
+                  <p className="text-sm text-green-800 mt-1">{success}</p>
+                  <p className="text-sm text-green-700 mt-2">
+                    Once confirmed, you can <Link to="/login" className="underline font-semibold hover:text-green-900">sign in here</Link>.
+                  </p>
                 </div>
               </div>
             )}

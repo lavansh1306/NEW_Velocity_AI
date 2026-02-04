@@ -29,6 +29,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (error) throw error;
         setSession(session);
         setUser(session?.user ?? null);
+        console.log('[Auth] Session check:', session ? 'User authenticated' : 'No session');
       } catch (error) {
         console.error('Error checking session:', error);
       } finally {
@@ -38,11 +39,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     checkSession();
 
-    // Listen for auth changes
+    // Listen for auth changes (including OAuth callbacks)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
+        console.log('[Auth] State changed:', event, session ? 'authenticated' : 'not authenticated');
+        
+        // When user authenticates via OAuth, they'll be on the redirect page
+        // Just update state - ProtectedRoute will handle navigation
       }
     );
 
@@ -69,6 +74,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signInWithGoogle = async () => {
     // Use environment-specific redirect URL
+    // This is the URL users will be redirected to after authenticating with Google
     const redirectUrl = import.meta.env.DEV
       ? `${window.location.origin}/`
       : 'https://www.joinvelocity.co/';
@@ -76,6 +82,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
+        // CRITICAL: This redirectTo must match Google Console AND Supabase URL config
         redirectTo: redirectUrl,
         queryParams: {
           access_type: 'offline',
@@ -83,7 +90,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         },
       },
     });
-    if (error) throw error;
+    
+    if (error) {
+      console.error('[Google OAuth Error]', error);
+      throw error;
+    }
+    // Note: This function will redirect the page to Google
+    // The actual authentication happens after Google redirects back
   };
 
   const signOut = async () => {
