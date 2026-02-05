@@ -21,11 +21,20 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    target: "esnext", 
+    target: "esnext",
+    rollupOptions: {
+      external: ['xlsx'],
+      output: {
+        globals: {
+          xlsx: 'XLSX',
+        },
+      },
+    },
   },
   optimizeDeps: {
     esbuildOptions: {
       target: "esnext",
     },
+    exclude: ['xlsx'],
   },
 }));
