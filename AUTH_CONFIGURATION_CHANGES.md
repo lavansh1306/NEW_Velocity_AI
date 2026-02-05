@@ -1,7 +1,7 @@
 # Authentication Configuration Changes for Production Deployment
 
 ## Summary
-Updated authentication system to support both **localhost development** and **https://www.joinvelocity.co production** environments.
+Updated autntication system to support both **localhost development** and **https://www.joinvelocity.co production** environments.
 
 ---
 
