@@ -2,7 +2,6 @@ import React, { useState, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../ui/dialog';
 import { Button } from '../ui/button';
 import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2, ArrowRight } from 'lucide-react';
-import * as XLSX from 'xlsx'; // Requires: npm install xlsx
 import { Task } from './types';
 
 interface TimesheetUploadDialogProps {
@@ -26,30 +25,36 @@ export const TimesheetUploadDialog: React.FC<TimesheetUploadDialogProps> = ({ op
   const [columnMap, setColumnMap] = useState<any>({});
   const [error, setError] = useState<string | null>(null);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      try {
-        const bstr = evt.target?.result;
-        const wb = XLSX.read(bstr, { type: 'binary' });
-        const wsname = wb.SheetNames[0];
-        const ws = wb.Sheets[wsname];
-        const data = XLSX.utils.sheet_to_json(ws);
-        
-        if (data.length === 0) throw new Error("File is empty");
-        
-        identifyColumns(data);
-        setParsedData(data);
-        setError(null);
-      } catch (err) {
-        console.error(err);
-        setError("Failed to parse file. Please ensure it is a valid .csv or .xlsx file.");
-      }
-    };
-    reader.readAsBinaryString(file);
+    try {
+      const XLSX = await import('xlsx');
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        try {
+          const bstr = evt.target?.result;
+          const wb = XLSX.read(bstr, { type: 'binary' });
+          const wsname = wb.SheetNames[0];
+          const ws = wb.Sheets[wsname];
+          const data = XLSX.utils.sheet_to_json(ws);
+          
+          if (data.length === 0) throw new Error("File is empty");
+          
+          identifyColumns(data);
+          setParsedData(data);
+          setError(null);
+        } catch (err) {
+          console.error(err);
+          setError("Failed to parse file. Please ensure it is a valid .csv or .xlsx file.");
+        }
+      };
+      reader.readAsBinaryString(file);
+    } catch (err) {
+      console.error('Failed to load xlsx library:', err);
+      setError("Failed to load file processor. Please try again.");
+    }
   };
 
   // The "AI" Logic: Guess which column maps to which internal field
