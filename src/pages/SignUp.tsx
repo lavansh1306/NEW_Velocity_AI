@@ -30,13 +30,6 @@ export default function SignUp() {
   const { signUp, signInWithGoogle, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
-  // Redirect authenticated users to home
-  useEffect(() => {
-    if (!authLoading && user) {
-      navigate('/', { replace: true });
-    }
-  }, [user, authLoading, navigate]);
-
   useEffect(() => {
     // Load Google Sign-In script
     const script = document.createElement('script');
@@ -60,8 +53,8 @@ export default function SignUp() {
       if (email.trim()) {
         await saveEmailInterest(email);
       }
-      // signInWithGoogle() redirects to Google, which redirects back to /
-      // The page will redirect so no navigate() needed here
+      // signInWithGoogle() redirects to Google, which redirects back to /auth/callback
+      // AuthCallback will handle the redirect to /velocity-ai
       await signInWithGoogle();
     } catch (err: any) {
       setError(err.message || 'Failed to sign up with Google');

@@ -2,9 +2,11 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowRight, Sparkles } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 
 export const Hero = () => {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -113,6 +115,15 @@ export const Hero = () => {
               className="w-full sm:w-auto h-12 px-8 gap-2 bg-blue-600 hover:bg-blue-700 hover:scale-[1.02] active:scale-[0.98] transition-all text-white shadow-md shadow-blue-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "Joining..." : "JOIN THE WAITLIST"}
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+            <Button
+              aria-label="Sign up for free"
+              size="lg"
+              onClick={() => navigate("/login")}
+              className="w-full sm:w-auto h-12 px-8 gap-2 bg-slate-900 hover:bg-slate-800 hover:scale-[1.02] active:scale-[0.98] transition-all text-white shadow-md shadow-slate-400/20 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              SIGN UP
               <ArrowRight className="h-4 w-4" />
             </Button>
           </div>

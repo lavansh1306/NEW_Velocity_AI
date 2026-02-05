@@ -21,6 +21,35 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Save Google user email to database
+  const saveGoogleUserEmail = async (userEmail: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('oauth_users')
+        .insert([{
+          email: userEmail.toLowerCase().trim(),
+          provider: 'google',
+          authenticated_at: new Date().toISOString()
+        }])
+        .select();
+
+      if (error) {
+        // Check if it's a duplicate email error (that's fine, user already saved)
+        if (error.code === '23505' || error.message?.includes('unique')) {
+          console.log('[OAuth Email] User already in database');
+          return true;
+        }
+        console.error('[OAuth Email] Error saving email:', error);
+        return false;
+      }
+      console.log('[OAuth Email] Email saved successfully:', data);
+      return true;
+    } catch (err) {
+      console.error('[OAuth Email] Unexpected error:', err);
+      return false;
+    }
+  };
+
   useEffect(() => {
     // Check for existing session
     const checkSession = async () => {
@@ -47,6 +76,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // Important: Set session and user state immediately when auth state changes
         setSession(session);
         setUser(session?.user ?? null);
+        
+        // If user just authenticated via Google, save their email
+        if (event === 'SIGNED_IN' && session?.user?.email && session?.user?.user_metadata?.provider === 'google') {
+          console.log('[Auth] Saving Google user email:', session.user.email);
+          await saveGoogleUserEmail(session.user.email);
+        }
         
         // Ensure loading is false after auth state change
         setLoading(false);

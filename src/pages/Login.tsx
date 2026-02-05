@@ -27,13 +27,6 @@ export default function Login() {
   const { signIn, signInWithGoogle, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
-  // Redirect authenticated users to home
-  useEffect(() => {
-    if (!authLoading && user) {
-      navigate('/', { replace: true });
-    }
-  }, [user, authLoading, navigate]);
-
   useEffect(() => {
     // Load Google Sign-In script
     const script = document.createElement('script');
@@ -48,9 +41,6 @@ export default function Login() {
           client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
           callback: handleGoogleResponse,
         });
-        
-        // Render the One Tap UI
-        window.google.accounts.id.prompt();
       }
     };
 
@@ -95,7 +85,7 @@ export default function Login() {
 
     try {
       await signIn(email, password);
-      navigate('/');
+      navigate('/velocity-ai');
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to log in';
       // Check for email confirmation error
@@ -305,12 +295,7 @@ export default function Login() {
         </div>
       </div>
 
-      {/* Google One Tap Container */}
-      <div
-        id="g_id_onload"
-        data-client_id={import.meta.env.VITE_GOOGLE_CLIENT_ID}
-        data-callback="handleGoogleResponse"
-      ></div>
+      {/* Google One Tap UI - removed as we use button instead */}
     </div>
   );
 }
