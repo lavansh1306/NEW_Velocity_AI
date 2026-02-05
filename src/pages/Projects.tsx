@@ -32,7 +32,9 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
   useEffect(() => {
     const doLoadProjects = async () => {
       try {
+        console.log('[Projects] Loading projects...');
         const loadedProjects = await fetchProjects();
+        console.log('[Projects] Loaded projects:', loadedProjects.length, loadedProjects);
 
         setProjects(loadedProjects);
         setDataConnected(loadedProjects.length > 0);
@@ -48,7 +50,7 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
           setToastShown(true);
         }
       } catch (error) {
-        console.error('Failed to load projects:', error);
+        console.error('[Projects] Failed to load projects:', error);
         setDataConnected(false);
         addToast({
           type: 'error',

@@ -30,13 +30,6 @@ export default function SignUp() {
   const { signUp, signInWithGoogle, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
-  // Redirect authenticated users to home
-  useEffect(() => {
-    if (!authLoading && user) {
-      navigate('/', { replace: true });
-    }
-  }, [user, authLoading, navigate]);
-
   useEffect(() => {
     // Load Google Sign-In script
     const script = document.createElement('script');
@@ -60,8 +53,8 @@ export default function SignUp() {
       if (email.trim()) {
         await saveEmailInterest(email);
       }
-      // signInWithGoogle() redirects to Google, which redirects back to /
-      // The page will redirect so no navigate() needed here
+      // signInWithGoogle() redirects to Google, which redirects back to /auth/callback
+      // AuthCallback will handle the redirect to /velocity-ai
       await signInWithGoogle();
     } catch (err: any) {
       setError(err.message || 'Failed to sign up with Google');
@@ -71,7 +64,8 @@ export default function SignUp() {
 
   const saveEmailInterest = async (emailAddress: string) => {
     try {
-      const { error } = await supabase
+      console.log('[Email Interest] Attempting to save:', emailAddress);
+      const { data, error } = await supabase
         .from('email_interests')
         .insert([
           {
@@ -81,12 +75,17 @@ export default function SignUp() {
           }
         ]);
       if (error) {
-        console.error('Error saving email interest:', error);
+        console.error('[Email Interest] Supabase error:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        });
       } else {
-        console.log('[Email Interest] Saved:', emailAddress);
+        console.log('[Email Interest] Successfully saved:', data);
       }
     } catch (err) {
-      console.error('Failed to save email interest:', err);
+      console.error('[Email Interest] Unexpected error:', err);
     }
   };
 

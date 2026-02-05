@@ -19,13 +19,13 @@ export default function AuthCallback() {
     console.log('[AuthCallback] User:', user ? 'authenticated' : 'not authenticated');
 
     if (user) {
-      console.log('[AuthCallback] Redirecting to home');
-      navigate('/', { replace: true });
+      console.log('[AuthCallback] Redirecting to velocity-ai');
+      navigate('/velocity-ai', { replace: true });
     } else {
-      console.log('[AuthCallback] No user, redirecting to home');
+      console.log('[AuthCallback] No user, redirecting to login');
       setError('Authentication failed. Please try again.');
-      // Redirect to home (public page) instead of /login which doesn't exist
-      navigate('/', { replace: true });
+      // Redirect to login page
+      navigate('/login', { replace: true });
     }
   }, [loading, user, navigate]);
 

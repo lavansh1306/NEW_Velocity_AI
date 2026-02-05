@@ -25,6 +25,14 @@ router.post('/auth/disconnect', (req: Request, res: Response) => {
 
 // Check connection status
 router.get('/auth/status', (req: Request, res: Response) => {
+  console.log('[Jira Auth Status] Full session:', {
+    sessionID: req.sessionID,
+    jiraStoreKey: req.session?.jiraStoreKey,
+    jiraCloudId: req.session?.jiraCloudId,
+    jiraAccessibleResourcesCount: req.session?.jiraAccessibleResources?.length || 0,
+    allSessionKeys: Object.keys(req.session || {}),
+  });
+  
   const connected = jiraAuth.isConnected(req);
   const siteInfo = jiraAuth.getSiteInfo(req);
   const availableSites = req.session?.jiraAccessibleResources || [];

@@ -11,6 +11,34 @@ import fetch from "node-fetch"
 import { createClient } from '@supabase/supabase-js';
 import session from "express-session"
 
+// Initialize Redis store asynchronously
+let redisStore: any = null;
+
+async function initializeRedis() {
+  try {
+    if (!process.env.REDIS_URL && !(process.env.REDIS_HOST && process.env.REDIS_PORT)) {
+      console.log('[Server] No Redis config found, using memory store');
+      return;
+    }
+
+    const redis = await import('redis');
+    const { default: RedisStore } = await import('connect-redis');
+    
+    const redisClient = redis.createClient({
+      url: process.env.REDIS_URL || `redis://:${process.env.REDIS_PASSWORD}@${process.env.REDIS_HOST}:${process.env.REDIS_PORT}`,
+    });
+    
+    redisClient.on('error', (err: any) => console.error('[Redis] Error:', err));
+    redisClient.on('connect', () => console.log('[Redis] Connected'));
+    
+    await redisClient.connect();
+    redisStore = new RedisStore({ client: redisClient, prefix: 'velocity-session:' });
+    console.log('[Server] Redis session store initialized');
+  } catch (err) {
+    console.log('[Server] Redis initialization failed, using memory store:', err instanceof Error ? err.message : String(err));
+  }
+}
+
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -36,30 +64,47 @@ app.use((req: Request, res: Response, next) => {
 })
 
 // CORS configuration for cross-origin requests
+const corsOrigin = process.env.NODE_ENV === 'production' 
+  ? (process.env.FRONTEND_URL_PROD || 'https://www.joinvelocity.co')
+  : ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:4000'];
+
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? process.env.FRONTEND_URL_PROD || 'https://www.joinvelocity.co'
-    : ['http://localhost:5173', 'http://localhost:3000'],
+  origin: corsOrigin,
   credentials: true
 }))
 
 app.use(express.json())
 
-// Session middleware for OAuth flows (HubSpot + M365)
+// Session middleware for OAuth flows (HubSpot + M365 + Jira)
 // CRITICAL: SameSite=none + Secure=true required for OAuth redirects (Provider -> App)
-app.use(session({
+const sessionConfig: any = {
   secret: process.env.SESSION_SECRET || 'dev-secret-change-in-prod',
-  resave: false,
-  saveUninitialized: false,
+  resave: true, // Save session on every request to persist data
+  saveUninitialized: true, // Initialize session even if unmodified
   cookie: { 
     secure: process.env.NODE_ENV === 'production', // true in production (HTTPS required)
     httpOnly: true, // Prevent XSS attacks
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' allows cross-site (OAuth), 'lax' for localhost
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    domain: undefined // Allow cookies on localhost
   }
-}))
+};
 
-const PORT = Number(process.env.API_PORT || 3000)
+// Add Redis store if available, otherwise use memory store
+if (redisStore) {
+  sessionConfig.store = redisStore;
+  console.log('[Server] Using Redis store for sessions');
+} else {
+  console.log('[Server] Using memory store for sessions (dev only)');
+}
+
+app.use(session(sessionConfig))
+
+const PORT = Number(process.env.API_PORT || 4000)
+const NODE_ENV = process.env.NODE_ENV || 'development'
+
+console.log(`[Server] Starting in ${NODE_ENV} mode on port ${PORT}`)
+console.log(`[Server] Frontend URL: ${process.env.FRONTEND_URL_PROD || 'http://localhost:5173'}`)
 
 // ============ JIRA Configuration ============
 const DOMAIN = process.env.JIRA_DOMAIN
@@ -456,12 +501,17 @@ app.use((req: Request, res: Response) => {
   res.status(200).send('SPA fallback - would serve index.html')
 })
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`API server listening on http://localhost:${PORT}`)
-  console.log(`  - Jira API: ${isJiraConfigReady ? 'configured' : 'NOT configured'}`)
-  console.log(`  - Asana API: ${isAsanaConfigReady ? 'configured' : 'NOT configured'}`)
-  console.log(`  - Microsoft 365 API: ${process.env.MS_CLIENT_ID ? 'configured' : 'NOT configured'}`)
-})
+// Start server after initializing Redis
+(async () => {
+  await initializeRedis();
+  
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`API server listening on http://localhost:${PORT}`)
+    console.log(`  - Jira API: ${isJiraConfigReady ? 'configured' : 'NOT configured'}`)
+    console.log(`  - Asana API: ${isAsanaConfigReady ? 'configured' : 'NOT configured'}`)
+    console.log(`  - Microsoft 365 API: ${process.env.MS_CLIENT_ID ? 'configured' : 'NOT configured'}`)
+  })
+})();
 
 // Waitlist endpoint: accepts { email } and writes to Supabase (server key) and/or forwards to a Google Sheets webhook
 app.post('/api/waitlist', async (req: Request, res: Response) => {
