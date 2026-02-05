@@ -178,11 +178,22 @@ const projectImages: Record<string, string> = {
  * from `/api/projects` (Jira) and `/api/asana/projects` (Asana).
  */
 export async function loadProjects(): Promise<ProjectItem[]> {
+  console.log('[loadProjects] Starting to fetch projects...');
+  
   // Fetch Jira and Asana project lists in parallel. If one fails, continue with the other.
   const [jiraRes, asanaRes] = await Promise.all([
-    fetch(apiUrl('/api/jira/projects'), { credentials: 'include' }).catch(() => null),
-    fetch(apiUrl('/api/asana/projects'), { credentials: 'include' }).catch(() => null),
+    fetch(apiUrl('/api/jira/projects'), { credentials: 'include' }).catch((err) => {
+      console.error('[loadProjects] Jira fetch failed:', err);
+      return null;
+    }),
+    fetch(apiUrl('/api/asana/projects'), { credentials: 'include' }).catch((err) => {
+      console.error('[loadProjects] Asana fetch failed:', err);
+      return null;
+    }),
   ]);
+
+  console.log('[loadProjects] Jira response:', jiraRes?.status, jiraRes?.ok);
+  console.log('[loadProjects] Asana response:', asanaRes?.status, asanaRes?.ok);
 
   let jiraList: any[] = [];
   let asanaList: any[] = [];
@@ -191,18 +202,28 @@ export async function loadProjects(): Promise<ProjectItem[]> {
     try {
       const data = await jiraRes.json();
       jiraList = data.projects || [];
+      console.log('[loadProjects] Jira projects:', jiraList.length, jiraList);
     } catch (e) {
+      console.error('[loadProjects] Error parsing Jira response:', e);
       jiraList = [];
     }
+  } else if (jiraRes) {
+    console.error('[loadProjects] Jira request failed with status:', jiraRes.status);
+    const text = await jiraRes.text();
+    console.error('[loadProjects] Jira error response:', text.substring(0, 200));
   }
 
   if (asanaRes && asanaRes.ok) {
     try {
       const data = await asanaRes.json();
       asanaList = data.projects || [];
+      console.log('[loadProjects] Asana projects:', asanaList.length);
     } catch (e) {
+      console.error('[loadProjects] Error parsing Asana response:', e);
       asanaList = [];
     }
+  } else if (asanaRes) {
+    console.error('[loadProjects] Asana request failed with status:', asanaRes.status);
   }
 
   const normalized: ProjectItem[] = [];
@@ -240,6 +261,7 @@ export async function loadProjects(): Promise<ProjectItem[]> {
     } as unknown as ProjectItem);
   }
 
+  console.log('[loadProjects] Final normalized projects:', normalized.length, normalized);
   return normalized;
 }
 

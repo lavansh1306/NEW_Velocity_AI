@@ -115,7 +115,7 @@ export const Hero = () => {
               {loading ? "Joining..." : "JOIN THE WAITLIST"}
               <ArrowRight className="h-4 w-4" />
             </Button>
-            <Button
+          </div>
           
           {/* Status Message */}
           {message && (

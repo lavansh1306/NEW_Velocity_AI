@@ -82,7 +82,9 @@
     "tsx": "^4.21.0",
     "vaul": "^0.9.9",
     "xlsx": "^0.18.5",
-    "zod": "^3.25.76"
+    "zod": "^3.25.76",
+    "redis": "^4.6.13",
+    "connect-redis": "^7.1.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
