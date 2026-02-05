@@ -23,9 +23,6 @@ import HubSpotDashboard from "./pages/HubSpotDashboard";
 import Microsoft365Dashboard from "./pages/Microsoft365Dashboard";
 import GlobalGanttDashboard from "./pages/GlobalGanttDashboard";
 import NotFound from "./pages/NotFound";
-import AuthCallback from "./pages/AuthCallback";
-import Login from "./pages/Login";
-import SignUp from "./pages/SignUp";
 
 const queryClient = new QueryClient();
 
@@ -42,9 +39,6 @@ const App = () => (
           <Routes>
             {/* All routes are public */}
             <Route path="/" element={<Index />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<SignUp />} />
-            <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/demo" element={<Demo />} />
             <Route path="/roi-calculator" element={<ROICalculator />} />
             <Route path="/use-cases" element={<UseCases />} />

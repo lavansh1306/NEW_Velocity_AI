@@ -64,7 +64,8 @@ export default function SignUp() {
 
   const saveEmailInterest = async (emailAddress: string) => {
     try {
-      const { error } = await supabase
+      console.log('[Email Interest] Attempting to save:', emailAddress);
+      const { data, error } = await supabase
         .from('email_interests')
         .insert([
           {
@@ -74,12 +75,17 @@ export default function SignUp() {
           }
         ]);
       if (error) {
-        console.error('Error saving email interest:', error);
+        console.error('[Email Interest] Supabase error:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        });
       } else {
-        console.log('[Email Interest] Saved:', emailAddress);
+        console.log('[Email Interest] Successfully saved:', data);
       }
     } catch (err) {
-      console.error('Failed to save email interest:', err);
+      console.error('[Email Interest] Unexpected error:', err);
     }
   };
 
