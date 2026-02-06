@@ -33,11 +33,13 @@ export const Header = () => {
 
           {/* Right Section */}
           <div className="flex items-center gap-3">
+            {/* Temporarily hidden: Get Started button
             <Link to="/velocity-ai">
               <Button className="hidden md:block bg-blue-600 hover:bg-blue-700 text-white">
                 Get Started
               </Button>
             </Link>
+            */}
           </div>
 
           {/* Mobile Menu Button */}
@@ -81,9 +83,11 @@ export const Header = () => {
               <Button variant="ghost" className="w-full text-slate-900">
                 Sign In
               </Button>
+              {/* Temporarily hidden: Get Started button
               <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white">
                 Get Started
               </Button>
+              */}
             </div>
           </nav>
         )}
