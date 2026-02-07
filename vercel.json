@@ -14,6 +14,7 @@
   },
   "rewrites": [
     { "source": "/oauth/hubspot/callback", "destination": "/api/hubspot-callback" },
+    { "source": "/api/leave-approval/approve-batch", "destination": "/api/leave-approval/approve-batch" },
     { "source": "/api/jira/auth/connect", "destination": "/api/jira/auth/connect" },
     { "source": "/api/jira/auth/callback", "destination": "/api/jira/auth/callback" },
     { "source": "/api/jira/auth/status", "destination": "/api/jira/auth/status" },
