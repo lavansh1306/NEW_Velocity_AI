@@ -33,13 +33,16 @@ export const Header = () => {
 
           {/* Right Section */}
           <div className="flex items-center gap-3">
-            {/* Temporarily hidden: Get Started button
-            <Link to="/velocity-ai">
+            <Link to="/login" className="hidden md:inline">
+              <Button variant="ghost" className="text-slate-600 hover:text-slate-900">
+                Sign In
+              </Button>
+            </Link>
+            <Link to="/signup">
               <Button className="hidden md:block bg-blue-600 hover:bg-blue-700 text-white">
                 Get Started
               </Button>
             </Link>
-            */}
           </div>
 
           {/* Mobile Menu Button */}
@@ -80,14 +83,16 @@ export const Header = () => {
               Results
             </Link>
             <div className="px-4 pt-2 space-y-2">
-              <Button variant="ghost" className="w-full text-slate-900">
-                Sign In
-              </Button>
-              {/* Temporarily hidden: Get Started button
-              <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white">
-                Get Started
-              </Button>
-              */}
+              <Link to="/login" className="block">
+                <Button variant="ghost" className="w-full text-slate-900">
+                  Sign In
+                </Button>
+              </Link>
+              <Link to="/signup" className="block">
+                <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+                  Get Started
+                </Button>
+              </Link>
             </div>
           </nav>
         )}

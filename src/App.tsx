@@ -6,6 +6,7 @@ import { ToastContainer } from "@/components/ToastContainer";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Analytics } from "@vercel/analytics/react";
+import { AuthProvider } from "@/contexts/AuthContext";
 import Index from "./pages/Index";
 import Demo from "./pages/Demo";
 import ROICalculator from "./pages/ROICalculator";
@@ -21,6 +22,9 @@ import AsanaDashboard from "./pages/AsanaDashboard";
 import HubSpotDashboard from "./pages/HubSpotDashboard";
 import Microsoft365Dashboard from "./pages/Microsoft365Dashboard";
 import GlobalGanttDashboard from "./pages/GlobalGanttDashboard";
+import Login from "./pages/Login";
+import SignUp from "./pages/SignUp";
+import AuthCallback from "./pages/AuthCallback";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,33 +33,40 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <ToastProvider>
       <TooltipProvider>
-        <Analytics />
-        <Toaster />
-        <Sonner />
-        <ToastContainer />
-        <BrowserRouter>
-          <Routes>
-            {/* All routes are public */}
-            <Route path="/" element={<Index />} />
-            <Route path="/demo" element={<Demo />} />
-            <Route path="/roi-calculator" element={<ROICalculator />} />
-            <Route path="/use-cases" element={<UseCases />} />
-            <Route path="/roi-report" element={<ROIReport />} />
-            <Route path="/velocity-ai" element={<VelocityAI />} />
-            <Route path="/projects" element={<Projects />} />
-            <Route path="/projects/global-gantt" element={<GlobalGanttDashboard />} />
-            <Route path="/projects/jira-dashboard" element={<JiraDashboard />} />
-            <Route path="/projects/jira-employee-extractor" element={<JiraEmployeeExtractor />} />
-            <Route path="/projects/asana-dashboard" element={<AsanaDashboard />} />
-            <Route path="/projects/hubspot-dashboard" element={<HubSpotDashboard />} />
-            <Route path="/projects/microsoft365-dashboard" element={<Microsoft365Dashboard />} />
-            <Route path="/projects/:id" element={<ProjectDetailNew />} />
-            <Route path="/debug-normalization" element={<DebugNormalization />} />
-            
-            {/* Catch-all - 404 */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
+        <AuthProvider>
+          <Analytics />
+          <Toaster />
+          <Sonner />
+          <ToastContainer />
+          <BrowserRouter>
+            <Routes>
+              {/* Authentication Routes */}
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<SignUp />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
+              
+              {/* Public Routes */}
+              <Route path="/" element={<Index />} />
+              <Route path="/demo" element={<Demo />} />
+              <Route path="/roi-calculator" element={<ROICalculator />} />
+              <Route path="/use-cases" element={<UseCases />} />
+              <Route path="/roi-report" element={<ROIReport />} />
+              <Route path="/velocity-ai" element={<VelocityAI />} />
+              <Route path="/projects" element={<Projects />} />
+              <Route path="/projects/global-gantt" element={<GlobalGanttDashboard />} />
+              <Route path="/projects/jira-dashboard" element={<JiraDashboard />} />
+              <Route path="/projects/jira-employee-extractor" element={<JiraEmployeeExtractor />} />
+              <Route path="/projects/asana-dashboard" element={<AsanaDashboard />} />
+              <Route path="/projects/hubspot-dashboard" element={<HubSpotDashboard />} />
+              <Route path="/projects/microsoft365-dashboard" element={<Microsoft365Dashboard />} />
+              <Route path="/projects/:id" element={<ProjectDetailNew />} />
+              <Route path="/debug-normalization" element={<DebugNormalization />} />
+              
+              {/* Catch-all - 404 */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </AuthProvider>
       </TooltipProvider>
     </ToastProvider>
   </QueryClientProvider>

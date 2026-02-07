@@ -78,9 +78,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(session?.user ?? null);
         
         // If user just authenticated via Google, save their email
-        if (event === 'SIGNED_IN' && session?.user?.email && session?.user?.user_metadata?.provider === 'google') {
-          console.log('[Auth] Saving Google user email:', session.user.email);
-          await saveGoogleUserEmail(session.user.email);
+        if (event === 'SIGNED_IN' && session?.user?.email) {
+          // Check if this is a Google OAuth login (app_metadata.provider is set by Supabase)
+          const isGoogleAuth = session?.user?.app_metadata?.provider === 'google';
+          if (isGoogleAuth) {
+            console.log('[Auth] Saving Google user email:', session.user.email);
+            await saveGoogleUserEmail(session.user.email);
+          }
         }
         
         // Ensure loading is false after auth state change

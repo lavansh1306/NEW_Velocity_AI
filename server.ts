@@ -5,7 +5,9 @@ import { fileURLToPath } from "url"
 // Load .env FIRST before any other imports
 dotenv.config()
 
-import express, { Request, Response } from "express"
+import express from "express"
+import type { Request, Response } from "express"
+
 import cors from "cors"
 import fetch from "node-fetch"
 import { createClient } from '@supabase/supabase-js';
@@ -51,8 +53,10 @@ import hubspotRoutes from "./src/api/hubspot/routes.js"
 import * as hubspotAuth from "./src/api/hubspot/auth.js"
 import jiraRoutes from "./src/api/jira/routes.js"
 import deployedRoutes from "./src/api/deployed/routes.js"
-
 const app = express()
+
+console.log("typeof express:", typeof express)
+console.log("express keys:", Object.keys(express))
 
 // Trust proxy for Vercel/Nginx - required for Secure cookies to work behind proxy
 app.set('trust proxy', 1)
@@ -453,6 +457,7 @@ app.get('/api/microsoft365/auth/status', (req: Request, res: Response) => {
 // ============ HubSpot OAuth Callback Route ============
 app.get('/oauth/hubspot/callback', hubspotAuth.callback);
 
+
 // ============ Microsoft 365 API Routes ============
 app.use('/api/microsoft365/metrics', m365MetricsRoutes);
 app.use('/api/microsoft365/roi', m365RoiRoutes);
@@ -492,27 +497,6 @@ console.log('[Server] Deployed routes mounted');
 // console.log('[Server] Also mounted HubSpot routes at /hubspot for debugging')
 
 // SPA Fallback: serve index.html for all non-API routes
-app.use((req: Request, res: Response) => {
-  if (req.url.startsWith('/api/')) {
-    res.status(404).json({ error: 'API endpoint not found' })
-    return
-  }
-  // Temporarily just return a simple response
-  res.status(200).send('SPA fallback - would serve index.html')
-})
-
-// Start server after initializing Redis
-(async () => {
-  await initializeRedis();
-  
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`API server listening on http://localhost:${PORT}`)
-    console.log(`  - Jira API: ${isJiraConfigReady ? 'configured' : 'NOT configured'}`)
-    console.log(`  - Asana API: ${isAsanaConfigReady ? 'configured' : 'NOT configured'}`)
-    console.log(`  - Microsoft 365 API: ${process.env.MS_CLIENT_ID ? 'configured' : 'NOT configured'}`)
-  })
-})();
-
 // Waitlist endpoint: accepts { email } and writes to Supabase (server key) and/or forwards to a Google Sheets webhook
 app.post('/api/waitlist', async (req: Request, res: Response) => {
   try {
@@ -555,6 +539,33 @@ app.post('/api/waitlist', async (req: Request, res: Response) => {
     return res.status(500).json({ error: 'internal' });
   }
 });
+
+// SPA fallback route - must be last
+app.use((req: Request, res: Response) => {
+  if (req.url.startsWith('/api/')) {
+    res.status(404).json({ error: 'API endpoint not found' })
+    return
+  }
+  // Temporarily just return a simple response
+  res.status(200).send('SPA fallback - would serve index.html')
+});
+
+// Start server after initializing Redis
+;(async () => {
+  try {
+    await initializeRedis();
+    
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`API server listening on http://localhost:${PORT}`)
+      console.log(`  - Jira API: ${isJiraConfigReady ? 'configured' : 'NOT configured'}`)
+      console.log(`  - Asana API: ${isAsanaConfigReady ? 'configured' : 'NOT configured'}`)
+      console.log(`  - Microsoft 365 API: ${process.env.MS_CLIENT_ID ? 'configured' : 'NOT configured'}`)
+    })
+  } catch (error) {
+    console.error('[Server] Failed to start:', error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  }
+})();
 
 // The Express server keeps the event loop alive
 

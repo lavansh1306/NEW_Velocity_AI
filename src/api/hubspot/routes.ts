@@ -1,6 +1,6 @@
 // src/api/hubspot/routes.ts
 import express, { Request, Response } from 'express'
-import * as hubspotAuth from './auth.js'
+import { login, callback, logout, getTokenForSession, ensureValidAccessTokenForSession, hubspotTokens } from './auth.js'
 import { sessionStore } from './session-store.js'
 
 const router = express.Router()
@@ -27,8 +27,8 @@ async function getToken(req: Request): Promise<string> {
     const sessionStoreKey = req.session.hubspotStoreKey
     console.log('[getToken] Found storeKey in session:', sessionStoreKey)
     
-    if (hubspotAuth.hubspotTokens.has(sessionStoreKey)) {
-      const store = hubspotAuth.hubspotTokens.get(sessionStoreKey)!
+    if (hubspotTokens.has(sessionStoreKey)) {
+      const store = hubspotTokens.get(sessionStoreKey)!
       console.log('[getToken] ✓ Token found in memory store via session')
       console.log('[getToken] === END TOKEN LOOKUP ===\n')
       return store.accessToken
@@ -41,7 +41,7 @@ async function getToken(req: Request): Promise<string> {
       if (persistedData?.accessToken) {
         console.log('[getToken] ✓ Token found in persistent store')
         // Restore to memory for future use
-        hubspotAuth.hubspotTokens.set(sessionStoreKey, {
+        hubspotTokens.set(sessionStoreKey, {
           accessToken: persistedData.accessToken,
           refreshToken: persistedData.refreshToken || '',
           expiresAt: persistedData.expiresAt || Date.now(),
@@ -60,8 +60,8 @@ async function getToken(req: Request): Promise<string> {
   const storeKeyHeader = req.headers['x-hubspot-storekey'] as string
   if (storeKeyHeader) {
     console.log('[getToken] Trying header storeKey:', storeKeyHeader)
-    if (hubspotAuth.hubspotTokens.has(storeKeyHeader)) {
-      const store = hubspotAuth.hubspotTokens.get(storeKeyHeader)!
+    if (hubspotTokens.has(storeKeyHeader)) {
+      const store = hubspotTokens.get(storeKeyHeader)!
       console.log('[getToken] ✓ Token found in memory store via header')
       console.log('[getToken] === END TOKEN LOOKUP ===\n')
       return store.accessToken
@@ -74,7 +74,7 @@ async function getToken(req: Request): Promise<string> {
       if (persistedData?.accessToken) {
         console.log('[getToken] ✓ Token found in persistent store via header')
         // Restore to memory
-        hubspotAuth.hubspotTokens.set(storeKeyHeader, {
+        hubspotTokens.set(storeKeyHeader, {
           accessToken: persistedData.accessToken,
           refreshToken: persistedData.refreshToken || '',
           expiresAt: persistedData.expiresAt || Date.now(),
@@ -90,7 +90,7 @@ async function getToken(req: Request): Promise<string> {
   }
   
   // No token found
-  console.log('[getToken] ✗ No token found. Available memory storeKeys:', Array.from(hubspotAuth.hubspotTokens.keys()))
+  console.log('[getToken] ✗ No token found. Available memory storeKeys:', Array.from(hubspotTokens.keys()))
   console.log('[getToken] === END TOKEN LOOKUP ===\n')
   throw new Error('No authentication - please connect to HubSpot')
 }
@@ -115,8 +115,8 @@ router.get('/auth/status', async (req: Request, res: Response) => {
     console.log('[Auth Status] Session incomplete, checking header storeKey:', headerStoreKey)
     
     // Check memory store first
-    if (hubspotAuth.hubspotTokens.has(headerStoreKey)) {
-      const store = hubspotAuth.hubspotTokens.get(headerStoreKey)!
+    if (hubspotTokens.has(headerStoreKey)) {
+      const store = hubspotTokens.get(headerStoreKey)!
       userId = userId || store.userId || null
       portalId = portalId || store.portalId || null
       storeKey = headerStoreKey
@@ -133,7 +133,7 @@ router.get('/auth/status', async (req: Request, res: Response) => {
           
           // Restore to memory for future requests
           if (persistedData.accessToken) {
-            hubspotAuth.hubspotTokens.set(headerStoreKey, {
+            hubspotTokens.set(headerStoreKey, {
               accessToken: persistedData.accessToken,
               refreshToken: persistedData.refreshToken || '',
               expiresAt: persistedData.expiresAt || Date.now() + 3600000,
@@ -151,8 +151,8 @@ router.get('/auth/status', async (req: Request, res: Response) => {
   
   // Check if we have valid token
   const hasToken = !!(storeKey && (
-    hubspotAuth.hubspotTokens.has(storeKey) || 
-    hubspotAuth.getTokenForSession(req)
+    hubspotTokens.has(storeKey) || 
+    getTokenForSession(req)
   ))
   
   const isAuthenticated = !!(userId && hasToken)
@@ -169,13 +169,13 @@ router.get('/auth/status', async (req: Request, res: Response) => {
 })
 
 // GET /api/hubspot/auth/connect
-router.get('/auth/connect', hubspotAuth.login)
+router.get('/auth/connect', login)
 
 // GET /api/hubspot/auth/callback
-router.get('/auth/callback', hubspotAuth.callback)
+router.get('/auth/callback', callback)
 
 // GET /api/hubspot/auth/disconnect
-router.get('/auth/disconnect', hubspotAuth.logout)
+router.get('/auth/disconnect', logout)
 
 // GET /api/hubspot/deals
 router.get('/deals', async (req: Request, res: Response) => {
