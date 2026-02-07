@@ -1,14 +1,14 @@
 /**
- * Leave Approval Agent
+ * Leave Approval Agent - Hybrid AI System
  * 
- * Simple agent that approves leave requests with extensible validation rules.
- * Currently: Auto-approves all requests
- * Future: Can add validation rules like:
- *   - Check team capacity
- *   - Verify coverage availability
- *   - Check max leave balance
- *   - Blackout dates
- *   - Manager approval workflows
+ * Architecture:
+ * 1. Weighted Scoring System - Fast decision for routine cases
+ * 2. Gemini AI - Complex reasoning for edge cases
+ * 
+ * Flow:
+ * - Calculate weighted score (0-100)
+ * - If score is clear (>75 or <25): approve/reject
+ * - If score is borderline (25-75): Use Gemini for reasoning
  */
 
 export interface LeaveRequest {
@@ -18,6 +18,10 @@ export interface LeaveRequest {
   endDate: string;
   reason: string;
   status: 'Pending' | 'Approved' | 'Rejected';
+  employeeRating?: number; // 1-5
+  leaveBalance?: number; // days available
+  teamCapacity?: number; // team members available
+  absenceType?: 'vacation' | 'medical' | 'family' | 'other';
 }
 
 export interface ApprovalResult {
@@ -28,19 +32,151 @@ export interface ApprovalResult {
   validationsFailed: string[];
   confidence: number; // 0-100: How confident the agent is about this decision
   timestamp: string;
+  decisionMethod: 'weighted-scoring' | 'gemini-reasoning' | 'hybrid';
+  weightedScore?: number; // Raw weighted score (0-100)
 }
 
 /**
  * Validation rule interface for extensibility
  */
-interface ValidationRule {
+export interface ValidationRule {
   name: string;
   validate: (leave: LeaveRequest, context?: any) => Promise<{ passed: boolean; reason?: string }>;
   priority: 'critical' | 'high' | 'medium' | 'low';
 }
 
+/**
+ * Weighted Scoring Configuration
+ * Each condition contributes to overall approval score
+ */
+export interface ScoringWeights {
+  employeeRating: number; // 0.0-1.0 (higher rating = more approval)
+  leaveBalance: number; // 0.0-1.0 (more balance = more approval)
+  teamCapacity: number; // 0.0-1.0 (more team = more approval)
+  absenceType: number; // 0.0-1.0 (medical/family higher than vacation)
+  blackoutDate: number; // 0.0-1.0 (penalty for blackout dates)
+}
+
+// Default weights - adjust based on your business rules
+export const DEFAULT_WEIGHTS: ScoringWeights = {
+  employeeRating: 0.25,
+  leaveBalance: 0.25,
+  teamCapacity: 0.25,
+  absenceType: 0.15,
+  blackoutDate: 0.10
+};
+
 // Storage for validation rules (can be registered dynamically)
 const validationRules: ValidationRule[] = [];
+let scoringWeights: ScoringWeights = DEFAULT_WEIGHTS;
+let geminiModel: any = null;
+
+// Initialize Gemini if available
+export function initializeGemini(model: any): void {
+  geminiModel = model;
+  console.log('[LeaveApprovalAgent] Gemini initialized for complex reasoning');
+}
+
+/**
+ * Calculate weighted score for a leave request
+ * Returns score between 0-100
+ */
+export function calculateWeightedScore(
+  leave: LeaveRequest,
+  context?: any
+): number {
+  let score = 50; // Start at neutral
+  
+  // 1. Employee Rating (0-5) → maps to -20 to +20
+  if (leave.employeeRating) {
+    const ratingScore = ((leave.employeeRating / 5) * 40) - 20;
+    score += ratingScore * scoringWeights.employeeRating;
+  }
+
+  // 2. Leave Balance → maps to -15 to +15
+  if (leave.leaveBalance !== undefined) {
+    const balanceScore = leave.leaveBalance > 5 ? 15 : leave.leaveBalance > 2 ? 5 : -15;
+    score += balanceScore * scoringWeights.leaveBalance;
+  }
+
+  // 3. Team Capacity → maps to -20 to +20
+  if (leave.teamCapacity !== undefined) {
+    const capacityScore = leave.teamCapacity >= 3 ? 20 : leave.teamCapacity >= 2 ? 10 : -20;
+    score += capacityScore * scoringWeights.teamCapacity;
+  }
+
+  // 4. Absence Type → different thresholds
+  if (leave.absenceType) {
+    const typeScore = 
+      leave.absenceType === 'medical' ? 15 :
+      leave.absenceType === 'family' ? 10 :
+      leave.absenceType === 'vacation' ? 0 : -5;
+    score += typeScore * scoringWeights.absenceType;
+  }
+
+  // 5. Blackout Date Check (if provided in context)
+  if (context?.blackoutDates) {
+    const isBlackedOut = context.blackoutDates.some((date: string) =>
+      date >= leave.startDate && date <= leave.endDate
+    );
+    if (isBlackedOut) {
+      score -= 30 * scoringWeights.blackoutDate;
+    }
+  }
+
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+/**
+ * Use Gemini for complex reasoning
+ */
+async function getGeminiDecision(
+  leave: LeaveRequest,
+  weightedScore: number,
+  context?: any
+): Promise<{ approved: boolean; reason: string }> {
+  if (!geminiModel) {
+    return { 
+      approved: weightedScore > 50, 
+      reason: 'Gemini unavailable, using weighted score threshold'
+    };
+  }
+
+  const prompt = `You are an HR decision-making AI assistant.
+
+Employee Leave Request:
+- Name: ${leave.name}
+- Type: ${leave.absenceType || 'general'}
+- Dates: ${leave.startDate} to ${leave.endDate}
+- Reason: ${leave.reason}
+- Employee Rating: ${leave.employeeRating || 'N/A'}/5
+- Leave Balance: ${leave.leaveBalance || 'N/A'} days
+- Team Capacity: ${leave.teamCapacity || 'N/A'} people available
+
+Weighted Score Analysis: ${weightedScore}/100
+
+Based on this information, should this leave request be approved?
+Respond with JSON: { "approved": boolean, "reason": "short explanation" }`;
+
+  try {
+    const result = await geminiModel.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+    
+    // Parse JSON response
+    const parsed = JSON.parse(text.trim());
+    return {
+      approved: parsed.approved || false,
+      reason: parsed.reason || 'Gemini decision made'
+    };
+  } catch (error) {
+    console.error('[LeaveApprovalAgent] Gemini error:', error);
+    return {
+      approved: weightedScore > 50,
+      reason: 'Fallback to weighted score due to Gemini error'
+    };
+  }
+}
 
 /**
  * Register a custom validation rule
@@ -67,16 +203,23 @@ export function clearValidationRules(): void {
 
 /**
  * Main approval function
- * Runs all registered validation rules and decides approval
+ * Uses hybrid Weighted Scoring + Gemini approach
  */
 export async function approveLeaveRequest(
   leave: LeaveRequest,
   context?: any
 ): Promise<ApprovalResult> {
+  const timestamp = new Date().toISOString();
+  let approved = false;
+  let reason = '';
+  let decisionMethod: 'weighted-scoring' | 'gemini-reasoning' | 'hybrid' = 'weighted-scoring';
+  let confidence = 95;
+  let weightedScore = calculateWeightedScore(leave, context);
+
+  // Run validation rules first (gate-keeping)
   const validationsPassed: string[] = [];
   const validationsFailed: string[] = [];
-  
-  // Run all validation rules
+
   for (const rule of validationRules) {
     try {
       const result = await rule.validate(leave, context);
@@ -84,59 +227,64 @@ export async function approveLeaveRequest(
         validationsPassed.push(rule.name);
       } else {
         validationsFailed.push(rule.name);
-        // Critical rules prevent approval
+        // Critical rules block approval immediately
         if (rule.priority === 'critical') {
           return {
             leaveId: leave.id,
             approved: false,
-            reason: `Blocked by critical rule: ${rule.name}. ${result.reason || ''}`,
+            reason: `Critical validation failed: ${result.reason || rule.name}`,
             validationsPassed,
             validationsFailed,
-            confidence: 20,
-            timestamp: new Date().toISOString(),
+            confidence: 10,
+            timestamp,
+            decisionMethod: 'weighted-scoring',
+            weightedScore
           };
         }
       }
     } catch (error) {
-      console.error(`[LeaveApprovalAgent] Error in rule ${rule.name}:`, error);
+      console.error(`[LeaveApprovalAgent] Error in ${rule.name}:`, error);
       validationsFailed.push(`${rule.name} (error)`);
     }
   }
 
-  // Default behavior: Approve if no critical validations failed
-  const approved = validationsFailed.length === 0;
-  const confidence = calculateConfidence(validationsPassed, validationsFailed);
+  // Decision routing based on weighted score
+  if (weightedScore > 75) {
+    // Clear approval case - fast path
+    approved = true;
+    reason = `Strong approval: weighted score ${weightedScore}/100`;
+    confidence = Math.min(95, 70 + weightedScore * 0.3);
+    decisionMethod = 'weighted-scoring';
+  } else if (weightedScore < 25) {
+    // Clear rejection case - fast path
+    approved = false;
+    reason = `Clear rejection: weighted score ${weightedScore}/100`;
+    confidence = Math.min(95, weightedScore * 2 + 10);
+    decisionMethod = 'weighted-scoring';
+  } else {
+    // Borderline case - use Gemini for complex reasoning
+    decisionMethod = 'gemini-reasoning';
+    const geminiResult = await getGeminiDecision(leave, weightedScore, context);
+    approved = geminiResult.approved;
+    reason = geminiResult.reason;
+    confidence = 75; // Moderate confidence for Gemini decisions
+  }
 
   return {
     leaveId: leave.id,
     approved,
-    reason: approved 
-      ? `Leave approved automatically. All validations passed.`
-      : `Leave approved with ${validationsFailed.length} non-critical validation(s) to review.`,
+    reason,
     validationsPassed,
     validationsFailed,
     confidence,
-    timestamp: new Date().toISOString(),
+    timestamp,
+    decisionMethod,
+    weightedScore
   };
 }
 
 /**
- * Calculate confidence score based on validations
- * Higher confidence = more validations passed
- */
-function calculateConfidence(passed: string[], failed: string[]): number {
-  const total = passed.length + failed.length;
-  
-  // If no validations run, return 95% (simple auto-approval)
-  if (total === 0) return 95;
-  
-  // Score based on pass rate
-  const passRate = (passed.length / total) * 100;
-  return Math.round(passRate);
-}
-
-/**
- * Batch approve multiple leave requests
+ * Batch approve multiple leave requests using hybrid AI
  */
 export async function approveBatchLeaveRequests(
   leaves: LeaveRequest[],
@@ -153,13 +301,29 @@ export async function approveBatchLeaveRequests(
 }
 
 /**
- * Get approval summary
+ * Set custom weights for scoring system
+ */
+export function setScoringWeights(weights: Partial<ScoringWeights>): void {
+  scoringWeights = { ...DEFAULT_WEIGHTS, ...weights };
+  console.log('[LeaveApprovalAgent] Scoring weights updated:', scoringWeights);
+}
+
+/**
+ * Get current scoring weights
+ */
+export function getScoringWeights(): ScoringWeights {
+  return { ...scoringWeights };
+}
+
+/**
+ * Get approval summary with decision breakdown
  */
 export function getApprovalSummary(results: ApprovalResult[]): {
   total: number;
   approved: number;
   rejected: number;
   averageConfidence: number;
+  decisionBreakdown: Record<string, number>;
   commonFailures: Record<string, number>;
 } {
   const approved = results.filter(r => r.approved).length;
@@ -168,6 +332,13 @@ export function getApprovalSummary(results: ApprovalResult[]): {
     results.reduce((sum, r) => sum + r.confidence, 0) / results.length
   );
 
+  // Count decision methods
+  const decisionBreakdown: Record<string, number> = {};
+  results.forEach(r => {
+    decisionBreakdown[r.decisionMethod] = (decisionBreakdown[r.decisionMethod] || 0) + 1;
+  });
+
+  // Common failures
   const commonFailures: Record<string, number> = {};
   results.forEach(r => {
     r.validationsFailed.forEach(failure => {
@@ -180,6 +351,7 @@ export function getApprovalSummary(results: ApprovalResult[]): {
     approved,
     rejected,
     averageConfidence,
+    decisionBreakdown,
     commonFailures,
   };
 }
