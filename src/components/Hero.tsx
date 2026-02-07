@@ -21,13 +21,41 @@ export const Hero = () => {
     setMessage("");
     
     try {
-      console.log('[Waitlist] Attempting to save email:', email);
+      const emailTrimmed = email.toLowerCase().trim();
+      console.log('[Waitlist] Attempting to save email:', emailTrimmed);
       
-      // Insert into Supabase `waitlist` table
+      // Try API route first (more reliable across regions)
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+        
+        const apiResponse = await fetch('/api/waitlist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: emailTrimmed }),
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (apiResponse.ok) {
+          console.log('[Waitlist] Email saved via API');
+          setMessage("Thanks for joining! Check your email for updates.");
+          setEmail("");
+          setTimeout(() => setMessage(""), 5000);
+          return;
+        }
+      } catch (apiErr: any) {
+        console.error('[Waitlist] API route error:', apiErr.message);
+        // Fall through to Supabase if API fails
+      }
+      
+      // Fallback: Try Supabase directly
+      console.log('[Waitlist] Trying Supabase fallback...');
       const { data, error } = await supabase
         .from("waitlist")
         .insert([{ 
-          email: email.toLowerCase().trim(),
+          email: emailTrimmed,
           created_at: new Date().toISOString(),
           source: "homepage_hero"
         }])
@@ -55,7 +83,8 @@ export const Hero = () => {
       }
     } catch (err: any) {
       console.error('[Waitlist] Unexpected error:', err);
-      setMessage(`Error: ${err?.message || 'Unexpected error. Please try again.'}`);
+      const errorMsg = err?.message || 'Unexpected error. Please try again.';
+      setMessage(`Error: ${errorMsg}`);
     } finally {
       setLoading(false);
     }
