@@ -4,6 +4,10 @@
     "api/index.ts": {
       "memory": 1024,
       "maxDuration": 30
+    },
+    "api/leave-approval/approve-batch.ts": {
+      "memory": 1024,
+      "maxDuration": 30
     }
   },
   "buildCommand": "npm run build",
