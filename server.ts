@@ -53,6 +53,7 @@ import hubspotRoutes from "./src/api/hubspot/routes.js"
 import * as hubspotAuth from "./src/api/hubspot/auth.js"
 import jiraRoutes from "./src/api/jira/routes.js"
 import deployedRoutes from "./src/api/deployed/routes.js"
+import leaveApprovalRoutes from "./src/api/leave-approval/routes.js"
 const app = express()
 
 console.log("typeof express:", typeof express)
@@ -474,6 +475,10 @@ console.log('[Server] Jira OAuth routes mounted');
 // ============ Deployed API Routes ============
 app.use('/api/deployed', deployedRoutes);
 console.log('[Server] Deployed routes mounted');
+
+// ============ Leave Approval Agent Routes ============
+app.use('/api/leave-approval', leaveApprovalRoutes);
+console.log('[Server] Leave Approval Agent routes mounted');
 
 // try {
 //   const stack = (hubspotRoutes as any)?.stack || []
