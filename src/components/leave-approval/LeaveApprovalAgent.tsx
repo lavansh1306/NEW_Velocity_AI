@@ -48,7 +48,12 @@ export const LeaveApprovalAgent: React.FC<LeaveApprovalAgentProps> = ({ leaves, 
   const hasAutoApprovedRef = useRef(false);
 
   const apiUrl = (path: string) => {
-    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+    // In production, API is at same domain (via reverse proxy)
+    // In development, use VITE_API_URL env var or localhost:4000
+    const isDev = import.meta.env.DEV;
+    const baseUrl = isDev 
+      ? (import.meta.env.VITE_API_URL || 'http://localhost:4000')
+      : (import.meta.env.VITE_API_URL || '');
     return `${baseUrl}${path}`;
   };
 

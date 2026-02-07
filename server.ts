@@ -75,7 +75,10 @@ const corsOrigin = process.env.NODE_ENV === 'production'
 
 app.use(cors({
   origin: corsOrigin,
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Type', 'Authorization'],
 }))
 
 app.use(express.json())
