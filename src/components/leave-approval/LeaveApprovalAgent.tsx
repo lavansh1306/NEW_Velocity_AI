@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -45,11 +45,24 @@ export const LeaveApprovalAgent: React.FC<LeaveApprovalAgentProps> = ({ leaves, 
   const [summary, setSummary] = useState<ApprovalSummary | null>(null);
   const [selectedResult, setSelectedResult] = useState<ApprovalResult | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const hasAutoApprovedRef = useRef(false);
 
   const apiUrl = (path: string) => {
     const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
     return `${baseUrl}${path}`;
   };
+
+  // Auto-approve leaves when new ones appear
+  useEffect(() => {
+    if (leaves.length > 0 && !isApproving && !hasAutoApprovedRef.current) {
+      hasAutoApprovedRef.current = true;
+      // Auto-trigger approval after a short delay to ensure component is ready
+      const timer = setTimeout(() => {
+        approveAllLeaves();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [leaves.length]);
 
   const approveAllLeaves = async () => {
     if (leaves.length === 0) {
@@ -343,9 +356,9 @@ export const LeaveApprovalAgent: React.FC<LeaveApprovalAgentProps> = ({ leaves, 
           <div className="text-sm text-blue-900 flex items-start gap-2">
             <TrendingUp className="w-4 h-4 mt-0.5 flex-shrink-0" />
             <div>
-              <div className="font-medium">Hybrid AI Approval Mode</div>
+              <div className="font-medium">Auto-Approval Mode</div>
               <div className="text-xs text-blue-700 mt-1">
-                Uses Weighted Scoring for routine approvals and Gemini AI for complex borderline cases
+                All leave requests are automatically approved immediately upon submission
               </div>
             </div>
           </div>
@@ -373,17 +386,11 @@ export const LeaveApprovalAgent: React.FC<LeaveApprovalAgentProps> = ({ leaves, 
             </div>
 
             <div className="flex gap-2 pt-2">
-              {isApproving ? (
-                <Button onClick={cancelApproval} variant="outline" className="flex-1">
-                  Cancel
+              {isApproving && (
+                <Button disabled className="flex-1">
+                  <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2" />
+                  Processing...
                 </Button>
-              ) : (
-                <>
-                  <Button onClick={approveAllLeaves} className="flex-1 bg-indigo-600 hover:bg-indigo-700">
-                    <Zap className="w-4 h-4 mr-2" />
-                    Run Agent
-                  </Button>
-                </>
               )}
             </div>
 

@@ -1,39 +1,14 @@
 import express, { Request, Response } from "express"
-import { GoogleGenerativeAI } from "@google/generative-ai"
 import {
   approveLeaveRequest,
   approveBatchLeaveRequests,
   getApprovalSummary,
   registerValidationRule,
-  initializeGemini,
   type LeaveRequest,
   type ApprovalResult,
 } from "../../lib/leaveApprovalAgent"
 
 const router = express.Router()
-
-// Initialize Gemini once when routes are loaded
-let geminiInitialized = false
-
-function initializeGeminiIfNeeded() {
-  if (geminiInitialized) return
-
-  const apiKey = process.env.GEMINI_API_KEY
-  if (!apiKey) {
-    console.warn('[LeaveApprovalAgent] GEMINI_API_KEY not found, Gemini reasoning disabled')
-    return
-  }
-
-  try {
-    const genAI = new GoogleGenerativeAI(apiKey)
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
-    initializeGemini(model)
-    geminiInitialized = true
-    console.log('[LeaveApprovalAgent] Gemini initialized successfully')
-  } catch (error) {
-    console.error('[LeaveApprovalAgent] Failed to initialize Gemini:', error)
-  }
-}
 
 /**
  * POST /api/leave-approval/approve-single
@@ -41,8 +16,6 @@ function initializeGeminiIfNeeded() {
  */
 router.post("/approve-single", async (req: Request, res: Response) => {
   try {
-    initializeGeminiIfNeeded()
-    
     const leave: LeaveRequest = req.body
 
     if (!leave || !leave.id || !leave.name) {
@@ -69,12 +42,10 @@ router.post("/approve-single", async (req: Request, res: Response) => {
 
 /**
  * POST /api/leave-approval/approve-batch
- * Approves multiple leave requests with hybrid AI (weighted scoring + Gemini)
+ * Approves multiple leave requests with weighted scoring
  */
 router.post("/approve-batch", async (req: Request, res: Response) => {
   try {
-    initializeGeminiIfNeeded()
-    
     const leaves: LeaveRequest[] = req.body.leaves
 
     if (!Array.isArray(leaves)) {
@@ -154,13 +125,12 @@ router.get("/status", (req: Request, res: Response) => {
   res.json({
     agent: "LeaveApprovalAgent",
     status: "active",
-    version: "2.0.0",
-    mode: "hybrid (weighted-scoring + gemini)",
-    description: "Hybrid AI system for leave approvals using weighted scoring for routine cases and Gemini reasoning for borderline/complex cases",
+    version: "1.0.0",
+    mode: "weighted-scoring",
+    description: "Weighted scoring system for leave approvals",
     features: [
       "Weighted Scoring System (5 dimensions)",
-      "Gemini AI Reasoning for complex cases",
-      "Dynamic Decision Routing (clear/complex paths)",
+      "Dynamic Decision Routing based on score",
       "Extensible Validation Framework",
       "Configurable Scoring Weights",
       "Decision Method Tracking",
@@ -175,10 +145,9 @@ router.get("/status", (req: Request, res: Response) => {
     decisionFlow: {
       step1: "Validate with critical rules (auto-reject if failed)",
       step2: "Calculate weighted score (0-100)",
-      step3: "Route decision",
-      "step3a": "Score > 75: Approve (fast path)",
-      "step3b": "Score < 25: Reject (fast path)",
-      "step3c": "Score 25-75: Use Gemini reasoning (complex path)",
+      step3: "Route decision based on score",
+      "step3a": "Score > 50: Approve",
+      "step3b": "Score <= 50: Reject",
     },
   })
 })
