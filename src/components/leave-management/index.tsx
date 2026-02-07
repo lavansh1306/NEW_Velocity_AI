@@ -17,6 +17,7 @@ import { TimesheetUploadDialog } from './TimeSheetUploadDialog';
 import { WorkloadTable } from './WorkloadTable';
 import { LeaveRequestTable } from './LeaveRequestTable';
 import { LeaveApplicationDialog } from './LeaveApplicationDialog';
+import LeaveApprovalAgent from '../leave-approval/LeaveApprovalAgent';
 
 // FIX: Import 'fetchRawCSV' to get the actual Task data, not the ML Summary
 import { fetchRawCSV } from '../ml-model/RecommendationEngine';
@@ -135,6 +136,24 @@ export default function LeaveManagementTab() {
     setScenarioOpen(false);
   };
 
+  // --- Agent Handler ---
+  const handleApprovalsComplete = (results: any[], summary: any) => {
+    console.log('🤖 Agent Approval Complete');
+    console.log('Results:', results);
+    console.log('Summary:', summary);
+
+    // Update leave statuses based on approval results
+    const updatedLeaves = leaves.map(leave => {
+      const result = results.find(r => r.leaveId === leave.id);
+      if (result && result.approved) {
+        return { ...leave, status: 'Approved' as const };
+      }
+      return leave;
+    });
+
+    setLeaves(updatedLeaves);
+  };
+
   const handleTaskClick = (task: Task) => {
     if (activePersona === 'employee' && !task.isCancelled) {
       setSelectedTask(task);
@@ -210,6 +229,21 @@ export default function LeaveManagementTab() {
            </div>
         </div>
       </div>
+
+      {/* Agent Component - Only show to managers with pending leaves */}
+      {activePersona === 'manager' && leaves.filter(l => l.status === 'Pending').length > 0 && (
+        <div className="w-full mb-4 mt-4">
+          <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border-2 border-indigo-200 rounded-2xl p-6 shadow-lg">
+            <h3 className="text-lg font-bold text-indigo-900 mb-4 flex items-center gap-2">
+              🤖 Automated Leave Approval System
+            </h3>
+            <LeaveApprovalAgent 
+              leaves={leaves.filter(l => l.status === 'Pending')}
+              onApprovalsComplete={handleApprovalsComplete}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Main Views */}
       <LeaveRequestTable 

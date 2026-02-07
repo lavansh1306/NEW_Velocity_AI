@@ -8,6 +8,7 @@ import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { Input } from '../ui/input';
 import { CheckCircle2, XCircle, Users, ArrowRight, BrainCircuit, Briefcase, AlertTriangle, Info, Zap, Clock, FileText, Check } from 'lucide-react';
+import LeaveApprovalAgent from '../leave-approval/LeaveApprovalAgent';
 
 // --- Types ---
 interface Task {
@@ -81,6 +82,24 @@ export default function LeaveManagementTab() {
   const [logForm, setLogForm] = useState({ actualHours: 0, description: '', extraTasks: '' });
 
   const currentUser = "Alex Rivera";
+
+  // --- Agent Handler ---
+  const handleApprovalsComplete = (results: any[], summary: any) => {
+    console.log('🤖 Agent Approval Complete');
+    console.log('Results:', results);
+    console.log('Summary:', summary);
+
+    // Update leave statuses based on approval results
+    const updatedLeaves = leaves.map(leave => {
+      const result = results.find(r => r.leaveId === leave.id);
+      if (result && result.approved) {
+        return { ...leave, status: 'Approved' as const };
+      }
+      return leave;
+    });
+
+    setLeaves(updatedLeaves);
+  };
 
   // --- Logic ---
 
@@ -301,6 +320,21 @@ export default function LeaveManagementTab() {
         </div>
       </div>
 
+      {/* Agent Component - Only show to managers */}
+      {activePersona === 'manager' && leaves.filter(l => l.status === 'Pending').length > 0 && (
+        <div className="w-full mb-8 mt-6">
+          <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border-2 border-indigo-200 rounded-2xl p-6 shadow-lg">
+            <h3 className="text-lg font-bold text-indigo-900 mb-4 flex items-center gap-2">
+              🤖 Automated Leave Approval
+            </h3>
+            <LeaveApprovalAgent 
+              leaves={leaves.filter(l => l.status === 'Pending')}
+              onApprovalsComplete={handleApprovalsComplete}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Leave Management (Unchanged - Collapsed for brevity) */}
       <div className="space-y-4">
         <div className="flex justify-between items-end">
@@ -310,6 +344,7 @@ export default function LeaveManagementTab() {
           </div>
           <Button className="bg-indigo-600 px-6 font-bold shadow-indigo-100 shadow-xl">Apply for Leave</Button>
         </div>
+
         <Card className="rounded-xl border-none shadow-sm overflow-hidden bg-white">
           <Table>
             <TableHeader className="bg-slate-50">
