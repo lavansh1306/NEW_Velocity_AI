@@ -22,6 +22,8 @@ interface ApprovalResult {
   validationsFailed: string[];
   confidence: number;
   timestamp: string;
+  decisionMethod: 'weighted-scoring' | 'gemini-reasoning' | 'hybrid';
+  weightedScore?: number;
 }
 
 interface ApprovalSummary {
@@ -249,6 +251,31 @@ export const LeaveApprovalAgent: React.FC<LeaveApprovalAgentProps> = ({ leaves, 
                 <div className="text-sm text-slate-900">{selectedResult.reason}</div>
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <div className="text-xs text-slate-600 uppercase font-semibold">Decision Method</div>
+                  <div className="mt-1">
+                    <Badge variant="outline" 
+                      className={
+                        selectedResult.decisionMethod === 'weighted-scoring' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                        selectedResult.decisionMethod === 'gemini-reasoning' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                        'bg-pink-50 text-pink-700 border-pink-200'
+                      }
+                    >
+                      {selectedResult.decisionMethod === 'weighted-scoring' && '⚡ Weighted Score'}
+                      {selectedResult.decisionMethod === 'gemini-reasoning' && '🤖 Gemini AI'}
+                      {selectedResult.decisionMethod === 'hybrid' && '🔄 Hybrid'}
+                    </Badge>
+                  </div>
+                </div>
+                {selectedResult.weightedScore !== undefined && (
+                  <div>
+                    <div className="text-xs text-slate-600 uppercase font-semibold">Weighted Score</div>
+                    <div className="mt-1 text-lg font-bold text-indigo-600">{selectedResult.weightedScore}/100</div>
+                  </div>
+                )}
+              </div>
+
               {selectedResult.validationsPassed.length > 0 && (
                 <div>
                   <div className="text-xs text-slate-600 uppercase font-semibold mb-2 flex items-center gap-1">
@@ -316,9 +343,9 @@ export const LeaveApprovalAgent: React.FC<LeaveApprovalAgentProps> = ({ leaves, 
           <div className="text-sm text-blue-900 flex items-start gap-2">
             <TrendingUp className="w-4 h-4 mt-0.5 flex-shrink-0" />
             <div>
-              <div className="font-medium">Simple Auto-Approval Mode</div>
+              <div className="font-medium">Hybrid AI Approval Mode</div>
               <div className="text-xs text-blue-700 mt-1">
-                Currently approves all requests. Advanced validation rules coming soon.
+                Uses Weighted Scoring for routine approvals and Gemini AI for complex borderline cases
               </div>
             </div>
           </div>
