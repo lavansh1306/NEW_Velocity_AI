@@ -22,7 +22,12 @@ declare module 'express-session' {
 // Environment variables (accessed at runtime)
 const getClientId = () => process.env.JIRA_OAUTH_CLIENT_ID || '';
 const getClientSecret = () => process.env.JIRA_OAUTH_CLIENT_SECRET || '';
-const getRedirectUri = () => process.env.JIRA_OAUTH_REDIRECT_URI || 'http://localhost:4000/api/jira/auth/callback';
+const getRedirectUri = () => {
+  if (process.env.NODE_ENV === 'production') {
+    return process.env.JIRA_OAUTH_REDIRECT_URI_PROD || 'https://www.joinvelocity.co/api/jira/auth/callback';
+  }
+  return process.env.JIRA_OAUTH_REDIRECT_URI_LOCAL || 'http://localhost:4000/api/jira/auth/callback';
+};
 const AUTHORIZE_URL: string = 'https://auth.atlassian.com/authorize';
 const TOKEN_URL: string = 'https://auth.atlassian.com/oauth/token';
 const ACCESSIBLE_RESOURCES_URL: string = 'https://api.atlassian.com/oauth/token/accessible-resources';
