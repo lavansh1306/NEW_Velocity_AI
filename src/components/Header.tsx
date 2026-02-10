@@ -30,7 +30,7 @@ export const Header = () => {
               Book a Call
             </Link>
           </nav>
-/*
+
           {/* Right Section */}
           {/* <div className="flex items-center gap-3">
             <Link to="/login" className="hidden md:inline">
