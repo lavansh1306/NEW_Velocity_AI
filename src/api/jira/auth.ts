@@ -6,7 +6,6 @@ import { URLSearchParams } from 'url';
 import * as crypto from 'crypto';
 import { Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
-import { createClient } from '@supabase/supabase-js';
 
 // Extend express-session SessionData to include Jira properties
 declare module 'express-session' {

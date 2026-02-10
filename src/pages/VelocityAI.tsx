@@ -40,9 +40,14 @@ import { Task, EmployeeProfile } from '../components/leave-management/types';
 // Fetch Jira connection status using API
 async function fetchJiraStatus() {
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
     const response = await fetch(apiUrl('/api/jira/auth/status'), {
-      credentials: 'include'
+      credentials: 'include',
+      signal: controller.signal
     });
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       return null;
@@ -51,7 +56,7 @@ async function fetchJiraStatus() {
     const data = await response.json();
     return data.connected ? data : null;
   } catch (error) {
-    console.error('Error fetching Jira status:', error);
+    console.error('Error fetching Jira status:', error instanceof Error ? error.message : error);
     return null;
   }
 }
@@ -73,10 +78,15 @@ async function fetchJiraData() {
       return null;
     }
     
-    // Fetch projects from Jira API through our backend
+    // Fetch projects from Jira API through our backend with timeout
+    const projectsController = new AbortController();
+    const projectsTimeout = setTimeout(() => projectsController.abort(), 10000);
+    
     const projectsRes = await fetch(apiUrl('/api/jira/projects'), {
-      credentials: 'include'
+      credentials: 'include',
+      signal: projectsController.signal
     });
+    clearTimeout(projectsTimeout);
 
     if (!projectsRes.ok) {
       throw new Error(`Failed to fetch projects: ${projectsRes.statusText}`);
@@ -92,9 +102,15 @@ async function fetchJiraData() {
     
     for (const project of projects) {
       try {
+        const issuesController = new AbortController();
+        const issuesTimeout = setTimeout(() => issuesController.abort(), 8000);
+        
         const issuesRes = await fetch(apiUrl(`/api/jira/issues?projectKey=${encodeURIComponent(project.key)}`), {
-          credentials: 'include'
+          credentials: 'include',
+          signal: issuesController.signal
         });
+        clearTimeout(issuesTimeout);
+        
         if (issuesRes.ok) {
           const issuesData = await issuesRes.json();
           const issues = issuesData.issues || [];
@@ -416,6 +432,9 @@ export default function VelocityAI() {
         setJiraConnectionState(true);
         console.log('Jira connected with data:', data);
       }
+    }).catch(err => {
+      console.error('Failed to fetch Jira data:', err);
+      // Don't block dashboard - continue without Jira data
     });
   }, []);
 

@@ -52,16 +52,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
-    // Check for existing session
+    // Check for existing session with timeout
     const checkSession = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
+        // Add timeout to prevent hanging
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Auth timeout')), 5000)
+        );
+        
+        const sessionPromise = supabase.auth.getSession();
+        const { data: { session }, error } = await Promise.race([sessionPromise, timeoutPromise]) as any;
+        
         if (error) throw error;
         setSession(session);
         setUser(session?.user ?? null);
         console.log('[Auth] Session check:', session ? 'User authenticated' : 'No session');
       } catch (error) {
-        console.error('Error checking session:', error);
+        console.error('[Auth] Error checking session:', error instanceof Error ? error.message : error);
+        // Even if auth check fails, allow access (user might be Jira-authenticated)
       } finally {
         setLoading(false);
       }
