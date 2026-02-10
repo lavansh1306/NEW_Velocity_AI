@@ -12,7 +12,7 @@ const getRedirectUri = (req?: Request) => {
   if (isProduction) {
     return process.env.JIRA_OAUTH_REDIRECT_URI_PROD || 'https://www.joinvelocity.co/api/jira/auth/callback';
   } else {
-    return process.env.JIRA_OAUTH_REDIRECT_URI_LOCAL || 'http://localhost:3000/api/jira/auth/callback';
+    return process.env.JIRA_OAUTH_REDIRECT_URI_LOCAL || 'http://localhost:5173/api/jira/auth/callback';
   }
 };
 

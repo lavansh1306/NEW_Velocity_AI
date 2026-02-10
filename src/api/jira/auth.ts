@@ -26,7 +26,7 @@ const getRedirectUri = () => {
   if (process.env.NODE_ENV === 'production') {
     return process.env.JIRA_OAUTH_REDIRECT_URI_PROD || 'https://www.joinvelocity.co/api/jira/auth/callback';
   }
-  return process.env.JIRA_OAUTH_REDIRECT_URI_LOCAL || 'http://localhost:4000/api/jira/auth/callback';
+  return process.env.JIRA_OAUTH_REDIRECT_URI_LOCAL || 'http://localhost:5173/api/jira/auth/callback';
 };
 const AUTHORIZE_URL: string = 'https://auth.atlassian.com/authorize';
 const TOKEN_URL: string = 'https://auth.atlassian.com/oauth/token';
@@ -396,7 +396,7 @@ async function callback(req: Request, res: Response): Promise<void> {
     console.log('[Jira OAuth Callback] Success! Redirecting to dashboard...');
     
     // Redirect to main dashboard - determine frontend URL based on environment
-    let frontendBase = 'http://localhost:5173'; // Default for development
+    let frontendBase = process.env.FRONTEND_URL || 'http://localhost:5173'; // Default for development
     
     if (process.env.NODE_ENV === 'production') {
       frontendBase = process.env.FRONTEND_URL_PROD || 'https://www.joinvelocity.co';

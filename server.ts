@@ -70,7 +70,7 @@ app.use((req: Request, res: Response, next) => {
 // CORS configuration for cross-origin requests
 const corsOrigin = process.env.NODE_ENV === 'production' 
   ? (process.env.FRONTEND_URL_PROD || 'https://www.joinvelocity.co')
-  : ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:4000'];
+  : ['http://localhost:5173', 'http://localhost:3000'];
 
 app.use(cors({
   origin: corsOrigin,
