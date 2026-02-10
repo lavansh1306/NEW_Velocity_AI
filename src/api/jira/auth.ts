@@ -5,6 +5,8 @@ import fetch from 'node-fetch';
 import { URLSearchParams } from 'url';
 import * as crypto from 'crypto';
 import { Request, Response } from 'express';
+import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 
 // Extend express-session SessionData to include Jira properties
 declare module 'express-session' {
@@ -71,6 +73,25 @@ interface JiraResource {
   scopes: string[];
 }
 
+// Lazy-initialize Supabase client to ensure env vars are loaded
+let supabase: any = null;
+
+function getSupabaseClient() {
+  if (!supabase) {
+    const supabaseUrl = process.env.SUPABASE_URL || '';
+    const supabaseKey = process.env.SUPABASE_ANON_KEY || '';
+    
+    if (!supabaseUrl || !supabaseKey) {
+      console.warn('[Supabase] Missing SUPABASE_URL or SUPABASE_ANON_KEY environment variables');
+      return null;
+    }
+    
+    supabase = createClient(supabaseUrl, supabaseKey);
+    console.log('[Supabase] Client initialized');
+  }
+  return supabase;
+}
+
 // Generate PKCE parameters
 function generatePKCE(): PKCE {
   const codeVerifier = crypto.randomBytes(32).toString('base64url');
@@ -81,6 +102,75 @@ function generatePKCE(): PKCE {
 // In-memory token store (map user session -> token store)
 // For production, use database with encryption (Supabase Vault, etc.)
 const jiraTokens: Map<string, TokenStore> = new Map();
+
+// Fetch Jira user info using access token
+async function getJiraUserInfo(accessToken: string): Promise<any> {
+  try {
+    const response = await fetch('https://api.atlassian.com/me', {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch user info: ${response.statusText}`);
+    }
+
+    const userData = await response.json() as any;
+    console.log('[Jira] User info fetched:', { 
+      account_id: userData.account_id, 
+      email: userData.email,
+      name: userData.name 
+    });
+    
+    return userData;
+  } catch (error) {
+    console.error('[Jira] Error fetching user info:', error);
+    throw error;
+  }
+}
+
+// Store Jira user in Supabase
+async function saveJiraUserToSupabase(jiraUser: any, tokenData: any): Promise<void> {
+  try {
+    const supabaseClient = getSupabaseClient();
+    if (!supabaseClient) {
+      console.warn('[Supabase] Supabase not configured, skipping user save');
+      return;
+    }
+
+    const { data, error } = await supabaseClient
+      .from('jira_users')
+      .upsert(
+        {
+          jira_id: jiraUser.account_id,
+          email: jiraUser.email,
+          display_name: jiraUser.name,
+          avatar_url: jiraUser.picture,
+          jira_token_data: {
+            access_token: tokenData.access_token,
+            refresh_token: tokenData.refresh_token,
+            expires_in: tokenData.expires_in,
+            stored_at: new Date().toISOString()
+          },
+          auth_provider: 'jira',
+          updated_at: new Date().toISOString()
+        },
+        { onConflict: 'jira_id' }
+      );
+
+    if (error) {
+      console.error('[Supabase] Error saving Jira user:', error);
+      throw error;
+    }
+
+    console.log('[Supabase] Jira user saved:', { jira_id: jiraUser.account_id, email: jiraUser.email });
+  } catch (error) {
+    console.error('[Supabase] Failed to save Jira user:', error);
+    // Don't throw - continue anyway, auth still works even if Supabase save fails
+  }
+}
 
 // Initiate OAuth flow
 async function login(req: Request, res: Response): Promise<void> {
@@ -287,16 +377,27 @@ async function callback(req: Request, res: Response): Promise<void> {
       });
     });
 
+    console.log('[Jira OAuth Callback] Success! Fetching user info...');
+    
+    // Fetch Jira user info and save to Supabase
+    try {
+      const jiraUser = await getJiraUserInfo(tokenResp.access_token);
+      await saveJiraUserToSupabase(jiraUser, tokenResp);
+      console.log('[Jira OAuth Callback] User saved to Supabase');
+    } catch (error) {
+      console.warn('[Jira OAuth Callback] Warning: Could not save user to Supabase, continuing anyway:', error);
+    }
+
     console.log('[Jira OAuth Callback] Success! Redirecting to dashboard...');
     
-    // Redirect to dashboard - determine frontend URL based on environment
+    // Redirect to main dashboard - determine frontend URL based on environment
     let frontendBase = 'http://localhost:5173'; // Default for development
     
     if (process.env.NODE_ENV === 'production') {
       frontendBase = process.env.FRONTEND_URL_PROD || 'https://www.joinvelocity.co';
     }
     
-    const redirectUrl = `${frontendBase}/projects/jira-dashboard?connected=true`;
+    const redirectUrl = `${frontendBase}/velocity-ai`;
     console.log('[Jira OAuth Callback] Redirecting to:', redirectUrl);
     
     res.redirect(redirectUrl);

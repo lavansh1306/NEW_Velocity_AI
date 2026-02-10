@@ -9,6 +9,7 @@ interface AuthContextType {
   signUp: (email: string, password: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
+  signInWithJira: () => void;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updatePassword: (newPassword: string) => Promise<void>;
@@ -152,6 +153,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // The actual authentication happens after Google redirects back
   };
 
+  const signInWithJira = () => {
+    // Jira OAuth flow - redirects to backend which handles Atlassian OAuth
+    // Backend will manage token storage and session
+    console.log('[OAuth] Signing in with Jira');
+    const apiUrl = import.meta.env.DEV 
+      ? 'http://localhost:4000'
+      : window.location.origin;
+    window.location.href = `${apiUrl}/api/jira/auth/connect`;
+  };
+
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
@@ -177,6 +188,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     signUp,
     signIn,
     signInWithGoogle,
+    signInWithJira,
     signOut,
     resetPassword,
     updatePassword,

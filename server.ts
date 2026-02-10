@@ -3,7 +3,10 @@ import path from "path"
 import { fileURLToPath } from "url"
 
 // Load .env FIRST before any other imports
-dotenv.config()
+// Get working directory to find .env file
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+dotenv.config({ path: path.join(__dirname, '.env') })
 
 import express from "express"
 import type { Request, Response } from "express"
@@ -40,10 +43,6 @@ async function initializeRedis() {
     console.log('[Server] Redis initialization failed, using memory store:', err instanceof Error ? err.message : String(err));
   }
 }
-
-// Get __dirname equivalent in ESM
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
 
 // Static imports
 import * as m365Auth from "./src/api/microsoft365/auth.js"

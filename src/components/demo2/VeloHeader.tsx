@@ -100,12 +100,6 @@ export default function VeloHeader({ onSecurityAuditClick }: VeloHeaderProps) {
                   Security Audit
                 </DropdownMenuItem>
                 <DropdownMenuItem>
-                  <Link to="/integrations" className="w-full block">Data Integrations</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Link to="/integration-health" className="w-full block">Integration Health</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem>
                   <Link to="/data-quality" className="w-full block">Data Quality</Link>
                 </DropdownMenuItem>
               </DropdownMenuContent>
