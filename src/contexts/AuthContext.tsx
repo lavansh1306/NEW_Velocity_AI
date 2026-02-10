@@ -157,10 +157,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Jira OAuth flow - redirects to backend which handles Atlassian OAuth
     // Backend will manage token storage and session
     console.log('[OAuth] Signing in with Jira');
-    const apiUrl = import.meta.env.DEV 
-      ? 'http://localhost:4000'
-      : window.location.origin;
-    window.location.href = `${apiUrl}/api/jira/auth/connect`;
+    window.location.href = `${window.location.origin}/api/jira/auth/connect`;
   };
 
   const signOut = async () => {
