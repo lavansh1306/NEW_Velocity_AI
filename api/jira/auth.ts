@@ -6,14 +6,7 @@ import * as crypto from 'crypto';
 const getClientId = () => process.env.JIRA_OAUTH_CLIENT_ID || '';
 const getClientSecret = () => process.env.JIRA_OAUTH_CLIENT_SECRET || '';
 const getRedirectUri = (req?: Request) => {
-  // Check if we're in development or production
-  const isProduction = process.env.NODE_ENV === 'production';
-  
-  if (isProduction) {
-    return process.env.JIRA_OAUTH_REDIRECT_URI_PROD || 'https://www.joinvelocity.co/api/jira/auth/callback';
-  } else {
-    return process.env.JIRA_OAUTH_REDIRECT_URI_LOCAL || 'http://localhost:5173/api/jira/auth/callback';
-  }
+  return 'https://www.joinvelocity.co/api/jira/auth/callback';
 };
 
 const AUTHORIZE_URL = 'https://auth.atlassian.com/authorize';

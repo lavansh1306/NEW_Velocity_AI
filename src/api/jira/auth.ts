@@ -23,10 +23,7 @@ declare module 'express-session' {
 const getClientId = () => process.env.JIRA_OAUTH_CLIENT_ID || '';
 const getClientSecret = () => process.env.JIRA_OAUTH_CLIENT_SECRET || '';
 const getRedirectUri = () => {
-  if (process.env.NODE_ENV === 'production') {
-    return process.env.JIRA_OAUTH_REDIRECT_URI_PROD || 'https://www.joinvelocity.co/api/jira/auth/callback';
-  }
-  return process.env.JIRA_OAUTH_REDIRECT_URI_LOCAL || 'http://localhost:5173/api/jira/auth/callback';
+  return 'https://www.joinvelocity.co/api/jira/auth/callback';
 };
 const AUTHORIZE_URL: string = 'https://auth.atlassian.com/authorize';
 const TOKEN_URL: string = 'https://auth.atlassian.com/oauth/token';
