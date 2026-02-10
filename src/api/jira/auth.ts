@@ -289,14 +289,14 @@ async function callback(req: Request, res: Response): Promise<void> {
 
     console.log('[Jira OAuth Callback] Success! Redirecting to dashboard...');
     
-    // Redirect to dashboard - determine frontend URL based on environment
+    // Redirect to main dashboard - determine frontend URL based on environment
     let frontendBase = 'http://localhost:5173'; // Default for development
     
     if (process.env.NODE_ENV === 'production') {
       frontendBase = process.env.FRONTEND_URL_PROD || 'https://www.joinvelocity.co';
     }
     
-    const redirectUrl = `${frontendBase}/projects/jira-dashboard?connected=true`;
+    const redirectUrl = `${frontendBase}/velocity-ai`;
     console.log('[Jira OAuth Callback] Redirecting to:', redirectUrl);
     
     res.redirect(redirectUrl);

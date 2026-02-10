@@ -32,7 +32,7 @@ export const Header = () => {
           </nav>
 
           {/* Right Section */}
-          {/* <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3">
             <Link to="/login" className="hidden md:inline">
               <Button variant="ghost" className="text-slate-600 hover:text-slate-900">
                 Sign In
@@ -43,7 +43,7 @@ export const Header = () => {
                 Get Started
               </Button>
             </Link>
-          </div> */}
+          </div>
           {/* Mobile Menu Button */}
           <button
             onClick={() => setIsOpen(!isOpen)}

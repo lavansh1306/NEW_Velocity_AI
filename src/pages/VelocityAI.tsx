@@ -20,7 +20,6 @@ import ROIVerificationTab from '../components/demo2/ROIVerificationTab';
 import ProjectActivityTab from '../components/demo2/ProjectActivityTab';
 import SecurityAuditTab from '../components/demo2/SecurityAuditTab';
 import HubSpotTab from '../components/demo2/HubSpotTab';
-import IntegrationsTab from '../components/demo2/IntegrationsTab';
 import Projects from './Projects';
 import LeaveManagementTab from '../components/leave-management'; 
 import ProjectCheckView from '@/components/ml-model';
@@ -30,6 +29,8 @@ import UnifiedView from '../components/unified-system/UnifiedView';
 
 import { getJiraConnected, setJiraConnected } from '../lib/storage';
 import { apiUrl } from '../lib/api';
+import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 import { JiraCapacityMap } from '../components/leave-management/JiraCapacityMap';
 import { useJiraData } from '../hooks/useJiraData';
@@ -361,12 +362,52 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
 };
 
 export default function VelocityAI() {
+  const { user, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
   const [currentView, setCurrentView] = useState<'manager' | 'vp'>('manager');
   const [activeTab, setActiveTab] = useState('dashboard');
   const [jiraConnected, setJiraConnectionState] = useState<boolean>(() => {
     return getJiraConnected();
   });
   const [jiraData, setJiraData] = useState<any>(null);
+  const [jiraAuthStatus, setJiraAuthStatus] = useState<boolean>(false);
+  const [authCheckDone, setAuthCheckDone] = useState(false);
+
+  // Check Jira authentication status on mount
+  useEffect(() => {
+    const checkJiraAuth = async () => {
+      try {
+        const response = await fetch(apiUrl('/api/jira/auth/status'), {
+          credentials: 'include'
+        });
+        if (response.ok) {
+          const data = await response.json();
+          console.log('[VelocityAI] Jira auth status:', data.connected);
+          setJiraAuthStatus(data.connected);
+        }
+      } catch (error) {
+        console.error('[VelocityAI] Error checking Jira auth:', error);
+      } finally {
+        setAuthCheckDone(true);
+      }
+    };
+
+    checkJiraAuth();
+  }, []);
+
+  // Protect route - allow if either Supabase user OR Jira is authenticated
+  useEffect(() => {
+    if (!authLoading && authCheckDone) {
+      const isAuthenticated = user || jiraAuthStatus;
+      
+      if (!isAuthenticated) {
+        console.log('[VelocityAI] User not authenticated (no Supabase user and no Jira auth), redirecting to login');
+        navigate('/login', { replace: true });
+      } else {
+        console.log('[VelocityAI] User authenticated via:', user ? 'Supabase' : 'Jira');
+      }
+    }
+  }, [user, authLoading, jiraAuthStatus, authCheckDone, navigate]);
 
   useEffect(() => {
     fetchJiraData().then(data => {
@@ -389,6 +430,23 @@ export default function VelocityAI() {
   const handleSecurityAuditClick = () => {
     setActiveTab('security');
   };
+
+  // Show loading while checking authentication
+  if (authLoading || !authCheckDone) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-slate-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Redirect happens in useEffect if not authenticated
+  if (!user && !jiraAuthStatus) {
+    return null;
+  }
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -471,7 +529,6 @@ export default function VelocityAI() {
             {activeTab === 'stc' && <StandardTimeCatalogTab />}
             {activeTab === 'ledger' && <CapacityLedgerTab />}
             {activeTab === 'hubspot' && <HubSpotTab />}
-            {activeTab === 'integrations' && <IntegrationsTab />}
             {activeTab === 'deployment' && <ProjectCheckView />}
             
             {activeTab === 'activity' && <ProjectActivityTab />}

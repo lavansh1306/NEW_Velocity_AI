@@ -27,7 +27,7 @@ export default function SignUp() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const { signUp, signInWithGoogle, user, loading: authLoading } = useAuth();
+  const { signUp, signInWithGoogle, signInWithJira, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -58,6 +58,22 @@ export default function SignUp() {
       await signInWithGoogle();
     } catch (err: any) {
       setError(err.message || 'Failed to sign up with Google');
+      setLoading(false);
+    }
+  };
+
+  const handleJiraSignUp = () => {
+    try {
+      setLoading(true);
+      setError('');
+      // Save email to Supabase if provided
+      if (email.trim()) {
+        saveEmailInterest(email);
+      }
+      // signInWithJira() redirects to Jira OAuth, which redirects back to /velocity-ai
+      signInWithJira();
+    } catch (err: any) {
+      setError(err.message || 'Failed to sign up with Jira');
       setLoading(false);
     }
   };
@@ -211,14 +227,14 @@ export default function SignUp() {
 
             {/* Google Sign Up Button */}
             {!success && (
-              <div className="mb-6">
+              <div className="grid grid-cols-2 gap-3 mb-6">
                 <Button
                   type="button"
                   onClick={handleGoogleSignUp}
                   disabled={loading}
-                  className="w-full h-11 border border-slate-300 bg-white hover:bg-slate-50 text-slate-900 font-semibold gap-2 flex items-center justify-center rounded-lg transition-colors"
+                  className="h-11 border border-slate-300 bg-white hover:bg-slate-50 text-slate-900 font-semibold gap-2 flex items-center justify-center rounded-lg transition-colors text-sm"
                 >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                     <path
                       d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
                       fill="#4285F4"
@@ -236,7 +252,22 @@ export default function SignUp() {
                       fill="#EA4335"
                     />
                   </svg>
-                  Sign up with Google
+                  <span className="hidden sm:inline">Google</span>
+                </Button>
+
+                <Button
+                  type="button"
+                  onClick={handleJiraSignUp}
+                  disabled={loading}
+                  className="h-11 border border-slate-300 bg-white hover:bg-slate-50 text-slate-900 font-semibold gap-2 flex items-center justify-center rounded-lg transition-colors text-sm"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                    <path
+                      d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm0 3c1.657 0 3 1.343 3 3s-1.343 3-3 3-3-1.343-3-3 1.343-3 3-3zm0 14c-3.314 0-6-1.343-6-3s2.686-3 6-3 6 1.343 6 3-2.686 3-6 3z"
+                      fill="#0052CC"
+                    />
+                  </svg>
+                  <span className="hidden sm:inline">Jira</span>
                 </Button>
               </div>
             )}
