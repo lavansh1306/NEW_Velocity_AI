@@ -170,6 +170,8 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
   const [csvLoading, setCsvLoading] = useState(true);
   const { issues: jiraIssues, loading: jiraLoading } = useJiraData();
   const [capacityBreakdown, setCapacityBreakdown] = useState<any>(null);
+  const [selectedProject, setSelectedProject] = useState<string>('all');
+  const [selectedEmployee, setSelectedEmployee] = useState<string>('all');
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -209,7 +211,13 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
       const issueDueDate = issue.due ? new Date(issue.due) : null;
       const issueStartDate = issue.start ? new Date(issue.start) : null;
       const projectKey = issue.key?.split('-')[0] || 'Unknown';
-      const duration = Number(issue.duration) || 0;
+      
+      // Calculate duration from start to due date (in business hours)
+      let duration = 0;
+      if (issueStartDate && issueDueDate) {
+        const businessDaysForTask = countBusinessDays(issueStartDate, issueDueDate);
+        duration = businessDaysForTask * 8; // 8 hours per business day
+      }
 
       // Active projects - due today or in progress
       if (issueDueDate && issueDueDate.getTime() === today.getTime() && issue.status !== 'Done') {
@@ -347,7 +355,84 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
       });
     }
 
-    const totalTeamUtilization = totalProjectBusinessDays > 0 ? Math.round((totalOccupiedDays / totalProjectBusinessDays) * 100) : 0;
+    // Calculate per-project utilization (project start to project end, no buffers between projects)
+    const projectUtilizations: number[] = [];
+    for (const projectKey of projectKeys) {
+      const projectIssues = byProject[projectKey];
+      
+      // Find earliest and latest dates across ALL team members in this project
+      let projectMinDate: Date | null = null;
+      let projectMaxDate: Date | null = null;
+      let projectOccupiedDays = 0;
+
+      // Get all intervals in this project
+      const allProjectIntervals: Array<{ start: Date; due: Date }> = [];
+      projectIssues.forEach((issue: any) => {
+        const startDate = issue.start ? new Date(issue.start) : null;
+        const dueDate = issue.due ? new Date(issue.due) : null;
+        
+        if (startDate || dueDate) {
+          allProjectIntervals.push({
+            start: startDate || dueDate!,
+            due: dueDate || startDate!
+          });
+          
+          // Track project timebox
+          if (!projectMinDate || (startDate && startDate < projectMinDate)) {
+            projectMinDate = startDate;
+          }
+          if (!projectMaxDate || (dueDate && dueDate > projectMaxDate)) {
+            projectMaxDate = dueDate;
+          }
+        }
+      });
+
+      // If no clear start/end, use min/max from intervals
+      if (!projectMinDate) {
+        projectMinDate = allProjectIntervals[0]?.start;
+      }
+      if (!projectMaxDate) {
+        projectMaxDate = allProjectIntervals[allProjectIntervals.length - 1]?.due;
+      }
+
+      if (!projectMinDate || !projectMaxDate) continue;
+
+      // Count project business days (from first to last task, no buffers)
+      const projectBusinessDays = countBusinessDays(projectMinDate, projectMaxDate);
+
+      // Merge overlaps and count occupied days for this project
+      const sortedIntervals = allProjectIntervals.sort((a, b) => a.start.getTime() - b.start.getTime());
+      const merged: Array<{ start: Date; due: Date }> = [];
+
+      sortedIntervals.forEach(interval => {
+        if (merged.length === 0) {
+          merged.push(interval);
+        } else {
+          const last = merged[merged.length - 1];
+          if (interval.start <= last.due) {
+            last.due = interval.due > last.due ? interval.due : last.due;
+          } else {
+            merged.push(interval);
+          }
+        }
+      });
+
+      merged.forEach(interval => {
+        projectOccupiedDays += countBusinessDays(interval.start, interval.due);
+      });
+
+      // Calculate project utilization
+      const projectUtilization = projectBusinessDays > 0 ? (projectOccupiedDays / projectBusinessDays) * 100 : 0;
+      projectUtilizations.push(projectUtilization);
+
+      console.log(`📋 ${projectKey}: ${projectMinDate.toLocaleDateString()} → ${projectMaxDate.toLocaleDateString()}`);
+      console.log(`   Business Days: ${projectBusinessDays}, Occupied: ${projectOccupiedDays}d, Utilization: ${Math.round(projectUtilization)}%`);
+    }
+
+    // Average utilization across projects
+    const totalTeamUtilization = projectUtilizations.length > 0 
+      ? Math.round(projectUtilizations.reduce((a, b) => a + b) / projectUtilizations.length)
+      : 0;
 
     // Store capacity breakdown in state for display
     setCapacityBreakdown({
@@ -368,6 +453,44 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
       totalAllocated: Math.round(allocatedCapacity),
     };
   }, [jiraIssues]);
+
+  // Calculate filtered available capacity based on selected project and employee
+  const filteredCapacity = useMemo(() => {
+    if (!capacityBreakdown || !capacityBreakdown.assigneeData) return { hours: 0, days: 0 };
+
+    let totalIdleHours = 0;
+    let totalIdleDays = 0;
+
+    Object.entries(capacityBreakdown.assigneeData).forEach(([assignee, projects]: [string, any]) => {
+      // Filter by employee
+      if (selectedEmployee !== 'all' && assignee !== selectedEmployee) return;
+
+      // Filter by project
+      projects.forEach((proj: any) => {
+        if (selectedProject !== 'all' && proj.projectKey !== selectedProject) return;
+        totalIdleHours += proj.idleHours;
+        totalIdleDays += proj.idleDays;
+      });
+    });
+
+    return { hours: totalIdleHours, days: totalIdleDays };
+  }, [capacityBreakdown, selectedProject, selectedEmployee]);
+
+  // Get available projects and employees for filter dropdowns
+  const availableProjects = useMemo(() => {
+    if (!capacityBreakdown || !capacityBreakdown.assigneeData) return [];
+    return Array.from(
+      new Set(
+        Object.values(capacityBreakdown.assigneeData)
+          .flatMap((projects: any) => projects.map((p: any) => p.projectKey))
+      )
+    ).sort();
+  }, [capacityBreakdown]);
+
+  const availableEmployees = useMemo(() => {
+    if (!capacityBreakdown || !capacityBreakdown.assigneeData) return [];
+    return Object.keys(capacityBreakdown.assigneeData).sort();
+  }, [capacityBreakdown]);
 
   // Get upcoming deadlines (next 2 weeks)
   const upcomingDeadlines = useMemo(() => {
@@ -459,11 +582,65 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
               <p className="text-xs text-gray-500 mt-2">{dashboardMetrics.teamMembers} team members</p>
             </div>
 
-            {/* Available Capacity Card */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-all">
-              <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-4">AVAILABLE CAPACITY</h3>
-              <div className="text-4xl font-bold text-gray-900">{dashboardMetrics.availableCapacity}h</div>
-              <p className="text-xs text-gray-500 mt-2">This week</p>
+            {/* Available Capacity Card with Filters */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-all md:col-span-2">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">AVAILABLE CAPACITY</h3>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setSelectedProject('all');
+                      setSelectedEmployee('all');
+                    }}
+                    className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded text-gray-700 font-medium transition"
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
+              
+              {/* Filters */}
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div>
+                  <label className="text-xs font-semibold text-gray-600 mb-1 block">Filter by Project</label>
+                  <select
+                    value={selectedProject}
+                    onChange={(e) => setSelectedProject(e.target.value)}
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="all">All Projects</option>
+                    {availableProjects.map((project) => (
+                      <option key={project} value={project}>{project}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-600 mb-1 block">Filter by Employee</label>
+                  <select
+                    value={selectedEmployee}
+                    onChange={(e) => setSelectedEmployee(e.target.value)}
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="all">All Employees</option>
+                    {availableEmployees.map((employee) => (
+                      <option key={employee} value={employee}>{employee}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Display filtered capacity */}
+              <div className="space-y-2">
+                <div className="text-4xl font-bold text-gray-900">
+                  {filteredCapacity.hours}h
+                  <span className="text-lg text-gray-500 ml-2">({filteredCapacity.days}d)</span>
+                </div>
+                <p className="text-xs text-gray-500">
+                  {selectedProject !== 'all' || selectedEmployee !== 'all' 
+                    ? `Filtered: ${selectedProject !== 'all' ? selectedProject : 'All Projects'} ${selectedEmployee !== 'all' ? `- ${selectedEmployee}` : ''}` 
+                    : 'All projects and employees'}
+                </p>
+              </div>
             </div>
 
             {/* Project at Risk Card */}
@@ -591,73 +768,6 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
           </div>
         </div>
       </div>
-
-      {/* Debug: Per-Assignee Per-Project Capacity Breakdown */}
-      {capacityBreakdown && (
-        <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl border border-purple-200 p-6 mt-6">
-          <details className="cursor-pointer group">
-            <summary className="flex items-center justify-between mb-2">
-              <h2 className="text-lg font-bold text-gray-900">📊 DETAILED CAPACITY BREAKDOWN (Per-Person, Per-Project)</h2>
-              <span className="group-open:rotate-180 transition-transform">▼</span>
-            </summary>
-            
-            <div className="mt-4 space-y-6">
-              {/* Summary Stats */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-white rounded-lg p-4 border border-purple-200">
-                  <p className="text-xs text-gray-600 mb-1">Total Business Days</p>
-                  <p className="text-2xl font-bold text-purple-600">{capacityBreakdown.totalBusinessDays}</p>
-                  <p className="text-xs text-gray-500 mt-1">Across all projects</p>
-                </div>
-                <div className="bg-white rounded-lg p-4 border border-purple-200">
-                  <p className="text-xs text-gray-600 mb-1">Total Occupied Days</p>
-                  <p className="text-2xl font-bold text-red-600">{capacityBreakdown.totalOccupiedDays}</p>
-                  <p className="text-xs text-gray-500 mt-1">With tasks assigned</p>
-                </div>
-                <div className="bg-white rounded-lg p-4 border border-purple-200">
-                  <p className="text-xs text-gray-600 mb-1">Total Available Days</p>
-                  <p className="text-2xl font-bold text-emerald-600">{capacityBreakdown.totalAvailableDays}</p>
-                  <p className="text-xs text-gray-500 mt-1">Idle capacity</p>
-                </div>
-                <div className="bg-white rounded-lg p-4 border border-purple-200">
-                  <p className="text-xs text-gray-600 mb-1">Overall Utilization</p>
-                  <p className="text-2xl font-bold text-blue-600">{capacityBreakdown.totalTeamUtilization}%</p>
-                  <p className="text-xs text-gray-500 mt-1">Team average</p>
-                </div>
-              </div>
-
-              {/* Per-Person Breakdown */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-gray-900">Per-Person, Per-Project Breakdown:</h3>
-                {Object.keys(capacityBreakdown.assigneeData).length > 0 ? (
-                  Object.entries(capacityBreakdown.assigneeData).map(([assignee, projects]: [string, any]) => (
-                    <div key={assignee} className="bg-white rounded-lg p-4 border border-gray-200">
-                      <h4 className="text-sm font-bold text-gray-800 mb-3">👤 {assignee}</h4>
-                      <div className="space-y-2 ml-4">
-                        {projects.map((proj: any, idx: number) => (
-                          <div key={idx} className="text-xs">
-                            <p className="font-semibold text-gray-700">
-                              {idx + 1}. {proj.projectKey}: {proj.windowStart} → {proj.windowEnd}
-                            </p>
-                            <p className="text-gray-600 ml-2">
-                              Window: <span className="font-mono">{proj.businessDays}d</span> | 
-                              Occupied: <span className="font-mono text-red-600">{proj.occupiedDays}d</span> | 
-                              Idle: <span className="font-mono text-emerald-600">{proj.idleDays}d</span> = 
-                              <span className="font-mono text-blue-600">{proj.idleHours}hrs</span>
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-gray-500 text-sm">No capacity data available</p>
-                )}
-              </div>
-            </div>
-          </details>
-        </div>
-      )}
 
       {/* Gantt Timeline View */}
       {jiraIssues.length > 0 && (
