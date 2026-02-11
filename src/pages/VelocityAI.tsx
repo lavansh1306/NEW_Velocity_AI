@@ -169,6 +169,7 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
   const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
   const [csvLoading, setCsvLoading] = useState(true);
   const { issues: jiraIssues, loading: jiraLoading } = useJiraData();
+  const [capacityBreakdown, setCapacityBreakdown] = useState<any>(null);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -347,6 +348,15 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
     }
 
     const totalTeamUtilization = totalProjectBusinessDays > 0 ? Math.round((totalOccupiedDays / totalProjectBusinessDays) * 100) : 0;
+
+    // Store capacity breakdown in state for display
+    setCapacityBreakdown({
+      assigneeData: assigneeProjectCapacity,
+      totalBusinessDays: totalProjectBusinessDays,
+      totalOccupiedDays: totalOccupiedDays,
+      totalAvailableDays: totalProjectBusinessDays - totalOccupiedDays,
+      totalTeamUtilization: totalTeamUtilization
+    });
 
     return {
       activeProjects: activeProjectsSet.size,
@@ -581,6 +591,73 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
           </div>
         </div>
       </div>
+
+      {/* Debug: Per-Assignee Per-Project Capacity Breakdown */}
+      {capacityBreakdown && (
+        <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl border border-purple-200 p-6 mt-6">
+          <details className="cursor-pointer group">
+            <summary className="flex items-center justify-between mb-2">
+              <h2 className="text-lg font-bold text-gray-900">📊 DETAILED CAPACITY BREAKDOWN (Per-Person, Per-Project)</h2>
+              <span className="group-open:rotate-180 transition-transform">▼</span>
+            </summary>
+            
+            <div className="mt-4 space-y-6">
+              {/* Summary Stats */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="bg-white rounded-lg p-4 border border-purple-200">
+                  <p className="text-xs text-gray-600 mb-1">Total Business Days</p>
+                  <p className="text-2xl font-bold text-purple-600">{capacityBreakdown.totalBusinessDays}</p>
+                  <p className="text-xs text-gray-500 mt-1">Across all projects</p>
+                </div>
+                <div className="bg-white rounded-lg p-4 border border-purple-200">
+                  <p className="text-xs text-gray-600 mb-1">Total Occupied Days</p>
+                  <p className="text-2xl font-bold text-red-600">{capacityBreakdown.totalOccupiedDays}</p>
+                  <p className="text-xs text-gray-500 mt-1">With tasks assigned</p>
+                </div>
+                <div className="bg-white rounded-lg p-4 border border-purple-200">
+                  <p className="text-xs text-gray-600 mb-1">Total Available Days</p>
+                  <p className="text-2xl font-bold text-emerald-600">{capacityBreakdown.totalAvailableDays}</p>
+                  <p className="text-xs text-gray-500 mt-1">Idle capacity</p>
+                </div>
+                <div className="bg-white rounded-lg p-4 border border-purple-200">
+                  <p className="text-xs text-gray-600 mb-1">Overall Utilization</p>
+                  <p className="text-2xl font-bold text-blue-600">{capacityBreakdown.totalTeamUtilization}%</p>
+                  <p className="text-xs text-gray-500 mt-1">Team average</p>
+                </div>
+              </div>
+
+              {/* Per-Person Breakdown */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-gray-900">Per-Person, Per-Project Breakdown:</h3>
+                {Object.keys(capacityBreakdown.assigneeData).length > 0 ? (
+                  Object.entries(capacityBreakdown.assigneeData).map(([assignee, projects]: [string, any]) => (
+                    <div key={assignee} className="bg-white rounded-lg p-4 border border-gray-200">
+                      <h4 className="text-sm font-bold text-gray-800 mb-3">👤 {assignee}</h4>
+                      <div className="space-y-2 ml-4">
+                        {projects.map((proj: any, idx: number) => (
+                          <div key={idx} className="text-xs">
+                            <p className="font-semibold text-gray-700">
+                              {idx + 1}. {proj.projectKey}: {proj.windowStart} → {proj.windowEnd}
+                            </p>
+                            <p className="text-gray-600 ml-2">
+                              Window: <span className="font-mono">{proj.businessDays}d</span> | 
+                              Occupied: <span className="font-mono text-red-600">{proj.occupiedDays}d</span> | 
+                              Idle: <span className="font-mono text-emerald-600">{proj.idleDays}d</span> = 
+                              <span className="font-mono text-blue-600">{proj.idleHours}hrs</span>
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-500 text-sm">No capacity data available</p>
+                )}
+              </div>
+            </div>
+          </details>
+        </div>
+      )}
 
       {/* Gantt Timeline View */}
       {jiraIssues.length > 0 && (
