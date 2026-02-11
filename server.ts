@@ -133,17 +133,6 @@ if (!isJiraConfigReady) {
   console.warn("[Jira] Configuration incomplete:", { domain: !!DOMAIN, email: !!EMAIL, token: !!API_TOKEN, projectKey: !!PROJECT_KEY })
 }
 
-// ============ ASANA Configuration ============
-const ASANA_TOKEN = process.env.ASANA_TOKEN
-const DEFAULT_ASANA_PROJECT_ID = process.env.ASANA_PROJECT_ID
-const ASANA_BASE_URL = "https://app.asana.com/api/1.0"
-const IMPORTED_ASSIGNEE_FIELD_GID = "1212641939726131"
-
-const isAsanaConfigReady = !!ASANA_TOKEN
-if (!isAsanaConfigReady) {
-  console.warn("Asana API is not fully configured. Please set ASANA_TOKEN in your .env file.")
-}
-
 const extractDescription = (desc: any): string => {
   if (!desc) return ""
   if (typeof desc === "string") return desc
@@ -289,35 +278,7 @@ app.get('/api/projects', async (_req: Request, res: Response) => {
 })
 */
 
-// ============ ASANA API Endpoints ============
-app.get("/api/asana/issues", async (req: Request, res: Response) => {
-  // Get project ID from query parameter or use default from env
-  const projectId = (req.query.projectKey as string) || DEFAULT_ASANA_PROJECT_ID
-
-  if (!projectId) {
-    console.warn('[Asana Issues] No project ID provided and ASANA_PROJECT_ID not set')
-    return res.json({ issues: [] })
-  }
-
-  if (!isAsanaConfigReady) {
-    console.warn('[Asana Issues] Asana token not configured - returning empty issues')
-    return res.json({ issues: [] })
-  }
-
-  try {
-    const response = await fetch(
-      `${ASANA_BASE_URL}/tasks?project=${projectId}&opt_fields=name,completed,assignee.name,start_on,due_on,memberships.section.name,notes,custom_fields,custom_fields.enum_value,custom_fields.enum_value.name`,
-      {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${ASANA_TOKEN}`,
-          Accept: "application/json",
-        },
-      }
-    )
-
-    if (!response.ok) {
-      const message = await response.text()
+// ============ API Routes ============
       console.error('[Asana Issues] Upstream returned', response.status, message.substring(0, 300))
       return res.json({ issues: [] })
     }
@@ -327,119 +288,11 @@ app.get("/api/asana/issues", async (req: Request, res: Response) => {
       const startDate = task.start_on || null
       const due = task.due_on || null
       
-      // Calculate duration from start_on to due_on (inclusive of both start and end dates)
-      const duration = startDate && due 
-        ? Math.ceil((new Date(due).getTime() - new Date(startDate).getTime()) / MS_PER_DAY) + 1
-        : ""
-
-      // Get imported assignee from custom field
-      const importedAssigneeField = task.custom_fields?.find(
-        (cf: any) => cf.gid === IMPORTED_ASSIGNEE_FIELD_GID
-      )
-      const importedAssignee = importedAssigneeField?.enum_value?.name || null
-
-      // Use imported assignee if regular assignee is missing
-      const finalAssignee = task.assignee?.name || importedAssignee || "Unassigned"
-
-      return {
-        key: task.gid || "-",
-        issueType: "-",
-        summary: task.name || "-",
-        description: task.notes || "",
-        priority: "-",
-        status: task.completed ? "Done" : "Open",
-        assignee: finalAssignee,
-        team: task.memberships?.[0]?.section?.name || "-",
-        startDate,
-        due,
-        duration,
-      }
-    })
-
-    res.json({ issues: tasks })
-  } catch (err) {
-    const errMsg = err instanceof Error ? err.message : String(err)
-    console.error('[Asana Issues] Exception fetching tasks:', errMsg)
-    res.json({ issues: [] })
-  }
-})
-
-// Fetch list of Asana projects (requires ASANA_TOKEN). Uses ASANA_WORKSPACE env if provided,
-// otherwise returns the DEFAULT_ASANA_PROJECT_ID as a single-item list when available.
-app.get('/api/asana/projects', async (_req: Request, res: Response) => {
-  if (!isAsanaConfigReady) {
-    console.warn('[API] /api/asana/projects called but Asana configuration missing - returning empty list')
-    return res.json({ projects: [] })
-  }
-
-  try {
-    const workspace = process.env.ASANA_WORKSPACE_ID
-    if (workspace) {
-      const url = `${ASANA_BASE_URL}/projects?workspace=${workspace}&archived=false&opt_fields=gid,name,notes`;
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${ASANA_TOKEN}`,
-          Accept: 'application/json',
-        },
-      })
-
-      if (!response.ok) {
-        const txt = await response.text()
-        console.error('[Asana Projects] upstream returned', response.status, txt.substring(0, 300))
-        return res.json({ projects: [] })
-      }
-
-      const data = await response.json() as any
-      const values = data.data || []
-      const projects = values.map((p: any) => ({
-        id: p.gid,
-        key: p.gid,
-        title: p.name,
-        description: p.notes || '',
-        avatar: '',
-      }))
-
-      return res.json({ projects })
-    }
-
-    // If no workspace provided, try returning the default project if set
-    if (DEFAULT_ASANA_PROJECT_ID) {
-      const url = `${ASANA_BASE_URL}/projects/${DEFAULT_ASANA_PROJECT_ID}?opt_fields=gid,name,notes`;
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${ASANA_TOKEN}`,
-          Accept: 'application/json',
-        },
-      })
-
-      if (!response.ok) {
-        const txt = await response.text()
-        console.error('[Asana Project] upstream returned', response.status, txt.substring(0, 300))
-        return res.json({ projects: [] })
-      }
-
-      const data = await response.json() as any
-      const p = data.data
-      const project = p ? [{ id: p.gid, key: p.gid, title: p.name, description: p.notes || '', avatar: '' }] : []
-      return res.json({ projects: project })
-    }
-
-    // No workspace and no default project configured
-    return res.json({ projects: [] })
-  } catch (err) {
-    console.error('[Asana Projects] Error fetching projects:', err)
-    return res.json({ projects: [] })
-  }
-})
-
 app.get("/health", (_req: Request, res: Response) => {
   res.json({ 
     status: "ok",
     timestamp: new Date().toISOString(),
     jiraConfigured: isJiraConfigReady,
-    asanaConfigured: isAsanaConfigReady,
     apiPort: PORT
   })
 })

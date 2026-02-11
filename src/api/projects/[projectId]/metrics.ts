@@ -3,9 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import type {
-  RawAsanaRow,
   RawJiraRow,
-  RawZapierRow,
   RawHubSpotRow,
   RawMicrosoft365Row,
   NormalizedEvent,
@@ -13,9 +11,7 @@ import type {
 } from '../../../lib/types';
 
 import {
-  normalizeAsana,
   normalizeJira,
-  normalizeZapier,
   normalizeHubSpot,
   normalizeMicrosoft365,
 } from '../../../lib/normalizers';
@@ -60,7 +56,7 @@ export async function GET(
   { params }: { params: { projectId: string } }
 ): Promise<Response> {
   // Load raw rows from each app CSV
-  const asanaRows = loadCSV<RawAsanaRow>('asana_events.csv');
+  // Asana removed: no longer used
   // Jira rows: prefer live Jira via backend proxy instead of CSV
   // Use an environment-configurable internal API base so this file works in serverless / production.
   let jiraRows: RawJiraRow[] = []
@@ -95,9 +91,7 @@ export async function GET(
 
   // Normalize each source
   const events: NormalizedEvent[] = [
-    ...normalizeAsana(asanaRows),
     ...normalizeJira(jiraRows),
-    ...normalizeZapier(zapierRows),
     ...normalizeHubSpot(hubspotRows),
     ...normalizeMicrosoft365(m365Rows),
   ];

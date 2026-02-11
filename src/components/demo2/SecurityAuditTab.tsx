@@ -99,19 +99,6 @@ export default function SecurityAuditTab({ onJiraConnectionChange }: SecurityAud
       lastSync: '1 minute ago',
       events: ['meeting.created', 'meeting.duration', 'email.sent']
     },
-    zapier: {
-      name: 'Zapier',
-      status: 'pending',
-      scope: [],
-      accessLevel: 'read-only',
-      lastVerified: '2025-12-15',
-      id: 'zapier',
-      icon: 'Z',
-      bgColor: 'bg-orange-400',
-      connected: false,
-      plannedScope: ['zaps.read', 'zap_runs.read'],
-      useCase: 'Track automation executions for capacity calculation'
-    },
   });
 
   const handleToggleIntegration = (id: string) => {
@@ -659,17 +646,6 @@ export default function SecurityAuditTab({ onJiraConnectionChange }: SecurityAud
                 <h4 className="text-base sm:text-lg font-bold text-gray-900">Recommended: Enable 2FA</h4>
                 <p className="text-xs sm:text-sm text-gray-700 mt-1">Enhance account security with two-factor authentication</p>
                 <button className="mt-3 text-xs sm:text-sm font-bold text-yellow-700 hover:text-yellow-800">Enable Now →</button>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-4 sm:p-6 border-l-4 border-blue-500 bg-blue-50">
-            <div className="flex items-start gap-3 sm:gap-4">
-              <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <h4 className="text-base sm:text-lg font-bold text-gray-900">Upcoming: Zapier Integration Review</h4>
-                <p className="text-xs sm:text-sm text-gray-700 mt-1">Pending IT approval for read-only access to Zapier zaps and run history</p>
-                <button className="mt-3 text-xs sm:text-sm font-bold text-blue-700 hover:text-blue-800">View Details →</button>
               </div>
             </div>
           </Card>

@@ -8,9 +8,7 @@ import {
   loadTeamMembersByProject, 
   loadWeeklyCommitsByProject, 
   loadBurndownByProject,
-  loadAsanaTasksByProject,
   loadJiraIssuesByProject,
-  loadZapierWorkflowsByProject,
   loadHubSpotEventsByProject,
   loadM365ActivitiesByProject,
   loadProjectAnalytics,
@@ -22,15 +20,13 @@ import type {
   TeamMember, 
   WeeklyCommit, 
   BurndownData,
-  AsanaTask,
   JiraIssue,
-  ZapierWorkflow,
   HubSpotEvent,
   M365Activity,
   ProjectAnalytics,
 } from '@/lib/dataService';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Calendar, GitBranch, Users, TrendingUp, Clock, CheckCircle, AlertCircle, Activity, Zap, Mail, MessageSquare, FileText, Settings, ArrowLeft } from 'lucide-react';
+import { Calendar, GitBranch, Users, TrendingUp, Clock, CheckCircle, AlertCircle, Activity, Mail, MessageSquare, FileText, Settings, ArrowLeft } from 'lucide-react';
 import CapacityLedgerTab from '@/components/demo2/CapacityLedgerTab';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
@@ -47,9 +43,7 @@ export default function ProjectDetailNew() {
   const [weeklyCommits, setWeeklyCommits] = useState<WeeklyCommit[]>([]);
   const [burndownData, setBurndownData] = useState<BurndownData[]>([]);
   
-  const [asanaTasks, setAsanaTasks] = useState<AsanaTask[]>([]);
   const [jiraIssues, setJiraIssues] = useState<JiraIssue[]>([]);
-  const [zapierWorkflows, setZapierWorkflows] = useState<ZapierWorkflow[]>([]);
   const [hubspotEvents, setHubspotEvents] = useState<HubSpotEvent[]>([]);
   const [m365Activities, setM365Activities] = useState<M365Activity[]>([]);
   const [projectAnalytics, setProjectAnalytics] = useState<ProjectAnalytics | null>(null);
@@ -81,7 +75,6 @@ export default function ProjectDetailNew() {
           burndownDataRaw,
           asanaData,
           jiraData,
-          zapierData,
           hubspotData,
           m365Data,
           analyticsData,
@@ -91,9 +84,7 @@ export default function ProjectDetailNew() {
           loadTeamMembersByProject(id),
           loadWeeklyCommitsByProject(id),
           loadBurndownByProject(id),
-          loadAsanaTasksByProject(id),
           loadJiraIssuesByProject(id),
-          loadZapierWorkflowsByProject(id),
           loadHubSpotEventsByProject(id),
           loadM365ActivitiesByProject(id),
           loadProjectAnalytics(id),
@@ -104,9 +95,7 @@ export default function ProjectDetailNew() {
         setTeamMembers(membersData);
         setWeeklyCommits(weeklyData);
         setBurndownData(burndownDataRaw);
-        setAsanaTasks(asanaData);
         setJiraIssues(jiraData);
-        setZapierWorkflows(zapierData);
         setHubspotEvents(hubspotData);
         setM365Activities(m365Data);
         setProjectAnalytics(analyticsData);
@@ -148,22 +137,12 @@ export default function ProjectDetailNew() {
   // Calculate comprehensive metrics
   const totalCommits = commits.length;
   const totalPRs = pullRequests.length;
-  const totalAsanaTasks = asanaTasks.length;
   const totalJiraIssues = jiraIssues.length;
-  const totalZapierWorkflows = zapierWorkflows.length;
   const totalHubSpotEvents = hubspotEvents.length;
   const totalM365Activities = m365Activities.length;
   
-  const asanaAutomationRate = asanaTasks.length > 0 
-    ? ((asanaTasks.filter(t => t.is_automation).length / asanaTasks.length) * 100).toFixed(1)
-    : '0';
-  
   const jiraAutomationRate = jiraIssues.length > 0
     ? ((jiraIssues.filter(i => i.is_automation).length / jiraIssues.length) * 100).toFixed(1)
-    : '0';
-  
-  const zapierSuccessRate = zapierWorkflows.length > 0
-    ? ((zapierWorkflows.filter(w => w.status === 'success').length / zapierWorkflows.length) * 100).toFixed(1)
     : '0';
   
   const hubspotWorkflowRate = hubspotEvents.length > 0
@@ -189,7 +168,6 @@ export default function ProjectDetailNew() {
     { name: 'HubSpot', hours: projectAnalytics.integration_savings.hubspot },
     { name: 'Asana', hours: projectAnalytics.integration_savings.asana },
     { name: 'Microsoft365', hours: projectAnalytics.integration_savings.microsoft365 },
-    { name: 'Zapier', hours: projectAnalytics.integration_savings.zapier },
   ] : [];
 
   const timeLogsChartData = projectAnalytics?.time_logs.map(log => ({
@@ -213,7 +191,6 @@ export default function ProjectDetailNew() {
     ...commits.map(c => ({ id: `commit-${c.sha}`, type: 'commit', time: c.date, description: `Commit: ${c.message}`, source: 'GitHub', actor: c.author })),
     ...asanaTasks.map(t => ({ id: `asana-${t.gid}`, type: 'task', time: t.created_at, description: `${t.action}: ${t.task_name || 'Task'}`, source: 'Asana', actor: t.created_by })),
     ...jiraIssues.map(i => ({ id: `jira-${i.issue_id}`, type: 'issue', time: i.created_at, description: `${i.event_type}: ${i.issue_key} - ${i.summary || 'Issue'}`, source: 'Jira', actor: i.actor })),
-    ...zapierWorkflows.map(z => ({ id: `zapier-${z.id}`, type: 'workflow', time: z.created_at, description: `${z.zap_name}: ${z.trigger_app} → ${z.action_app}`, source: 'Zapier', actor: 'automation' })),
     ...hubspotEvents.map(h => ({ id: `hubspot-${h.event_id}`, type: 'hubspot', time: h.occurred_at, description: `${h.object_type} ${h.event_action}`, source: 'HubSpot', actor: h.source })),
     ...m365Activities.map(m => ({ id: `m365-${m.activity_id}`, type: 'm365', time: m.activity_time, description: `${m.workload}: ${m.activity_type}`, source: 'M365', actor: m.user_type })),
   ].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, 50);
@@ -223,7 +200,6 @@ export default function ProjectDetailNew() {
       'GitHub': 'bg-gray-800 text-white',
       'Asana': 'bg-pink-600 text-white',
       'Jira': 'bg-blue-600 text-white',
-      'Zapier': 'bg-orange-500 text-white',
       'HubSpot': 'bg-orange-600 text-white',
       'M365': 'bg-blue-500 text-white',
     };
@@ -235,7 +211,6 @@ export default function ProjectDetailNew() {
       'GitHub': GitBranch,
       'Asana': CheckCircle,
       'Jira': AlertCircle,
-      'Zapier': Zap,
       'HubSpot': Mail,
       'M365': MessageSquare,
     };

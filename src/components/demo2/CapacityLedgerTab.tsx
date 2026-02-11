@@ -1,11 +1,10 @@
 import React, { useMemo, useEffect, useState } from 'react';
 import { apiUrl } from '@/lib/api';
 import { hubspotFetch } from '@/lib/hubspot-fetch';
-import type { AsanaTask, TeamMember, ProjectAnalytics } from '@/lib/dataService';
+import type { TeamMember, ProjectAnalytics } from '@/lib/dataService';
 
 interface Props {
   projectId?: string | null;
-  asanaTasks?: AsanaTask[];
   teamMembers?: TeamMember[];
   projectAnalytics?: ProjectAnalytics | null;
 }

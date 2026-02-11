@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { loadProjects, loadAsanaTasksByProject } from '@/lib/dataService';
+import { loadProjects } from '@/lib/dataService';
 
 const HOURS_PER_TASK = 1.5;
 const FRACTIONAL_PERCENT = 0.4;
@@ -42,7 +42,8 @@ export default function GlobalCapacity() {
         const projList = await loadProjects();
         const summaries: ProjectSummary[] = [];
         for (const p of projList) {
-          const tasks = await loadAsanaTasksByProject(p.id);
+          // Asana integration removed - using empty task list
+          const tasks: any[] = [];
           let total = 0;
           let blocked = 0;
           let fractional = 0;

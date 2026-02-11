@@ -98,13 +98,11 @@ export default function VPDashboard() {
   const tools = [
     { name: 'JIRA', investment: 10 },
     { name: 'HubSpot AI', investment: 10 },
-    { name: 'Zapier Auto', investment: 10 },
-    { name: 'Asana', investment: 10 },
     { name: 'Microsoft 365', investment: 10 },
   ];
 
   const rows = tools.map((tool) => {
-    const appKey = tool.name === 'JIRA' ? 'Jira' : tool.name === 'Zapier Auto' ? 'Zapier' : tool.name === 'HubSpot AI' ? 'HubSpot' : tool.name === 'Microsoft 365' ? 'Microsoft365' : tool.name;
+    const appKey = tool.name === 'JIRA' ? 'Jira' : tool.name === 'HubSpot AI' ? 'HubSpot' : tool.name === 'Microsoft 365' ? 'Microsoft365' : tool.name;
     const hours = perAppHours?.[appKey] ?? 0;
     const returnsUSD = perAppReturns?.[appKey] ?? 0;
     const investmentUSD = tool.investment * 1000; // K -> USD

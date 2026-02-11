@@ -175,12 +175,36 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
 
   // Calculate dashboard metrics
   const dashboardMetrics = useMemo(() => {
+    // Helper to count business days (Mon-Fri only)
+    const countBusinessDays = (startDate: Date, endDate: Date): number => {
+      let count = 0;
+      const current = new Date(startDate);
+      current.setHours(0, 0, 0, 0);
+      const end = new Date(endDate);
+      end.setHours(0, 0, 0, 0);
+      
+      while (current <= end) {
+        const dayOfWeek = current.getDay();
+        if (dayOfWeek !== 0 && dayOfWeek !== 6) { // 0 = Sunday, 6 = Saturday
+          count++;
+        }
+        current.setDate(current.getDate() + 1);
+      }
+      return count;
+    };
+
     // Active Projects - projects with issues due today or in progress
     const activeProjectsSet = new Set<string>();
     const projectsAtRiskSet = new Set<string>();
     let totalTeamUtilization = 0;
     let availableCapacity = 0;
     let allocatedCapacity = 0;
+
+    // Group issues by assignee and collect date range
+    const byAssignee: { [key: string]: Array<{ start: Date; due: Date }> } = {};
+    let minDate = new Date(today);
+    let maxDate = new Date(today);
+    let hasValidDates = false;
 
     jiraIssues.forEach((issue: any) => {
       const issueDueDate = issue.due ? new Date(issue.due) : null;
@@ -201,15 +225,69 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
         projectsAtRiskSet.add(projectKey);
       }
 
-      // Capacity calculations
+      // Capacity calculations - collect intervals per assignee
+      const assignee = issue.assignee || 'Unassigned';
+      const startDate = issueStartDate || new Date();
+      const endDate = issueDueDate || startDate;
+      
+      if (!byAssignee[assignee]) {
+        byAssignee[assignee] = [];
+      }
+      byAssignee[assignee].push({ start: startDate, due: endDate });
+      
+      // Track date range
+      if (startDate < minDate) minDate = new Date(startDate);
+      if (endDate > maxDate) maxDate = new Date(endDate);
+      hasValidDates = true;
       allocatedCapacity += duration;
     });
 
     const uniqueAssignees = new Set(jiraIssues.map((i: any) => i.assignee || 'Unassigned'));
-    // Assume 40 hours per week per team member (5 days * 8 hours)
-    const totalCapacityPerWeek = uniqueAssignees.size * 40;
-    availableCapacity = Math.max(0, totalCapacityPerWeek - allocatedCapacity);
-    totalTeamUtilization = uniqueAssignees.size > 0 ? Math.round((allocatedCapacity / (uniqueAssignees.size * 40)) * 100) : 0;
+    
+    // Calculate available capacity based on actual working window
+    if (hasValidDates && uniqueAssignees.size > 0) {
+      // Get business days in the working window
+      const windowBusinessDays = countBusinessDays(minDate, maxDate);
+      const totalCapacityHours = windowBusinessDays * 8 * uniqueAssignees.size; // 8 hours per business day
+      
+      // Calculate occupied business days per assignee
+      let totalOccupiedDays = 0;
+      for (const assignee in byAssignee) {
+        const intervals = byAssignee[assignee];
+        // Merge overlapping intervals
+        const sortedIntervals = intervals.sort((a, b) => a.start.getTime() - b.start.getTime());
+        const merged: Array<{ start: Date; due: Date }> = [];
+        
+        sortedIntervals.forEach(interval => {
+          if (merged.length === 0) {
+            merged.push(interval);
+          } else {
+            const last = merged[merged.length - 1];
+            if (interval.start <= last.due) {
+              // Overlapping - merge
+              last.due = interval.due > last.due ? interval.due : last.due;
+            } else {
+              merged.push(interval);
+            }
+          }
+        });
+        
+        // Count business days in merged intervals
+        merged.forEach(interval => {
+          const occupiedDays = countBusinessDays(interval.start, interval.due);
+          totalOccupiedDays += occupiedDays;
+        });
+      }
+      
+      const totalAvailableDays = (windowBusinessDays * uniqueAssignees.size) - totalOccupiedDays;
+      availableCapacity = Math.max(0, totalAvailableDays * 8); // Convert to hours
+      totalTeamUtilization = windowBusinessDays > 0 ? Math.round((totalOccupiedDays / (windowBusinessDays * uniqueAssignees.size)) * 100) : 0;
+    } else {
+      // Fallback to simple calculation if no dates available
+      const totalCapacityPerWeek = uniqueAssignees.size * 40;
+      availableCapacity = Math.max(0, totalCapacityPerWeek - allocatedCapacity);
+      totalTeamUtilization = uniqueAssignees.size > 0 ? Math.round((allocatedCapacity / (uniqueAssignees.size * 40)) * 100) : 0;
+    }
 
     return {
       activeProjects: activeProjectsSet.size,

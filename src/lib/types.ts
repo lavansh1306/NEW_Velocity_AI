@@ -3,20 +3,6 @@
 // ========================================
 
 /**
- * Raw row from asana_events.csv
- * Fields correspond to the schema fetched via Asana's API/export.
- */
-export interface RawAsanaRow {
-  gid: string;
-  created_at: string;
-  resource_type: string;
-  action: string;
-  created_by: string;
-  project_id: string;
-  details: string; // JSON string
-}
-
-/**
  * Raw row from jira_events.csv
  */
 export interface RawJiraRow {
@@ -29,21 +15,6 @@ export interface RawJiraRow {
   to_status: string;
   project_id: string;
   fields: string; // JSON string
-}
-
-/**
- * Raw row from zapier_events.csv
- */
-export interface RawZapierRow {
-  id: string;
-  created_at: string;
-  zap_name: string;
-  trigger_app: string;
-  action_app: string;
-  status: string;
-  task_usage: string;
-  project_id: string;
-  metadata: string; // JSON string
 }
 
 /**

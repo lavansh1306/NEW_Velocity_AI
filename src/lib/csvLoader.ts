@@ -86,7 +86,7 @@ export async function loadProjectAnalytics(projectId: string) {
 }
 
 // Helper to try loading additional integration CSVs with the same format
-async function tryLoadIntegrationCSV(path: string, projectId: string, integrationName: 'hubspot' | 'asana' | 'microsoft365' | 'zapier') {
+async function tryLoadIntegrationCSV(path: string, projectId: string, integrationName: 'hubspot' | 'microsoft365') {
   // check whether the integration is connected in local storage
   try {
     const connected = getIntegrationConnected(integrationName);
@@ -139,11 +139,9 @@ export async function loadProjectAnalyticsWithIntegrations(projectId: string) {
   }
 
   // Attempt to load per-integration files (these are optional)
-  const [hubspotData, asanaData, msData, zapierData] = await Promise.all([
+  const [hubspotData, msData] = await Promise.all([
     tryLoadIntegrationCSV('/data/projects-hubspot.csv', projectId, 'hubspot'),
-    tryLoadIntegrationCSV('/data/projects-asana.csv', projectId, 'asana'),
     tryLoadIntegrationCSV('/data/projects-microsoft365.csv', projectId, 'microsoft365'),
-    tryLoadIntegrationCSV('/data/projects-zapier.csv', projectId, 'zapier'),
   ]);
 
   // Map to minimal summaries to keep shape stable
@@ -160,15 +158,6 @@ export async function loadProjectAnalyticsWithIntegrations(projectId: string) {
             last_sync: hubspotData.last_sync,
           }
         : undefined,
-      asana: asanaData
-        ? {
-            projects_count: asanaData.projects_count,
-            tasks_total: asanaData.tasks_total ?? asanaData.tasks_count,
-            tasks_automated_count: asanaData.tasks_automated_count,
-            asana_time_saved_hours: asanaData.asana_time_saved_hours,
-            last_sync: asanaData.last_sync,
-          }
-        : undefined,
       microsoft365: msData
         ? {
             mail_count: msData.mail_count,
@@ -177,17 +166,6 @@ export async function loadProjectAnalyticsWithIntegrations(projectId: string) {
             meeting_minutes_saved: msData.meeting_minutes_saved,
             microsoft365_time_saved_hours: msData.microsoft365_time_saved_hours,
             last_sync: msData.last_sync,
-          }
-        : undefined,
-      zapier: zapierData
-        ? {
-            zaps_count: zapierData.zaps_count,
-            active_zaps: zapierData.active_zaps,
-            runs_last_30_days: zapierData.runs_last_30_days,
-            runs_automated_by_ai: zapierData.runs_automated_by_ai,
-            zapier_time_saved_hours: zapierData.zapier_time_saved_hours,
-            success_rate: zapierData.success_rate,
-            last_sync: zapierData.last_sync,
           }
         : undefined,
     };

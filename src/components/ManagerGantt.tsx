@@ -67,7 +67,7 @@ interface ManagerGanttProps {
 
 export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = true, jiraIssues: externalJiraIssues }: ManagerGanttProps) {
   const { addToast } = useToast()
-  const [viewType, setViewType] = useState<ViewType>('week')
+  const [viewType, setViewType] = useState<ViewType>('day')
   const [zoom, setZoom] = useState(1.6)
   const [selectedTask, setSelectedTask] = useState<TaskWithDates | null>(null)
   const [tasks, setTasks] = useState<Issue[]>(externalTasks)
@@ -101,7 +101,7 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
     }
   }, [jiraHookData.issues, jiraHookData.loading, shouldUseFallbackFetch])
 
-  // Fallback fetch for other data sources (Asana, HubSpot, Microsoft 365)
+  // Fallback fetch for other data sources (HubSpot, Microsoft 365)
   useEffect(() => {
     if (!autoFetch || externalTasks.length > 0) return
 
@@ -113,39 +113,6 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
         // Add Jira tasks from hook if available
         if (jiraHookData.issues.length > 0) {
           allCollectedTasks.push(...jiraHookData.issues)
-        }
-
-        // ======== ASANA ========
-        console.log('[ManagerGantt] Fetching Asana data...')
-        try {
-          const asanaResp = await fetch(apiUrl('/api/asana/tasks'), {
-            credentials: 'include',
-          })
-          if (asanaResp.ok) {
-            const asanaData = await asanaResp.json()
-            const asanaTasks = asanaData.tasks || []
-            console.log('[ManagerGantt] Asana tasks:', asanaTasks.length)
-
-            const mappedAsanaTasks = asanaTasks.map((task: any) => ({
-              key: task.id || task.gid || '',
-              issueType: task.issueType || 'Task',
-              summary: task.name || task.summary || '',
-              description: task.description || '',
-              project: 'Asana',
-              priority: task.priority || 'Medium',
-              status: task.status || 'Open',
-              assignee: task.assignee || 'Unassigned',
-              team: 'Product',
-              start: task.start || task.created || null,
-              due: task.due || null,
-              duration: task.duration || 8,
-              created: task.created || null,
-              projectKey: 'ASANA',
-            }))
-            allCollectedTasks.push(...mappedAsanaTasks)
-          }
-        } catch (e) {
-          console.warn('[ManagerGantt] Asana fetch failed:', e)
         }
 
         // ======== HUBSPOT ========

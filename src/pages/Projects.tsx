@@ -97,8 +97,7 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
   };
 
   // Simple separation by source for UI grouping
-  const asanaProjects = projects.filter((p) => p.source === 'asana');
-  const jiraProjects = projects.filter((p) => p.source !== 'asana');
+  const jiraProjects = projects;
 
   // Add project UI removed
 
@@ -129,65 +128,6 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
           </div>
         ) : (
           <>
-            {/* Asana projects */}
-            {asanaProjects.length > 0 && (
-              <div className="mb-8">
-                <h2 className="text-xl font-semibold mb-4">Asana Projects</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-6">
-                  {asanaProjects.map((p) => (
-                    <article
-                      key={p.id}
-                      className="rounded-lg bg-white shadow-sm border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
-                      onClick={() => handleProjectSelect(p)}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleProjectSelect(p);
-                      }}
-                    >
-                      <div className="flex flex-col sm:flex-row">
-                        <div className="w-full sm:w-1/2 md:w-2/5 flex-shrink-0">
-                          <img src={p.image} alt={p.title} className="w-full h-56 sm:h-full object-cover" />
-                        </div>
-                        <div className="p-4 sm:p-5 lg:p-6 flex-1 flex flex-col">
-                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-2">
-                            <div className="flex-1 min-w-0">
-                              <h2 className="text-base sm:text-lg lg:text-xl font-semibold text-gray-900 truncate">{p.title}</h2>
-                              <div className="text-xs sm:text-sm text-gray-500">{p.category}</div>
-                            </div>
-                          </div>
-
-                          <p className="text-xs sm:text-sm lg:text-base text-gray-700 line-clamp-2 sm:line-clamp-3">{p.description}</p>
-
-                          <div className="mt-3 flex flex-wrap items-center gap-2">
-                            {p.tags.slice(0, 2).map((t) => (
-                              <span key={t} className="text-xs px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full font-medium">
-                                {t}
-                              </span>
-                            ))}
-                            {p.tags.length > 2 && (
-                              <span className="text-xs px-2 py-1 text-gray-600">+{p.tags.length - 2}</span>
-                            )}
-                          </div>
-
-                          <div className="mt-auto pt-4">
-                            <Button asChild className="w-full sm:w-auto text-xs sm:text-sm">
-                              <Link
-                                to={`/projects/asana-dashboard?project=${encodeURIComponent(p.id)}`}
-                                className="inline-block"
-                              >
-                                View Project
-                              </Link>
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Jira (and other) projects */}
             {jiraProjects.length > 0 && (
               <div className="mb-8">

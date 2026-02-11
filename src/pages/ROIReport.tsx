@@ -10,7 +10,7 @@ import { LineChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } 
 const useCaseMappings: Record<string, string[]> = {
   "Customer Success Ops": ["Customer Success", "FreddyAI", "HubSpot CRM"],
   "GTMs / Product Launch": ["Marketing", "Product", "Custom RAG Stack"],
-  "Revenue Pipeline Support": ["RevOps", "Zapier", "HubSpot CRM"],
+  "Revenue Pipeline Support": ["RevOps", "HubSpot CRM"],
   "Contractor Cost Reduction": ["Finance", "UIPath", "Blue Prism"],
   "Engineering Backlog Acceleration": ["Engineering", "UIPath"],
   "Strategic Initiatives & Innovation": ["Engineering", "Custom RAG Stack", "FreddyAI"],
@@ -47,7 +47,6 @@ const allTools = [
   "FreddyAI",
   "HubSpot CRM",
   "Custom RAG Stack",
-  "Zapier",
   "UIPath",
   "Blue Prism",
   "Notion AI",

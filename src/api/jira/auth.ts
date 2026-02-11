@@ -21,9 +21,28 @@ declare module 'express-session' {
 // Environment variables (accessed at runtime)
 const getClientId = () => process.env.JIRA_OAUTH_CLIENT_ID || '';
 const getClientSecret = () => process.env.JIRA_OAUTH_CLIENT_SECRET || '';
-const getRedirectUri = () => {
-  return 'https://www.joinvelocity.co/api/jira/auth/callback';
+
+// Get the correct redirect URI based on environment
+// This must match a registered redirect URI in the Jira OAuth app
+const getRedirectUri = (req?: Request) => {
+  if (process.env.JIRA_OAUTH_REDIRECT_URI) {
+    // If explicitly configured, use that
+    return process.env.JIRA_OAUTH_REDIRECT_URI;
+  }
+  
+  // Determine based on environment
+  if (process.env.NODE_ENV === 'production') {
+    // In production (Vercel), use the production domain
+    const apiUrl = process.env.JIRA_OAUTH_API_URL_PROD || 'https://www.joinvelocity.co';
+    return `${apiUrl}/api/jira/auth/callback`;
+  } else {
+    // In development, use localhost with the API port
+    const apiPort = process.env.API_PORT || '4000';
+    const apiUrl = process.env.JIRA_OAUTH_API_URL || `http://localhost:${apiPort}`;
+    return `${apiUrl}/api/jira/auth/callback`;
+  }
 };
+
 const AUTHORIZE_URL: string = 'https://auth.atlassian.com/authorize';
 const TOKEN_URL: string = 'https://auth.atlassian.com/oauth/token';
 const ACCESSIBLE_RESOURCES_URL: string = 'https://api.atlassian.com/oauth/token/accessible-resources';
@@ -103,6 +122,106 @@ function generatePKCE(): PKCE {
 // In-memory token store (map user session -> token store)
 // For production, use database with encryption (Supabase Vault, etc.)
 const jiraTokens: Map<string, TokenStore> = new Map();
+
+// In-memory PKCE state store - for local dev only
+// In production (Vercel), PKCE data is stored in Supabase
+const jiraPKCEStore: Map<string, { codeVerifier: string; timestamp: number }> = new Map();
+
+function cleanupExpiredPKCE() {
+  const now = Date.now();
+  const maxAge = 15 * 60 * 1000; // 15 minutes
+  
+  for (const [state, data] of jiraPKCEStore.entries()) {
+    if (now - data.timestamp > maxAge) {
+      jiraPKCEStore.delete(state);
+      console.log('[Jira OAuth] Cleaned up expired PKCE entry:', state);
+    }
+  }
+}
+
+// Run cleanup every 5 minutes (local dev only)
+setInterval(() => cleanupExpiredPKCE(), 5 * 60 * 1000);
+
+// Store PKCE in Supabase for serverless compatibility
+async function storePKCEInDatabase(state: string, codeVerifier: string): Promise<void> {
+  try {
+    const supabaseClient = getSupabaseClient();
+    if (!supabaseClient) {
+      console.log('[Jira OAuth] Supabase not configured, using in-memory store only');
+      // Fallback to in-memory storage
+      jiraPKCEStore.set(state, { codeVerifier, timestamp: Date.now() });
+      return;
+    }
+
+    const { error } = await supabaseClient
+      .from('jira_oauth_pkce')
+      .insert({
+        state,
+        code_verifier: codeVerifier,
+        created_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString() // 15 min expiry
+      });
+
+    if (error) {
+      console.warn('[Jira OAuth] Failed to store PKCE in Supabase, falling back to memory:', error);
+      jiraPKCEStore.set(state, { codeVerifier, timestamp: Date.now() });
+    } else {
+      console.log('[Jira OAuth] PKCE stored in Supabase');
+    }
+  } catch (err) {
+    console.warn('[Jira OAuth] Error storing PKCE:', err);
+    // Fallback to in-memory
+    jiraPKCEStore.set(state, { codeVerifier, timestamp: Date.now() });
+  }
+}
+
+// Retrieve PKCE from Supabase (or memory as fallback)
+async function retrievePKCEFromDatabase(state: string): Promise<string | null> {
+  try {
+    const supabaseClient = getSupabaseClient();
+    if (!supabaseClient) {
+      console.log('[Jira OAuth] Supabase not configured, checking in-memory store');
+      const data = jiraPKCEStore.get(state);
+      return data?.codeVerifier || null;
+    }
+
+    const { data, error } = await supabaseClient
+      .from('jira_oauth_pkce')
+      .select('code_verifier')
+      .eq('state', state)
+      .single();
+
+    if (error) {
+      console.warn('[Jira OAuth] PKCE not found in Supabase:', error.message);
+      // Check in-memory as fallback
+      const memData = jiraPKCEStore.get(state);
+      if (memData) {
+        console.log('[Jira OAuth] Found PKCE in memory store');
+        return memData.codeVerifier;
+      }
+      return null;
+    }
+
+    if (data) {
+      console.log('[Jira OAuth] Retrieved PKCE from Supabase');
+      // Delete after retrieval (one-time use)
+      await supabaseClient
+        .from('jira_oauth_pkce')
+        .delete()
+        .eq('state', state)
+        .catch(err => console.warn('[Jira OAuth] Failed to cleanup PKCE:', err));
+      
+      return data.code_verifier;
+    }
+
+    return null;
+  } catch (err) {
+    console.warn('[Jira OAuth] Error retrieving PKCE:', err);
+    // Check in-memory as fallback
+    const memData = jiraPKCEStore.get(state);
+    return memData?.codeVerifier || null;
+  }
+}
 
 // Fetch Jira user info using access token
 async function getJiraUserInfo(accessToken: string): Promise<any> {
@@ -188,7 +307,11 @@ async function login(req: Request, res: Response): Promise<void> {
       timestamp: new Date().toISOString()
     });
 
-    // Store PKCE data in session
+    // Store PKCE data in Supabase (for serverless/Vercel compatibility)
+    // Falls back to in-memory if Supabase is not configured
+    await storePKCEInDatabase(state, codeVerifier);
+
+    // Also store PKCE data in session as backup
     req.session.jiraCodeVerifier = codeVerifier;
     
     // Save session before redirect
@@ -198,6 +321,7 @@ async function login(req: Request, res: Response): Promise<void> {
           console.error('[Jira OAuth] Session save failed:', err);
           reject(err);
         } else {
+          console.log('[Jira OAuth] Session saved');
           resolve();
         }
       });
@@ -218,11 +342,11 @@ async function login(req: Request, res: Response): Promise<void> {
 
     const authUrl = `${AUTHORIZE_URL}?${params.toString()}`;
     
-    console.log('[Jira OAuth] Redirecting to:', authUrl);
+    console.log('[Jira OAuth] Redirecting to Jira:', authUrl);
     res.redirect(authUrl);
   } catch (error) {
     console.error('[Jira OAuth Login] Error:', error);
-    res.status(500).send('Failed to initiate Jira OAuth flow');
+    res.status(500).json({ error: 'Failed to initiate Jira OAuth flow', details: error instanceof Error ? error.message : String(error) });
   }
 }
 
@@ -280,37 +404,73 @@ async function getAccessibleResources(accessToken: string): Promise<JiraResource
 
 // OAuth callback handler
 async function callback(req: Request, res: Response): Promise<void> {
-  const { code, error, error_description } = req.query as { 
-    code?: string; 
+  const { code, state, error, error_description } = req.query as { 
+    code?: string;
+    state?: string;
     error?: string; 
     error_description?: string;
   };
 
+  console.log('[Jira OAuth Callback] ==== CALLBACK STARTED ====');
+  console.log('[Jira OAuth Callback] Received params:', {
+    code: code ? `${code.substring(0, 20)}...` : 'MISSING',
+    state: state ? `${state.substring(0, 20)}...` : 'MISSING',
+    error: error || 'NONE'
+  });
+
   if (error) {
-    console.error('[Jira OAuth Callback] Error:', error, error_description);
-    res.status(400).send(`OAuth error: ${error_description || error}`);
-    return;
+    console.error('[Jira OAuth Callback] OAuth error from Jira:', error, error_description);
+    return res.status(400).json({ 
+      error: `OAuth error: ${error}`,
+      description: error_description 
+    });
   }
 
   if (!code) {
     console.error('[Jira OAuth Callback] Missing authorization code');
-    res.status(400).send('Missing authorization code');
-    return;
+    return res.status(400).json({ error: 'Missing authorization code' });
   }
 
-  const codeVerifier = req.session?.jiraCodeVerifier;
-  if (!codeVerifier) {
-    console.error('[Jira OAuth Callback] Missing PKCE code verifier');
-    res.status(400).send('Missing PKCE code verifier. Session may have expired.');
-    return;
+  if (!state) {
+    console.error('[Jira OAuth Callback] Missing state parameter');
+    return res.status(400).json({ error: 'Missing state parameter' });
   }
 
   try {
+    console.log('[Jira OAuth Callback] Retrieving PKCE with state:', `${state.substring(0, 20)}...`);
+    
+    // Retrieve PKCE code verifier from database (works in serverless environments)
+    // Falls back to in-memory if database retrieval fails
+    const codeVerifier = await retrievePKCEFromDatabase(state);
+    
+    if (!codeVerifier) {
+      console.error('[Jira OAuth Callback] ✗ Code verifier not found in database or session');
+      console.error('[Jira OAuth Callback] Debug:', {
+        state: state.substring(0, 30),
+        hasMemoryStore: jiraPKCEStore.has(state),
+        sessionHasVerifier: !!req.session?.jiraCodeVerifier,
+      });
+      
+      return res.status(400).json({ 
+        error: 'PKCE verification failed',
+        details: 'State parameter not found. Session may have expired.',
+        debug: process.env.NODE_ENV === 'development' ? {
+          stateReceived: state.substring(0, 30),
+          memoryStoreHasState: jiraPKCEStore.has(state),
+          sessionHasVerifier: !!req.session?.jiraCodeVerifier,
+        } : undefined
+      });
+    }
+
+    console.log('[Jira OAuth Callback] ✓ Code verifier retrieved, exchanging for token...');
+    
     // Exchange code for tokens
     const tokenResp = await exchangeCodeForToken(code, codeVerifier);
 
     // Clear the code_verifier from session after use
     delete req.session.jiraCodeVerifier;
+
+    console.log('[Jira OAuth Callback] ✓ Token exchange successful');
 
     // Get accessible Jira resources (sites)
     const resources = await getAccessibleResources(tokenResp.access_token);
@@ -319,51 +479,36 @@ async function callback(req: Request, res: Response): Promise<void> {
       throw new Error('No Jira sites accessible with this account');
     }
 
-    // Store ALL accessible resources in session so user can switch
+    console.log('[Jira OAuth Callback] ✓ Got', resources.length, 'accessible resource(s)');
+
+    // Store ALL accessible resources in session
     req.session.jiraAccessibleResources = resources;
 
     // Use the first accessible resource by default
     const primaryResource = resources[0];
     
-    console.log('[Jira OAuth] Connected to site:', primaryResource.name, primaryResource.url);
-    console.log('[Jira OAuth] Available sites:', resources.map(r => ({ name: r.name, id: r.id })));
-
     // Store tokens using the current sessionID
     const storeKey = req.sessionID;
     const expiresAt = Date.now() + (tokenResp.expires_in * 1000);
     
-    const tokenStore = {
+    const tokenStore: TokenStore = {
       accessToken: tokenResp.access_token,
       refreshToken: tokenResp.refresh_token,
       expiresAt: expiresAt,
       cloudId: primaryResource.id,
-      userId: storeKey, // Use sessionID as userId
+      userId: storeKey,
       siteName: primaryResource.name,
       siteUrl: primaryResource.url,
     };
     
     jiraTokens.set(storeKey, tokenStore);
 
-    console.log('[Jira OAuth] Stored token with storeKey:', storeKey);
-    console.log('[Jira OAuth] Token details:', {
-      accessTokenLength: tokenResp.access_token.length,
-      refreshTokenExists: !!tokenResp.refresh_token,
-      expiresIn: tokenResp.expires_in,
-      expiresAt: new Date(expiresAt),
-      cloudId: primaryResource.id,
-      siteName: primaryResource.name,
-    });
+    console.log('[Jira OAuth] Stored token for user:', storeKey);
 
     // Store cloudId and user info in session
     req.session.jiraCloudId = primaryResource.id;
     req.session.jiraUserId = storeKey;
     req.session.jiraStoreKey = storeKey;
-
-    console.log('[Jira OAuth] Session before save:', {
-      jiraStoreKey: req.session.jiraStoreKey,
-      jiraCloudId: req.session.jiraCloudId,
-      sessionID: req.sessionID
-    });
 
     // Save session before redirecting
     await new Promise<void>((resolve, reject) => {
@@ -372,39 +517,44 @@ async function callback(req: Request, res: Response): Promise<void> {
           console.error('[Jira OAuth] Session save failed:', err);
           reject(err);
         } else {
-          console.log('[Jira OAuth] Session saved successfully');
+          console.log('[Jira OAuth] ✓ Session saved');
           resolve();
         }
       });
     });
-
-    console.log('[Jira OAuth Callback] Success! Fetching user info...');
     
-    // Fetch Jira user info and save to Supabase
+    // Fetch and save Jira user info to Supabase
     try {
+      console.log('[Jira OAuth Callback] Fetching user info...');
       const jiraUser = await getJiraUserInfo(tokenResp.access_token);
       await saveJiraUserToSupabase(jiraUser, tokenResp);
-      console.log('[Jira OAuth Callback] User saved to Supabase');
+      console.log('[Jira OAuth Callback] ✓ User saved to Supabase');
     } catch (error) {
-      console.warn('[Jira OAuth Callback] Warning: Could not save user to Supabase, continuing anyway:', error);
+      console.warn('[Jira OAuth Callback] Warning - could not save user to Supabase:', error);
+      // Continue anyway - auth still works without Supabase save
     }
 
-    console.log('[Jira OAuth Callback] Success! Redirecting to dashboard...');
+    console.log('[Jira OAuth Callback] ✓ Authentication complete! Redirecting...');
     
-    // Redirect to main dashboard - determine frontend URL based on environment
-    let frontendBase = process.env.FRONTEND_URL || 'http://localhost:5173'; // Default for development
+    // Determine redirect URL based on environment
+    let redirectUrl = 'http://localhost:5173/velocity-ai'; // Default for dev
     
     if (process.env.NODE_ENV === 'production') {
-      frontendBase = process.env.FRONTEND_URL_PROD || 'https://www.joinvelocity.co';
+      redirectUrl = (process.env.FRONTEND_URL_PROD || 'https://www.joinvelocity.co') + '/velocity-ai';
+    } else if (process.env.FRONTEND_URL) {
+      redirectUrl = process.env.FRONTEND_URL + '/velocity-ai';
     }
     
-    const redirectUrl = `${frontendBase}/velocity-ai`;
     console.log('[Jira OAuth Callback] Redirecting to:', redirectUrl);
-    
     res.redirect(redirectUrl);
+    
   } catch (err) {
-    console.error('[Jira OAuth Callback] Failed:', err);
-    res.status(500).send('OAuth callback failed. Please try again.');
+    console.error('[Jira OAuth Callback] ✗ Error:', err instanceof Error ? err.message : String(err));
+    return res.status(500).json({ 
+      error: 'OAuth callback failed',
+      details: err instanceof Error ? err.message : 'Unknown error',
+      debug: process.env.NODE_ENV === 'development' ? { stack: err instanceof Error ? err.stack : undefined } : undefined
+    });
   }
 }
 

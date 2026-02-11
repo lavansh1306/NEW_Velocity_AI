@@ -16,7 +16,7 @@ export default function DebugNormalization() {
     if (!selected) return;
     getNormalizedEventsForProject(selected).then((ev) => {
       setEvents(ev);
-      const apps = ['Asana', 'Jira', 'Zapier', 'HubSpot', 'Microsoft365'] as const;
+      const apps = ['Jira', 'HubSpot', 'Microsoft365'] as const;
       const result = apps.map((app) => ({ app, manual: 0, automated: 0 })) as ManualVsAutomatedByApp[];
       const lookup = new Map(result.map((r) => [r.app, r]));
       for (const e of ev) {
