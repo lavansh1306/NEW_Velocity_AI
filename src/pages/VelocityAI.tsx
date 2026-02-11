@@ -196,15 +196,13 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
     // Active Projects - projects with issues due today or in progress
     const activeProjectsSet = new Set<string>();
     const projectsAtRiskSet = new Set<string>();
-    let totalTeamUtilization = 0;
     let availableCapacity = 0;
     let allocatedCapacity = 0;
+    let totalOccupiedDays = 0;
+    let totalProjectBusinessDays = 0;
 
-    // Group issues by assignee and collect date range
-    const byAssignee: { [key: string]: Array<{ start: Date; due: Date }> } = {};
-    let minDate = new Date(today);
-    let maxDate = new Date(today);
-    let hasValidDates = false;
+    // Group issues by PROJECT first
+    const byProject: { [projectKey: string]: any[] } = {};
 
     jiraIssues.forEach((issue: any) => {
       const issueDueDate = issue.due ? new Date(issue.due) : null;
@@ -225,39 +223,72 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
         projectsAtRiskSet.add(projectKey);
       }
 
-      // Capacity calculations - collect intervals per assignee
-      const assignee = issue.assignee || 'Unassigned';
-      const startDate = issueStartDate || new Date();
-      const endDate = issueDueDate || startDate;
-      
-      if (!byAssignee[assignee]) {
-        byAssignee[assignee] = [];
+      if (!byProject[projectKey]) {
+        byProject[projectKey] = [];
       }
-      byAssignee[assignee].push({ start: startDate, due: endDate });
-      
-      // Track date range
-      if (startDate < minDate) minDate = new Date(startDate);
-      if (endDate > maxDate) maxDate = new Date(endDate);
-      hasValidDates = true;
+      byProject[projectKey].push(issue);
       allocatedCapacity += duration;
     });
 
     const uniqueAssignees = new Set(jiraIssues.map((i: any) => i.assignee || 'Unassigned'));
-    
-    // Calculate available capacity based on actual working window
-    if (hasValidDates && uniqueAssignees.size > 0) {
-      // Get business days in the working window
-      const windowBusinessDays = countBusinessDays(minDate, maxDate);
-      const totalCapacityHours = windowBusinessDays * 8 * uniqueAssignees.size; // 8 hours per business day
+
+    // Track per-assignee per-project capacity - ONLY count their working window in that project
+    const assigneeProjectCapacity: { [key: string]: Array<{ projectKey: string; windowStart: string; windowEnd: string; businessDays: number; occupiedDays: number; idleDays: number; idleHours: number }> } = {};
+
+    // Process each project individually
+    const projectKeys = Object.keys(byProject).sort();
+    for (let projectIndex = 0; projectIndex < projectKeys.length; projectIndex++) {
+      const projectKey = projectKeys[projectIndex];
+      const projectIssues = byProject[projectKey];
       
-      // Calculate occupied business days per assignee
-      let totalOccupiedDays = 0;
-      for (const assignee in byAssignee) {
-        const intervals = byAssignee[assignee];
-        // Merge overlapping intervals
+      // Group by assignee FIRST to get each person's window in this project
+      const byAssigneeInProject: { [key: string]: Array<{ start: Date; due: Date }> } = {};
+
+      projectIssues.forEach((issue: any) => {
+        const assignee = issue.assignee || 'Unassigned';
+        const startDate = issue.start ? new Date(issue.start) : null;
+        const dueDate = issue.due ? new Date(issue.due) : null;
+
+        if (!byAssigneeInProject[assignee]) {
+          byAssigneeInProject[assignee] = [];
+        }
+        
+        if (startDate || dueDate) {
+          byAssigneeInProject[assignee].push({ 
+            start: startDate || dueDate!, 
+            due: dueDate || startDate! 
+          });
+        }
+      });
+
+      // For each assignee in this project, calculate their individual capacity
+      for (const assignee in byAssigneeInProject) {
+        const intervals = byAssigneeInProject[assignee];
+        
+        if (intervals.length === 0) continue;
+
+        // Find this assignee's working window in this project (first task to last task)
+        let assigneeProjectMinDate: Date | null = null;
+        let assigneeProjectMaxDate: Date | null = null;
+
+        intervals.forEach(interval => {
+          if (!assigneeProjectMinDate || interval.start < assigneeProjectMinDate) {
+            assigneeProjectMinDate = new Date(interval.start);
+          }
+          if (!assigneeProjectMaxDate || interval.due > assigneeProjectMaxDate) {
+            assigneeProjectMaxDate = new Date(interval.due);
+          }
+        });
+
+        if (!assigneeProjectMinDate || !assigneeProjectMaxDate) continue;
+
+        // Count business days ONLY in this assignee's working window for this project
+        const assigneeWindowBusinessDays = countBusinessDays(assigneeProjectMinDate, assigneeProjectMaxDate);
+
+        // Merge overlapping intervals for this assignee
         const sortedIntervals = intervals.sort((a, b) => a.start.getTime() - b.start.getTime());
         const merged: Array<{ start: Date; due: Date }> = [];
-        
+
         sortedIntervals.forEach(interval => {
           if (merged.length === 0) {
             merged.push(interval);
@@ -271,23 +302,51 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
             }
           }
         });
-        
-        // Count business days in merged intervals
+
+        // Count occupied business days for this assignee in this project
+        let assigneeOccupiedDays = 0;
         merged.forEach(interval => {
           const occupiedDays = countBusinessDays(interval.start, interval.due);
-          totalOccupiedDays += occupiedDays;
+          assigneeOccupiedDays += occupiedDays;
         });
+
+        // Calculate idle days for this assignee in this project
+        const assigneeIdleDays = Math.max(0, assigneeWindowBusinessDays - assigneeOccupiedDays);
+        const assigneeIdleHours = assigneeIdleDays * 8;
+
+        // Track this data
+        if (!assigneeProjectCapacity[assignee]) {
+          assigneeProjectCapacity[assignee] = [];
+        }
+        assigneeProjectCapacity[assignee].push({
+          projectKey,
+          windowStart: assigneeProjectMinDate.toLocaleDateString(),
+          windowEnd: assigneeProjectMaxDate.toLocaleDateString(),
+          businessDays: assigneeWindowBusinessDays,
+          occupiedDays: assigneeOccupiedDays,
+          idleDays: assigneeIdleDays,
+          idleHours: assigneeIdleHours
+        });
+
+        // Add to project totals
+        totalProjectBusinessDays += assigneeWindowBusinessDays;
+        totalOccupiedDays += assigneeOccupiedDays;
+        availableCapacity += assigneeIdleHours;
       }
-      
-      const totalAvailableDays = (windowBusinessDays * uniqueAssignees.size) - totalOccupiedDays;
-      availableCapacity = Math.max(0, totalAvailableDays * 8); // Convert to hours
-      totalTeamUtilization = windowBusinessDays > 0 ? Math.round((totalOccupiedDays / (windowBusinessDays * uniqueAssignees.size)) * 100) : 0;
-    } else {
-      // Fallback to simple calculation if no dates available
-      const totalCapacityPerWeek = uniqueAssignees.size * 40;
-      availableCapacity = Math.max(0, totalCapacityPerWeek - allocatedCapacity);
-      totalTeamUtilization = uniqueAssignees.size > 0 ? Math.round((allocatedCapacity / (uniqueAssignees.size * 40)) * 100) : 0;
     }
+
+    // Log per-assignee per-project capacity
+    console.log('📊 Per-Assignee Per-Project Capacity Breakdown (Based on Their Working Window Only):');
+    for (const assignee in assigneeProjectCapacity) {
+      console.log(`\n👤 ${assignee}:`);
+      assigneeProjectCapacity[assignee].forEach((proj, idx) => {
+        console.log(`  ${idx + 1}. ${proj.projectKey}: ${proj.windowStart} → ${proj.windowEnd}`);
+        console.log(`     Assignee Working Window: ${proj.businessDays} business days`);
+        console.log(`     Occupied: ${proj.occupiedDays}d | Idle: ${proj.idleDays}d = ${proj.idleHours}hrs`);
+      });
+    }
+
+    const totalTeamUtilization = totalProjectBusinessDays > 0 ? Math.round((totalOccupiedDays / totalProjectBusinessDays) * 100) : 0;
 
     return {
       activeProjects: activeProjectsSet.size,
