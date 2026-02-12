@@ -172,12 +172,46 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
   const [capacityBreakdown, setCapacityBreakdown] = useState<any>(null);
   const [selectedProject, setSelectedProject] = useState<string>('all');
   const [selectedEmployee, setSelectedEmployee] = useState<string>('all');
+  
+  // Date range for capacity overview
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   // Calculate dashboard metrics
   const dashboardMetrics = useMemo(() => {
+    // Filter issues based on date range if provided
+    let filteredIssues = jiraIssues;
+    
+    if (dateFrom || dateTo) {
+      filteredIssues = jiraIssues.filter((issue: any) => {
+        const issueDueDate = issue.due ? new Date(issue.due) : null;
+        const issueStartDate = issue.start ? new Date(issue.start) : null;
+        
+        // Use start date if available, otherwise use due date
+        const issueDate = issueStartDate || issueDueDate;
+        if (!issueDate) return true; // Include issues with no dates
+        
+        const issueTime = issueDate.getTime();
+        
+        if (dateFrom) {
+          const fromDate = new Date(dateFrom);
+          fromDate.setHours(0, 0, 0, 0);
+          if (issueTime < fromDate.getTime()) return false;
+        }
+        
+        if (dateTo) {
+          const toDate = new Date(dateTo);
+          toDate.setHours(23, 59, 59, 999);
+          if (issueTime > toDate.getTime()) return false;
+        }
+        
+        return true;
+      });
+    }
+    
     // Helper to count business days (Mon-Fri only)
     const countBusinessDays = (startDate: Date, endDate: Date): number => {
       let count = 0;
@@ -207,7 +241,7 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
     // Group issues by PROJECT first
     const byProject: { [projectKey: string]: any[] } = {};
 
-    jiraIssues.forEach((issue: any) => {
+    filteredIssues.forEach((issue: any) => {
       const issueDueDate = issue.due ? new Date(issue.due) : null;
       const issueStartDate = issue.start ? new Date(issue.start) : null;
       const projectKey = issue.key?.split('-')[0] || 'Unknown';
@@ -452,7 +486,7 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
       totalTasks: jiraIssues.length,
       totalAllocated: Math.round(allocatedCapacity),
     };
-  }, [jiraIssues]);
+  }, [jiraIssues, dateFrom, dateTo]);
 
   // Calculate filtered available capacity based on selected project and employee
   const filteredCapacity = useMemo(() => {
@@ -730,7 +764,42 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
 
       {/* Capacity Overview - Full Width */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <h2 className="text-lg font-bold text-gray-900 mb-6">CAPACITY OVERVIEW</h2>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-lg font-bold text-gray-900">CAPACITY OVERVIEW</h2>
+          <div className="flex gap-4 items-end">
+            <div className="flex flex-col">
+              <label htmlFor="date-from" className="text-xs text-gray-600 font-semibold mb-1">From Date</label>
+              <input
+                id="date-from"
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div className="flex flex-col">
+              <label htmlFor="date-to" className="text-xs text-gray-600 font-semibold mb-1">To Date</label>
+              <input
+                id="date-to"
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            {(dateFrom || dateTo) && (
+              <button
+                onClick={() => {
+                  setDateFrom('');
+                  setDateTo('');
+                }}
+                className="px-4 py-2 text-xs bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="border border-gray-200 rounded-lg p-4">
