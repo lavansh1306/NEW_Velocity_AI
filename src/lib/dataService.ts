@@ -123,8 +123,8 @@ export interface ProjectItem {
   image: string;
   tags: string[];
   color: string;
-  // runtime source marker: 'jira' | 'asana' | 'local'
-  source?: 'jira' | 'asana' | 'local';
+  // runtime source marker: 'jira' | 'local'
+  source?: 'jira' | 'local';
 }
 
 // Fallback metadata (could be moved to a separate JSON file)
@@ -169,30 +169,21 @@ const projectImages: Record<string, string> = {
 // ========================================
 
 /**
- * Load list of projects from live integrations only (Jira + Asana).
- * This function no longer reads CSV fallbacks — projects are fetched
- * from `/api/projects` (Jira) and `/api/asana/projects` (Asana).
+ * Load list of projects from Jira only.
+ * Fetches projects from `/api/jira/projects`.
  */
 export async function loadProjects(): Promise<ProjectItem[]> {
   console.log('[loadProjects] Starting to fetch projects...');
   
-  // Fetch Jira and Asana project lists in parallel. If one fails, continue with the other.
-  const [jiraRes, asanaRes] = await Promise.all([
-    fetch(apiUrl('/api/jira/projects'), { credentials: 'include' }).catch((err) => {
-      console.error('[loadProjects] Jira fetch failed:', err);
-      return null;
-    }),
-    fetch(apiUrl('/api/asana/projects'), { credentials: 'include' }).catch((err) => {
-      console.error('[loadProjects] Asana fetch failed:', err);
-      return null;
-    }),
-  ]);
+  // Fetch Jira project list
+  const jiraRes = await fetch(apiUrl('/api/jira/projects'), { credentials: 'include' }).catch((err) => {
+    console.error('[loadProjects] Jira fetch failed:', err);
+    return null;
+  });
 
   console.log('[loadProjects] Jira response:', jiraRes?.status, jiraRes?.ok);
-  console.log('[loadProjects] Asana response:', asanaRes?.status, asanaRes?.ok);
 
   let jiraList: any[] = [];
-  let asanaList: any[] = [];
 
   if (jiraRes && jiraRes.ok) {
     try {
@@ -207,19 +198,6 @@ export async function loadProjects(): Promise<ProjectItem[]> {
     console.error('[loadProjects] Jira request failed with status:', jiraRes.status);
     const text = await jiraRes.text();
     console.error('[loadProjects] Jira error response:', text.substring(0, 200));
-  }
-
-  if (asanaRes && asanaRes.ok) {
-    try {
-      const data = await asanaRes.json();
-      asanaList = data.projects || [];
-      console.log('[loadProjects] Asana projects:', asanaList.length);
-    } catch (e) {
-      console.error('[loadProjects] Error parsing Asana response:', e);
-      asanaList = [];
-    }
-  } else if (asanaRes) {
-    console.error('[loadProjects] Asana request failed with status:', asanaRes.status);
   }
 
   const normalized: ProjectItem[] = [];
@@ -237,23 +215,6 @@ export async function loadProjects(): Promise<ProjectItem[]> {
       color: projectColors[id] || '#6366f1',
       // @ts-ignore - add runtime marker for consumers
       source: 'jira',
-    } as unknown as ProjectItem);
-  }
-
-  // Normalize Asana projects, avoid duplicates by id
-  for (const p of asanaList) {
-    const id = p.id || p.gid || String(p.gid || '');
-    if (normalized.some((x) => x.id === id)) continue;
-    normalized.push({
-      id,
-      title: p.title || p.name || String(p.name || id),
-      category: p.category || 'Asana',
-      description: p.description || p.notes || projectDescriptions[id] || '',
-      image: p.avatar || p.photo || projectImages[id] || projectImages['1'],
-      tags: projectTags[id] || [],
-      color: projectColors[id] || '#fb923c',
-      // @ts-ignore - add runtime marker for consumers
-      source: 'asana',
     } as unknown as ProjectItem);
   }
 
