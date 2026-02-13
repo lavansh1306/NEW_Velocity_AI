@@ -34,7 +34,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <ToastContainer />
-          <BrowserRouter>
+          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <Routes>
               {/* Authentication Routes */}
               <Route path="/login" element={<Login />} />
