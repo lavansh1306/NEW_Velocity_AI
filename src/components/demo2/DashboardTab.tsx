@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { loadAllMetrics, computeAllBlockedHours } from '@/lib/dataService';
 import { apiUrl } from '@/lib/api';
-import { hubspotFetch } from '@/lib/hubspot-fetch';
 import { ManagerGantt } from '@/components/jira';
 import type { Issue } from '@/components/jira/types';
 

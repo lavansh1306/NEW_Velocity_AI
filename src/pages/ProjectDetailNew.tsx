@@ -9,8 +9,6 @@ import {
   loadWeeklyCommitsByProject, 
   loadBurndownByProject,
   loadJiraIssuesByProject,
-  loadHubSpotEventsByProject,
-  loadM365ActivitiesByProject,
   loadProjectAnalytics,
 } from '@/lib/dataService';
 import type { 
@@ -21,8 +19,6 @@ import type {
   WeeklyCommit, 
   BurndownData,
   JiraIssue,
-  HubSpotEvent,
-  M365Activity,
   ProjectAnalytics,
 } from '@/lib/dataService';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -44,8 +40,6 @@ export default function ProjectDetailNew() {
   const [burndownData, setBurndownData] = useState<BurndownData[]>([]);
   
   const [jiraIssues, setJiraIssues] = useState<JiraIssue[]>([]);
-  const [hubspotEvents, setHubspotEvents] = useState<HubSpotEvent[]>([]);
-  const [m365Activities, setM365Activities] = useState<M365Activity[]>([]);
   const [projectAnalytics, setProjectAnalytics] = useState<ProjectAnalytics | null>(null);
   
   const [loading, setLoading] = useState(true);
@@ -73,10 +67,7 @@ export default function ProjectDetailNew() {
           membersData,
           weeklyData,
           burndownDataRaw,
-          asanaData,
           jiraData,
-          hubspotData,
-          m365Data,
           analyticsData,
         ] = await Promise.all([
           loadCommitsByProject(id),
@@ -85,8 +76,6 @@ export default function ProjectDetailNew() {
           loadWeeklyCommitsByProject(id),
           loadBurndownByProject(id),
           loadJiraIssuesByProject(id),
-          loadHubSpotEventsByProject(id),
-          loadM365ActivitiesByProject(id),
           loadProjectAnalytics(id),
         ]);
         
@@ -96,8 +85,6 @@ export default function ProjectDetailNew() {
         setWeeklyCommits(weeklyData);
         setBurndownData(burndownDataRaw);
         setJiraIssues(jiraData);
-        setHubspotEvents(hubspotData);
-        setM365Activities(m365Data);
         setProjectAnalytics(analyticsData);
         
       } catch (error) {
@@ -145,14 +132,6 @@ export default function ProjectDetailNew() {
     ? ((jiraIssues.filter(i => i.is_automation).length / jiraIssues.length) * 100).toFixed(1)
     : '0';
   
-  const hubspotWorkflowRate = hubspotEvents.length > 0
-    ? ((hubspotEvents.filter(e => e.source === 'workflow').length / hubspotEvents.length) * 100).toFixed(1)
-    : '0';
-  
-  const m365ServiceRate = m365Activities.length > 0
-    ? ((m365Activities.filter(a => a.user_type === 'service').length / m365Activities.length) * 100).toFixed(1)
-    : '0';
-
   // Prepare chart data
   const weeklyCommitsChartData = weeklyCommits.map(w => ({
     week: new Date(w.week_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
@@ -165,9 +144,7 @@ export default function ProjectDetailNew() {
   })) || [];
 
   const integrationSavingsData = projectAnalytics ? [
-    { name: 'HubSpot', hours: projectAnalytics.integration_savings.hubspot },
     { name: 'Asana', hours: projectAnalytics.integration_savings.asana },
-    { name: 'Microsoft365', hours: projectAnalytics.integration_savings.microsoft365 },
   ] : [];
 
   const timeLogsChartData = projectAnalytics?.time_logs.map(log => ({
@@ -191,8 +168,6 @@ export default function ProjectDetailNew() {
     ...commits.map(c => ({ id: `commit-${c.sha}`, type: 'commit', time: c.date, description: `Commit: ${c.message}`, source: 'GitHub', actor: c.author })),
     ...asanaTasks.map(t => ({ id: `asana-${t.gid}`, type: 'task', time: t.created_at, description: `${t.action}: ${t.task_name || 'Task'}`, source: 'Asana', actor: t.created_by })),
     ...jiraIssues.map(i => ({ id: `jira-${i.issue_id}`, type: 'issue', time: i.created_at, description: `${i.event_type}: ${i.issue_key} - ${i.summary || 'Issue'}`, source: 'Jira', actor: i.actor })),
-    ...hubspotEvents.map(h => ({ id: `hubspot-${h.event_id}`, type: 'hubspot', time: h.occurred_at, description: `${h.object_type} ${h.event_action}`, source: 'HubSpot', actor: h.source })),
-    ...m365Activities.map(m => ({ id: `m365-${m.activity_id}`, type: 'm365', time: m.activity_time, description: `${m.workload}: ${m.activity_type}`, source: 'M365', actor: m.user_type })),
   ].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, 50);
 
   const getSourceColor = (source: string) => {
@@ -200,8 +175,6 @@ export default function ProjectDetailNew() {
       'GitHub': 'bg-gray-800 text-white',
       'Asana': 'bg-pink-600 text-white',
       'Jira': 'bg-blue-600 text-white',
-      'HubSpot': 'bg-orange-600 text-white',
-      'M365': 'bg-blue-500 text-white',
     };
     return colors[source] || 'bg-gray-500 text-white';
   };
@@ -211,8 +184,6 @@ export default function ProjectDetailNew() {
       'GitHub': GitBranch,
       'Asana': CheckCircle,
       'Jira': AlertCircle,
-      'HubSpot': Mail,
-      'M365': MessageSquare,
     };
     const Icon = icons[source] || Activity;
     return <Icon className="w-4 h-4" />;

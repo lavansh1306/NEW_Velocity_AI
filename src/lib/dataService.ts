@@ -5,16 +5,12 @@
 
 import type {
   RawJiraRow,
-  RawHubSpotRow,
-  RawMicrosoft365Row,
   NormalizedEvent,
   MetricsResponse,
 } from './types';
 
 import {
   normalizeJira,
-  normalizeHubSpot,
-  normalizeMicrosoft365,
 } from './normalizers';
 
 import {
@@ -252,24 +248,17 @@ export async function loadMetrics(projectId: string): Promise<MetricsResponse> {
  * This avoids re-fetching CSVs per-project when we only need a global number.
  */
 export async function loadAllMetrics(): Promise<Partial<MetricsResponse>> {
-  const [asanaCsv, zapierCsv, hubspotCsv, m365Csv] = await Promise.all([
+  const [asanaCsv, zapierCsv] = await Promise.all([
     fetchCSV('/data/asana_events.csv').catch(() => ''),
     fetchCSV('/data/zapier_events.csv').catch(() => ''),
-    fetchCSV('/data/hubspot_events.csv').catch(() => ''),
-    fetchCSV('/data/microsoft365_events.csv').catch(() => ''),
   ]);
 
   // Jira events come from live Jira via backend proxy — do NOT use CSV
   const jiraRows = await fetchJiraRowsFromApi()
 
   // Asana and Zapier removed - no longer loading from CSV
-  const hubspotRows = parseCSV<RawHubSpotRow>(hubspotCsv);
-  const m365Rows = parseCSV<RawMicrosoft365Row>(m365Csv);
-
   const allEvents: NormalizedEvent[] = [
     ...normalizeJira(jiraRows),
-    ...normalizeHubSpot(hubspotRows),
-    ...normalizeMicrosoft365(m365Rows),
   ];
 
   const HOURLY_RATE_USD = 100;
@@ -280,8 +269,6 @@ export async function loadAllMetrics(): Promise<Partial<MetricsResponse>> {
   // Investment costs per app (in USD) — adjust as needed
   const investmentCosts: Record<string, number> = {
     Jira: 10000,
-    HubSpot: 10000,
-    Microsoft365: 10000,
   };
   
   const perAppReturns = estimatedReturnsByApp(allEvents, HOURLY_RATE_USD, investmentCosts);
@@ -503,24 +490,17 @@ export async function computeAllBlockedHours(): Promise<number | null> {
  * Fetch raw CSVs, normalize them and return NormalizedEvent[] filtered by projectId.
  */
 export async function getNormalizedEventsForProject(projectId: string): Promise<NormalizedEvent[]> {
-  const [asanaCsv, zapierCsv, hubspotCsv, m365Csv] = await Promise.all([
+  const [asanaCsv, zapierCsv] = await Promise.all([
     fetchCSV('/data/asana_events.csv').catch(() => ''),
     fetchCSV('/data/zapier_events.csv').catch(() => ''),
-    fetchCSV('/data/hubspot_events.csv').catch(() => ''),
-    fetchCSV('/data/microsoft365_events.csv').catch(() => ''),
   ]);
 
   // Jira events come from live Jira via backend proxy — do NOT use CSV
   const jiraRows = await fetchJiraRowsFromApi()
 
   // Asana and Zapier removed - no longer loading from CSV
-  const hubspotRows = parseCSV<RawHubSpotRow>(hubspotCsv);
-  const m365Rows = parseCSV<RawMicrosoft365Row>(m365Csv);
-
   const allEvents: NormalizedEvent[] = [
     ...normalizeJira(jiraRows),
-    ...normalizeHubSpot(hubspotRows),
-    ...normalizeMicrosoft365(m365Rows),
   ];
 
   return allEvents.filter((e) => e.projectId === projectId);
@@ -864,134 +844,8 @@ export async function loadJiraIssuesByProject(projectId: string): Promise<JiraIs
 }
 
 // ========================================
-// HubSpot Data Loaders
-// ========================================
-
-export interface HubSpotEvent {
-  event_id: string;
-  occurred_at: string;
-  object_type: string;
-  event_action: string;
-  source: 'workflow' | 'manual';
-  object_id: string;
-  project_id: string;
-  workflow_name?: string;
-  template?: string;
-  company_size?: string;
-  device?: string;
-  subject?: string;
-  link?: string;
-  role?: string;
-  tags_added?: number;
-  status?: string;
-}
-
-export async function loadHubSpotEventsByProject(projectId: string): Promise<HubSpotEvent[]> {
-  try {
-    const resp = await fetch(`/api/issues?projectKey=${encodeURIComponent(projectId)}`)
-    if (!resp.ok) return []
-    const data = await resp.json()
-    const issues = data.issues || []
-    return issues.map((iss: any) => ({
-      issue_id: iss.key || iss.id || '',
-      issue_key: iss.key || iss.id || '',
-      created_at: iss.created || iss.fields?.created || '',
-      event_type: 'issue_created',
-      actor: iss.assignee?.displayName || iss.fields?.assignee?.displayName || 'unknown',
-      from_status: '',
-      to_status: iss.status || iss.fields?.status?.name || '',
-      project_id: iss.fields?.project?.key || iss.project || projectId,
-      summary: iss.summary || iss.fields?.summary || '',
-      severity: iss.priority?.name || iss.fields?.priority?.name || '',
-      priority: iss.priority?.name || iss.fields?.priority?.name || '',
-      comment: '',
-      resolution: iss.fields?.resolution?.name || '',
-      is_automation: (iss.assignee?.displayName || '').toLowerCase().includes('automation'),
-    }))
-  } catch (err) {
-    console.error('Failed to load Jira issues from API', err)
-    return []
-  }
-  
-}
-
-// ========================================
 // Project Analytics Loader
 // ========================================
-
-// ========================================
-// Microsoft365 Data Loaders
-// ========================================
-
-export interface M365Activity {
-  activity_id: string;
-  activity_time: string;
-  workload: 'Teams' | 'Outlook' | 'OneDrive' | string;
-  activity_type: string;
-  user_type: 'user' | 'service' | string;
-  resource_id?: string;
-  project_id?: string;
-  participant_count?: number;
-  duration_minutes?: number;
-  subject?: string;
-  recipients?: string[];
-  file_name?: string;
-  file_size_mb?: number;
-  action?: string;
-}
-
-export async function loadM365ActivitiesByProject(projectId: string): Promise<M365Activity[]> {
-  const csvText = await fetchCSV('/data/microsoft365_events.csv').catch(() => '');
-  if (!csvText) return [];
-  const allEvents = parseCSV<{ activity_id: string; activity_time: string; workload: string; activity_type: string; user_type: string; resource_id: string; project_id: string; additional_data: string }>(csvText);
-
-  const projectEvents = allEvents.filter((e) => e.project_id === projectId);
-
-  return projectEvents.map((e) => {
-    try {
-      let dataStr = e.additional_data || '{}';
-      dataStr = dataStr.replace(/\\"/g, '"');
-      dataStr = dataStr.replace(/([{,])\s*\\?([a-zA-Z_][a-zA-Z0-9_]*)\\?\s*:/g, '$1"$2":');
-      dataStr = dataStr.replace(/:\s*([^,}\[\]"\s][^,}\[\]]*?)\s*([,}])/g, (match, value, ending) => {
-        const trimmed = value.trim();
-        if (trimmed.match(/^(\d+(\.\d+)?|true|false|null)$/)) return `: ${trimmed}${ending}`;
-        if (trimmed.startsWith('"') && trimmed.endsWith('"')) return `: ${trimmed}${ending}`;
-        const escaped = trimmed.replace(/"/g, '\\"');
-        return `: "${escaped}"${ending}`;
-      });
-
-      const data = JSON.parse(dataStr);
-
-      return {
-        activity_id: e.activity_id,
-        activity_time: e.activity_time,
-        workload: e.workload as any,
-        activity_type: e.activity_type,
-        user_type: e.user_type as any,
-        resource_id: e.resource_id,
-        project_id: e.project_id,
-        participant_count: data.participant_count ? Number(data.participant_count) : undefined,
-        duration_minutes: data.duration_minutes ? Number(data.duration_minutes) : undefined,
-        subject: data.subject,
-        recipients: data.recipients ? data.recipients.split('|') : undefined,
-        file_name: data.file_name,
-        file_size_mb: data.file_size_mb,
-        action: data.action,
-      };
-    } catch (err) {
-      console.error('Failed to parse M365 activity additional_data:', e.additional_data, err);
-      return {
-        activity_id: e.activity_id,
-        activity_time: e.activity_time,
-        workload: e.workload as any,
-        activity_type: e.activity_type,
-        user_type: e.user_type as any,
-        resource_id: e.resource_id,
-        project_id: e.project_id,
-      };
-    }
-  });
-}
 
 export interface AIToolUsage {
   tool: string;
@@ -999,9 +853,7 @@ export interface AIToolUsage {
 }
 
 export interface IntegrationSavings {
-  hubspot: number;
   asana: number;
-  microsoft365: number;
   zapier: number;
 }
 
@@ -1080,7 +932,7 @@ export async function loadProjectAnalytics(projectId: string): Promise<ProjectAn
         ai_time_saved_percent: data.ai_time_saved_percent || 0,
         tasks_automated_count: data.tasks_automated_count || 0,
         ai_tool_usage: data.ai_tool_usage || [],
-        integration_savings: data.integration_savings || { hubspot: 0, asana: 0, microsoft365: 0, zapier: 0 },
+        integration_savings: data.integration_savings || { asana: 0, zapier: 0 },
         tasks: data.tasks || [],
         jira_tickets: data.jira_tickets || [],
         time_logs: data.time_logs || [],

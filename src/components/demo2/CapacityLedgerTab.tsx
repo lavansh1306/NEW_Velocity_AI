@@ -1,6 +1,5 @@
 import React, { useMemo, useEffect, useState } from 'react';
 import { apiUrl } from '@/lib/api';
-import { hubspotFetch } from '@/lib/hubspot-fetch';
 import type { TeamMember, ProjectAnalytics } from '@/lib/dataService';
 
 interface Props {

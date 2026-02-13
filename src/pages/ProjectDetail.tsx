@@ -9,8 +9,6 @@ import {
   loadWeeklyCommitsByProject, 
   loadBurndownByProject,
   loadJiraIssuesByProject,
-  loadHubSpotEventsByProject,
-  loadM365ActivitiesByProject,
   loadProjectAnalytics,
 } from '@/lib/dataService';
 import type { 
@@ -21,8 +19,6 @@ import type {
   WeeklyCommit, 
   BurndownData,
   JiraIssue,
-  HubSpotEvent,
-  M365Activity,
   ProjectAnalytics,
 } from '@/lib/dataService';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';

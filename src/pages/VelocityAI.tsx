@@ -19,7 +19,6 @@ import CapacityLedgerTab from '../components/demo2/CapacityLedgerTab';
 import ROIVerificationTab from '../components/demo2/ROIVerificationTab';
 import ProjectActivityTab from '../components/demo2/ProjectActivityTab';
 import SecurityAuditTab from '../components/demo2/SecurityAuditTab';
-import HubSpotTab from '../components/demo2/HubSpotTab';
 import Projects from './Projects';
 import LeaveManagementTab from '../components/leave-management'; 
 import ProjectCheckView from '@/components/ml-model';
@@ -1025,7 +1024,6 @@ export default function VelocityAI() {
             {activeTab === 'projects' && <Projects jiraConnected={jiraConnected} withNav={false} />}
             {activeTab === 'stc' && <StandardTimeCatalogTab />}
             {activeTab === 'ledger' && <CapacityLedgerTab />}
-            {activeTab === 'hubspot' && <HubSpotTab />}
             {activeTab === 'deployment' && <ProjectCheckView />}
             
             {activeTab === 'activity' && <ProjectActivityTab />}

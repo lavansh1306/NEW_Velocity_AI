@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { apiUrl } from '@/lib/api';
-import { hubspotFetch } from '@/lib/hubspot-fetch';
 import { loadAllMetrics } from '@/lib/dataService';
 
 export default function VPDashboard() {

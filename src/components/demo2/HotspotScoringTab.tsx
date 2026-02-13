@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { apiUrl } from '@/lib/api'
-import { hubspotFetch } from '@/lib/hubspot-fetch'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 export default function HotspotScoringTab() {

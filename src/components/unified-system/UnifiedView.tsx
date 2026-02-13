@@ -11,7 +11,7 @@ import { UnifiedProject, UnifiedEmployee, LeaveRequest, ProjectCategory, Notific
 import { Button } from '../ui/button';
 import { 
   Plus, LayoutGrid, CheckCircle2, Briefcase, Wrench, FlaskConical, 
-  Layers, User, UserCog, Calendar, CalendarOff, LayoutDashboard, CalendarRange, Filter, X, Bell 
+  Layers, User, UserCog, Calendar, CalendarOff, LayoutDashboard, CalendarRange, Filter, X, Bell, Zap, AlertCircle, RefreshCw 
 } from 'lucide-react';
 
 import { fetchRawCSV } from '../ml-model/RecommendationEngine'; 
@@ -36,10 +36,207 @@ const getCategoryStyle = (cat: string) => {
   }
 };
 
+// --- JIRA INTEGRATION HELPERS ---
+interface JiraIssue {
+  key: string;
+  summary: string;
+  description: string;
+  status: string;
+  assignee: string;
+  priority: string;
+  issueType: string;
+  team: string;
+  due?: string;
+  created?: string;
+}
+
+interface JiraConnectionStatus {
+  connected: boolean;
+  site?: { id: string; name: string; url: string };
+  availableSites?: Array<{ id: string; name: string; url: string }>;
+}
+
+const checkJiraConnection = async (): Promise<JiraConnectionStatus> => {
+  try {
+    const response = await fetch('/api/jira/auth/status');
+    if (response.ok) {
+      return await response.json();
+    }
+    return { connected: false };
+  } catch (error) {
+    console.error('[Jira] Connection check failed:', error);
+    return { connected: false };
+  }
+};
+
+const fetchJiraProjects = async (): Promise<any[]> => {
+  try {
+    const response = await fetch('/api/jira/projects');
+    if (response.ok) {
+      const data = await response.json();
+      return data.projects || [];
+    }
+    console.warn('[Jira] Failed to fetch projects:', response.status);
+    return [];
+  } catch (error) {
+    console.error('[Jira] Error fetching projects:', error);
+    return [];
+  }
+};
+
+const fetchJiraIssuesForProject = async (projectKey: string): Promise<JiraIssue[]> => {
+  try {
+    const response = await fetch(`/api/jira/issues?projectKey=${encodeURIComponent(projectKey)}`);
+    if (response.ok) {
+      const data = await response.json();
+      return data.issues || [];
+    }
+    console.warn(`[Jira] Failed to fetch issues for ${projectKey}:`, response.status);
+    return [];
+  } catch (error) {
+    console.error(`[Jira] Error fetching issues for ${projectKey}:`, error);
+    return [];
+  }
+};
+
+const mapJiraIssuesToProjects = (
+  jiraIssues: JiraIssue[],
+  employees: UnifiedEmployee[]
+): UnifiedProject[] => {
+  return jiraIssues.map((issue, idx) => {
+    // Find or create employee from assignee
+    let assignedTeamIds: number[] = [];
+    if (issue.assignee && issue.assignee !== 'Unassigned') {
+      const emp = employees.find(e => e.name.toLowerCase() === issue.assignee.toLowerCase());
+      if (emp) {
+        assignedTeamIds = [emp.id];
+      }
+    }
+
+    // Determine category based on issue type
+    let category: ProjectCategory = 'Client Deliverable';
+    const lowerType = (issue.issueType || '').toLowerCase();
+    if (lowerType.includes('task') || lowerType.includes('internal')) category = 'Internal Tool';
+    else if (lowerType.includes('bug') || lowerType.includes('research')) category = 'R&D / POC';
+
+    // Determine priority
+    const priority = issue.priority?.toLowerCase().includes('high') ? 'High' : 'Medium';
+
+    // Estimate hours based on priority
+    const estimatedHours = priority === 'High' ? 16 : 8;
+
+    // Determine status
+    const status = (
+      issue.status?.toLowerCase().includes('done') ||
+      issue.status?.toLowerCase().includes('closed') ||
+      issue.status?.toLowerCase().includes('resolved')
+    ) ? 'COMPLETED' : 'ACTIVE';
+
+    return {
+      id: `jira_${issue.key}`,
+      title: `${issue.key}: ${issue.summary}`,
+      description: issue.description || issue.team,
+      status,
+      category,
+      requiredSkills: [issue.issueType || 'Development'],
+      estimatedHours,
+      priority,
+      assignedTeamIds,
+    };
+  });
+};
+
+const fetchAllJiraTasksData = async (): Promise<{
+  employees: UnifiedEmployee[];
+  projects: UnifiedProject[];
+}> => {
+  const result = { employees: [], projects: [] };
+
+  try {
+    // Check Jira connection
+    const connStatus = await checkJiraConnection();
+    if (!connStatus.connected) {
+      console.log('[Unified] Jira not connected, using CSV fallback');
+      return result;
+    }
+
+    console.log('[Unified] Jira connected! Fetching Jira projects...');
+
+    // Fetch all Jira projects
+    const jiraProjects = await fetchJiraProjects();
+    if (jiraProjects.length === 0) {
+      console.log('[Unified] No Jira projects found');
+      return result;
+    }
+
+    console.log(`[Unified] Found ${jiraProjects.length} Jira projects`);
+
+    // Collect all issues from all projects
+    const allJiraIssues: JiraIssue[] = [];
+    const uniqueEmployees = new Map<string, UnifiedEmployee>();
+
+    for (const project of jiraProjects) {
+      const issues = await fetchJiraIssuesForProject(project.key);
+      console.log(`[Unified] Fetched ${issues.length} issues from project ${project.key}`);
+      
+      for (const issue of issues) {
+        allJiraIssues.push(issue);
+
+        // Build unique employee list from assignees
+        if (issue.assignee && issue.assignee !== 'Unassigned' && !uniqueEmployees.has(issue.assignee)) {
+          uniqueEmployees.set(issue.assignee, {
+            id: 1000 + uniqueEmployees.size,
+            name: issue.assignee,
+            role: issue.issueType || 'Developer',
+            skills: [issue.issueType || 'Development'],
+            efficiencyRating: 1.0 + Math.random() * 0.5,
+            currentLoad: 0,
+            availableFrom: new Date().toISOString(),
+            totalProjectsCompleted: Math.floor(Math.random() * 20),
+            avgHoursPerTask: 0,
+            isOnLeave: false,
+          });
+        }
+      }
+    }
+
+    console.log(`[Unified] Total Jira issues collected: ${allJiraIssues.length}`);
+    console.log(`[Unified] Total unique employees: ${uniqueEmployees.size}`);
+
+    // Calculate load for each employee
+    const employeeIssueCount = new Map<string, number>();
+    allJiraIssues.forEach(issue => {
+      if (issue.assignee && issue.assignee !== 'Unassigned') {
+        employeeIssueCount.set(issue.assignee, (employeeIssueCount.get(issue.assignee) || 0) + 1);
+      }
+    });
+
+    // Update employee loads
+    uniqueEmployees.forEach(emp => {
+      const issueCount = employeeIssueCount.get(emp.name) || 0;
+      emp.currentLoad = Math.min(100, issueCount * 15); // Estimate ~15% per issue
+    });
+
+    result.employees = Array.from(uniqueEmployees.values());
+    result.projects = mapJiraIssuesToProjects(allJiraIssues, result.employees);
+
+    console.log('[Unified] Jira data loaded successfully!', {
+      employees: result.employees.length,
+      projects: result.projects.length,
+    });
+
+    return result;
+  } catch (error) {
+    console.error('[Unified] Error fetching Jira data:', error);
+    return result;
+  }
+};
+
 export default function UnifiedView() {
   const [employees, setEmployees] = useState<UnifiedEmployee[]>([]);
   const [projects, setProjects] = useState<UnifiedProject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [dataSource, setDataSource] = useState<'JIRA' | 'CSV'>('CSV'); // Track data source
   
   // --- STATE ---
   const [userRole, setUserRole] = useState<'MANAGER' | 'EMPLOYEE'>('MANAGER');
@@ -94,68 +291,84 @@ export default function UnifiedView() {
     const initSystem = async () => {
       let loadedEmployees: UnifiedEmployee[] = [];
       let loadedProjects: UnifiedProject[] = [];
+      let source: 'JIRA' | 'CSV' = 'CSV';
 
       try {
-        const rawData = await fetchRawCSV(csvPath);
-        const uniqueEmps = new Map<string, UnifiedEmployee>();
-        const taskProjects: UnifiedProject[] = [];
+        // Try to fetch from Jira first
+        console.log('[Unified] Attempting to load from Jira...');
+        const jiraData = await fetchAllJiraTasksData();
+        
+        if (jiraData.employees.length > 0 && jiraData.projects.length > 0) {
+          console.log('[Unified] Successfully loaded data from Jira!');
+          loadedEmployees = jiraData.employees;
+          loadedProjects = jiraData.projects;
+          source = 'JIRA';
+        } else {
+          console.log('[Unified] No Jira data available, falling back to CSV...');
+          // Fall back to CSV if no Jira data
+          const rawData = await fetchRawCSV(csvPath);
+          const uniqueEmps = new Map<string, UnifiedEmployee>();
+          const taskProjects: UnifiedProject[] = [];
 
-        rawData.forEach((row: any, idx: number) => {
-          const name = row.Assignee || row.assignee;
-          if (!name) return;
+          rawData.forEach((row: any, idx: number) => {
+            const name = row.Assignee || row.assignee;
+            if (!name) return;
 
-          let empId = 0;
-          if (!uniqueEmps.has(name)) {
-            empId = 1000 + uniqueEmps.size;
-            uniqueEmps.set(name, {
-              id: empId,
-              name: name,
-              role: row["Skill Used"] || "Developer",
-              skills: [row["Skill Used"]].filter(Boolean),
-              efficiencyRating: 1.0 + (Math.random() * 0.5),
-              currentLoad: 0,
-              availableFrom: new Date().toISOString(),
-              totalProjectsCompleted: Math.floor(Math.random() * 20),
-              avgHoursPerTask: 0,
-              isOnLeave: false
-            });
-          } else {
-            const existing = uniqueEmps.get(name)!;
-            empId = existing.id;
-            if (row["Skill Used"] && !existing.skills.includes(row["Skill Used"])) {
-                existing.skills.push(row["Skill Used"]);
+            let empId = 0;
+            if (!uniqueEmps.has(name)) {
+              empId = 1000 + uniqueEmps.size;
+              uniqueEmps.set(name, {
+                id: empId,
+                name: name,
+                role: row["Skill Used"] || "Developer",
+                skills: [row["Skill Used"]].filter(Boolean),
+                efficiencyRating: 1.0 + (Math.random() * 0.5),
+                currentLoad: 0,
+                availableFrom: new Date().toISOString(),
+                totalProjectsCompleted: Math.floor(Math.random() * 20),
+                avgHoursPerTask: 0,
+                isOnLeave: false
+              });
+            } else {
+              const existing = uniqueEmps.get(name)!;
+              empId = existing.id;
+              if (row["Skill Used"] && !existing.skills.includes(row["Skill Used"])) {
+                  existing.skills.push(row["Skill Used"]);
+              }
             }
-          }
 
-          const projectGroup = row.Project || "General Project";
-          const taskName = row["Task Name"] || `Task ${idx + 1}`;
-          const plannedHours = parseInt(row["Planned Hours"] || "40");
-          
-          let category: ProjectCategory = 'Client Deliverable';
-          const lowerProj = projectGroup.toLowerCase();
-          if (lowerProj.includes('hr') || lowerProj.includes('internal')) category = 'Internal Tool';
-          else if (lowerProj.includes('bot') || lowerProj.includes('analytics')) category = 'R&D / POC';
+            const projectGroup = row.Project || "General Project";
+            const taskName = row["Task Name"] || `Task ${idx + 1}`;
+            const plannedHours = parseInt(row["Planned Hours"] || "40");
+            
+            let category: ProjectCategory = 'Client Deliverable';
+            const lowerProj = projectGroup.toLowerCase();
+            if (lowerProj.includes('hr') || lowerProj.includes('internal')) category = 'Internal Tool';
+            else if (lowerProj.includes('bot') || lowerProj.includes('analytics')) category = 'R&D / POC';
 
-          taskProjects.push({
-             id: `task_${idx}`,
-             title: taskName,
-             description: `${projectGroup} - ${row["Skill Used"] || 'Development'}`,
-             status: 'ACTIVE',
-             category: category,
-             requiredSkills: [row["Skill Used"] || "General"],
-             estimatedHours: plannedHours,
-             priority: 'Medium',
-             assignedTeamIds: [empId]
+            taskProjects.push({
+               id: `task_${idx}`,
+               title: taskName,
+               description: `${projectGroup} - ${row["Skill Used"] || 'Development'}`,
+               status: 'ACTIVE',
+               category: category,
+               requiredSkills: [row["Skill Used"] || "General"],
+               estimatedHours: plannedHours,
+               priority: 'Medium',
+               assignedTeamIds: [empId]
+            });
+            
+            const emp = uniqueEmps.get(name)!;
+            emp.currentLoad = Math.min(100, emp.currentLoad + 20);
           });
-          
-          const emp = uniqueEmps.get(name)!;
-          emp.currentLoad = Math.min(100, emp.currentLoad + 20);
-        });
 
-        loadedEmployees = Array.from(uniqueEmps.values());
-        loadedProjects = taskProjects;
-
-      } catch (error) { console.error("CSV Load Failed:", error); }
+          loadedEmployees = Array.from(uniqueEmps.values());
+          loadedProjects = taskProjects;
+          source = 'CSV';
+        }
+      } catch (error) { 
+        console.error("[Unified] Load Failed (CSV fallback):", error);
+      }
 
       if (loadedEmployees.length === 0) {
         const mockData: UnifiedEmployee[] = [
@@ -167,18 +380,22 @@ export default function UnifiedView() {
            { id: 'seed_1', title: 'Fintech Platform Revamp - Task 1', description: 'Fintech Platform Revamp - Backend', status: 'ACTIVE', category: 'Client Deliverable', requiredSkills: ['Backend'], estimatedHours: 8, priority: 'High', assignedTeamIds: [101] },
            { id: 'seed_2', title: 'Fintech Platform Revamp - Task 2', description: 'Fintech Platform Revamp - Frontend', status: 'ACTIVE', category: 'Client Deliverable', requiredSkills: ['Frontend'], estimatedHours: 16, priority: 'High', assignedTeamIds: [102] }
         ];
+        source = 'CSV';
       }
 
       setEmployees(loadedEmployees);
       setProjects(loadedProjects);
+      setDataSource(source);
       
       setLeaveRequests([
         { id: 'lr_1', employeeId: 1002, employeeName: 'Vikram Singh', startDate: '2023-11-20', endDate: '2023-11-22', reason: 'Medical checkup', status: 'PENDING', type: 'Sick' }
       ]);
       
-      setNotifications([
-         { id: 'n1', recipientRole: 'MANAGER', title: 'System Ready', message: 'Unified Resource OS initialized successfully.', type: 'SYSTEM', timestamp: new Date().toISOString(), isRead: false }
-      ]);
+      const initNotif = source === 'JIRA' 
+        ? { id: 'n1', recipientRole: 'MANAGER' as const, title: 'System Ready', message: 'Tasks loaded from Jira Cloud - Unified Resource OS initialized successfully.', type: 'SYSTEM' as const, timestamp: new Date().toISOString(), isRead: false }
+        : { id: 'n1', recipientRole: 'MANAGER' as const, title: 'System Ready', message: 'Tasks loaded from CSV - Unified Resource OS initialized successfully.', type: 'SYSTEM' as const, timestamp: new Date().toISOString(), isRead: false };
+      
+      setNotifications([initNotif]);
 
       setIsLoading(false);
     };
@@ -188,6 +405,30 @@ export default function UnifiedView() {
   // --- HANDLERS ---
   const handleAddProject = (newProject: UnifiedProject) => setProjects(prev => [...prev, newProject]);
   const handleDeleteProject = (id: string) => setProjects(prev => prev.filter(p => p.id !== id));
+  
+  const handleRefreshJiraData = async () => {
+    if (dataSource !== 'JIRA') {
+      sendNotification('MANAGER', 'Info', 'Currently using CSV data. Connect to Jira to enable refresh.', 'SYSTEM');
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      const jiraData = await fetchAllJiraTasksData();
+      if (jiraData.employees.length > 0 && jiraData.projects.length > 0) {
+        setEmployees(jiraData.employees);
+        setProjects(jiraData.projects);
+        sendNotification('MANAGER', 'Refreshed', 'Jira data has been refreshed successfully.', 'SYSTEM');
+      } else {
+        sendNotification('MANAGER', 'Error', 'Failed to refresh Jira data.', 'SYSTEM');
+      }
+    } catch (error) {
+      console.error('[Unified] Error refreshing Jira data:', error);
+      sendNotification('MANAGER', 'Error', 'Error refreshing Jira data.', 'SYSTEM');
+    } finally {
+      setIsLoading(false);
+    }
+  };
   
   const handleAllocateStart = (project: UnifiedProject) => { setProjectToAllocate(project); setIsAllocatorOpen(true); };
   
@@ -281,13 +522,34 @@ export default function UnifiedView() {
             <LayoutGrid className="w-6 h-6 text-indigo-600" />
             Unified Resource OS
           </h1>
-          <p className="text-slate-500 mt-1 text-sm flex items-center gap-2">
-            Viewing as: 
-            <span className={`font-bold px-2 py-0.5 rounded text-xs uppercase ${userRole === 'MANAGER' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
-              {userRole}
-            </span>
-             <span className="text-xs text-slate-400">({currentUser?.name || 'Unknown'})</span>
-          </p>
+          <div className="flex items-center gap-2 mt-1">
+            <p className="text-slate-500 text-sm flex items-center gap-2">
+              Viewing as: 
+              <span className={`font-bold px-2 py-0.5 rounded text-xs uppercase ${userRole === 'MANAGER' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                {userRole}
+              </span>
+               <span className="text-xs text-slate-400">({currentUser?.name || 'Unknown'})</span>
+            </p>
+            
+            {/* DATA SOURCE INDICATOR */}
+            <div className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+              dataSource === 'JIRA' 
+                ? 'bg-blue-50 text-blue-700 border border-blue-100' 
+                : 'bg-amber-50 text-amber-700 border border-amber-100'
+            }`}>
+              {dataSource === 'JIRA' ? (
+                <>
+                  <Zap className="w-3 h-3" />
+                  Live Jira Data
+                </>
+              ) : (
+                <>
+                  <AlertCircle className="w-3 h-3" />
+                  CSV Data
+                </>
+              )}
+            </div>
+          </div>
         </div>
 
         <div className="flex items-center gap-4">
@@ -299,9 +561,18 @@ export default function UnifiedView() {
 
            {/* ADD PROJECT */}
            {userRole === 'MANAGER' && (
-             <Button onClick={() => setIsDraftOpen(true)} className="bg-indigo-600 text-white shadow-lg hover:bg-indigo-700">
-               <Plus className="w-4 h-4 mr-2" /> New Project
-             </Button>
+             <>
+               <Button onClick={() => setIsDraftOpen(true)} className="bg-indigo-600 text-white shadow-lg hover:bg-indigo-700">
+                 <Plus className="w-4 h-4 mr-2" /> New Project
+               </Button>
+               
+               {/* REFRESH JIRA DATA */}
+               {dataSource === 'JIRA' && (
+                 <Button onClick={handleRefreshJiraData} variant="outline" className="border-blue-200 text-blue-600 hover:bg-blue-50" title="Refresh Jira data">
+                   <RefreshCw className="w-4 h-4 mr-2" /> Refresh
+                 </Button>
+               )}
+             </>
            )}
 
            {/* NOTIFICATION BELL */}

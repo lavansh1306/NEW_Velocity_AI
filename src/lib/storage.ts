@@ -9,9 +9,7 @@ const STORAGE_KEYS = {
 // Add other integration storage keys
 const INTEGRATION_KEYS = {
   jira: 'jiraConnected',
-  hubspot: 'hubspotConnected',
   asana: 'asanaConnected',
-  microsoft365: 'microsoft365Connected',
   zapier: 'zapierConnected',
 } as const;
 
