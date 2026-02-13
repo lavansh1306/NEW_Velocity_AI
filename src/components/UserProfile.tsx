@@ -2,12 +2,45 @@ import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, User, Mail } from 'lucide-react';
+import { apiUrl } from '@/lib/api';
+
+interface JiraStatus {
+  connected: boolean;
+  site?: {
+    cloudId: string;
+    name: string;
+    url: string;
+  };
+}
 
 export const UserProfile = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [jiraStatus, setJiraStatus] = useState<JiraStatus | null>(null);
+  const [loading, setLoading] = useState(true);
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Check Jira connection status on mount
+  useEffect(() => {
+    const checkJiraStatus = async () => {
+      try {
+        const response = await fetch(apiUrl('/api/jira/auth/status'), {
+          credentials: 'include',
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setJiraStatus(data);
+        }
+      } catch (err) {
+        console.error('[UserProfile] Error checking Jira status:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkJiraStatus();
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -22,17 +55,46 @@ export const UserProfile = () => {
 
   const handleLogout = async () => {
     try {
-      await signOut();
-      navigate('/signup');
+      // Logout from Supabase if available
+      if (user) {
+        await signOut();
+      }
+      
+      // Disconnect from Jira if connected
+      if (jiraStatus?.connected) {
+        try {
+          await fetch(apiUrl('/api/jira/auth/disconnect'), {
+            method: 'POST',
+            credentials: 'include',
+          });
+        } catch (err) {
+          console.error('[UserProfile] Error disconnecting Jira:', err);
+        }
+      }
+      
+      navigate('/');
     } catch (error) {
       console.error('Logout error:', error);
     }
   };
 
-  if (!user) return null;
+  // Show button if either Supabase user OR Jira connected
+  if (!user && !jiraStatus?.connected) return null;
 
-  const userInitial = user.email?.[0]?.toUpperCase() || 'U';
-  const userEmail = user.email || 'User';
+  // Determine display info based on auth source
+  let displayName = 'User';
+  let displayEmail = 'Not authenticated';
+  let userInitial = 'U';
+  
+  if (user?.email) {
+    displayEmail = user.email;
+    userInitial = user.email[0]?.toUpperCase() || 'U';
+    displayName = 'Account';
+  } else if (jiraStatus?.connected) {
+    displayEmail = jiraStatus.site?.name || 'Jira Connected';
+    displayName = jiraStatus.site?.name || 'Jira Account';
+    userInitial = 'J';
+  }
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -40,7 +102,7 @@ export const UserProfile = () => {
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center justify-center h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white font-semibold hover:shadow-lg transition-shadow cursor-pointer"
-        title={userEmail}
+        title={displayEmail}
       >
         {userInitial}
       </button>
@@ -55,8 +117,8 @@ export const UserProfile = () => {
                 {userInitial}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-slate-900">Account</p>
-                <p className="text-xs text-slate-600 truncate">{userEmail}</p>
+                <p className="text-sm font-semibold text-slate-900">{displayName}</p>
+                <p className="text-xs text-slate-600 truncate">{displayEmail}</p>
               </div>
             </div>
           </div>
@@ -66,8 +128,8 @@ export const UserProfile = () => {
             <div className="flex items-start gap-2">
               <Mail className="h-4 w-4 text-blue-600 mt-1 flex-shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-slate-500">Email</p>
-                <p className="text-sm text-slate-900 truncate font-medium">{userEmail}</p>
+                <p className="text-xs text-slate-500">{user ? 'Email' : 'Connected via'}</p>
+                <p className="text-sm text-slate-900 truncate font-medium">{displayEmail}</p>
               </div>
             </div>
             <div className="flex items-start gap-2">
