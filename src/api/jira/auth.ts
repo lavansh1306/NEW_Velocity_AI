@@ -223,9 +223,30 @@ async function retrievePKCEFromDatabase(state: string): Promise<string | null> {
   }
 }
 
-// Fetch Jira user info using access token
-async function getJiraUserInfo(accessToken: string): Promise<any> {
+// Decode JWT ID token to extract user info
+function decodeIdToken(idToken: string): any {
   try {
+    // JWT format: header.payload.signature
+    const parts = idToken.split('.');
+    if (parts.length !== 3) {
+      throw new Error('Invalid token format');
+    }
+    
+    // Decode payload (add padding if needed)
+    const payload = parts[1];
+    const padded = payload + '='.repeat((4 - payload.length % 4) % 4);
+    const decoded = Buffer.from(padded, 'base64').toString('utf-8');
+    return JSON.parse(decoded);
+  } catch (error) {
+    console.error('[Jira] Error decoding ID token:', error);
+    return null;
+  }
+}
+
+// Fetch Jira user info using access token or ID token
+async function getJiraUserInfo(accessToken: string, tokenData?: any): Promise<any> {
+  try {
+    // First, try to get user info from the `/me` endpoint
     const response = await fetch('https://api.atlassian.com/me', {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -233,18 +254,32 @@ async function getJiraUserInfo(accessToken: string): Promise<any> {
       }
     });
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch user info: ${response.statusText}`);
+    if (response.ok) {
+      const userData = await response.json() as any;
+      console.log('[Jira] User info fetched from /me endpoint:', { 
+        account_id: userData.account_id, 
+        email: userData.email,
+        name: userData.name 
+      });
+      return userData;
     }
 
-    const userData = await response.json() as any;
-    console.log('[Jira] User info fetched:', { 
-      account_id: userData.account_id, 
-      email: userData.email,
-      name: userData.name 
-    });
-    
-    return userData;
+    // If /me endpoint fails, try to extract from ID token
+    if (tokenData?.id_token) {
+      console.log('[Jira] /me endpoint failed, extracting user info from ID token...');
+      const idTokenPayload = decodeIdToken(tokenData.id_token);
+      
+      if (idTokenPayload) {
+        console.log('[Jira] User info extracted from ID token:', { 
+          email: idTokenPayload.email,
+          name: idTokenPayload.name
+        });
+        return idTokenPayload;
+      }
+    }
+
+    // If both fail, throw error
+    throw new Error(`Failed to fetch user info: ${response.statusText}`);
   } catch (error) {
     console.error('[Jira] Error fetching user info:', error);
     throw error;
@@ -335,7 +370,6 @@ async function login(req: Request, res: Response): Promise<void> {
       redirect_uri: getRedirectUri(),
       state: state,
       response_type: 'code',
-      prompt: 'consent',
       code_challenge: codeChallenge,
       code_challenge_method: 'S256',
     });
@@ -526,7 +560,7 @@ async function callback(req: Request, res: Response): Promise<void> {
     // Fetch and save Jira user info to Supabase
     try {
       console.log('[Jira OAuth Callback] Fetching user info...');
-      const jiraUser = await getJiraUserInfo(tokenResp.access_token);
+      const jiraUser = await getJiraUserInfo(tokenResp.access_token, tokenResp);
       await saveJiraUserToSupabase(jiraUser, tokenResp);
       console.log('[Jira OAuth Callback] ✓ User saved to Supabase');
     } catch (error) {
