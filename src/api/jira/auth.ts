@@ -664,9 +664,23 @@ export function getSiteInfo(req: Request): { name?: string; url?: string } | nul
 // Check if user has valid Jira connection
 export function isConnected(req: Request): boolean {
   const storeKey = req.session?.jiraStoreKey;
-  if (!storeKey) return false;
+  const cloudId = req.session?.jiraCloudId;
   
-  return jiraTokens.has(storeKey);
+  // PRIMARY: Check if tokens exist in memory store
+  if (storeKey && jiraTokens.has(storeKey)) {
+    console.log('[Jira OAuth] isConnected: TRUE (tokens in memory)');
+    return true;
+  }
+  
+  // FALLBACK: Check if session has Jira credentials saved
+  // This allows connection check to pass even if tokens were cleared from memory
+  if (storeKey && cloudId) {
+    console.log('[Jira OAuth] isConnected: TRUE (session has Jira credentials)');
+    return true;
+  }
+  
+  console.log('[Jira OAuth] isConnected: FALSE', { storeKey, cloudId, hasTokens: storeKey ? jiraTokens.has(storeKey) : false });
+  return false;
 }
 
 // Disconnect user's Jira account

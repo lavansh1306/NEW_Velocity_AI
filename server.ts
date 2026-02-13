@@ -83,12 +83,14 @@ const sessionConfig: any = {
   secret: process.env.SESSION_SECRET || 'dev-secret-change-in-prod',
   resave: true, // Save session on every request to persist data
   saveUninitialized: true, // Initialize session even if unmodified
+  name: 'velocity-sid', // Custom session ID cookie name
   cookie: { 
     secure: process.env.NODE_ENV === 'production', // true in production (HTTPS required)
     httpOnly: true, // Prevent XSS attacks
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' allows cross-site (OAuth), 'lax' for localhost
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    domain: undefined // Allow cookies on localhost
+    // Set proper domain for production
+    domain: process.env.NODE_ENV === 'production' ? '.joinvelocity.co' : undefined
   }
 };
 

@@ -25,6 +25,7 @@ router.post('/auth/disconnect', (req: Request, res: Response) => {
 
 // Check connection status
 router.get('/auth/status', (req: Request, res: Response) => {
+  console.log('[Jira Auth Status] ==== STATUS CHECK ====');
   console.log('[Jira Auth Status] Full session:', {
     sessionID: req.sessionID,
     jiraStoreKey: req.session?.jiraStoreKey,
@@ -43,11 +44,25 @@ router.get('/auth/status', (req: Request, res: Response) => {
     console.log('[Jira Auth Status] Sites:', availableSites.map((s: any) => ({ id: s.id, name: s.name })));
   }
   
-  res.json({ 
-    connected,
-    site: siteInfo,
-    availableSites: availableSites.map((s: any) => ({ id: s.id, name: s.name, url: s.url })),
-  });
+  // Ensure response is valid JSON and includes all necessary fields
+  const responseData = {
+    connected: connected === true,
+    site: siteInfo || null,
+    availableSites: (availableSites || []).map((s: any) => ({ 
+      id: s.id || '',
+      name: s.name || '',
+      url: s.url || ''
+    })),
+  };
+  
+  console.log('[Jira Auth Status] Response:', responseData);
+  
+  // Set cache headers to prevent stale responses
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  
+  res.json(responseData);
 });
 
 // Switch to a different Jira site

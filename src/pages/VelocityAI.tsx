@@ -870,16 +870,30 @@ export default function VelocityAI() {
   useEffect(() => {
     const checkJiraAuth = async () => {
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        
         const response = await fetch(apiUrl('/api/jira/auth/status'), {
-          credentials: 'include'
+          credentials: 'include',
+          signal: controller.signal
         });
+        clearTimeout(timeoutId);
+        
         if (response.ok) {
           const data = await response.json();
-          console.log('[VelocityAI] Jira auth status:', data.connected);
-          setJiraAuthStatus(data.connected);
+          const isConnected = data?.connected === true;
+          console.log('[VelocityAI] Jira auth status response:', { 
+            connected: isConnected, 
+            responseData: data 
+          });
+          setJiraAuthStatus(isConnected);
+        } else {
+          console.warn('[VelocityAI] Jira status endpoint returned non-OK status:', response.status);
+          setJiraAuthStatus(false);
         }
       } catch (error) {
         console.error('[VelocityAI] Error checking Jira auth:', error);
+        setJiraAuthStatus(false);
       } finally {
         setAuthCheckDone(true);
       }
