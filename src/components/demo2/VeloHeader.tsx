@@ -9,6 +9,7 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { Settings } from 'lucide-react';
+import { UserProfile } from '../UserProfile';
 
 interface VeloHeaderProps {
   onSecurityAuditClick?: () => void;
@@ -79,8 +80,8 @@ export default function VeloHeader({ onSecurityAuditClick }: VeloHeaderProps) {
             </div>
           </div>
 
-          {/* Right: Status + Settings */}
-          <div className="flex items-center gap-2 ml-auto">
+          {/* Right: Status + Settings + User Profile */}
+          <div className="flex items-center gap-2 sm:gap-3 ml-auto">
             <div className="hidden sm:flex items-center gap-2 bg-green-50 px-2 sm:px-3 py-1 sm:py-2 rounded-lg velo-status-badge">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
               <span className="text-xs sm:text-sm font-semibold text-green-700">All Systems Operational</span>
@@ -104,6 +105,9 @@ export default function VeloHeader({ onSecurityAuditClick }: VeloHeaderProps) {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+
+            {/* User Profile / Logout */}
+            <UserProfile />
           </div>
         </div>
       </div>
