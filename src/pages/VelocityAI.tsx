@@ -99,6 +99,10 @@ async function fetchJiraData() {
     let totalHours = 0;
     const assigneesSet = new Set<string>();
     
+    console.log('%c=== JIRA PROJECTS CONNECTED ===', 'color: #4CAF50; font-size: 16px; font-weight: bold;');
+    console.log(`Total Projects: ${projects.length}`);
+    console.log('');
+    
     for (const project of projects) {
       try {
         const issuesController = new AbortController();
@@ -114,6 +118,22 @@ async function fetchJiraData() {
           const issuesData = await issuesRes.json();
           const issues = issuesData.issues || [];
           allIssues.push(...issues);
+          
+          // Log first 5 tasks from this project
+          console.log(`%c📋 PROJECT: ${project.title} (${project.key})`, 'color: #2196F3; font-weight: bold; font-size: 13px;');
+          console.log(`   Total Tasks: ${issues.length}`);
+          console.log('%c   First 5 Tasks:', 'color: #666; font-style: italic;');
+          
+          const firstFive = issues.slice(0, 5);
+          firstFive.forEach((issue: any, index: number) => {
+            console.log(`   ${index + 1}. [${issue.key}] ${issue.summary}`);
+            console.log(`      Status: ${issue.status} | Priority: ${issue.priority} | Assignee: ${issue.assignee || 'Unassigned'}`);
+            if (issue.description) {
+              const desc = issue.description.substring(0, 80);
+              console.log(`      Description: ${desc}${issue.description.length > 80 ? '...' : ''}`);
+            }
+          });
+          console.log('');
           
           // Sum up hours and collect assignees
           issues.forEach((issue: any) => {
@@ -141,6 +161,14 @@ async function fetchJiraData() {
       teamMembers: assigneesSet.size,
       totalHours: Math.round(totalHours)
     };
+    
+    console.log('%c=== SUMMARY ===', 'color: #FF9800; font-size: 14px; font-weight: bold;');
+    console.log(`✅ Total Projects: ${stats.totalProjects}`);
+    console.log(`✅ Total Tasks/Issues: ${stats.totalTasks}`);
+    console.log(`✅ Team Members: ${stats.teamMembers}`);
+    console.log(`✅ Total Hours (estimated): ${stats.totalHours}`);
+    console.log('%c=== END JIRA SETUP ===', 'color: #4CAF50; font-size: 12px; font-weight: bold;');
+    console.log('');
     
     console.log('Jira data fetched successfully:', { 
       site: status.site,

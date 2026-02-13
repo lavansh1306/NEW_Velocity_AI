@@ -93,6 +93,10 @@ const fetchJiraLeaveAndTaskData = async (): Promise<JiraProjectData> => {
       return Math.abs(hash) % 5;
     };
 
+    console.log('%c=== LEAVE MANAGEMENT - JIRA SYNC ===', 'color: #FF5722; font-size: 14px; font-weight: bold;');
+    console.log(`Total Projects: ${jiraProjects.length}`);
+    console.log('');
+
     for (const project of jiraProjects) {
       try {
         const issuesResponse = await fetch(`/api/jira/issues?projectKey=${encodeURIComponent(project.key)}`);
@@ -104,7 +108,16 @@ const fetchJiraLeaveAndTaskData = async (): Promise<JiraProjectData> => {
         const issuesData = await issuesResponse.json();
         const issues = issuesData.issues || [];
 
-        console.log(`[Jira Leave] Found ${issues.length} issues in project ${project.key}`);
+        console.log(`%c📋 PROJECT: ${project.title} (${project.key})`, 'color: #2196F3; font-weight: bold; font-size: 12px;');
+        console.log(`   Total Issues: ${issues.length}`);
+        console.log('%c   First 5 Issues:', 'color: #666; font-style: italic;');
+        
+        const firstFive = issues.slice(0, 5);
+        firstFive.forEach((issue: any, index: number) => {
+          console.log(`   ${index + 1}. [${issue.key}] ${issue.summary}`);
+          console.log(`      Assignee: ${issue.assignee || 'Unassigned'} | Status: ${issue.status}`);
+        });
+        console.log('');
 
         issues.forEach((issue: any, idx: number) => {
           // Create task from issue
@@ -166,6 +179,13 @@ const fetchJiraLeaveAndTaskData = async (): Promise<JiraProjectData> => {
       console.warn('[Jira Leave] Could not fetch leave issues:', error);
       result.leaves = [];
     }
+
+    console.log('%c=== LEAVE MANAGEMENT SUMMARY ===', 'color: #FF5722; font-size: 13px; font-weight: bold;');
+    console.log(`✅ Total Tasks: ${result.tasks.length}`);
+    console.log(`✅ Team Members: ${result.employees.length}`);
+    console.log(`✅ Leave Requests: ${result.leaves.length}`);
+    console.log('%c=== END SYNC ===', 'color: #FF5722; font-size: 11px; font-weight: bold;');
+    console.log('');
 
     console.log('[Jira Leave] Data loaded successfully!', {
       tasks: result.tasks.length,

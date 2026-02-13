@@ -175,9 +175,22 @@ const fetchAllJiraTasksData = async (): Promise<{
     const allJiraIssues: JiraIssue[] = [];
     const uniqueEmployees = new Map<string, UnifiedEmployee>();
 
+    console.log('%c=== UNIFIED RESOURCE OS - JIRA SYNC ===', 'color: #4CAF50; font-size: 14px; font-weight: bold;');
+    console.log(`Total Projects to sync: ${jiraProjects.length}`);
+    console.log('');
+
     for (const project of jiraProjects) {
       const issues = await fetchJiraIssuesForProject(project.key);
-      console.log(`[Unified] Fetched ${issues.length} issues from project ${project.key}`);
+      console.log(`%c📋 PROJECT: ${project.title} (${project.key})`, 'color: #2196F3; font-weight: bold; font-size: 12px;');
+      console.log(`   Total Issues: ${issues.length}`);
+      console.log('%c   First 5 Issues:', 'color: #666; font-style: italic;');
+      
+      const firstFive = issues.slice(0, 5);
+      firstFive.forEach((issue, index) => {
+        console.log(`   ${index + 1}. [${issue.key}] ${issue.summary}`);
+        console.log(`      Status: ${issue.status} | Priority: ${issue.priority} | Assignee: ${issue.assignee || 'Unassigned'}`);
+      });
+      console.log('');
       
       for (const issue of issues) {
         allJiraIssues.push(issue);
@@ -219,6 +232,14 @@ const fetchAllJiraTasksData = async (): Promise<{
 
     result.employees = Array.from(uniqueEmployees.values());
     result.projects = mapJiraIssuesToProjects(allJiraIssues, result.employees);
+
+    console.log('%c=== UNIFIED OS SUMMARY ===', 'color: #FF9800; font-size: 13px; font-weight: bold;');
+    console.log(`✅ Total Issues: ${allJiraIssues.length}`);
+    console.log(`✅ Team Members: ${result.employees.length}`);
+    console.log(`✅ Projects: ${result.projects.length}`);
+    console.log(`✅ Unique Assignees: ${uniqueEmployees.size}`);
+    console.log('%c=== END SYNC ===', 'color: #4CAF50; font-size: 11px; font-weight: bold;');
+    console.log('');
 
     console.log('[Unified] Jira data loaded successfully!', {
       employees: result.employees.length,
