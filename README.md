@@ -5,7 +5,7 @@ Full-stack prductivity analytics platform that integrates with **Jira**, **Asan*
 
 **Stack:** React + TypeScript + Express + OAuth
 ## Architecture
-```
+``
 ┌─────────────────────────────────────────────────────────────────┐
 │                         FRONTEND (React)                         │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐       │
