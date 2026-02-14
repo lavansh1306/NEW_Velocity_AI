@@ -274,7 +274,7 @@ export async function analyzeBottlenecks(
     const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
     const bottlenecksUrl = isProduction 
-      ? `${ML_API_BASE}/analyze/bottlenecks`
+      ? `${ML_API_BASE}/analyze-bottlenecks`
       : `${ML_API_BASE}/api/v1/analyze/bottlenecks`;
 
     const response = await fetch(bottlenecksUrl, {
@@ -335,7 +335,7 @@ export async function analyzeAvailability(
     const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
     const availabilityUrl = isProduction 
-      ? `${ML_API_BASE}/analyze/availability`
+      ? `${ML_API_BASE}/analyze-availability`
       : `${ML_API_BASE}/api/v1/analyze/availability`;
 
     const response = await fetch(availabilityUrl, {
@@ -497,10 +497,16 @@ export function resetHealthCheckCache(): void {
  */
 export function getDiagnostics() {
   return {
-    environment: isProduction ? 'production (backend proxy)' : 'development (direct ML engine)',
+    environment: isProduction ? 'production (Vercel serverless)' : 'development (backend proxy)',
     ml_engine_url: ML_ENGINE_BASE_URL,
     backend_proxy_url: ML_BACKEND_PROXY_URL,
     current_api_base: ML_API_BASE,
+    production_endpoints: [
+      'GET /api/ml/health',
+      'POST /api/ml/analyze-availability',
+      'POST /api/ml/analyze-bottlenecks',
+      'POST /api/ml/train',
+    ],
     request_timeout_ms: REQUEST_TIMEOUT,
     cache_timeout_ms: HEALTH_CHECK_CACHE_TIMEOUT,
     last_check_time: lastHealthCheckTime ? new Date(lastHealthCheckTime).toISOString() : 'never',

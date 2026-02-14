@@ -8,6 +8,26 @@
     "api/leave-approval/approve-batch.ts": {
       "memory": 1024,
       "maxDuration": 30
+    },
+    "api/ml/health.ts": {
+      "memory": 512,
+      "maxDuration": 45
+    },
+    "api/ml/analyze-availability.ts": {
+      "memory": 512,
+      "maxDuration": 45
+    },
+    "api/ml/analyze-bottlenecks.ts": {
+      "memory": 512,
+      "maxDuration": 45
+    },
+    "api/ml/train.ts": {
+      "memory": 512,
+      "maxDuration": 45
+    },
+    "api/ml/diagnostics.ts": {
+      "memory": 256,
+      "maxDuration": 30
     }
   },
   "buildCommand": "npm run build",
@@ -17,6 +37,11 @@
     "NODE_ENV": "production"
   },
   "rewrites": [
+    { "source": "/api/ml/health", "destination": "/api/ml/health" },
+    { "source": "/api/ml/analyze-availability", "destination": "/api/ml/analyze-availability" },
+    { "source": "/api/ml/analyze-bottlenecks", "destination": "/api/ml/analyze-bottlenecks" },
+    { "source": "/api/ml/train", "destination": "/api/ml/train" },
+    { "source": "/api/ml/diagnostics", "destination": "/api/ml/diagnostics" },
     { "source": "/api/leave-approval/approve-batch", "destination": "/api/leave-approval/approve-batch" },
     { "source": "/api/jira/auth/connect", "destination": "/api/jira/auth/connect" },
     { "source": "/api/jira/auth/callback", "destination": "/api/jira/auth/callback" },
