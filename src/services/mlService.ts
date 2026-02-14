@@ -1,11 +1,18 @@
 /**
  * ML Engine Service
  * Integrates with the deployed FastAPI backend at https://python-ml-engine-xlwh.onrender.com
- * Handles bottleneck analysis, availability checking, and RL training
+ * Uses backend proxy routes for production deployments to avoid CORS issues
  */
 
 const ML_ENGINE_BASE_URL = 'https://python-ml-engine-xlwh.onrender.com';
+const ML_BACKEND_PROXY_URL = '/api/ml'; // Backend proxy endpoints (no CORS issues)
 const REQUEST_TIMEOUT = 30000; // 30 second timeout for ML engine calls (Render cold starts can be slow)
+
+// Detect if we're in production (deployed) vs development (localhost)
+const isProduction = typeof window !== 'undefined' && !window.location.hostname.includes('localhost');
+
+// Use backend proxy in production, direct ML engine URL in development
+const ML_API_BASE = isProduction ? ML_BACKEND_PROXY_URL : ML_ENGINE_BASE_URL;
 
 // ===================== Health Check Cache =====================
 let lastHealthCheckTime: number = 0;
@@ -177,7 +184,7 @@ export async function checkMLEngineHealth(): Promise<boolean> {
     // Check if we have a cached health check result that's still valid
     const now = Date.now();
     if (now - lastHealthCheckTime < HEALTH_CHECK_CACHE_TIMEOUT) {
-      console.log('[MLService] Using cached health check result:', lastHealthCheckResult ? 'ONLINE' : 'OFFLINE');
+      console.log('[MLService] Using cached health check result:', lastHealthCheckResult ? 'ONLINE' : 'OFFLINE', '(via', isProduction ? 'backend proxy' : 'direct ML engine', ')');
       return lastHealthCheckResult;
     }
 
@@ -187,10 +194,12 @@ export async function checkMLEngineHealth(): Promise<boolean> {
       controller.abort();
     }, REQUEST_TIMEOUT);
 
-    console.log('[MLService] Starting health check...');
+    console.log('[MLService] Starting health check via', isProduction ? 'backend proxy' : 'direct ML engine', '...');
     const startTime = Date.now();
     
-    const response = await fetch(`${ML_ENGINE_BASE_URL}/`, {
+    const healthUrl = isProduction ? `${ML_API_BASE}/health` : `${ML_API_BASE}/`;
+    
+    const response = await fetch(healthUrl, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -210,7 +219,7 @@ export async function checkMLEngineHealth(): Promise<boolean> {
     }
 
     const data: HealthCheckResponse = await response.json();
-    const isActive = data.status === 'active';
+    const isActive = data.status === 'active' || data.status === 'offline' === false;
     console.log('[MLService] Health check - ML Engine is', isActive ? 'ONLINE' : 'OFFLINE');
     
     // Cache the result
@@ -222,7 +231,7 @@ export async function checkMLEngineHealth(): Promise<boolean> {
     const errorMsg = error instanceof Error ? error.message : String(error);
     console.error('[MLService] Health check failed:', errorMsg);
     if (errorMsg.includes('abort')) {
-      console.error('[MLService] Request timeout - ML engine may be slow to respond. Check if https://python-ml-engine-xlwh.onrender.com is accessible.');
+      console.error('[MLService] Request timeout - ML engine may be slow to respond.');
     }
     
     // Cache the failure
@@ -264,7 +273,11 @@ export async function analyzeBottlenecks(
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
-    const response = await fetch(`${ML_ENGINE_BASE_URL}/api/v1/analyze/bottlenecks`, {
+    const bottlenecksUrl = isProduction 
+      ? `${ML_API_BASE}/analyze/bottlenecks`
+      : `${ML_API_BASE}/api/v1/analyze/bottlenecks`;
+
+    const response = await fetch(bottlenecksUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -321,7 +334,11 @@ export async function analyzeAvailability(
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
-    const response = await fetch(`${ML_ENGINE_BASE_URL}/api/v1/analyze/availability`, {
+    const availabilityUrl = isProduction 
+      ? `${ML_API_BASE}/analyze/availability`
+      : `${ML_API_BASE}/api/v1/analyze/availability`;
+
+    const response = await fetch(availabilityUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -381,7 +398,11 @@ export async function trainModel(
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
-    const response = await fetch(`${ML_ENGINE_BASE_URL}/api/v1/train`, {
+    const trainUrl = isProduction 
+      ? `${ML_API_BASE}/train`
+      : `${ML_API_BASE}/api/v1/train`;
+
+    const response = await fetch(trainUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -476,7 +497,10 @@ export function resetHealthCheckCache(): void {
  */
 export function getDiagnostics() {
   return {
+    environment: isProduction ? 'production (backend proxy)' : 'development (direct ML engine)',
     ml_engine_url: ML_ENGINE_BASE_URL,
+    backend_proxy_url: ML_BACKEND_PROXY_URL,
+    current_api_base: ML_API_BASE,
     request_timeout_ms: REQUEST_TIMEOUT,
     cache_timeout_ms: HEALTH_CHECK_CACHE_TIMEOUT,
     last_check_time: lastHealthCheckTime ? new Date(lastHealthCheckTime).toISOString() : 'never',
