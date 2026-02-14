@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { IssuesTable, GanttChart, ManagerGantt, ManagerSummary } from '@/components/jira'
 import { Issue } from '@/components/jira/types'
 import { apiUrl } from '@/lib/api'
+import ProjectManagementDashboard from '@/components/projects/ProjectManagementDashboard'
 
 export default function JiraDashboard() {
   const [allIssues, setAllIssues] = useState<Issue[]>([])
@@ -168,10 +169,20 @@ export default function JiraDashboard() {
 
   // Auto-load project if `project` query param is present
   const location = useLocation()
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [fullscreenProjectId, setFullscreenProjectId] = useState<string | null>(null)
+  
   useEffect(() => {
     const params = new URLSearchParams(location.search)
     const projectParam = params.get('project')
-    console.log('[JiraDashboard] URL params:', location.search, 'project param:', projectParam)
+    const fullscreenParam = params.get('fullscreen')
+    
+    setIsFullscreen(fullscreenParam === 'true')
+    if (fullscreenParam === 'true') {
+      setFullscreenProjectId(projectParam)
+    }
+    
+    console.log('[JiraDashboard] URL params:', location.search, 'project param:', projectParam, 'fullscreen:', fullscreenParam)
     if (projectParam) {
       // Attempt to load the specified project right away
       console.log('[JiraDashboard] Auto-loading project:', projectParam.toUpperCase())
@@ -309,6 +320,25 @@ export default function JiraDashboard() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
         <div className="text-2xl font-semibold text-gray-700">Loading...</div>
       </div>
+    )
+  }
+
+  // Show fullscreen project management dashboard if requested
+  if (isFullscreen && currentProject) {
+    const currentProjectTitle = availableProjects.find(p => p.key === currentProject)?.title || currentProject
+    return (
+      <ProjectManagementDashboard
+        isOpen={true}
+        onClose={() => window.history.back()}
+        projectId={currentProject}
+        projectTitle={currentProjectTitle}
+        issues={allIssues}
+        healthScore={0} // Will be calculated from issues
+        endDate={undefined}
+        weeksRemaining={undefined}
+        team={assignees}
+        fullscreen={true}
+      />
     )
   }
 

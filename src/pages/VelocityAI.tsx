@@ -24,12 +24,11 @@ import LeaveManagementTab from '../components/leave-management';
 import ProjectCheckView from '@/components/ml-model';
 import ManagerGantt from '@/components/ManagerGantt';
 import SmartProgressTracker from '../components/smart-progress';
-import UnifiedView from '../components/unified-system/UnifiedView'; 
 
 import { getJiraConnected, setJiraConnected } from '../lib/storage';
 import { apiUrl } from '../lib/api';
 import { useAuth } from '@/contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 import { JiraCapacityMap } from '../components/leave-management/JiraCapacityMap';
 import { useJiraData } from '../hooks/useJiraData';
@@ -885,6 +884,7 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
 export default function VelocityAI() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [currentView, setCurrentView] = useState<'manager' | 'vp'>('manager');
   const [activeTab, setActiveTab] = useState('dashboard');
   const [jiraConnected, setJiraConnectionState] = useState<boolean>(() => {
@@ -893,6 +893,15 @@ export default function VelocityAI() {
   const [jiraData, setJiraData] = useState<any>(null);
   const [jiraAuthStatus, setJiraAuthStatus] = useState<boolean>(false);
   const [authCheckDone, setAuthCheckDone] = useState(false);
+
+  // Check for tab query parameter on mount
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tabParam = params.get('tab');
+    if (tabParam) {
+      setActiveTab(tabParam);
+    }
+  }, [location.search]);
 
   // Check Jira authentication status on mount
   useEffect(() => {
@@ -1062,7 +1071,6 @@ export default function VelocityAI() {
           <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-7xl mx-auto animate-in fade-in duration-300">
             
             {activeTab === 'dashboard' && <ModernDashboard jiraData={jiraData} />}
-            {activeTab === 'unified' && <UnifiedView />} {/* NEW TAB */}
             {activeTab === 'projects' && <Projects jiraConnected={jiraConnected} withNav={false} />}
             {activeTab === 'stc' && <StandardTimeCatalogTab />}
             {activeTab === 'ledger' && <CapacityLedgerTab />}

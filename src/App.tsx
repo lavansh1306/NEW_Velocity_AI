@@ -18,6 +18,7 @@ import ProjectDetailNew from "./pages/ProjectDetailNew";
 import DebugNormalization from "./pages/DebugNormalization";
 import JiraDashboard from "./pages/JiraDashboard";
 import GlobalGanttDashboard from "./pages/GlobalGanttDashboard";
+import PlanMyProject from "./pages/PlanMyProject";
 import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
 import AuthCallback from "./pages/AuthCallback";
@@ -48,6 +49,7 @@ const App = () => (
               <Route path="/use-cases" element={<UseCases />} />
               <Route path="/roi-report" element={<ROIReport />} />
               <Route path="/velocity-ai" element={<VelocityAI />} />
+              <Route path="/progress" element={<PlanMyProject />} />
               <Route path="/projects" element={<Projects />} />
               <Route path="/projects/global-gantt" element={<GlobalGanttDashboard />} />
               <Route path="/projects/jira-dashboard" element={<JiraDashboard />} />

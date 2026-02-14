@@ -202,15 +202,6 @@ export function EmployeeLeavePortal({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-8 shadow-lg text-white">
-        <div className="flex items-center gap-3 mb-2">
-          <CalendarDays className="w-8 h-8" />
-          <h2 className="text-3xl font-bold">Leave Request Portal</h2>
-        </div>
-        <p className="text-blue-100">Select an employee and view their tasks on the calendar to request leave</p>
-      </div>
-
       {/* Employee Info - Display Current Employee */}
       <div className="bg-gradient-to-br from-indigo-50 to-blue-50 border-2 border-indigo-300 rounded-xl p-6 shadow-md">
         <div className="flex items-center justify-between">
