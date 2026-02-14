@@ -614,7 +614,7 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
         <p className="text-gray-600">Here's what's happening with your teams today.</p>
       </div>
 
-      {/* Main Content Area - KPI Cards + Deadlines + AI Recommendation */}
+      {/* Main Content Area - KPI Cards + Deadlines */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:auto-rows-max">
         {/* Left Column - KPI Cards (2x2 Grid) */}
         <div className="lg:col-span-2">
@@ -711,39 +711,6 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
               </div>
               <div className="text-4xl font-bold text-gray-900">{dashboardMetrics.projectsAtRisk}</div>
               <p className="text-xs text-gray-500 mt-2">Behind schedule</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column - AI Recommendation (spans 2 rows) */}
-        <div className="bg-gradient-to-br from-indigo-50 to-blue-50 rounded-xl border border-indigo-200 p-6 lg:row-span-2">
-          <div className="flex items-center gap-2 mb-4">
-            <span className="text-2xl">🤖</span>
-            <h2 className="text-lg font-bold text-gray-900">AI RECOMMENDATION</h2>
-          </div>
-          
-          <div className="bg-white rounded-lg p-4 mb-4">
-            <p className="text-sm text-gray-700 leading-relaxed">
-              {dashboardMetrics.projectsAtRisk > 0
-                ? `⚠️ ${dashboardMetrics.projectsAtRisk} project(s) are behind schedule. Consider reallocating resources from lower priority tasks.`
-                : dashboardMetrics.teamUtilization > 85
-                ? `📈 Team utilization is high at ${dashboardMetrics.teamUtilization}%. Monitor workload closely and plan capacity accordingly.`
-                : `✅ Team is working at optimal capacity. Good job maintaining work-life balance!`}
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-indigo-600">→</span>
-              <span className="text-gray-700">Review overdue tasks</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-indigo-600">→</span>
-              <span className="text-gray-700">Rebalance team workload</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-indigo-600">→</span>
-              <span className="text-gray-700">Schedule team sync</span>
             </div>
           </div>
         </div>
