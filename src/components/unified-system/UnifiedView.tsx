@@ -1,17 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { DraftProjectDialog } from './ideation/DraftProjectDialog';
 import { ProjectQueue } from './ideation/ProjectQueue';
-import { AllocatorEngine } from './allocator/AllocatorEngine';
 import { ActiveProjectDetail } from './execution/ActiveProjectDetail';
-import { ProjectCompletionDialog } from './execution/ProjectCompletionDialog';
-import { LeaveManagementDialog } from './leaves/LeaveManagementDialog';
 import { TimetableView } from './timetable/TimetableView';
 import { NotificationPanel } from './notifications/NotificationPanel';
 import { UnifiedProject, UnifiedEmployee, LeaveRequest, ProjectCategory, Notification } from './types';
 import { Button } from '../ui/button';
 import { 
-  Plus, LayoutGrid, CheckCircle2, Briefcase, Wrench, FlaskConical, 
-  Layers, User, UserCog, Calendar, CalendarOff, LayoutDashboard, CalendarRange, Filter, X, Bell, Zap, AlertCircle, RefreshCw 
+  LayoutGrid, CheckCircle2, Briefcase, Wrench, FlaskConical, 
+  Layers, User, UserCog, Calendar, LayoutDashboard, CalendarRange, Filter, X, Bell, Zap, AlertCircle 
 } from 'lucide-react';
 
 import { fetchRawCSV } from '../ml-model/RecommendationEngine'; 
@@ -48,6 +44,7 @@ interface JiraIssue {
   team: string;
   due?: string;
   created?: string;
+  start?: string;
 }
 
 interface JiraConnectionStatus {
@@ -132,6 +129,10 @@ const mapJiraIssuesToProjects = (
       issue.status?.toLowerCase().includes('resolved')
     ) ? 'COMPLETED' : 'ACTIVE';
 
+    // Extract dates from Jira
+    const createdDate = issue.start || issue.created || new Date().toISOString();
+    const dueDate = issue.due || createdDate;
+
     return {
       id: `jira_${issue.key}`,
       title: `${issue.key}: ${issue.summary}`,
@@ -142,6 +143,8 @@ const mapJiraIssuesToProjects = (
       estimatedHours,
       priority,
       assignedTeamIds,
+      startDate: typeof createdDate === 'string' ? createdDate.split('T')[0] : createdDate,
+      deadline: typeof dueDate === 'string' ? dueDate.split('T')[0] : dueDate,
     };
   });
 };
@@ -264,18 +267,7 @@ export default function UnifiedView() {
   const [viewMode, setViewMode] = useState<'DASHBOARD' | 'TIMETABLE'>('DASHBOARD');
   const [currentUserId] = useState<number>(101); // Mock Logged-in User
   const [employeeFilter, setEmployeeFilter] = useState<number | 'ALL'>('ALL');
-  
-  // Dialog States
-  const [isDraftOpen, setIsDraftOpen] = useState(false);
-  const [isAllocatorOpen, setIsAllocatorOpen] = useState(false);
-  const [isCompletionOpen, setIsCompletionOpen] = useState(false);
-  const [isLeaveOpen, setIsLeaveOpen] = useState(false); 
   const [isNotifOpen, setIsNotifOpen] = useState(false);
-
-  // Selection States
-  const [projectToAllocate, setProjectToAllocate] = useState<UnifiedProject | null>(null);
-  const [selectedActiveProject, setSelectedActiveProject] = useState<UnifiedProject | null>(null);
-  const [projectToComplete, setProjectToComplete] = useState<UnifiedProject | null>(null);
 
   // Data
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
@@ -391,26 +383,11 @@ export default function UnifiedView() {
         console.error("[Unified] Load Failed (CSV fallback):", error);
       }
 
-      if (loadedEmployees.length === 0) {
-        const mockData: UnifiedEmployee[] = [
-           { id: 101, name: "Aarav Sharma", role: "Backend Development", skills: ["Backend Development"], efficiencyRating: 1.4, currentLoad: 40, availableFrom: "", totalProjectsCompleted: 15, avgHoursPerTask: 0, isOnLeave: false },
-           { id: 102, name: "Rohan Patel", role: "Frontend Development", skills: ["Frontend Development"], efficiencyRating: 1.2, currentLoad: 60, availableFrom: "", totalProjectsCompleted: 8, avgHoursPerTask: 0, isOnLeave: false },
-        ];
-        loadedEmployees = mockData;
-        loadedProjects = [
-           { id: 'seed_1', title: 'Fintech Platform Revamp - Task 1', description: 'Fintech Platform Revamp - Backend', status: 'ACTIVE', category: 'Client Deliverable', requiredSkills: ['Backend'], estimatedHours: 8, priority: 'High', assignedTeamIds: [101] },
-           { id: 'seed_2', title: 'Fintech Platform Revamp - Task 2', description: 'Fintech Platform Revamp - Frontend', status: 'ACTIVE', category: 'Client Deliverable', requiredSkills: ['Frontend'], estimatedHours: 16, priority: 'High', assignedTeamIds: [102] }
-        ];
-        source = 'CSV';
-      }
+      // Only use loaded data from Jira or CSV if available
 
       setEmployees(loadedEmployees);
       setProjects(loadedProjects);
       setDataSource(source);
-      
-      setLeaveRequests([
-        { id: 'lr_1', employeeId: 1002, employeeName: 'Vikram Singh', startDate: '2023-11-20', endDate: '2023-11-22', reason: 'Medical checkup', status: 'PENDING', type: 'Sick' }
-      ]);
       
       const initNotif = source === 'JIRA' 
         ? { id: 'n1', recipientRole: 'MANAGER' as const, title: 'System Ready', message: 'Tasks loaded from Jira Cloud - Unified Resource OS initialized successfully.', type: 'SYSTEM' as const, timestamp: new Date().toISOString(), isRead: false }
@@ -424,114 +401,32 @@ export default function UnifiedView() {
   }, []);
 
   // --- HANDLERS ---
-  const handleAddProject = (newProject: UnifiedProject) => setProjects(prev => [...prev, newProject]);
-  const handleDeleteProject = (id: string) => setProjects(prev => prev.filter(p => p.id !== id));
-  
-  const handleRefreshJiraData = async () => {
-    if (dataSource !== 'JIRA') {
-      sendNotification('MANAGER', 'Info', 'Currently using CSV data. Connect to Jira to enable refresh.', 'SYSTEM');
-      return;
-    }
-    
-    setIsLoading(true);
-    try {
-      const jiraData = await fetchAllJiraTasksData();
-      if (jiraData.employees.length > 0 && jiraData.projects.length > 0) {
-        setEmployees(jiraData.employees);
-        setProjects(jiraData.projects);
-        sendNotification('MANAGER', 'Refreshed', 'Jira data has been refreshed successfully.', 'SYSTEM');
-      } else {
-        sendNotification('MANAGER', 'Error', 'Failed to refresh Jira data.', 'SYSTEM');
-      }
-    } catch (error) {
-      console.error('[Unified] Error refreshing Jira data:', error);
-      sendNotification('MANAGER', 'Error', 'Error refreshing Jira data.', 'SYSTEM');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  const handleAllocateStart = (project: UnifiedProject) => { setProjectToAllocate(project); setIsAllocatorOpen(true); };
-  
-  const handleConfirmAllocation = (projectId: string, selectedIds: number[]) => {
-    setProjects(prev => prev.map(p => p.id === projectId ? { ...p, status: 'ACTIVE', assignedTeamIds: selectedIds, startDate: new Date().toISOString() } : p));
-    setEmployees(prev => prev.map(emp => selectedIds.includes(emp.id) ? { ...emp, currentLoad: Math.min(100, emp.currentLoad + 25) } : emp));
-    
-    // Notify
-    const project = projects.find(p => p.id === projectId);
-    selectedIds.forEach(empId => {
-      sendNotification('EMPLOYEE', 'New Project Assigned', `You have been assigned to "${project?.title}".`, 'ASSIGNMENT', empId);
-    });
-
-    setIsAllocatorOpen(false); setProjectToAllocate(null);
-  };
-
-  const openCompletionDialog = () => { if (selectedActiveProject) { setProjectToComplete(selectedActiveProject); setIsCompletionOpen(true); } };
-  
-  const finalizeCompletion = () => {
-    if (!projectToComplete) return;
-    setProjects(prev => prev.map(p => p.id === projectToComplete.id ? { ...p, status: 'COMPLETED' } : p));
-    setEmployees(prev => prev.map(emp => {
-      if (projectToComplete.assignedTeamIds.includes(emp.id)) {
-         return { ...emp, currentLoad: Math.max(0, emp.currentLoad - 25), totalProjectsCompleted: emp.totalProjectsCompleted + 1, efficiencyRating: parseFloat((emp.efficiencyRating + 0.1).toFixed(1)) };
-      }
-      return emp;
-    }));
-    
-    // Notify Manager
-    const completer = employees.find(e => e.id === currentUserId);
-    sendNotification('MANAGER', 'Project Completed', `A project "${projectToComplete.title}" has been marked as complete.`, 'COMPLETION');
-
-    setIsCompletionOpen(false); setSelectedActiveProject(null); setProjectToComplete(null);
-  };
-
-  const handleRequestLeave = (req: LeaveRequest) => { 
-    setLeaveRequests(prev => [...prev, req]);
-    sendNotification('MANAGER', 'New Leave Request', `${req.employeeName} requested leave for ${req.type}.`, 'LEAVE_UPDATE');
-  };
-  
-  const handleLeaveDecision = (id: string, status: 'APPROVED' | 'REJECTED') => {
-    setLeaveRequests(prev => prev.map(req => {
-        if (req.id === id) return { ...req, status };
-        return req;
-    }));
-    const req = leaveRequests.find(r => r.id === id);
-    if (req) {
-       if (status === 'APPROVED') {
-         setEmployees(prev => prev.map(e => e.id === req.employeeId ? { ...e, isOnLeave: true, currentLoad: 0 } : e));
-       }
-       sendNotification('EMPLOYEE', `Leave ${status}`, `Your leave request for ${req.startDate} has been ${status.toLowerCase()}.`, 'LEAVE_UPDATE', req.employeeId);
-    }
-  };
-
   const unreadCount = notifications.filter(n => !n.isRead && (n.recipientRole === 'ALL' || n.recipientRole === userRole)).length;
 
   if (isLoading) return <div className="p-20 text-center text-slate-500 animate-pulse">Initializing Unified Resource OS...</div>;
 
-  if (selectedActiveProject) {
-    const projectTeam = employees.filter(e => selectedActiveProject.assignedTeamIds.includes(e.id));
-    return (
-      <ActiveProjectDetail 
-        project={selectedActiveProject} 
-        team={projectTeam} 
-        onBack={() => setSelectedActiveProject(null)} 
-        onComplete={openCompletionDialog} 
-      />
-    );
-  }
-
-  const queuedProjects = projects.filter(p => p.status === 'QUEUED');
-  
-  // FILTER LOGIC
   const allActiveProjects = projects.filter(p => p.status === 'ACTIVE');
+  const queuedProjects = projects.filter(p => p.status !== 'ACTIVE').slice(0, 5);
   const filteredActiveProjects = employeeFilter === 'ALL' 
     ? allActiveProjects 
     : allActiveProjects.filter(p => p.assignedTeamIds.includes(employeeFilter));
 
-  const actualUserId = employees.find(e => e.id === currentUserId) ? currentUserId : (employees[0]?.id || 101);
-  const myProjects = allActiveProjects.filter(p => p.assignedTeamIds.includes(actualUserId));
+  const actualUserId = employees.length > 0 
+    ? (employees.find(e => e.id === currentUserId) ? currentUserId : employees[0]?.id)
+    : currentUserId;
   const currentUser = employees.find(e => e.id === actualUserId);
+  const myProjects = allActiveProjects.filter(p => currentUser && p.assignedTeamIds.includes(actualUserId));
   const pendingLeaves = leaveRequests.filter(r => r.status === 'PENDING').length;
+
+  // Handlers for project management
+  const handleAllocateStart = (projectId: string) => {
+    sendNotification('MANAGER', 'Project Allocated', `Started allocation for project: ${projectId}`, 'ASSIGNMENT');
+  };
+
+  const handleDeleteProject = (projectId: string) => {
+    setProjects(prev => prev.filter(p => p.id !== projectId));
+    sendNotification('MANAGER', 'Project Removed', `Removed project: ${projectId}`, 'SYSTEM');
+  };
 
   return (
     <div className="space-y-12 animate-in fade-in duration-500 pb-20 relative">
@@ -580,22 +475,6 @@ export default function UnifiedView() {
               <button onClick={() => setViewMode('TIMETABLE')} className={`p-2 rounded-md transition-all ${viewMode === 'TIMETABLE' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`} title="Timetable"><CalendarRange className="w-4 h-4" /></button>
            </div>
 
-           {/* ADD PROJECT */}
-           {userRole === 'MANAGER' && (
-             <>
-               <Button onClick={() => setIsDraftOpen(true)} className="bg-indigo-600 text-white shadow-lg hover:bg-indigo-700">
-                 <Plus className="w-4 h-4 mr-2" /> New Project
-               </Button>
-               
-               {/* REFRESH JIRA DATA */}
-               {dataSource === 'JIRA' && (
-                 <Button onClick={handleRefreshJiraData} variant="outline" className="border-blue-200 text-blue-600 hover:bg-blue-50" title="Refresh Jira data">
-                   <RefreshCw className="w-4 h-4 mr-2" /> Refresh
-                 </Button>
-               )}
-             </>
-           )}
-
            {/* NOTIFICATION BELL */}
            <div className="relative">
              <Button variant="ghost" className="relative text-slate-500 hover:bg-slate-50" onClick={() => setIsNotifOpen(!isNotifOpen)}>
@@ -612,12 +491,6 @@ export default function UnifiedView() {
                 onClearAll={handleClearNotifs}
              />
            </div>
-
-           {/* LEAVE BUTTON */}
-           <Button variant="outline" onClick={() => setIsLeaveOpen(true)} className="relative border-slate-200 text-slate-600 hover:bg-slate-50">
-             <CalendarOff className="w-4 h-4 mr-2" /> {userRole === 'MANAGER' ? 'Approvals' : 'Time Off'}
-             {userRole === 'MANAGER' && pendingLeaves > 0 && <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white text-[10px] flex items-center justify-center rounded-full shadow-sm animate-bounce">{pendingLeaves}</span>}
-           </Button>
 
            {/* ROLE SWITCHER */}
            <div className="bg-slate-100 p-1 rounded-lg flex items-center">
@@ -681,7 +554,7 @@ export default function UnifiedView() {
                 ) : (
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                       {filteredActiveProjects.slice(0, 12).map(p => (
-                        <div key={p.id} onClick={() => setSelectedActiveProject(p)} className="bg-white border border-emerald-100 p-5 rounded-xl shadow-sm relative overflow-hidden cursor-pointer hover:shadow-md transition-all group">
+                        <div key={p.id} className="bg-white border border-emerald-100 p-5 rounded-xl shadow-sm relative overflow-hidden hover:shadow-md transition-all group">
                           <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500 group-hover:w-2 transition-all"></div>
                           <div className="mb-3">
                               <div className="flex justify-between items-start"><span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase flex items-center gap-1 border w-fit mb-1 ${getCategoryStyle(p.category)}`}>{getCategoryIcon(p.category)} {p.category}</span><span className="text-[10px] font-bold bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded">RUNNING</span></div>
@@ -713,11 +586,11 @@ export default function UnifiedView() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
                         <h3 className="text-xs font-bold text-slate-400 uppercase">My Workload</h3>
-                        <div className="text-3xl font-black text-indigo-600 mt-2">{currentUser?.currentLoad}%</div>
-                        <div className="h-2 w-full bg-slate-100 rounded-full mt-2 overflow-hidden"><div className="h-full bg-indigo-500" style={{ width: `${currentUser?.currentLoad}%` }}></div></div>
+                        <div className="text-3xl font-black text-indigo-600 mt-2">{currentUser?.currentLoad ?? 0}%</div>
+                        <div className="h-2 w-full bg-slate-100 rounded-full mt-2 overflow-hidden"><div className="h-full bg-indigo-500" style={{ width: `${currentUser?.currentLoad ?? 0}%` }}></div></div>
                     </div>
                     <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm"><h3 className="text-xs font-bold text-slate-400 uppercase">Active Projects</h3><div className="text-3xl font-black text-emerald-600 mt-2">{myProjects.length}</div></div>
-                    <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm"><h3 className="text-xs font-bold text-slate-400 uppercase">Efficiency Score</h3><div className="text-3xl font-black text-purple-600 mt-2">{currentUser?.efficiencyRating.toFixed(1)}</div></div>
+                    <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm"><h3 className="text-xs font-bold text-slate-400 uppercase">Efficiency Score</h3><div className="text-3xl font-black text-purple-600 mt-2">{currentUser?.efficiencyRating?.toFixed(1) ?? '0.0'}</div></div>
                 </div>
 
                 <div>
@@ -727,7 +600,7 @@ export default function UnifiedView() {
                     ) : (
                         <div className="grid gap-4 md:grid-cols-2">
                             {myProjects.map(p => (
-                                <div key={p.id} onClick={() => setSelectedActiveProject(p)} className="bg-white border-l-4 border-l-indigo-500 p-6 rounded-xl shadow-sm cursor-pointer hover:shadow-md transition-all">
+                                <div key={p.id} className="bg-white border-l-4 border-l-indigo-500 p-6 rounded-xl shadow-sm hover:shadow-md transition-all">
                                     <div className="flex justify-between items-start mb-2"><span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border ${getCategoryStyle(p.category)}`}>{p.category}</span><span className="text-xs text-slate-400 flex items-center gap-1"><Calendar className="w-3 h-3"/> Due Soon</span></div>
                                     <h3 className="font-bold text-xl text-gray-900 mb-2">{p.title}</h3>
                                     <p className="text-sm text-slate-500 line-clamp-2">{p.description}</p>
@@ -742,11 +615,6 @@ export default function UnifiedView() {
         </>
       )}
 
-      {/* DIALOGS */}
-      <DraftProjectDialog open={isDraftOpen} onOpenChange={setIsDraftOpen} onSave={handleAddProject} />
-      <AllocatorEngine open={isAllocatorOpen} onOpenChange={setIsAllocatorOpen} project={projectToAllocate} employees={employees} onConfirmAllocation={handleConfirmAllocation} />
-      <ProjectCompletionDialog open={isCompletionOpen} onOpenChange={setIsCompletionOpen} project={projectToComplete} team={employees.filter(e => projectToComplete?.assignedTeamIds.includes(e.id))} onConfirm={finalizeCompletion} />
-      <LeaveManagementDialog open={isLeaveOpen} onOpenChange={setIsLeaveOpen} userRole={userRole} currentUserId={actualUserId} currentUser={currentUser} requests={leaveRequests} onRequestLeave={handleRequestLeave} onApproveReject={handleLeaveDecision} />
     </div>
   );
 }

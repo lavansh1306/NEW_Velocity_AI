@@ -23,7 +23,6 @@ import type {
 } from '@/lib/dataService';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Calendar, GitBranch, Users, TrendingUp, Clock, CheckCircle, AlertCircle, Activity, Mail, MessageSquare, FileText, Settings, ArrowLeft } from 'lucide-react';
-import CapacityLedgerTab from '@/components/demo2/CapacityLedgerTab';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
@@ -43,7 +42,7 @@ export default function ProjectDetailNew() {
   const [projectAnalytics, setProjectAnalytics] = useState<ProjectAnalytics | null>(null);
   
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'github' | 'tasks' | 'issues' | 'automations' | 'integrations' | 'ledger'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'github' | 'tasks' | 'issues' | 'automations' | 'integrations'>('overview');
 
   useEffect(() => {
     if (!id) return;
@@ -220,7 +219,6 @@ export default function ProjectDetailNew() {
             {[
               { id: 'overview', label: 'Overview', icon: Activity },
               { id: 'tasks', label: 'Team & Tasks', icon: CheckCircle },
-              { id: 'ledger', label: 'Capacity Ledger', icon: Clock },
               { id: 'github', label: 'Development', icon: GitBranch },
             ].map((tab) => {
               const Icon = tab.icon;
@@ -335,17 +333,7 @@ export default function ProjectDetailNew() {
           </div>
         )}
 
-        {/* CAPACITY LEDGER TAB */}
-        {activeTab === 'ledger' && (
-          <div className="space-y-8">
-            <CapacityLedgerTab
-              projectId={id}
-              asanaTasks={asanaTasks}
-              teamMembers={teamMembers}
-              projectAnalytics={projectAnalytics}
-            />
-          </div>
-        )}
+
 
         {/* GITHUB TAB */}
         {activeTab === 'github' && (

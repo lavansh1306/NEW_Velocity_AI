@@ -20,7 +20,6 @@ const tabs = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
   { id: 'unified', label: 'Unified OS', icon: <LayoutGrid className="w-5 h-5" /> }, // NEW TAB
   { id: 'projects', label: 'Projects', icon: <FolderKanban className="w-5 h-5" /> },
-  { id: 'ledger', label: 'Capacity Ledger', icon: <BookOpen className="w-5 h-5" /> },
   { id: 'leave', label: 'Leave Management', icon: <CalendarIcon className="w-5 h-5" /> }, 
   { id: 'deployment', label: 'Deployment', icon: <BrainCircuit className="w-5 h-5" /> },
   { id: 'progress', label: 'Smart Tracker', icon: <Activity className="w-5 h-5" /> },
