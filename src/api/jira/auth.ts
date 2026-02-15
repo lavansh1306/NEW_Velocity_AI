@@ -573,16 +573,28 @@ async function callback(req: Request, res: Response): Promise<any> {
 
     console.log('[Jira OAuth Callback] ✓ Authentication complete! Redirecting...');
     
-    // Determine redirect URL based on environment
+    // Determine redirect URL based on environment and request origin
     let redirectUrl = 'http://localhost:5173/velocity-ai'; // Default for dev
     
-    if (process.env.NODE_ENV === 'production') {
+    // Check if we're on Vercel (process.env.VERCEL) or if NODE_ENV is production
+    const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1' || req.hostname === 'www.joinvelocity.co' || req.hostname === 'joinvelocity.co';
+    
+    if (isProduction) {
+      // Use production URL
       redirectUrl = (process.env.FRONTEND_URL_PROD || 'https://www.joinvelocity.co') + '/velocity-ai';
     } else if (process.env.FRONTEND_URL) {
+      // Use development URL if explicitly set
       redirectUrl = process.env.FRONTEND_URL + '/velocity-ai';
     }
     
-    console.log('[Jira OAuth Callback] Redirecting to:', redirectUrl);
+    console.log('[Jira OAuth Callback] Determining redirect URL:', {
+      isProduction,
+      nodeEnv: process.env.NODE_ENV,
+      vercelEnv: process.env.VERCEL,
+      hostname: req.hostname,
+      redirectUrl
+    });
+    
     res.redirect(redirectUrl);
     
   } catch (err) {

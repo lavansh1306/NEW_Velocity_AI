@@ -173,7 +173,7 @@ router.post("/set-weights", async (req: Request, res: Response) => {
       })
     }
 
-    const { setScoringWeights, getScoringWeights } = await import("../../lib/leaveApprovalAgent")
+    const { setScoringWeights, getScoringWeights } = await import("../../lib/leaveApprovalAgent.js")
     setScoringWeights(weights)
     
     res.json({
@@ -196,7 +196,7 @@ router.post("/set-weights", async (req: Request, res: Response) => {
  */
 router.get("/weights", async (req: Request, res: Response) => {
   try {
-    const { getScoringWeights } = await import("../../lib/leaveApprovalAgent")
+    const { getScoringWeights } = await import("../../lib/leaveApprovalAgent.js")
     
     res.json({
       success: true,
