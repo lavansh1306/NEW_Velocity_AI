@@ -12,7 +12,7 @@ Full-stack prductivity analytics platform that integrates with **Jira**, **Asan*
 │  │   Jira   │  │  HubSpot │  │  Asana   │  │  M365    │       │
 │  │Dashboard │  │Dashboard │  │Dashboard │  │Dashboard │       │
 │  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘       │
-│       │             │              │              │              │
+│       │             │                         │           
 │       └─────────────┴──────────────┴──────────────┘              │
 │                         │                                        
 │                  React Query (API Calls)                         │
