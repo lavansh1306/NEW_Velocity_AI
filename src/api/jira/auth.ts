@@ -437,7 +437,7 @@ async function getAccessibleResources(accessToken: string): Promise<JiraResource
 }
 
 // OAuth callback handler
-async function callback(req: Request, res: Response): Promise<void> {
+async function callback(req: Request, res: Response): Promise<any> {
   const { code, state, error, error_description } = req.query as { 
     code?: string;
     state?: string;
@@ -454,20 +454,23 @@ async function callback(req: Request, res: Response): Promise<void> {
 
   if (error) {
     console.error('[Jira OAuth Callback] OAuth error from Jira:', error, error_description);
-    return res.status(400).json({ 
+    res.status(400).json({ 
       error: `OAuth error: ${error}`,
       description: error_description 
     });
+    return;
   }
 
   if (!code) {
     console.error('[Jira OAuth Callback] Missing authorization code');
-    return res.status(400).json({ error: 'Missing authorization code' });
+    res.status(400).json({ error: 'Missing authorization code' });
+    return;
   }
 
   if (!state) {
     console.error('[Jira OAuth Callback] Missing state parameter');
-    return res.status(400).json({ error: 'Missing state parameter' });
+    res.status(400).json({ error: 'Missing state parameter' });
+    return;
   }
 
   try {
@@ -485,7 +488,7 @@ async function callback(req: Request, res: Response): Promise<void> {
         sessionHasVerifier: !!req.session?.jiraCodeVerifier,
       });
       
-      return res.status(400).json({ 
+      res.status(400).json({ 
         error: 'PKCE verification failed',
         details: 'State parameter not found. Session may have expired.',
         debug: process.env.NODE_ENV === 'development' ? {
@@ -584,7 +587,7 @@ async function callback(req: Request, res: Response): Promise<void> {
     
   } catch (err) {
     console.error('[Jira OAuth Callback] ✗ Error:', err instanceof Error ? err.message : String(err));
-    return res.status(500).json({ 
+    res.status(500).json({ 
       error: 'OAuth callback failed',
       details: err instanceof Error ? err.message : 'Unknown error',
       debug: process.env.NODE_ENV === 'development' ? { stack: err instanceof Error ? err.stack : undefined } : undefined

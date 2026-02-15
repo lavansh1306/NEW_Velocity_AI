@@ -359,7 +359,21 @@ router.post('/extract-employee-skills', async (req: Request, res: Response) => {
         console.log(`[Jira Extract] Processing project: ${projectKey}`);
 
         // Get project issues
-        const issuesResponse = await jiraAuth.apiRequest(req, `/rest/api/3/search?jql=project=${projectKey}&maxResults=1000`);
+        const accessToken = await jiraAuth.getAccessToken(req);
+        const cloudId = jiraAuth.getCloudId(req);
+        
+        if (!accessToken || !cloudId) {
+          console.warn(`[Jira Extract] Missing auth for project ${projectKey}`);
+          continue;
+        }
+
+        const issuesResponse = await fetch(`https://api.atlassian.com/ex/jira/${cloudId}/rest/api/3/search?jql=project=${projectKey}&maxResults=1000`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Accept': 'application/json',
+          },
+        });
+        
         if (!issuesResponse.ok) {
           console.warn(`[Jira Extract] Failed to fetch issues for project ${projectKey}`);
           continue;
