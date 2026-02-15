@@ -25,21 +25,19 @@ const getClientSecret = () => process.env.JIRA_OAUTH_CLIENT_SECRET || '';
 // Get the correct redirect URI based on environment
 // This must match a registered redirect URI in the Jira OAuth app
 const getRedirectUri = (req?: Request) => {
-  if (process.env.JIRA_OAUTH_REDIRECT_URI) {
-    // If explicitly configured, use that
-    return process.env.JIRA_OAUTH_REDIRECT_URI;
-  }
+  // Check if we're on production based on multiple signals
+  const isVercel = process.env.VERCEL === '1';
+  const isProduction = 
+    process.env.NODE_ENV === 'production' || 
+    isVercel ||
+    (req && (req.hostname === 'joinvelocity.co' || req.hostname === 'www.joinvelocity.co'));
   
-  // Determine based on environment
-  if (process.env.NODE_ENV === 'production') {
-    // In production (Vercel), use the production domain
-    const apiUrl = process.env.JIRA_OAUTH_API_URL_PROD || 'https://www.joinvelocity.co';
-    return `${apiUrl}/api/jira/auth/callback`;
+  if (isProduction) {
+    // Always use production redirect URI when in production
+    return 'https://www.joinvelocity.co/api/jira/auth/callback';
   } else {
-    // In development, use localhost with the API port
-    const apiPort = process.env.API_PORT || '4000';
-    const apiUrl = process.env.JIRA_OAUTH_API_URL || `http://localhost:${apiPort}`;
-    return `${apiUrl}/api/jira/auth/callback`;
+    // Use local development redirect URI
+    return process.env.JIRA_OAUTH_REDIRECT_URI_LOCAL || 'http://localhost:4000/api/jira/auth/callback';
   }
 };
 
@@ -367,7 +365,7 @@ async function login(req: Request, res: Response): Promise<void> {
       audience: 'api.atlassian.com',
       client_id: getClientId(),
       scope: SCOPES,
-      redirect_uri: getRedirectUri(),
+      redirect_uri: getRedirectUri(req),
       state: state,
       response_type: 'code',
       code_challenge: codeChallenge,
@@ -385,13 +383,13 @@ async function login(req: Request, res: Response): Promise<void> {
 }
 
 // Exchange authorization code for tokens
-async function exchangeCodeForToken(code: string, codeVerifier: string): Promise<TokenResponse> {
+async function exchangeCodeForToken(code: string, codeVerifier: string, req?: Request): Promise<TokenResponse> {
   const params = new URLSearchParams({
     grant_type: 'authorization_code',
     client_id: getClientId(),
     client_secret: getClientSecret(),
     code: code,
-    redirect_uri: getRedirectUri(),
+    redirect_uri: getRedirectUri(req),
     code_verifier: codeVerifier,
   });
 
@@ -502,7 +500,7 @@ async function callback(req: Request, res: Response): Promise<any> {
     console.log('[Jira OAuth Callback] ✓ Code verifier retrieved, exchanging for token...');
     
     // Exchange code for tokens
-    const tokenResp = await exchangeCodeForToken(code, codeVerifier);
+    const tokenResp = await exchangeCodeForToken(code, codeVerifier, req);
 
     // Clear the code_verifier from session after use
     delete req.session.jiraCodeVerifier;
