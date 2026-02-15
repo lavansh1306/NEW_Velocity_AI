@@ -5,28 +5,60 @@ const REQUEST_TIMEOUT = 30000;
 
 // Route handler for all ML operations
 export default async function handler(req: Request, res: Response) {
-  const path = req.url.split('?')[0]; // Get path without query params
+  // Add CORS headers for all requests
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   
-  console.log(`[ML Handler] ${req.method} ${path}`);
+  // Handle preflight OPTIONS request
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
+  // Vercel passes the path in _path query parameter due to rewrite rule
+  let path = req.url.split('?')[0];
+  
+  // Check for _path parameter passed by Vercel rewrite
+  const urlParams = new URL(req.url, `http://${req.headers.host}`).searchParams;
+  const vercelPath = urlParams.get('_path');
+  if (vercelPath) {
+    path = `${vercelPath}`;
+  }
+  
+  console.log(`[ML Handler] ${req.method} ${path} | url: ${req.url}`);
 
-  // Route to appropriate handler
-  if (path === '/api/ml/health') {
+  // Route to appropriate handler based on endpoint
+  const endpoint = path.split('/').pop() || '';
+  
+  if (endpoint === 'health' || path === '/health') {
     return handleHealth(req, res);
-  } else if (path === '/api/ml/analyze-availability') {
+  } else if (endpoint === 'analyze-availability' || path.includes('analyze-availability')) {
     return handleAnalyzeAvailability(req, res);
-  } else if (path === '/api/ml/analyze-bottlenecks') {
+  } else if (endpoint === 'analyze-bottlenecks' || path.includes('analyze-bottlenecks')) {
     return handleAnalyzeBottlenecks(req, res);
-  } else if (path === '/api/ml/train') {
+  } else if (endpoint === 'train') {
     return handleTrain(req, res);
-  } else if (path === '/api/ml/diagnostics') {
+  } else if (endpoint === 'diagnostics' || path === '/diagnostics') {
     return handleDiagnostics(req, res);
   } else {
-    return res.status(404).json({ error: 'ML endpoint not found', path });
+    console.warn(`[ML Handler] Unknown endpoint: ${endpoint}, path: ${path}, fullUrl: ${req.url}`);
+    return res.status(404).json({ 
+      error: 'ML endpoint not found', 
+      endpoint,
+      path,
+      fullUrl: req.url,
+      availableEndpoints: ['/health', '/analyze-availability', '/analyze-bottlenecks', '/train', '/diagnostics']
+    });
   }
 }
 
 // ==================== Health Check ====================
 async function handleHealth(req: Request, res: Response) {
+  // Add CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  
   try {
     console.log('[ML Health] Health check requested');
     
@@ -68,6 +100,11 @@ async function handleHealth(req: Request, res: Response) {
 
 // ==================== Availability Analysis ====================
 async function handleAnalyzeAvailability(req: Request, res: Response) {
+  // Add CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -137,6 +174,11 @@ async function handleAnalyzeAvailability(req: Request, res: Response) {
 
 // ==================== Bottleneck Analysis ====================
 async function handleAnalyzeBottlenecks(req: Request, res: Response) {
+  // Add CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -206,6 +248,11 @@ async function handleAnalyzeBottlenecks(req: Request, res: Response) {
 
 // ==================== Model Training ====================
 async function handleTrain(req: Request, res: Response) {
+  // Add CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }

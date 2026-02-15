@@ -219,7 +219,7 @@ export async function checkMLEngineHealth(): Promise<boolean> {
     }
 
     const data: HealthCheckResponse = await response.json();
-    const isActive = data.status === 'active' || data.status === 'offline' === false;
+    const isActive = data.status === 'active';
     console.log('[MLService] Health check - ML Engine is', isActive ? 'ONLINE' : 'OFFLINE');
     
     // Cache the result
