@@ -6,7 +6,7 @@ Full-stack prductivity analytics platform that integrates with **Jira**, **Asan*
 **Stc:** React + TypeScript + Express +OAuth
 ## Arhitecture
 ``
-┌─────────────────────────────────────────────────────────────────┐
+┌────────────────────────────────────────────────────────────────┐
 │                         FRONEND (React)                         │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐       │
 │  │   Jira   │  │  HubSpot │  │  Asana   │  │  M365    │       │
