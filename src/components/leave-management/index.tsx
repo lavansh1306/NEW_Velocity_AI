@@ -33,7 +33,7 @@ interface JiraProjectData {
 
 const checkJiraConnectionForLeaves = async (): Promise<boolean> => {
   try {
-    const response = await fetch('/api/jira/auth/status');
+    const response = await fetch('/api/jira/auth/status', { credentials: 'include' });
     if (response.ok) {
       const data = await response.json();
       return data.connected === true;
@@ -47,7 +47,7 @@ const checkJiraConnectionForLeaves = async (): Promise<boolean> => {
 
 const fetchJiraProjectsForLeaves = async (): Promise<any[]> => {
   try {
-    const response = await fetch('/api/jira/projects');
+    const response = await fetch('/api/jira/projects', { credentials: 'include' });
     if (response.ok) {
       const data = await response.json();
       return data.projects || [];
@@ -150,7 +150,7 @@ const fetchJiraLeaveAndTaskData = async (): Promise<JiraProjectData> => {
     // Try to fetch leave-related data (look for issues with "Leave" label)
     // Note: This requires a Leave issue type or custom label in Jira
     try {
-      const leaveIssuesResponse = await fetch('/api/jira/issues?projectKey=LEAVE');
+      const leaveIssuesResponse = await fetch('/api/jira/issues?projectKey=LEAVE', { credentials: 'include' });
       if (leaveIssuesResponse.ok) {
         const leaveData = await leaveIssuesResponse.json();
         const leaveIssues = leaveData.issues || [];

@@ -158,7 +158,7 @@ export default function IntegrationsTab() {
         alert('Microsoft 365 disconnect not yet implemented');
         return;
       } else if (integrationId === 'jira') {
-        await fetch('/api/jira/auth/disconnect', { method: 'POST' });
+        await fetch('/api/jira/auth/disconnect', { method: 'POST', credentials: 'include' });
       }
 
       setIntegrations(prev =>

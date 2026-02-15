@@ -30,7 +30,7 @@ interface JiraProject {
 
 const checkJiraConnection = async (): Promise<boolean> => {
   try {
-    const response = await fetch('/api/jira/auth/status');
+    const response = await fetch('/api/jira/auth/status', { credentials: 'include' });
     if (response.ok) {
       const data = await response.json();
       return data.connected === true;
@@ -44,7 +44,7 @@ const checkJiraConnection = async (): Promise<boolean> => {
 
 const fetchJiraProjects = async (): Promise<JiraProject[]> => {
   try {
-    const response = await fetch('/api/jira/projects');
+    const response = await fetch('/api/jira/projects', { credentials: 'include' });
     if (response.ok) {
       const data = await response.json();
       return data.projects || [];

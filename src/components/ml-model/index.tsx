@@ -33,7 +33,7 @@ export default function ProjectCheckView() {
     const loadData = async () => {
       try {
         // First, try to load from Jira if connected
-        const jiraStatusResponse = await fetch('/api/jira/auth/status');
+        const jiraStatusResponse = await fetch('/api/jira/auth/status', { credentials: 'include' });
         const jiraStatus = await jiraStatusResponse.json();
         
         console.log('[ProjectCheckView] Jira status:', jiraStatus);
@@ -41,7 +41,7 @@ export default function ProjectCheckView() {
         if (jiraStatus.connected) {
           // Load projects from Jira
           try {
-            const projectsResponse = await fetch('/api/jira/projects');
+            const projectsResponse = await fetch('/api/jira/projects', { credentials: 'include' });
             if (projectsResponse.ok) {
               const projectsData = await projectsResponse.json();
               console.log('[ProjectCheckView] Loaded from Jira projects:', projectsData);
@@ -92,7 +92,7 @@ export default function ProjectCheckView() {
         let teamMembers = dataset;
         
         try {
-          const teamResponse = await fetch('/api/jira/team-members');
+          const teamResponse = await fetch('/api/jira/team-members', { credentials: 'include' });
           if (teamResponse.ok) {
             const teamData = await teamResponse.json();
             console.log('[ProjectCheckView] Fetched team members from Jira:', teamData);
