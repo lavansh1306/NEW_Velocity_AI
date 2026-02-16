@@ -8,7 +8,7 @@ Full-stack prductivity analytics platform that integrates with **Jira**, **Asan*
 ``
 ┌────────────────────────────────────────────────────────────────┐
 │                         FRONEND (React)                         │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐       
+│  ┌──────────┐  ┌──────────┐  ┌───────┐  ┌──────────┐       
 │  │   Jira   │  │  HubSpot │  │  Asana   │  │  M365    │       │
 │  │Dashboard │ │Dahboard │  │Dahboard │  │\ │       │
 │  └────┬─────┘  └────┬─────┘  └───┬─────┘  └────┬─────┘       │
