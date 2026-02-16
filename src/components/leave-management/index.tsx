@@ -500,7 +500,7 @@ export default function LeaveManagementTab() {
         <div className="flex items-center gap-3">
           <div className="bg-indigo-500 p-2 rounded-lg text-white"><Users className="w-5 h-5" /></div>
           <div>
-            <h3 className="font-bold text-white text-sm">Leave Management System</h3>
+            <h3 className="font-light text-white text-sm">Leave Management System</h3>
             <p className="text-xs text-slate-400">
               {activePersona === 'manager' ? '👨‍💼 Manager Dashboard' : `👤 Employee: ${currentUser}`}
             </p>
@@ -529,8 +529,8 @@ export default function LeaveManagementTab() {
         <div className="flex items-center gap-4 flex-wrap">
 
            <div className="flex bg-slate-800 p-1 rounded-lg border border-slate-700">
-             <button onClick={() => setActivePersona('manager')} className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${activePersona === 'manager' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400'}`}>Manager</button>
-             <button onClick={() => setActivePersona('employee')} className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${activePersona === 'employee' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400'}`}>Employee</button>
+             <button onClick={() => setActivePersona('manager')} className={`px-3 py-1 rounded-md text-xs font-light transition-all ${activePersona === 'manager' ? 'bg-primary text-white shadow' : 'text-slate-400'}`}>Manager</button>
+             <button onClick={() => setActivePersona('employee')} className={`px-3 py-1 rounded-md text-xs font-light transition-all ${activePersona === 'employee' ? 'bg-primary text-white shadow' : 'text-slate-400'}`}>Employee</button>
            </div>
         </div>
       </div>
@@ -540,7 +540,7 @@ export default function LeaveManagementTab() {
         <div className="w-full mb-4 mt-4 space-y-6">
           {/* ACTIVE LEAVES DASHBOARD */}
           <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border-2 border-indigo-300 rounded-2xl p-6 shadow-lg">
-            <h3 className="text-xl font-bold text-indigo-900 mb-6 flex items-center gap-2">
+            <h3 className="text-xl font-light text-primary mb-6 flex items-center gap-2">
               📋 Active Leave Requests
             </h3>
             
@@ -565,7 +565,7 @@ export default function LeaveManagementTab() {
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
-                            <h4 className="font-bold text-lg text-slate-900">{leave.name}</h4>
+                            <h4 className="font-light text-lg text-slate-900">{leave.name}</h4>
                             <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${leave.status === 'Approved' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>
                               {leave.status}
                             </span>
@@ -670,7 +670,7 @@ export default function LeaveManagementTab() {
       {activePersona === 'manager' && (
         <div className="animate-in fade-in slide-in-from-right-4 duration-500">
           <div className="bg-white border-2 border-slate-200 rounded-2xl p-6 shadow-lg">
-            <h3 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
+            <h3 className="text-xl font-light text-slate-900 mb-4 flex items-center gap-2">
               👥 Team Workload Overview
             </h3>
             <WorkloadTable 
@@ -698,7 +698,7 @@ export default function LeaveManagementTab() {
       {redeployOpen && selectedLeave && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full animate-in slide-in-from-bottom-4">
-            <h3 className="text-xl font-bold text-slate-900 mb-4">🔄 Redeploy Tasks</h3>
+            <h3 className="text-xl font-light text-slate-900 mb-4">🔄 Redeploy Tasks</h3>
             <p className="text-sm text-slate-600 mb-4">
               Select an available employee to reassign {selectedLeave.name}'s tasks on {new Date(selectedLeave.startDate).toLocaleDateString()}
             </p>

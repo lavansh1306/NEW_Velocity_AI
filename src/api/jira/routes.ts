@@ -165,11 +165,18 @@ router.get('/issues', async (req: Request, res: Response) => {
       const fields = issue.fields || {};
       const created = fields.created || null;
       const due = fields.duedate || null;
-      const duration = created && due 
-        ? Math.ceil((new Date(due).getTime() - new Date(created).getTime()) / MS_PER_DAY) 
+      const startDate = fields.customfield_10015 || created || null;  // Use custom start field, fallback to created
+      
+      console.log(`[Jira Issues] Issue ${issue.key}:`, {
+        created,
+        due,
+        startDate,
+        customfield_10015: fields.customfield_10015
+      })
+      
+      const duration = startDate && due 
+        ? Math.ceil((new Date(due).getTime() - new Date(startDate).getTime()) / MS_PER_DAY) 
         : "";
-
-      const startDate = fields.customfield_10015 || null;
 
       return {
         key: issue.key || "-",
@@ -189,6 +196,15 @@ router.get('/issues', async (req: Request, res: Response) => {
     });
 
     console.log('[Jira Issues] Formatted', issues.length, 'issues');
+    if (issues.length > 0) {
+      console.log('[Jira Issues] Sample formatted issue:', {
+        key: issues[0].key,
+        summary: issues[0].summary,
+        start: issues[0].start,
+        due: issues[0].due,
+        created: issues[0].created
+      })
+    }
     console.log('[Jira Issues] Sending response...');
     res.json({ issues });
     console.log('[Jira Issues] Response sent!');

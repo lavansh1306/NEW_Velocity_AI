@@ -55,7 +55,7 @@ export const ROIMetrics = () => {
             <DollarSign className="h-4 w-4" />
             Total ROI
           </div>
-          <div className="text-3xl font-bold text-green-600">3.2x</div>
+          <div className="text-3xl font-light text-primary">3.2x</div>
           <div className="mt-2 text-xs text-muted-foreground">$284K annual savings</div>
         </Card>
         <Card className="p-6">
@@ -63,7 +63,7 @@ export const ROIMetrics = () => {
             <Clock className="h-4 w-4" />
             Time to Value
           </div>
-          <div className="text-3xl font-bold">4.2mo</div>
+          <div className="text-3xl font-light text-primary">4.2mo</div>
           <div className="mt-2 text-xs text-green-600">2.1 months faster</div>
         </Card>
         <Card className="p-6">
@@ -71,7 +71,7 @@ export const ROIMetrics = () => {
             <TrendingUp className="h-4 w-4" />
             Attribution Rate
           </div>
-          <div className="text-3xl font-bold">89%</div>
+          <div className="text-3xl font-light text-primary">89%</div>
           <div className="mt-2 text-xs text-muted-foreground">High confidence</div>
         </Card>
         <Card className="p-6">
@@ -79,7 +79,7 @@ export const ROIMetrics = () => {
             <Zap className="h-4 w-4" />
             Active Projects
           </div>
-          <div className="text-3xl font-bold">8</div>
+          <div className="text-3xl font-light text-primary">8</div>
           <div className="mt-2 text-xs text-blue-600">Tracking impact</div>
         </Card>
       </div>
@@ -174,7 +174,7 @@ export const ROIMetrics = () => {
               </div>
               <div className="flex items-center gap-4">
                 <div className="text-right">
-                  <div className="text-2xl font-bold text-green-600">{attr.impact}</div>
+                  <div className="text-2xl font-light text-primary">{attr.impact}</div>
                   <div className="text-xs text-muted-foreground">{attr.confidence}% confidence</div>
                 </div>
                 <div

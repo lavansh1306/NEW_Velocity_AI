@@ -221,7 +221,7 @@ export default function JiraEmployeeExtractor() {
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">
+          <h1 className="text-4xl font-light text-gray-800 mb-2">
             🔗 Jira Employee Skills Extractor
           </h1>
           <p className="text-gray-600">

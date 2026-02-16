@@ -45,9 +45,9 @@ export default function VeloNavTabs({ activeTab, onTabChange, children }: VeloNa
               <button
                 key={tab.id}
                 onClick={() => onTabChange(tab.id)}
-                className={`w-full text-left px-4 py-3 font-medium text-sm rounded-lg transition-all flex items-center gap-3 ${
+                className={`w-full text-left px-4 py-3 font-light text-sm rounded-xl transition-all flex items-center gap-3 ${
                   activeTab === tab.id
-                    ? 'bg-indigo-50 text-indigo-700 border border-indigo-100 shadow-sm'
+                    ? 'bg-primary/10 text-primary border border-primary/20 shadow-sm'
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`}
               >
@@ -65,7 +65,7 @@ export default function VeloNavTabs({ activeTab, onTabChange, children }: VeloNa
           <div className="px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
               {currentTabIcon}
-              <span className="font-bold text-gray-900">{currentTabLabel}</span>
+              <span className="font-light text-gray-900">{currentTabLabel}</span>
             </div>
             <button
               onClick={() => setMobileMenuOpen(true)}
@@ -85,7 +85,7 @@ export default function VeloNavTabs({ activeTab, onTabChange, children }: VeloNa
             <div className="fixed inset-0 bg-black/50" onClick={() => setMobileMenuOpen(false)} />
             <div className="relative w-64 bg-white shadow-xl h-full overflow-y-auto">
               <div className="p-4 border-b flex justify-between items-center">
-                 <h2 className="font-bold">Menu</h2>
+                 <h2 className="font-light">Menu</h2>
                  <button onClick={() => setMobileMenuOpen(false)}>
                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                  </button>
@@ -95,8 +95,8 @@ export default function VeloNavTabs({ activeTab, onTabChange, children }: VeloNa
                   <button
                     key={tab.id}
                     onClick={() => handleTabSelect(tab.id)}
-                    className={`w-full text-left px-4 py-3 font-medium rounded-lg flex items-center gap-3 ${
-                      activeTab === tab.id ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600'
+                    className={`w-full text-left px-4 py-3 font-light rounded-xl flex items-center gap-3 ${
+                      activeTab === tab.id ? 'bg-primary/10 text-primary' : 'text-gray-600'
                     }`}
                   >
                     {tab.icon}

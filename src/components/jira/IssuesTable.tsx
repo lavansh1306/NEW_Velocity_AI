@@ -10,9 +10,9 @@ export default function IssuesTable({ issues }: IssuesTableProps) {
     <div className="bg-white rounded-lg shadow-lg overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
+          <thead className="bg-primary text-white">
             <tr>
-              <th className="px-6 py-4 text-left font-semibold">Project Key</th>
+              <th className="px-6 py-4 text-left font-light">Project Key</th>
               <th className="px-6 py-4 text-left font-semibold">Team</th>
               <th className="px-6 py-4 text-left font-semibold">Issue Type</th>
               <th className="px-6 py-4 text-left font-semibold">Summary</th>

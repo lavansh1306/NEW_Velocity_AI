@@ -606,178 +606,153 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
   }, []);
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="bg-gray-50 min-h-screen p-12 font-['Inter',sans-serif]">
+      <div className="max-w-[1600px] mx-auto space-y-12">
       
       {/* Header Section */}
       <div>
-        <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">WELCOME BACK MANAGER</h1>
-        <p className="text-gray-600">Here's what's happening with your teams today.</p>
+        <h1 className="text-4xl font-light text-gray-900 mb-3 tracking-tight">Dashboard</h1>
+        <p className="text-gray-600 font-light text-base">Here's what's happening with your teams today.</p>
       </div>
 
-      {/* Main Content Area - KPI Cards + Deadlines */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:auto-rows-max">
-        {/* Left Column - KPI Cards (2x2 Grid) */}
-        <div className="lg:col-span-2">
-          <div className="grid grid-cols-2 gap-4">
-            {/* Active Project Card */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-all">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">ACTIVE PROJECT</h3>
-                <div className="w-3 h-3 bg-red-500 rounded-full border-2 border-red-200"></div>
-              </div>
-              <div className="text-4xl font-bold text-gray-900">{dashboardMetrics.activeProjects}</div>
-              <p className="text-xs text-gray-500 mt-2">Projects with activity today</p>
-            </div>
+      {/* Main Content Area - KPI Cards (Full Width) */}
+      <div className="grid grid-cols-4 gap-6">
+        {/* Active Project Card */}
+        <div className="bg-white rounded-2xl shadow-sm p-8 border border-gray-100 hover:shadow-md transition-all">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-xs font-light text-gray-500 uppercase tracking-wider">Active Projects</h3>
+            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+          </div>
+          <div className="text-4xl font-light text-gray-900 mb-2">{dashboardMetrics.activeProjects}</div>
+          <p className="text-xs text-gray-500 font-light">Projects with activity today</p>
+        </div>
 
-            {/* Team Utilization Card */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-all">
-              <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-4">TEAM UTILIZATION</h3>
-              <div className="text-4xl font-bold text-gray-900">{dashboardMetrics.teamUtilization}%</div>
-              <div className="w-full bg-gray-200 rounded-full h-2 mt-4">
-                <div
-                  className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${dashboardMetrics.teamUtilization}%` }}
-                ></div>
-              </div>
-              <p className="text-xs text-gray-500 mt-2">{dashboardMetrics.teamMembers} team members</p>
-            </div>
+        {/* Team Utilization Card */}
+        <div className="bg-white rounded-2xl shadow-sm p-8 border border-gray-100 hover:shadow-md transition-all">
+          <h3 className="text-xs font-light text-gray-500 uppercase tracking-wider mb-3">Team Utilization</h3>
+          <div className="text-4xl font-light text-gray-900 mb-3">{dashboardMetrics.teamUtilization}%</div>
+          <div className="w-full bg-gray-100 rounded-full h-1.5">
+            <div
+              className="bg-blue-600 h-1.5 rounded-full transition-all duration-300"
+              style={{ width: `${dashboardMetrics.teamUtilization}%` }}
+            ></div>
+          </div>
+          <p className="text-xs text-gray-500 font-light mt-2">{dashboardMetrics.teamMembers} team members</p>
+        </div>
 
-            {/* Available Capacity Card with Filters */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-all md:col-span-2">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">AVAILABLE CAPACITY</h3>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      setSelectedProject('all');
-                      setSelectedEmployee('all');
-                    }}
-                    className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded text-gray-700 font-medium transition"
-                  >
-                    Reset
-                  </button>
-                </div>
-              </div>
-              
-              {/* Filters */}
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                <div>
-                  <label className="text-xs font-semibold text-gray-600 mb-1 block">Filter by Project</label>
-                  <select
-                    value={selectedProject}
-                    onChange={(e) => setSelectedProject(e.target.value)}
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="all">All Projects</option>
-                    {availableProjects.map((project) => (
-                      <option key={project} value={project}>{project}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-gray-600 mb-1 block">Filter by Employee</label>
-                  <select
-                    value={selectedEmployee}
-                    onChange={(e) => setSelectedEmployee(e.target.value)}
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="all">All Employees</option>
-                    {availableEmployees.map((employee) => (
-                      <option key={employee} value={employee}>{employee}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+        {/* Project at Risk Card */}
+        <div className="bg-white rounded-2xl shadow-sm p-8 border border-gray-100 hover:shadow-md transition-all">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-xs font-light text-gray-500 uppercase tracking-wider">Projects at Risk</h3>
+            <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
+          </div>
+          <div className="text-4xl font-light text-gray-900 mb-2">{dashboardMetrics.projectsAtRisk}</div>
+          <p className="text-xs text-gray-500 font-light">Behind schedule</p>
+        </div>
 
-              {/* Display filtered capacity */}
-              <div className="space-y-2">
-                <div className="text-4xl font-bold text-gray-900">
-                  {filteredCapacity.hours}h
-                  <span className="text-lg text-gray-500 ml-2">({filteredCapacity.days}d)</span>
-                </div>
-                <p className="text-xs text-gray-500">
-                  {selectedProject !== 'all' || selectedEmployee !== 'all' 
-                    ? `Filtered: ${selectedProject !== 'all' ? selectedProject : 'All Projects'} ${selectedEmployee !== 'all' ? `- ${selectedEmployee}` : ''}` 
-                    : 'All projects and employees'}
-                </p>
-              </div>
-            </div>
+        {/* Team Members Card */}
+        <div className="bg-white rounded-2xl shadow-sm p-8 border border-gray-100 hover:shadow-md transition-all">
+          <h3 className="text-xs font-light text-gray-500 uppercase tracking-wider mb-3">Team Members</h3>
+          <div className="text-4xl font-light text-gray-900 mb-2">{dashboardMetrics.teamMembers}</div>
+          <p className="text-xs text-gray-500 font-light">Active across all projects</p>
+        </div>
+      </div>
 
-            {/* Project at Risk Card */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-all">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">PROJECT AT RISK</h3>
-                <div className="w-3 h-3 bg-amber-500 rounded-full border-2 border-amber-200"></div>
-              </div>
-              <div className="text-4xl font-bold text-gray-900">{dashboardMetrics.projectsAtRisk}</div>
-              <p className="text-xs text-gray-500 mt-2">Behind schedule</p>
-            </div>
+      {/* Available Capacity Card with Filters */}
+      <div className="bg-white rounded-2xl shadow-sm p-10 border border-gray-100">
+        <div className="flex items-center justify-between mb-8">
+          <h3 className="text-xl font-light text-gray-900">Available Capacity</h3>
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                setSelectedProject('all');
+                setSelectedEmployee('all');
+              }}
+              className="px-4 py-2 text-xs bg-gray-50 hover:bg-gray-100 rounded-lg text-gray-700 font-light transition border border-gray-200"
+            >
+              Reset
+            </button>
+          </div>
+        </div>
+        
+        {/* Filters */}
+        <div className="grid grid-cols-3 gap-6 mb-6">
+          <div>
+            <label className="text-xs font-light text-gray-600 mb-2 block">Filter by Project</label>
+            <select
+              value={selectedProject}
+              onChange={(e) => setSelectedProject(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm font-light focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            >
+              <option value="all">All Projects</option>
+              {availableProjects.map((project) => (
+                <option key={project} value={project}>{project}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-light text-gray-600 mb-2 block">Filter by Employee</label>
+            <select
+              value={selectedEmployee}
+              onChange={(e) => setSelectedEmployee(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm font-light focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            >
+              <option value="all">All Employees</option>
+              {availableEmployees.map((employee) => (
+                <option key={employee} value={employee}>{employee}</option>
+              ))}
+            </select>
           </div>
         </div>
 
-        {/* Left Column - Project Deadlines */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-lg font-bold text-gray-900 mb-6">PROJECT UPCOMING DEADLINES</h2>
-          
-          {upcomingDeadlines.length > 0 ? (
-            <div className="space-y-3">
-              {upcomingDeadlines.map((issue: any, idx: number) => {
-                const dueDate = new Date(issue.due);
-                const daysUntil = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-                const isUrgent = daysUntil <= 3;
-
-                return (
-                  <div
-                    key={idx}
-                    className={`flex items-center justify-between p-4 rounded-lg border ${
-                      isUrgent ? 'border-red-200 bg-red-50' : 'border-gray-200 hover:bg-gray-50'
-                    } transition-colors`}
-                  >
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-900 text-sm">{issue.summary}</p>
-                      <p className="text-xs text-gray-500 mt-1">{issue.key} • {issue.assignee || 'Unassigned'}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className={`text-sm font-semibold ${isUrgent ? 'text-red-600' : 'text-gray-600'}`}>
-                        {daysUntil} {daysUntil === 1 ? 'day' : 'days'}
-                      </p>
-                      <p className="text-xs text-gray-400">{dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
-                    </div>
-                  </div>
-                );
-              })}
+        {/* Display filtered capacity */}
+        <div className="grid grid-cols-3 gap-6">
+          <div className="space-y-2">
+            <p className="text-xs font-light text-gray-600 uppercase tracking-wider">Available Capacity</p>
+            <div className="text-4xl font-light text-gray-900">
+              {filteredCapacity.hours}h
+              <span className="text-lg text-gray-500 ml-2 font-light">({filteredCapacity.days}d)</span>
             </div>
-          ) : (
-            <div className="py-8 text-center">
-              <p className="text-gray-500">No upcoming deadlines in the next 2 weeks</p>
-            </div>
-          )}
+          </div>
+          <div className="space-y-2">
+            <p className="text-xs font-light text-gray-600 uppercase tracking-wider">Total Tasks</p>
+            <div className="text-4xl font-light text-gray-900">{dashboardMetrics.totalTasks}</div>
+          </div>
+          <div className="space-y-2">
+            <p className="text-xs font-light text-gray-600 uppercase tracking-wider">Total Allocated</p>
+            <div className="text-4xl font-light text-gray-900">{dashboardMetrics.totalAllocated}h</div>
+          </div>
         </div>
+        <p className="text-xs text-gray-500 mt-4 font-light">
+          {selectedProject !== 'all' || selectedEmployee !== 'all' 
+            ? `Filtered: ${selectedProject !== 'all' ? selectedProject : 'All Projects'} ${selectedEmployee !== 'all' ? `- ${selectedEmployee}` : ''}` 
+            : 'All projects and employees'}
+        </p>
       </div>
 
       {/* Capacity Overview - Full Width */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-bold text-gray-900">CAPACITY OVERVIEW</h2>
+      <div className="bg-white rounded-2xl shadow-sm p-10 border border-gray-100">
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-xl font-light text-gray-900">Capacity Overview</h2>
           <div className="flex gap-4 items-end">
             <div className="flex flex-col">
-              <label htmlFor="date-from" className="text-xs text-gray-600 font-semibold mb-1">From Date</label>
+              <label htmlFor="date-from" className="text-xs text-gray-600 font-light mb-2">From Date</label>
               <input
                 id="date-from"
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-light focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
               />
             </div>
             <div className="flex flex-col">
-              <label htmlFor="date-to" className="text-xs text-gray-600 font-semibold mb-1">To Date</label>
+              <label htmlFor="date-to" className="text-xs text-gray-600 font-light mb-2">To Date</label>
               <input
                 id="date-to"
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-light focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
               />
             </div>
             {(dateFrom || dateTo) && (
@@ -786,7 +761,7 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
                   setDateFrom('');
                   setDateTo('');
                 }}
-                className="px-4 py-2 text-xs bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                className="px-4 py-2 text-xs bg-gray-50 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors font-light border border-gray-200"
               >
                 Clear
               </button>
@@ -832,18 +807,41 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
       </div>
 
       {/* Gantt Timeline View */}
-      {jiraIssues.length > 0 && (
-        <div className="mt-8">
-          <h2 className="text-lg font-bold text-gray-900 mb-4">EMPLOYEE TIMELINE</h2>
-          {jiraLoading ? (
-            <div className="bg-white rounded-lg border border-gray-200 p-6 text-center">
-              <p className="text-gray-600">Loading timeline...</p>
-            </div>
-          ) : (
-            <ManagerGantt autoFetch={true} jiraIssues={jiraIssues} />
-          )}
-        </div>
-      )}
+      <div className="">
+        <h2 className="text-xl font-light text-gray-900 mb-8">Employee Timeline</h2>
+        {(() => {
+          const state = {
+            loading: jiraLoading,
+            issuesCount: jiraIssues?.length || 0,
+            shouldRender: jiraIssues && jiraIssues.length > 0 && !jiraLoading
+          }
+          console.log('[ModernDashboard] Gantt section render check:', state)
+          
+          if (jiraLoading) {
+            console.log('[ModernDashboard] Showing loading state')
+            return (
+              <div className="bg-white rounded-2xl shadow-sm p-10 border border-gray-100 text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-600 border-t-transparent mx-auto mb-4"></div>
+                <p className="text-gray-600 font-light">Loading employee timeline...</p>
+              </div>
+            )
+          }
+          
+          if (!jiraIssues || jiraIssues.length === 0) {
+            console.log('[ModernDashboard] Showing no tasks state')
+            return (
+              <div className="bg-white rounded-2xl shadow-sm p-10 border border-gray-100 text-center">
+                <p className="text-gray-500 font-light">No tasks available to display timeline</p>
+                <p className="text-gray-400 text-sm mt-1 font-light">Connect to Jira to view your tasks</p>
+              </div>
+            )
+          }
+          
+          console.log('[ModernDashboard] Rendering Gantt with', jiraIssues.length, 'issues:', jiraIssues.map(i => ({ key: i.key, summary: i.summary, dates: { start: i.start, due: i.due, created: i.created } })))
+          return <ManagerGantt autoFetch={false} jiraIssues={jiraIssues} />
+        })()}
+      </div>
+      </div>
     </div>
   );
 };

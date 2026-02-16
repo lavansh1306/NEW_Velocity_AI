@@ -2,7 +2,7 @@ export default function ROIVerificationTab() {
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-xl sm:text-2xl font-bold text-gray-900">ROI Verification & Evidence Layer</h2>
+        <h2 className="text-xl sm:text-2xl font-light text-gray-900">ROI Verification & Evidence Layer</h2>
         <p className="text-xs sm:text-sm text-gray-600 mt-1">Tiered attribution • Traceable to source events • Realized value only</p>
       </div>
 
@@ -13,7 +13,7 @@ export default function ROIVerificationTab() {
             <div className="text-xs sm:text-sm opacity-90">Tier A: Operational ROI</div>
             <span className="px-2 py-1 bg-white bg-opacity-20 rounded text-xs font-bold">Direct</span>
           </div>
-          <div className="text-3xl sm:text-4xl font-bold mb-2">$68,200</div>
+          <div className="text-3xl sm:text-4xl font-light mb-2 text-primary">$68,200</div>
           <div className="text-xs sm:text-sm opacity-75">12 verified accelerations</div>
           <div className="text-xs opacity-60 mt-2">Days Saved × CoD/day</div>
         </div>
@@ -23,12 +23,12 @@ export default function ROIVerificationTab() {
             <div className="text-xs sm:text-sm opacity-90">Tier B: Cost Avoidance</div>
             <span className="px-2 py-1 bg-white bg-opacity-20 rounded text-xs font-bold">Validated</span>
           </div>
-          <div className="text-3xl sm:text-4xl font-bold mb-2">$42,500</div>
+          <div className="text-3xl sm:text-4xl font-light mb-2 text-primary">$42,500</div>
           <div className="text-xs sm:text-sm opacity-75">8 harvest tasks completed</div>
           <div className="text-xs opacity-60 mt-2">Contractor/headcount reduction</div>
         </div>
 
-        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg p-4 sm:p-6 text-white">
+        <div className="bg-primary rounded-xl p-4 sm:p-6 text-white shadow-md">
           <div className="flex items-center justify-between mb-3">
             <div className="text-xs sm:text-sm opacity-90">Tier C: Revenue Impact</div>
             <span className="px-2 py-1 bg-white bg-opacity-20 rounded text-xs font-bold">Attributed</span>
@@ -41,7 +41,7 @@ export default function ROIVerificationTab() {
 
       {/* Evidence Trail */}
       <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6 mb-6">
-        <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-4">Evidence Trail</h3>
+        <h3 className="text-base sm:text-lg font-light text-gray-900 mb-4">Evidence Trail</h3>
         <div className="space-y-3 sm:space-y-4">
           {/* Tier A Evidence */}
           <div className="bg-gray-50 rounded-lg p-3 sm:p-4 border-l-4 border-green-500">
@@ -178,7 +178,7 @@ export default function ROIVerificationTab() {
       </div>
 
       {/* Pilot Exit Criteria */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 sm:p-6">
+      <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 sm:p-6">
         <h3 className="text-base sm:text-lg font-bold text-blue-900 mb-4">90-Day Pilot Exit Criteria</h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6">
           <div className="bg-white rounded-lg p-3 sm:p-4">

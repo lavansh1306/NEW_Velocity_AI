@@ -39,7 +39,7 @@ const Demo = () => {
       {/* Main Content */}
       <div className="container mx-auto p-4 md:p-6">
         <div className="mb-6">
-          <h1 className="mb-2 text-3xl font-bold">Workforce Intelligence Dashboard</h1>
+          <h1 className="mb-2 text-3xl font-light">Workforce Intelligence Dashboard</h1>
           <p className="text-muted-foreground">
             Real-time insights into productivity gains and  resource allocation, and ROI impact
           </p>
@@ -90,7 +90,7 @@ const Demo = () => {
 
           <TabsContent value="integrations" className="space-y-6">
             <div className="max-w-4xl mx-auto">
-              <h2 className="text-2xl font-bold mb-6">Connect Your Tools</h2>
+              <h2 className="text-2xl font-light mb-6">Connect Your Tools</h2>
               <p className="text-muted-foreground mb-8">
                 Integrate with your existing workflow tools to track productivity gains and measure ROI impact.
               </p>

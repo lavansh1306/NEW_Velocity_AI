@@ -317,8 +317,8 @@ export default function JiraDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="text-2xl font-semibold text-gray-700">Loading...</div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-2xl font-light text-gray-700">Loading...</div>
       </div>
     )
   }
@@ -343,7 +343,7 @@ export default function JiraDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-2 md:px-4">
+    <div className="min-h-screen bg-gray-50 py-8 px-2 md:px-4">
       {/* Loading Overlay */}
       {addingProject && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -369,7 +369,7 @@ export default function JiraDashboard() {
 
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">
+          <h1 className="text-4xl font-light text-gray-800 mb-2">
             📊 Jira Issues Dashboard
           </h1>
           <p className="text-gray-600">Created vs Due Date Analysis - Integrated with Velocity AI</p>

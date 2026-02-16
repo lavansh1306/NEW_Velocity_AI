@@ -434,14 +434,14 @@ export default function UnifiedView() {
       {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm z-20 relative">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <h1 className="text-2xl font-light text-gray-900 flex items-center gap-2">
             <LayoutGrid className="w-6 h-6 text-indigo-600" />
             Unified Resource OS
           </h1>
           <div className="flex items-center gap-2 mt-1">
             <p className="text-slate-500 text-sm flex items-center gap-2">
               Viewing as: 
-              <span className={`font-bold px-2 py-0.5 rounded text-xs uppercase ${userRole === 'MANAGER' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+              <span className={`font-light px-2 py-0.5 rounded text-xs uppercase ${userRole === 'MANAGER' ? 'bg-primary/10 text-primary' : 'bg-primary/10 text-primary'}`}>
                 {userRole}
               </span>
                <span className="text-xs text-slate-400">({currentUser?.name || 'Unknown'})</span>
@@ -515,7 +515,7 @@ export default function UnifiedView() {
           {userRole === 'MANAGER' && (
             <>
               <div className="space-y-4">
-                <div className="flex items-center gap-2"><div className="w-6 h-6 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center font-bold text-xs">1</div><h2 className="text-lg font-bold text-gray-800">Ideation Queue ({queuedProjects.length})</h2></div>
+                <div className="flex items-center gap-2"><div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center font-light text-xs">1</div><h2 className="text-lg font-light text-gray-800">Ideation Queue ({queuedProjects.length})</h2></div>
                 <ProjectQueue projects={projects} onAllocateStart={handleAllocateStart} onDelete={handleDeleteProject} />
               </div>
 
@@ -524,8 +524,8 @@ export default function UnifiedView() {
                 {/* FILTER HEADER */}
                 <div className="flex justify-between items-end">
                     <div className="flex items-center gap-2">
-                       <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-xs">2</div>
-                       <h2 className="text-lg font-bold text-gray-800">Active Allocations ({filteredActiveProjects.length})</h2>
+                       <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center font-light text-xs">2</div>
+                       <h2 className="text-lg font-light text-gray-800">Active Allocations ({filteredActiveProjects.length})</h2>
                     </div>
 
                     <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-1.5 shadow-sm">
@@ -589,12 +589,12 @@ export default function UnifiedView() {
                         <div className="text-3xl font-black text-indigo-600 mt-2">{currentUser?.currentLoad ?? 0}%</div>
                         <div className="h-2 w-full bg-slate-100 rounded-full mt-2 overflow-hidden"><div className="h-full bg-indigo-500" style={{ width: `${currentUser?.currentLoad ?? 0}%` }}></div></div>
                     </div>
-                    <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm"><h3 className="text-xs font-bold text-slate-400 uppercase">Active Projects</h3><div className="text-3xl font-black text-emerald-600 mt-2">{myProjects.length}</div></div>
-                    <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm"><h3 className="text-xs font-bold text-slate-400 uppercase">Efficiency Score</h3><div className="text-3xl font-black text-purple-600 mt-2">{currentUser?.efficiencyRating?.toFixed(1) ?? '0.0'}</div></div>
+                    <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm"><h3 className="text-xs font-light text-slate-400 uppercase">Active Projects</h3><div className="text-3xl font-light text-primary mt-2">{myProjects.length}</div></div>
+                    <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm"><h3 className="text-xs font-light text-slate-400 uppercase">Efficiency Score</h3><div className="text-3xl font-light text-primary mt-2">{currentUser?.efficiencyRating?.toFixed(1) ?? '0.0'}</div></div>
                 </div>
 
                 <div>
-                    <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2"><Briefcase className="w-5 h-5 text-indigo-600" /> My Assigned Projects</h2>
+                    <h2 className="text-lg font-light text-gray-800 mb-4 flex items-center gap-2"><Briefcase className="w-5 h-5 text-primary" /> My Assigned Projects</h2>
                     {myProjects.length === 0 ? (
                         <div className="bg-slate-50 p-8 rounded-xl border border-dashed text-center text-slate-500">You have no active project assignments.</div>
                     ) : (
@@ -602,7 +602,7 @@ export default function UnifiedView() {
                             {myProjects.map(p => (
                                 <div key={p.id} className="bg-white border-l-4 border-l-indigo-500 p-6 rounded-xl shadow-sm hover:shadow-md transition-all">
                                     <div className="flex justify-between items-start mb-2"><span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border ${getCategoryStyle(p.category)}`}>{p.category}</span><span className="text-xs text-slate-400 flex items-center gap-1"><Calendar className="w-3 h-3"/> Due Soon</span></div>
-                                    <h3 className="font-bold text-xl text-gray-900 mb-2">{p.title}</h3>
+                                    <h3 className="font-light text-xl text-gray-900 mb-2">{p.title}</h3>
                                     <p className="text-sm text-slate-500 line-clamp-2">{p.description}</p>
                                     <Button className="w-full mt-4 bg-slate-50 text-indigo-600 hover:bg-indigo-50 border border-indigo-100">Open Workspace</Button>
                                 </div>

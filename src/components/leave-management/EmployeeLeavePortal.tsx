@@ -201,54 +201,54 @@ export function EmployeeLeavePortal({
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-6 animate-in fade-in duration-500 bg-gray-50 min-h-screen p-12 font-['Inter',sans-serif]">
       {/* Employee Info - Display Current Employee */}
-      <div className="bg-gradient-to-br from-indigo-50 to-blue-50 border-2 border-indigo-300 rounded-xl p-6 shadow-md">
+      <div className="bg-white border border-gray-100 rounded-2xl p-8 shadow-sm hover:shadow-md transition-all">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold">👤</div>
+            <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center text-white font-light">👤</div>
             <div>
-              <h3 className="font-bold text-slate-900">{selectedEmployee}</h3>
-              <p className="text-xs text-slate-600">Employee Leave Request</p>
+              <h3 className="font-light text-gray-900">{selectedEmployee}</h3>
+              <p className="text-xs text-gray-500">Employee Leave Request</p>
             </div>
           </div>
           <div className="text-right">
-            <p className="text-2xl font-bold text-indigo-600">{userTasks.length}</p>
-            <p className="text-xs text-slate-600">active task{userTasks.length !== 1 ? 's' : ''}</p>
+            <p className="text-2xl font-light text-blue-600">{userTasks.length}</p>
+            <p className="text-xs text-gray-500">active task{userTasks.length !== 1 ? 's' : ''}</p>
           </div>
         </div>
       </div>
 
       {/* Calendar */}
       <div className="space-y-3">
-        <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-          <CalendarDays className="w-6 h-6 text-indigo-600" />
+        <h3 className="text-xl font-light text-gray-900 flex items-center gap-2">
+          <CalendarDays className="w-6 h-6 text-blue-600" />
           {selectedEmployee}'s Task Calendar
         </h3>
-        <div className="bg-white border-2 border-slate-200 rounded-xl p-6 shadow-md hover:shadow-lg transition-shadow">
+        <div className="bg-white border border-gray-100 rounded-2xl p-8 shadow-sm hover:shadow-md transition-all">
           {/* Month Navigation */}
-          <div className="flex items-center justify-between mb-6 pb-4 border-b-2 border-slate-200">
+          <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
             <button
               onClick={handlePrevMonth}
-              className="p-2 hover:bg-blue-100 rounded-lg transition-colors hover:scale-110 transform"
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors hover:scale-110 transform"
             >
-              <ChevronLeft className="w-6 h-6 text-blue-600 font-bold" />
+              <ChevronLeft className="w-6 h-6 text-blue-600 font-light" />
             </button>
-            <h3 className="font-bold text-xl text-slate-900 min-w-[240px] text-center">
+            <h3 className="font-light text-xl text-gray-900 min-w-[240px] text-center">
               {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
             </h3>
             <button
               onClick={handleNextMonth}
-              className="p-2 hover:bg-blue-100 rounded-lg transition-colors hover:scale-110 transform"
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors hover:scale-110 transform"
             >
-              <ChevronRight className="w-6 h-6 text-blue-600 font-bold" />
+              <ChevronRight className="w-6 h-6 text-blue-600 font-light" />
             </button>
           </div>
 
           {/* Day Headers */}
           <div className="grid grid-cols-7 gap-2 mb-4">
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-              <div key={day} className="text-center text-xs font-bold text-white py-2 bg-slate-600 rounded-lg">
+              <div key={day} className="text-center text-xs font-light text-white py-2 bg-gray-700 rounded-lg">
                 {day}
               </div>
             ))}
@@ -258,7 +258,7 @@ export function EmployeeLeavePortal({
           <div className="grid grid-cols-7 gap-2">
             {calendarDays.map((day, idx) => {
               if (day === null) {
-                return <div key={`empty-${idx}`} className="h-24 bg-slate-100 rounded-lg opacity-40" />;
+                return <div key={`empty-${idx}`} className="h-24 bg-gray-50 rounded-lg opacity-40" />;
               }
 
               const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -273,17 +273,17 @@ export function EmployeeLeavePortal({
                 <button
                   key={day}
                   onClick={() => setSelectedLeaveDate(dateStr)}
-                  className={`h-24 rounded-lg transition-all relative group flex flex-col items-center justify-start p-2 border-2 hover:scale-105 transform cursor-pointer ${
+                  className={`h-24 rounded-lg transition-all relative group flex flex-col items-center justify-start p-2 border hover:scale-105 transform cursor-pointer ${
                     isSelected
-                      ? 'bg-indigo-600 text-white border-indigo-700 shadow-lg'
+                      ? 'bg-blue-600 text-white border-blue-700 shadow-md'
                       : isToday
-                      ? 'bg-blue-50 border-blue-400 shadow-md'
+                      ? 'bg-blue-50 border-blue-400 shadow-sm'
                       : isWeekend
-                      ? 'bg-slate-100 border-slate-300 text-slate-400'
-                      : 'bg-white border-slate-200 hover:border-blue-400'
+                      ? 'bg-gray-50 border-gray-300 text-gray-400'
+                      : 'bg-white border-gray-200 hover:border-blue-400'
                   }`}
                 >
-                  <span className={`text-lg font-bold mb-1 ${isSelected ? 'text-white' : isWeekend ? 'text-slate-400' : 'text-slate-700'}`}>
+                  <span className={`text-lg font-light mb-1 ${isSelected ? 'text-white' : isWeekend ? 'text-gray-400' : 'text-gray-700'}`}>
                     {day}
                   </span>
                   
@@ -302,7 +302,7 @@ export function EmployeeLeavePortal({
                   </div>
 
                   {dayTasks.length > 0 && (
-                    <span className={`text-[10px] font-bold mt-auto ${isSelected ? 'text-yellow-200' : 'text-slate-600'}`}>
+                    <span className={`text-[10px] font-light mt-auto ${isSelected ? 'text-blue-200' : 'text-gray-600'}`}>
                       {dayTasks.length} task{dayTasks.length !== 1 ? 's' : ''}
                     </span>
                   )}
@@ -321,21 +321,21 @@ export function EmployeeLeavePortal({
       <div className="grid md:grid-cols-2 gap-6">
         {/* Tasks on Selected Date */}
         <div className="space-y-3">
-          <h3 className="text-lg font-bold text-slate-900">
+          <h3 className="text-lg font-light text-gray-900">
             {selectedLeaveDate ? `${selectedEmployee}'s Tasks` : 'Select a Date'}
           </h3>
-          <div className="bg-white border-2 border-slate-200 rounded-xl p-4 h-[300px] overflow-y-auto shadow-md">
+          <div className="bg-white border border-gray-100 rounded-2xl p-8 h-[300px] overflow-y-auto shadow-sm">
             {selectedLeaveDate ? (
               tasksOnLeaveDate.length > 0 ? (
                 <div className="space-y-3">
                   {tasksOnLeaveDate.map((task) => (
-                    <div key={task.id} className="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-indigo-500 rounded-lg">
-                      <p className="font-bold text-slate-900 text-sm mb-1">{task.taskName}</p>
+                    <div key={task.id} className="p-3 bg-gray-50 border-l-4 border-blue-600 rounded-lg">
+                      <p className="font-light text-gray-900 text-sm mb-1">{task.taskName}</p>
                       <div className="flex items-center gap-3 text-xs">
-                        <span className="px-2 py-1 bg-indigo-200 text-indigo-900 rounded-full font-semibold">
+                        <span className="px-2 py-1 bg-blue-100 text-blue-900 rounded-full font-light">
                           {task.projectName}
                         </span>
-                        <span className="px-2 py-1 bg-blue-200 text-blue-900 rounded-full">
+                        <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded-full font-light">
                           {task.hours}h
                         </span>
                       </div>
@@ -343,14 +343,14 @@ export function EmployeeLeavePortal({
                   ))}
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center h-full text-slate-500">
-                  <AlertCircle className="w-12 h-12 text-slate-300 mb-3" />
+                <div className="flex flex-col items-center justify-center h-full text-gray-500">
+                  <AlertCircle className="w-12 h-12 text-gray-300 mb-3" />
                   <p className="text-sm">No tasks on this date</p>
                 </div>
               )
             ) : (
-              <div className="flex flex-col items-center justify-center h-full text-slate-400">
-                <CalendarDays className="w-12 h-12 text-slate-300 mb-3" />
+              <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                <CalendarDays className="w-12 h-12 text-gray-300 mb-3" />
                 <p className="text-sm">Pick a date from the calendar</p>
               </div>
             )}
@@ -359,35 +359,35 @@ export function EmployeeLeavePortal({
 
         {/* Leave Request Form */}
         <form onSubmit={handleSubmitLeave} className="space-y-4">
-          <h3 className="text-lg font-bold text-slate-900">Leave Request</h3>
+          <h3 className="text-lg font-light text-gray-900">Leave Request</h3>
           
           <div className="space-y-3">
-            <label className="block text-sm font-bold text-slate-700">
+            <label className="block text-sm font-light text-gray-700">
               📝 Reason for Leave
             </label>
             <textarea
               value={leaveReason}
               onChange={(e) => setLeaveReason(e.target.value)}
               placeholder="e.g., Medical appointment, Personal event..."
-              className="w-full h-24 px-4 py-3 border-2 border-slate-200 rounded-lg focus:border-indigo-500 focus:outline-none text-sm resize-none"
+              className="w-full h-24 px-4 py-3 border border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none text-sm resize-none font-light"
             />
           </div>
 
           {/* Impact Summary */}
-          <div className="bg-gradient-to-br from-orange-50 to-red-50 border-2 border-orange-200 rounded-lg p-4 space-y-3">
-            <h4 className="font-bold text-orange-900 text-sm">Impact Summary</h4>
+          <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6 space-y-3">
+            <h4 className="font-light text-gray-900 text-sm">Impact Summary</h4>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-orange-700">Tasks Affected:</span>
-                <span className="font-bold text-orange-900">{tasksOnLeaveDate.length}</span>
+                <span className="text-gray-700">Tasks Affected:</span>
+                <span className="font-light text-gray-900">{tasksOnLeaveDate.length}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-orange-700">Hours Lost:</span>
-                <span className="font-bold text-orange-900">{totalHoursAffected}h</span>
+                <span className="text-gray-700">Hours Lost:</span>
+                <span className="font-light text-gray-900">{totalHoursAffected}h</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-orange-700">Leave Date:</span>
-                <span className="font-bold text-orange-900">
+                <span className="text-gray-700">Leave Date:</span>
+                <span className="font-light text-gray-900">
                   {selectedLeaveDate ? new Date(selectedLeaveDate).toLocaleDateString() : 'Not set'}
                 </span>
               </div>
@@ -399,7 +399,7 @@ export function EmployeeLeavePortal({
             <Button 
               variant="outline" 
               type="button" 
-              className="flex-1 border-2 border-slate-300 hover:bg-slate-50"
+              className="flex-1 border border-gray-300 hover:bg-gray-50 font-light"
               onClick={() => {
                 setLeaveReason('');
                 setSelectedLeaveDate('');
@@ -410,7 +410,7 @@ export function EmployeeLeavePortal({
             <Button
               type="submit"
               disabled={!selectedLeaveDate || !leaveReason}
-              className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white border-0 gap-2 disabled:opacity-50 disabled:cursor-not-allowed font-bold"
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white border-0 gap-2 disabled:opacity-50 disabled:cursor-not-allowed font-light"
             >
               <Send className="w-4 h-4" />
               Submit Leave
