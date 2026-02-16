@@ -4,11 +4,11 @@ import VeloNavTabs from '@/components/demo2/VeloNavTabs';
 import { Button } from '@/components/ui/button';
 // Removed Add Project dialog and delete controls per request
 import AnalyticsPanel from '@/components/analytics/AnalyticsPanel';
-import type { MetricsResponse } from '@/lib/types';
 import { loadProjects as fetchProjects, loadMetrics, type ProjectItem } from '@/lib/dataService';
 // apiUrl no longer used in this page
 import { useToast } from '@/contexts/ToastContext';
-import { AlertCircle, TrendingUp, Calendar, Settings } from 'lucide-react';
+import { AlertCircle, TrendingUp, Calendar, Zap, BarChart3 } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface ProjectsProps {
   jiraConnected?: boolean;
@@ -161,17 +161,79 @@ const TeamAvatars = ({ team, maxShow = 4 }: { team: string[]; maxShow?: number }
   );
 };
 
+// Capacity data type
+interface CapacityWeekData {
+  week: number;
+  startDate: string;
+  utilization: number;
+  available: number;
+}
+
+// Generate 8-week capacity data
+const generateCapacityData = (startOffset: number = 0): CapacityWeekData[] => {
+  const data: CapacityWeekData[] = [];
+  const today = new Date();
+  
+  for (let i = 0; i < 8; i++) {
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() + (i + startOffset) * 7);
+    
+    // Generate realistic capacity data
+    const utilization = Math.floor(Math.random() * 40 + 50); // 50-90%
+    const available = 100 - utilization;
+    
+    data.push({
+      week: i + 1,
+      startDate: weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      utilization,
+      available
+    });
+  }
+  
+  return data;
+};
+
+// Generate AI insights
+const generateAIInsights = (metrics: Record<string, ProjectMetrics>): string[] => {
+  const insights: string[] = [];
+  
+  const totalMetrics = Object.values(metrics);
+  const avgHealth = totalMetrics.length > 0 
+    ? Math.round(totalMetrics.reduce((sum, m) => sum + m.healthScore, 0) / totalMetrics.length)
+    : 0;
+  
+  if (avgHealth >= 80) {
+    insights.push('✅ Team capacity is well-balanced with strong project health across the board.');
+  } else if (avgHealth >= 60) {
+    insights.push('⚠️ Monitor team workload - some projects showing moderate utilization patterns.');
+  }
+  
+  const alertProjects = totalMetrics.filter(m => m.hasAlert).length;
+  if (alertProjects > 0) {
+    insights.push(`${alertProjects} project${alertProjects !== 1 ? 's' : ''} need immediate attention or reassessment.`);
+  }
+  
+  const totalTeamSize = new Set(totalMetrics.flatMap(m => m.team)).size;
+  if (totalTeamSize > 0) {
+    insights.push(`🤝 ${totalTeamSize} team members across ${totalMetrics.length} active projects.`);
+  }
+  
+  return insights;
+};
+
 export default function Projects({ jiraConnected = true, withNav = true }: ProjectsProps) {
   const navigate = useNavigate();
   const { addToast } = useToast();
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [selectedProject, setSelectedProject] = useState<ProjectItem | null>(null);
-  const [metricsData, setMetricsData] = useState<Record<string, MetricsResponse | null>>({});
+  const [metricsData, setMetricsData] = useState<Record<string, any>>({});
   const [projectMetrics, setProjectMetrics] = useState<Record<string, ProjectMetrics>>({});
   const [loading, setLoading] = useState(true);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [dataConnected, setDataConnected] = useState(false);
   const [toastShown, setToastShown] = useState(false);
+  const [timeframeOffset, setTimeframeOffset] = useState(0);
+  const [capacityData, setCapacityData] = useState<CapacityWeekData[]>(generateCapacityData(0));
   
   // Add project UI removed
 
@@ -232,6 +294,11 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
     }
   }, [jiraConnected, addToast, toastShown]);
 
+  // Update capacity data when timeframe offset changes
+  useEffect(() => {
+    setCapacityData(generateCapacityData(timeframeOffset));
+  }, [timeframeOffset]);
+
   const handleProjectSelect = async (project: ProjectItem) => {
     setSelectedProject(project);
     
@@ -274,7 +341,7 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
           </div>
         </div>
 
-        {/* Integration Dashboards removed per request */}
+        {/* Capacity Overview Graph */}
 
         {loading ? (
           <div className="text-center py-12">
@@ -299,7 +366,7 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
                     return (
                       <div
                         key={p.id}
-                        onClick={() => handleProjectSelect(p)}
+                        onClick={() => navigate(`/projects/jira-dashboard?project=${encodeURIComponent(p.id)}&fullscreen=true`)}
                         className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer p-8 border border-gray-100"
                       >
                         <div className="flex items-center justify-between gap-6">
@@ -349,25 +416,6 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
                             <div className="flex-shrink-0">
                               <TeamAvatars team={metrics.team} />
                             </div>
-
-                            {/* Manage Button */}
-                            <Link
-                              to={`/projects/jira-dashboard?project=${encodeURIComponent(p.id)}&fullscreen=true`}
-                              className="px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 text-xs font-light rounded-xl transition-colors flex items-center gap-2 whitespace-nowrap border border-gray-200"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <Settings className="w-4 h-4" />
-                              Manage
-                            </Link>
-
-                            {/* View Button */}
-                            <Link
-                              to={`/projects/jira-dashboard?project=${encodeURIComponent(p.id)}`}
-                              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-light rounded-xl transition-colors whitespace-nowrap inline-block"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              View
-                            </Link>
                           </div>
                         </div>
                       </div>

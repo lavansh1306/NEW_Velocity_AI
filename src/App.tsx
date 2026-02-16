@@ -23,6 +23,7 @@ import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
 import AuthCallback from "./pages/AuthCallback";
 import NotFound from "./pages/NotFound";
+import Dashboard from "./pages/Dashboard";
 
 const queryClient = new QueryClient();
 
@@ -48,6 +49,7 @@ const App = () => (
               <Route path="/roi-calculator" element={<ROICalculator />} />
               <Route path="/use-cases" element={<UseCases />} />
               <Route path="/roi-report" element={<ROIReport />} />
+              <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/velocity-ai" element={<VelocityAI />} />
               <Route path="/progress" element={<PlanMyProject />} />
               <Route path="/projects" element={<Projects />} />

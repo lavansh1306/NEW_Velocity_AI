@@ -7,6 +7,15 @@ import {
   ArrowUpRight,
   Clock 
 } from 'lucide-react';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
 
 // Layout Components
 import VeloHeader from '../components/demo2/VeloHeader';
@@ -198,45 +207,78 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
   const [capacityBreakdown, setCapacityBreakdown] = useState<any>(null);
   const [selectedProject, setSelectedProject] = useState<string>('all');
   const [selectedEmployee, setSelectedEmployee] = useState<string>('all');
+  const [fromDate, setFromDate] = useState({ month: '01', year: '2025' });
+  const [toDate, setToDate] = useState({ month: '03', year: '2025' });
   
-  // Date range for capacity overview
-  const [dateFrom, setDateFrom] = useState<string>('');
-  const [dateTo, setDateTo] = useState<string>('');
+  // Generate capacity data from Jira issues for the selected date range
+  const generateCapacityData = useMemo(() => {
+    const from = new Date(`${fromDate.year}-${fromDate.month}-01`);
+    const to = new Date(`${toDate.year}-${toDate.month}-01`);
+    to.setMonth(to.getMonth() + 1);
+    to.setDate(0); // Last day of month
+    
+    const weeks: any[] = [];
+    let currentDate = new Date(from);
+    let weekNum = 1;
+    
+    while (currentDate <= to) {
+      const weekStart = new Date(currentDate);
+      const weekEnd = new Date(currentDate);
+      weekEnd.setDate(weekEnd.getDate() + 6);
+      
+      // Calculate hours worked vs hours not worked for this week from ALL employees
+      let hoursWorked = 0;
+      let hoursNotWorked = 0;
+      
+      jiraIssues.forEach((issue: any) => {
+        // Use due date or start date to match with week
+        const issueDate = issue.due ? new Date(issue.due) : (issue.start ? new Date(issue.start) : null);
+        
+        // Check if issue falls within this week - if no date, still include it
+        const isInWeek = !issueDate || (issueDate >= weekStart && issueDate <= weekEnd);
+        
+        if (isInWeek && issue.assignee) { // Only count if assigned to someone (an employee is working on it)
+          const hours = typeof issue.duration === 'string' ? parseInt(issue.duration) : (issue.duration || 0);
+          
+          if (hours > 0) {
+            // Check if issue is completed - sum all hours from all employees
+            const isCompleted = issue.status?.toLowerCase?.()?.includes('done') || 
+                              issue.status?.toLowerCase?.()?.includes('completed') ||
+                              issue.status?.toLowerCase?.()?.includes('closed');
+            
+            if (isCompleted) {
+              hoursWorked += hours;
+            } else {
+              hoursNotWorked += hours;
+            }
+          }
+        }
+      });
+      
+      weeks.push({
+        week: `W${weekNum}`,
+        worked: hoursWorked,
+        notWorked: hoursNotWorked,
+      });
+      
+      currentDate.setDate(currentDate.getDate() + 7);
+      weekNum++;
+    }
+    
+    return weeks;
+  }, [fromDate, toDate, jiraIssues]);
+  
+  // Date range for capacity overview (kept for backward compatibility)
+  const dateFrom = `${fromDate.year}-${fromDate.month}-01`;
+  const dateTo = `${toDate.year}-${toDate.month}-01`;
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   // Calculate dashboard metrics
   const dashboardMetrics = useMemo(() => {
-    // Filter issues based on date range if provided
-    let filteredIssues = jiraIssues;
-    
-    if (dateFrom || dateTo) {
-      filteredIssues = jiraIssues.filter((issue: any) => {
-        const issueDueDate = issue.due ? new Date(issue.due) : null;
-        const issueStartDate = issue.start ? new Date(issue.start) : null;
-        
-        // Use start date if available, otherwise use due date
-        const issueDate = issueStartDate || issueDueDate;
-        if (!issueDate) return true; // Include issues with no dates
-        
-        const issueTime = issueDate.getTime();
-        
-        if (dateFrom) {
-          const fromDate = new Date(dateFrom);
-          fromDate.setHours(0, 0, 0, 0);
-          if (issueTime < fromDate.getTime()) return false;
-        }
-        
-        if (dateTo) {
-          const toDate = new Date(dateTo);
-          toDate.setHours(23, 59, 59, 999);
-          if (issueTime > toDate.getTime()) return false;
-        }
-        
-        return true;
-      });
-    }
+    // Use ALL Jira issues - no date filtering
+    const filteredIssues = jiraIssues;
     
     // Helper to count business days (Mon-Fri only)
     const countBusinessDays = (startDate: Date, endDate: Date): number => {
@@ -662,17 +704,6 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
       <div className="bg-white rounded-2xl shadow-sm p-10 border border-gray-100">
         <div className="flex items-center justify-between mb-8">
           <h3 className="text-xl font-light text-gray-900">Available Capacity</h3>
-          <div className="flex gap-2">
-            <button
-              onClick={() => {
-                setSelectedProject('all');
-                setSelectedEmployee('all');
-              }}
-              className="px-4 py-2 text-xs bg-gray-50 hover:bg-gray-100 rounded-lg text-gray-700 font-light transition border border-gray-200"
-            >
-              Reset
-            </button>
-          </div>
         </div>
         
         {/* Filters */}
@@ -732,41 +763,8 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
 
       {/* Capacity Overview - Full Width */}
       <div className="bg-white rounded-2xl shadow-sm p-10 border border-gray-100">
-        <div className="flex items-center justify-between mb-8">
+        <div className="mb-8">
           <h2 className="text-xl font-light text-gray-900">Capacity Overview</h2>
-          <div className="flex gap-4 items-end">
-            <div className="flex flex-col">
-              <label htmlFor="date-from" className="text-xs text-gray-600 font-light mb-2">From Date</label>
-              <input
-                id="date-from"
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-light focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-              />
-            </div>
-            <div className="flex flex-col">
-              <label htmlFor="date-to" className="text-xs text-gray-600 font-light mb-2">To Date</label>
-              <input
-                id="date-to"
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-light focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-              />
-            </div>
-            {(dateFrom || dateTo) && (
-              <button
-                onClick={() => {
-                  setDateFrom('');
-                  setDateTo('');
-                }}
-                className="px-4 py-2 text-xs bg-gray-50 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors font-light border border-gray-200"
-              >
-                Clear
-              </button>
-            )}
-          </div>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -806,7 +804,183 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
         </div>
       </div>
 
+      {/* 8-Week Capacity Graph */}
+      <div className="bg-white rounded-2xl shadow-sm p-10 border border-gray-100">
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-xl font-light text-gray-900">8-Week Capacity Progress</h2>
+          <div className="flex gap-4">
+            <div>
+              <label className="text-xs font-light text-gray-600 block mb-2">Month</label>
+              <select
+                value={fromDate.month}
+                onChange={(e) => setFromDate({ ...fromDate, month: e.target.value })}
+                className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-light focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              >
+                {['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'].map(m => (
+                  <option key={m} value={m}>{new Date(2024, parseInt(m) - 1).toLocaleString('default', { month: 'long' })}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-light text-gray-600 block mb-2">Year</label>
+              <select
+                value={fromDate.year}
+                onChange={(e) => setFromDate({ ...fromDate, year: e.target.value })}
+                className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-light focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              >
+                {[2024, 2025, 2026, 2027].map(y => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Chart */}
+        <div className="w-full h-80">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={generateCapacityData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis 
+                dataKey="week" 
+                stroke="#6b7280"
+                tick={{ fontSize: 12, fill: '#6b7280' }}
+              />
+              <YAxis 
+                stroke="#6b7280"
+                tick={{ fontSize: 12, fill: '#6b7280' }}
+              />
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: '#fff', 
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px'
+                }}
+                formatter={(value: any) => `${value}h`}
+              />
+              <Bar 
+                dataKey="worked" 
+                fill="#3b82f6" 
+                name="Hours Worked"
+                radius={[8, 8, 0, 0]}
+              />
+              <Bar 
+                dataKey="notWorked" 
+                fill="#9ca3af" 
+                name="Hours Not Worked"
+                radius={[8, 8, 0, 0]}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="mt-6 grid grid-cols-2 gap-6">
+          <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg">
+            <div className="w-4 h-4 bg-blue-500 rounded"></div>
+            <div>
+              <p className="text-xs text-blue-700 font-medium">Hours Worked (Completed)</p>
+              <p className="text-sm text-blue-600 font-light">All employees - Issues marked as done or completed</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
+            <div className="w-4 h-4 bg-gray-400 rounded"></div>
+            <div>
+              <p className="text-xs text-gray-700 font-medium">Hours Not Worked (Pending)</p>
+              <p className="text-sm text-gray-600 font-light">All employees - Issues still in progress or not started</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Gantt Timeline View */}
+      <div className="">
+        <h2 className="text-xl font-light text-gray-900 mb-8">All Projects</h2>
+        {jiraData && jiraData.projects && jiraData.projects.length > 0 ? (
+          <div className="grid grid-cols-1 gap-4">
+            {jiraData.projects.map((project: any) => {
+              // Count issues for this project
+              const projectIssues = jiraIssues.filter((issue: any) => 
+                issue.projectKey === project.key || issue.project === project.key
+              );
+              
+              const completedCount = projectIssues.filter((i: any) => 
+                i.status?.toLowerCase?.()?.includes('done') ||
+                i.status?.toLowerCase?.()?.includes('completed') ||
+                i.status?.toLowerCase?.()?.includes('closed')
+              ).length;
+              
+              const healthScore = projectIssues.length > 0 
+                ? Math.round((completedCount / projectIssues.length) * 100)
+                : 0;
+              
+              // Get team members
+              const team = Array.from(new Set(
+                projectIssues.map((i: any) => i.assignee).filter((a: any) => a && a !== 'Unassigned')
+              )) as string[];
+
+              // Get latest due date
+              const dueDates = projectIssues
+                .filter((i: any) => i.due)
+                .map((i: any) => new Date(i.due).getTime());
+              
+              const endDate = dueDates.length > 0 
+                ? new Date(Math.max(...dueDates))
+                : undefined;
+
+              // Determine health color
+              let healthColor = '#3b82f6'; // default blue
+              if (healthScore >= 80) healthColor = '#10b981'; // green
+              else if (healthScore >= 50) healthColor = '#f59e0b'; // amber
+              else healthColor = '#ef4444'; // red
+
+              return (
+                <div key={project.key} className="bg-white rounded-lg p-4 border border-gray-200 hover:border-gray-300 transition-all">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex-1">
+                      <h4 className="font-medium text-gray-900">{project.name || project.title} ({project.key})</h4>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {projectIssues.length} issues · {endDate ? `Ends ${endDate.toLocaleDateString()}` : 'No date'}
+                      </p>
+                    </div>
+                    
+                    <div className="flex items-center gap-4">
+                      <div className="text-right min-w-fit">
+                        <p className="text-xs text-gray-600">Progress</p>
+                        <p className="text-sm font-light text-gray-900">{completedCount}/{projectIssues.length}</p>
+                      </div>
+                      
+                      <div className="w-16 bg-gray-200 rounded-full h-2">
+                        <div
+                          className="h-2 rounded-full transition-all"
+                          style={{ width: `${healthScore}%`, backgroundColor: healthColor }}
+                        ></div>
+                      </div>
+                      
+                      <div className="text-right min-w-fit">
+                        <p className="text-xs text-gray-600">Health</p>
+                        <p className="text-sm font-medium" style={{ color: healthColor }}>
+                          {healthScore}%
+                        </p>
+                      </div>
+                      
+                      <div className="text-right min-w-fit">
+                        <p className="text-xs text-gray-600">Team</p>
+                        <p className="text-sm font-medium text-gray-900">{team.length}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="bg-white rounded-lg p-8 text-center border border-gray-200">
+            <p className="text-gray-500 text-sm">No projects available</p>
+          </div>
+        )}
+      </div>
+
+      {/* Employee Timeline View */}
       <div className="">
         <h2 className="text-xl font-light text-gray-900 mb-8">Employee Timeline</h2>
         {(() => {
@@ -961,19 +1135,22 @@ export default function VelocityAI() {
   }
 
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="bg-white min-h-screen">
       <style>{`
         .capacity-bar {
           height: 24px;
-          background: linear-gradient(90deg, #10b981 0%, #059669 100%);
-          border-radius: 4px;
+          background: linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%);
+          border-radius: 8px;
           transition: width 0.3s ease;
         }
         .hotspot-card {
           transition: all 0.2s ease;
+          border-radius: 16px;
+          border: 1px solid #f3f4f6;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
         .hotspot-card:hover {
-          box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+          box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
           transform: translateY(-2px);
         }
       `}</style>
@@ -988,37 +1165,37 @@ export default function VelocityAI() {
       )}
 
       {currentView === 'vp' && (
-        <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-center">
-            <div className="flex items-center bg-gray-100 rounded-xl p-1">
+        <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
+          <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-center">
+            <div className="flex items-center bg-gray-50 rounded-xl p-1">
               <button
                 onClick={() => setCurrentView('manager')}
-                className={`h-8 sm:h-10 px-3 sm:px-4 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
+                className={`h-10 px-4 rounded-lg text-sm font-light transition-all ${
                   currentView === 'manager'
                     ? 'bg-white shadow-sm text-gray-900'
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
-                <span className="flex items-center gap-1 sm:gap-2">
+                <span className="flex items-center gap-2">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
-                  <span className="hidden sm:inline">Manager View</span>
+                  <span>Manager View</span>
                 </span>
               </button>
               <button
                 onClick={() => setCurrentView('vp')}
-                className={`h-8 sm:h-10 px-3 sm:px-4 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
+                className={`h-10 px-4 rounded-lg text-sm font-light transition-all ${
                   currentView === 'vp'
                     ? 'bg-white shadow-sm text-gray-900'
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
-                <span className="flex items-center gap-1 sm:gap-2">
+                <span className="flex items-center gap-2">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
-                  <span className="hidden sm:inline">VP Executive View</span>
+                  <span>VP Executive View</span>
                 </span>
               </button>
             </div>
@@ -1033,8 +1210,7 @@ export default function VelocityAI() {
         </main>
       ) : (
         <VeloNavTabs activeTab={activeTab} onTabChange={setActiveTab}>
-          <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-7xl mx-auto animate-in fade-in duration-300">
-            
+          <div className="px-6 py-8 max-w-7xl mx-auto animate-in fade-in duration-300">
             {activeTab === 'dashboard' && <ModernDashboard jiraData={jiraData} />}
             {activeTab === 'projects' && <Projects jiraConnected={jiraConnected} withNav={false} />}
             {activeTab === 'stc' && <StandardTimeCatalogTab />}
