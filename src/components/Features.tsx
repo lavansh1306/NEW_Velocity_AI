@@ -26,31 +26,31 @@ const features = [
 
 export const Features = () => {
   return (
-    <section className="py-20 md:py-32 bg-slate-50">
-      <div className="container mx-auto px-4">
+    <section className="py-16 md:py-24 bg-gray-50">
+      <div className="max-w-[1800px] mx-auto px-8">
         <div className="mb-16 text-center">
-          <div className="mb-4 inline-block px-4 py-1.5 bg-blue-100 text-blue-600 rounded-full text-sm font-semibold">
+          <div className="mb-4 inline-block px-3 py-1 bg-secondary/10 text-secondary rounded-full text-xs font-light">
             FEATURES
           </div>
-          <h2 className="mb-6 text-4xl font-bold text-slate-900 md:text-5xl">
+          <h2 className="mb-6 text-4xl font-light text-gray-900 md:text-5xl">
             What Velocity AI Does
           </h2>
-          <p className="mx-auto max-w-2xl text-lg text-slate-600">
+          <p className="mx-auto max-w-2xl text-base text-gray-600 font-light">
             Powerful AI capabilities that transform how you manage your workforce
           </p>
         </div>
         
-        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-2">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2">
           {features.map((feature, index) => (
             <Card 
               key={index} 
-              className="border-0 bg-white p-8 shadow-sm hover:shadow-md transition-shadow"
+              className="border border-gray-200 bg-white p-8 shadow-sm hover:shadow-md transition-all rounded-xl"
             >
-              <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
-                <feature.icon className="h-7 w-7" />
+              <div className="mb-6 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-secondary/10 text-secondary">
+                <feature.icon className="h-6 w-6" />
               </div>
-              <h3 className="mb-3 text-xl font-bold text-slate-900">{feature.title}</h3>
-              <p className="text-slate-600 leading-relaxed">{feature.description}</p>
+              <h3 className="mb-3 text-lg font-light text-gray-900">{feature.title}</h3>
+              <p className="text-gray-600 leading-relaxed font-light text-sm">{feature.description}</p>
             </Card>
           ))}
         </div>

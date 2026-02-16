@@ -147,14 +147,14 @@ const TeamAvatars = ({ team, maxShow = 4 }: { team: string[]; maxShow?: number }
       {displayed.map((member) => (
         <div
           key={member}
-          className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-indigo-600 text-white text-xs font-bold flex items-center justify-center border-2 border-white"
+          className="w-8 h-8 rounded-full bg-primary text-white text-xs font-light flex items-center justify-center border-2 border-white"
           title={member}
         >
           {member.charAt(0).toUpperCase()}
         </div>
       ))}
       {remaining > 0 && (
-        <div className="w-8 h-8 rounded-full bg-gray-300 text-gray-700 text-xs font-bold flex items-center justify-center border-2 border-white">
+        <div className="w-8 h-8 rounded-full bg-gray-300 text-gray-700 text-xs font-light flex items-center justify-center border-2 border-white">
           +{remaining}
         </div>
       )}
@@ -263,7 +263,7 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-3">Projects</h1>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-light mb-3">Projects</h1>
             <p className="text-gray-600 text-sm sm:text-base leading-relaxed">Selected case studies and platform projects demonstrating impact and outcomes.</p>
           </div>
           <div className="flex gap-2">
@@ -301,27 +301,27 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
                       <div
                         key={p.id}
                         onClick={() => handleProjectSelect(p)}
-                        className="group rounded-lg bg-white border border-gray-200 hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer p-4"
+                        className="group rounded-xl bg-white border border-gray-200 hover:border-primary/30 hover:shadow-md transition-all cursor-pointer p-4"
                       >
                         <div className="flex items-center justify-between gap-4">
                           {/* Left: Project Name & Timeline */}
                           <div className="flex-1 min-w-0">
-                            <h3 className="text-lg font-semibold text-gray-900 group-hover:text-indigo-700 transition-colors">
+                            <h3 className="text-lg font-light text-gray-900 group-hover:text-primary transition-colors">
                               {p.title}
                             </h3>
-                            <p className="text-sm text-gray-500 mt-1 flex items-center gap-1">
+                            <p className="text-sm text-gray-600 mt-1 flex items-center gap-1 font-light">
                               <Calendar className="w-4 h-4" />
                               {timelineText}
                             </p>
                           </div>
 
                           {/* Right Side Content */}
-                          <div className="flex items-center gap-6 flex-shrink-0">
+                          <div className="flex items-center gap-3 flex-wrap">
                             {/* Progress Data */}
                             <div className="w-32">
                               <div className="flex items-center justify-between mb-2">
-                                <span className="text-xs font-semibold text-gray-600">Progress</span>
-                                <span className="text-xs font-bold text-gray-700">
+                                <span className="text-xs font-light text-gray-600">Progress</span>
+                                <span className="text-xs font-light text-gray-700">
                                   {metrics.completedCount}/{metrics.totalCount}
                                 </span>
                               </div>
@@ -329,10 +329,10 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
                             </div>
 
                             {/* Health Badge */}
-                            <div className={`px-4 py-2 rounded-lg border ${healthColor.bg} transition-colors`}>
+                            <div className={`px-4 py-2 rounded-xl border ${healthColor.bg} transition-colors`}>
                               <div className="flex items-center gap-2">
                                 <div className={`w-2 h-2 rounded-full ${healthColor.dot}`} />
-                                <span className={`text-xs font-bold ${healthColor.text}`}>
+                                <span className={`text-xs font-light ${healthColor.text}`}>
                                   {metrics.healthScore}% Health
                                 </span>
                               </div>
@@ -342,7 +342,7 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
                             {metrics.hasAlert && (
                               <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
                                 <AlertCircle className="w-4 h-4 text-amber-600" />
-                                <span className="text-xs font-semibold text-amber-700">Alert</span>
+                                <span className="text-xs font-light text-amber-700">Alert</span>
                               </div>
                             )}
 
@@ -354,7 +354,7 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
                             {/* Manage Button */}
                             <Link
                               to={`/projects/jira-dashboard?project=${encodeURIComponent(p.id)}&fullscreen=true`}
-                              className="ml-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-lg transition-colors flex items-center gap-2"
+                              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-light rounded-xl transition-colors flex items-center gap-2"
                               onClick={(e) => e.stopPropagation()}
                             >
                               <Settings className="w-4 h-4" />
@@ -364,7 +364,7 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
                             {/* View Button */}
                             <Link
                               to={`/projects/jira-dashboard?project=${encodeURIComponent(p.id)}`}
-                              className="ml-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-colors"
+                              className="px-4 py-2 bg-primary hover:bg-primary/90 text-white text-xs font-light rounded-xl transition-colors"
                               onClick={(e) => e.stopPropagation()}
                             >
                               View

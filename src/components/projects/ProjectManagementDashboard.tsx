@@ -73,33 +73,33 @@ const TeamMemberCard = ({ member, index }: { member: string; index: number }) =>
     <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-400 to-indigo-600 text-white text-sm font-bold flex items-center justify-center">
+          <div className="w-10 h-10 rounded-full bg-primary text-white text-sm font-light flex items-center justify-center">
             {member.split(' ').map(n => n[0]).join('')}
           </div>
           <div className="min-w-0">
-            <p className="font-semibold text-gray-900 truncate">{member}</p>
-            <p className="text-xs text-gray-500">
+            <p className="font-light text-gray-900 truncate">{member}</p>
+            <p className="text-xs text-gray-500 font-light">
               {['Frontend Lead', 'Backend Developer', 'UI Designer', 'Full Stack', 'QA Engineer'][index % 5]}
             </p>
           </div>
         </div>
-        <span className={`text-xs font-bold px-2 py-1 rounded-full ${statusColor}`}>
+        <span className={`text-xs font-light px-2 py-1 rounded-full ${statusColor}`}>
           {status}
         </span>
       </div>
 
       <div className="space-y-2">
         <div className="flex justify-between text-xs">
-          <span className="text-gray-600">Allocated</span>
-          <span className="font-bold text-gray-900">{allocated}h</span>
+          <span className="text-gray-600 font-light">Allocated</span>
+          <span className="font-light text-gray-900">{allocated}h</span>
         </div>
         <div className="flex justify-between text-xs">
-          <span className="text-gray-600">Actual</span>
-          <span className="font-bold text-gray-900">{Math.round(actual)}h</span>
+          <span className="text-gray-600 font-light">Actual</span>
+          <span className="font-light text-gray-900">{Math.round(actual)}h</span>
         </div>
         <div className="flex justify-between text-xs">
-          <span className="text-gray-600">Usage</span>
-          <span className={`font-bold ${usage > 100 ? 'text-red-700' : usage > 85 ? 'text-yellow-700' : 'text-green-700'}`}>
+          <span className="text-gray-600 font-light">Usage</span>
+          <span className={`font-light ${usage > 100 ? 'text-red-700' : usage > 85 ? 'text-yellow-700' : 'text-green-700'}`}>
             {usage}%
           </span>
         </div>
@@ -117,20 +117,20 @@ const TaskRow = ({ issue, index }: { issue: JiraIssue; index: number }) => {
   const actualHours = Math.round(estimatedHours * (0.6 + Math.random() * 0.5));
 
   return (
-    <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200">
+    <div className="flex items-center gap-4 p-3 bg-white rounded-lg hover:bg-gray-50 transition-colors border border-gray-200">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
-          <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded">
+          <span className="text-xs font-light text-primary bg-primary/10 px-2 py-0.5 rounded">
             {['Backend', 'Frontend', 'Full Stack', 'Design', 'DevOps'][index % 5]}
           </span>
-          <p className="font-semibold text-gray-900 truncate text-sm">{issue.summary.slice(0, 50)}</p>
+          <p className="font-light text-gray-900 truncate text-sm">{issue.summary.slice(0, 50)}</p>
         </div>
         <div className="flex items-center gap-3 text-xs text-gray-600">
-          <span className="font-semibold">{issue.assignee}</span>
+          <span className="font-light">{issue.assignee}</span>
           <span>•</span>
-          <span>{estimatedHours}h est.</span>
+          <span className="font-light">{estimatedHours}h est.</span>
           <span>•</span>
-          <span>{actualHours}h actual</span>
+          <span className="font-light">{actualHours}h actual</span>
         </div>
       </div>
 
@@ -138,11 +138,11 @@ const TaskRow = ({ issue, index }: { issue: JiraIssue; index: number }) => {
         <div className="w-24">
           <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
             <div 
-              className={`h-full transition-all ${isCompleted ? 'bg-green-500' : progress > 75 ? 'bg-blue-500' : 'bg-yellow-500'}`}
+              className={`h-full transition-all ${isCompleted ? 'bg-green-500' : progress > 75 ? 'bg-primary' : 'bg-yellow-500'}`}
               style={{ width: `${progress}%` }}
             />
           </div>
-          <p className="text-xs text-gray-600 mt-1 text-right">{Math.round(progress)}%</p>
+          <p className="text-xs text-gray-600 mt-1 text-right font-light">{Math.round(progress)}%</p>
         </div>
 
         <div className="flex items-center gap-1">
@@ -180,11 +180,11 @@ export default function ProjectManagementDashboard({
 
   const dashboardContent = (
     <>
-      <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border-b border-indigo-200 p-6">
+      <div className="bg-gray-50 border-b border-gray-200 p-6">
         <div className="flex items-start justify-between mb-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">{projectTitle}</h1>
-            <p className="text-gray-600">Project Management & Team Allocation Dashboard</p>
+            <h1 className="text-3xl font-light text-gray-900 mb-2">{projectTitle}</h1>
+            <p className="text-gray-600 font-light">Project Management & Team Allocation Dashboard</p>
           </div>
           <button
             onClick={onClose}
@@ -215,58 +215,58 @@ export default function ProjectManagementDashboard({
       <div className="p-6 space-y-6">
         {/* Health Score & Basic Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
+          <div className="bg-white border border-gray-200 rounded-lg p-6">
             <div className="text-center">
-              <p className="text-sm text-gray-600 mb-2">Health Score</p>
-              <div className="text-5xl font-bold text-indigo-700 mb-1">{healthScore}</div>
-              <p className="text-sm text-gray-600">Feasibility <span className="font-bold text-gray-900">85%</span></p>
+              <p className="text-sm text-gray-600 mb-2 font-light">Health Score</p>
+              <div className="text-5xl font-light text-primary mb-1">{healthScore}</div>
+              <p className="text-sm text-gray-600 font-light">Feasibility <span className="font-light text-gray-900">85%</span></p>
             </div>
-            <button className="w-full mt-4 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg transition-colors">
+            <button className="w-full mt-4 px-4 py-2 bg-primary hover:bg-primary/90 text-white text-sm font-light rounded-lg transition-colors">
               Edit Project
             </button>
           </div>
 
           <div className="grid grid-cols-3 gap-3">
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
-              <p className="text-xs text-gray-600 mb-2">Total Est.</p>
-              <p className="text-2xl font-bold text-gray-900">{metrics.totalEstHours}</p>
-              <p className="text-xs text-gray-500 mt-1">Hours</p>
+            <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
+              <p className="text-xs text-gray-600 mb-2 font-light">Total Est.</p>
+              <p className="text-2xl font-light text-gray-900">{metrics.totalEstHours}</p>
+              <p className="text-xs text-gray-500 mt-1 font-light">Hours</p>
             </div>
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
-              <p className="text-xs text-gray-600 mb-2">Actual</p>
-              <p className="text-2xl font-bold text-gray-900">{metrics.actualHours}</p>
-              <p className="text-xs text-gray-500 mt-1">Hours</p>
+            <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
+              <p className="text-xs text-gray-600 mb-2 font-light">Actual</p>
+              <p className="text-2xl font-light text-gray-900">{metrics.actualHours}</p>
+              <p className="text-xs text-gray-500 mt-1 font-light">Hours</p>
             </div>
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
-              <p className="text-xs text-gray-600 mb-2">Remaining</p>
-              <p className="text-2xl font-bold text-gray-900">{metrics.remainingHours}</p>
-              <p className="text-xs text-gray-500 mt-1">Hours</p>
+            <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
+              <p className="text-xs text-gray-600 mb-2 font-light">Remaining</p>
+              <p className="text-2xl font-light text-gray-900">{metrics.remainingHours}</p>
+              <p className="text-xs text-gray-500 mt-1 font-light">Hours</p>
             </div>
           </div>
         </div>
 
         {/* Completion & Delivery Timeline */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
-            <p className="text-xs text-gray-600 mb-2">Overall Completion</p>
-            <p className="text-3xl font-bold text-blue-700">{metrics.completion}%</p>
-            <div className="mt-3 h-2 bg-blue-200 rounded-full overflow-hidden">
+          <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
+            <p className="text-xs text-gray-600 mb-2 font-light">Overall Completion</p>
+            <p className="text-3xl font-light text-primary">{metrics.completion}%</p>
+            <div className="mt-3 h-2 bg-gray-200 rounded-full overflow-hidden">
               <div 
-                className="h-full bg-blue-500 transition-all"
+                className="h-full bg-primary transition-all"
                 style={{ width: `${metrics.completion}%` }}
               />
             </div>
           </div>
 
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-            <p className="text-xs text-gray-600 mb-2">Planned Completion</p>
-            <p className="font-bold text-gray-900 mb-3">{endDate || 'Mar 30, 2026'}</p>
-            <p className="text-sm text-gray-600">Prediction based on original timeline</p>
+          <div className="bg-white border border-gray-200 rounded-lg p-4">
+            <p className="text-xs text-gray-600 mb-2 font-light">Planned Completion</p>
+            <p className="font-light text-gray-900 mb-3">{endDate || 'Mar 30, 2026'}</p>
+            <p className="text-sm text-gray-600 font-light">Prediction based on original timeline</p>
           </div>
 
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-            <p className="text-xs text-gray-600 mb-2">Predicted (AI)</p>
-            <p className="font-bold text-gray-900 mb-1">{predictedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+          <div className="bg-white border border-gray-200 rounded-lg p-4">
+            <p className="text-xs text-gray-600 mb-2 font-light">Predicted (AI)</p>
+            <p className="font-light text-gray-900 mb-1">{predictedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
             <p className={`text-sm font-semibold ${predictedDelay > 0 ? 'text-red-700' : 'text-green-700'}`}>
               {predictedDelay > 0 ? '+' : ''}{predictedDelay} days
             </p>
@@ -276,8 +276,8 @@ export default function ProjectManagementDashboard({
         {/* Team Allocation */}
         <div>
           <div className="flex items-center gap-2 mb-4">
-            <Users className="w-5 h-5 text-indigo-600" />
-            <h2 className="text-lg font-bold text-gray-900">Team Allocation ({team.length} Members)</h2>
+            <Users className="w-5 h-5 text-primary" />
+            <h2 className="text-lg font-light text-gray-900">Team Allocation ({team.length} Members)</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {team.map((member, idx) => (

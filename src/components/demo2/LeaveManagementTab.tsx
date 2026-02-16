@@ -203,7 +203,7 @@ export default function LeaveManagementTab() {
       
       {/* 1. SCENARIO DIALOG (Manager) */}
       <Dialog open={scenarioOpen} onOpenChange={setScenarioOpen}>
-        <DialogContent className="sm:max-w-[600px] bg-slate-50">
+        <DialogContent className="sm:max-w-[600px] bg-white">
           <DialogHeader>
             <DialogTitle>Impact Analysis & Scenario Planning</DialogTitle>
             <DialogDescription>Review AI recommendations before approving leave.</DialogDescription>
@@ -234,7 +234,7 @@ export default function LeaveManagementTab() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setScenarioOpen(false)}>Cancel</Button>
-            <Button className="bg-indigo-600 hover:bg-indigo-700" onClick={confirmReallocation}>Confirm & Reallocate</Button>
+            <Button className="bg-primary hover:bg-primary/90 font-light" onClick={confirmReallocation}>Confirm & Reallocate</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -297,7 +297,7 @@ export default function LeaveManagementTab() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setLogOpen(false)}>Cancel</Button>
-            <Button className="bg-blue-600 hover:bg-blue-700" onClick={saveTimeLog}>
+            <Button className="bg-primary hover:bg-primary/90 font-light" onClick={saveTimeLog}>
               Save Time Entry
             </Button>
           </DialogFooter>

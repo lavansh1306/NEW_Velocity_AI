@@ -183,7 +183,7 @@ export default function SmartProgressTracker() {
       {/* Persona Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-4 rounded-2xl border border-slate-200 shadow-sm gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Smart Progress Tracker</h1>
+          <h1 className="text-2xl font-light text-gray-900">Smart Progress Tracker</h1>
           <p className="text-slate-500 text-sm">Weighted Task Analysis from Jira</p>
         </div>
 
@@ -206,7 +206,7 @@ export default function SmartProgressTracker() {
 
           {/* Data Source Indicator */}
           {dataSource === 'JIRA' && (
-            <div className="px-3 py-1 rounded text-xs font-bold uppercase bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1">
+            <div className="px-3 py-1 rounded text-xs font-light uppercase bg-primary/10 text-primary border border-primary/20 flex items-center gap-1">
               <Zap className="w-3 h-3" />
               Live Jira Data
             </div>
@@ -216,13 +216,13 @@ export default function SmartProgressTracker() {
           <div className="flex bg-slate-100 p-1 rounded-xl">
             <button 
               onClick={() => setActiveTab('manager')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'manager' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-light transition-all ${activeTab === 'manager' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
             >
               <ShieldCheck className="w-4 h-4" /> Manager
             </button>
             <button 
               onClick={() => setActiveTab('employee')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'employee' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-light transition-all ${activeTab === 'employee' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
             >
               <UserCircle2 className="w-4 h-4" /> Employee
             </button>
@@ -239,7 +239,7 @@ export default function SmartProgressTracker() {
         ) : tasks.length === 0 ? (
           <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-8 text-center">
             <AlertCircle className="w-12 h-12 mx-auto text-amber-600 mb-3 opacity-50" />
-            <h3 className="text-lg font-bold text-amber-900 mb-2">No Tasks Available</h3>
+            <h3 className="text-lg font-light text-amber-900 mb-2">No Tasks Available</h3>
             <p className="text-sm text-amber-700">
               Check your Jira connection or ensure your projects have issues assigned to team members.
             </p>

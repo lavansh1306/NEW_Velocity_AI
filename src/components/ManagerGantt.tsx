@@ -45,18 +45,18 @@ function formatDate(d: Date): string {
 }
 
 const projectColors: ColorGradient[] = [
-  { from: 'from-blue-500', to: 'to-blue-600' },
-  { from: 'from-red-500', to: 'to-red-600' },
-  { from: 'from-green-500', to: 'to-green-600' },
-  { from: 'from-purple-500', to: 'to-purple-600' },
-  { from: 'from-yellow-500', to: 'to-yellow-600' },
-  { from: 'from-pink-500', to: 'to-pink-600' },
-  { from: 'from-indigo-500', to: 'to-indigo-600' },
-  { from: 'from-cyan-500', to: 'to-cyan-600' },
-  { from: 'from-orange-500', to: 'to-orange-600' },
-  { from: 'from-amber-500', to: 'to-amber-600' },
-  { from: 'from-lime-500', to: 'to-lime-600' },
-  { from: 'from-emerald-500', to: 'to-emerald-600' },
+  { from: 'from-primary', to: 'to-primary' },
+  { from: 'from-primary/80', to: 'to-primary' },
+  { from: 'from-primary/70', to: 'to-primary/90' },
+  { from: 'from-primary/60', to: 'to-primary/80' },
+  { from: 'from-primary/75', to: 'to-primary' },
+  { from: 'from-primary/85', to: 'to-primary' },
+  { from: 'from-primary/90', to: 'to-primary' },
+  { from: 'from-primary/65', to: 'to-primary/85' },
+  { from: 'from-primary/70', to: 'to-primary/85' },
+  { from: 'from-primary/80', to: 'to-primary/90' },
+  { from: 'from-primary/55', to: 'to-primary/75' },
+  { from: 'from-primary/72', to: 'to-primary/88' },
 ]
 
 interface ManagerGanttProps {
@@ -318,9 +318,9 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-4 md:p-6">
+    <div className="bg-white rounded-xl shadow-lg p-4 md:p-6">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">All Projects — Employee Timeline</h2>
+        <h2 className="text-2xl font-light text-gray-900 mb-4">All Projects — Employee Timeline</h2>
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-4 text-sm text-gray-600 flex-wrap">
             <div>
@@ -329,19 +329,19 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
             <div className="flex gap-2">
               <button
                 onClick={() => setViewType('day')}
-                className={`px-3 py-1 rounded text-xs font-medium transition ${viewType === 'day' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+                className={`px-3 py-1 rounded-lg text-xs font-light transition ${viewType === 'day' ? 'bg-primary text-white' : 'bg-gray-200 text-gray-700'}`}
               >
                 Day
               </button>
               <button
                 onClick={() => setViewType('week')}
-                className={`px-3 py-1 rounded text-xs font-medium transition ${viewType === 'week' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+                className={`px-3 py-1 rounded-lg text-xs font-light transition ${viewType === 'week' ? 'bg-primary text-white' : 'bg-gray-200 text-gray-700'}`}
               >
                 Week
               </button>
               <button
                 onClick={() => setViewType('month')}
-                className={`px-3 py-1 rounded text-xs font-medium transition ${viewType === 'month' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+                className={`px-3 py-1 rounded-lg text-xs font-light transition ${viewType === 'month' ? 'bg-primary text-white' : 'bg-gray-200 text-gray-700'}`}
               >
                 Month
               </button>
@@ -355,7 +355,7 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
                 step="0.1"
                 value={zoom}
                 onChange={(e) => setZoom(Number(e.target.value))}
-                className="w-32 h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                className="w-32 h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-primary"
               />
             </div>
           </div>
@@ -366,7 +366,7 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
               const colors = colorMap[projectKey]
               const projectTickets = assigneeRows.flatMap(row => row.tasks).filter(t => t._projectKey === projectKey).length
               return (
-                <div key={projectKey} className={`px-3 py-2 rounded-lg bg-gradient-to-r ${colors.from} ${colors.to} text-white text-xs font-medium`}>
+                <div key={projectKey} className={`px-3 py-2 rounded-xl bg-gradient-to-r ${colors.from} ${colors.to} text-white text-xs font-light`}>
                   {projectKey} ({projectTickets})
                 </div>
               )

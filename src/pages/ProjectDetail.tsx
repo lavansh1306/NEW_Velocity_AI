@@ -251,7 +251,7 @@ export default function ProjectDetail() {
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-4xl font-bold text-gray-900">{project?.title ?? 'Project'}</h1>
+            <h1 className="text-4xl font-light text-gray-900">{project?.title ?? 'Project'}</h1>
             <p className="text-gray-600 mt-2">{project?.category ?? 'Project'}</p>
           </div>
           <Link to="/projects" className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50">
@@ -262,14 +262,14 @@ export default function ProjectDetail() {
         {/* Overview & Metrics */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-8">
           <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <div className="text-xs text-gray-500 font-semibold">TOTAL TEAM</div>
-            <div className="text-3xl font-bold text-gray-900 mt-2">{teamMembers.length}</div>
+            <div className="text-xs text-gray-500 font-light">TOTAL TEAM</div>
+            <div className="text-3xl font-light text-gray-900 mt-2">{teamMembers.length}</div>
             <div className="text-xs text-gray-600 mt-1">people working</div>
           </div>
 
           <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <div className="text-xs text-gray-500 font-semibold">TASKS COMPLETED</div>
-            <div className="text-3xl font-bold text-green-600 mt-2">
+            <div className="text-xs text-gray-500 font-light">TASKS COMPLETED</div>
+            <div className="text-3xl font-light text-primary mt-2">
               {teamMembers.reduce((s, m) => s + m.tasksCompleted, 0)}/
               <span className="text-gray-600">{teamMembers.reduce((s, m) => s + m.tasksAssigned, 0)}</span>
             </div>
@@ -277,8 +277,8 @@ export default function ProjectDetail() {
           </div>
 
           <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <div className="text-xs text-gray-500 font-semibold">PRs PENDING</div>
-            <div className="text-3xl font-bold text-yellow-600 mt-2">
+            <div className="text-xs text-gray-500 font-light">PRs PENDING</div>
+            <div className="text-3xl font-light text-primary mt-2">
               {pullRequests.filter((pr) => pr.status === 'pending-review').length}
             </div>
             <div className="text-xs text-gray-600 mt-1">code reviews</div>
@@ -304,7 +304,7 @@ export default function ProjectDetail() {
             {/* Weekly Commits Chart */}
             <div className="bg-white rounded-lg border border-gray-200 p-6">
               <div className="mb-6">
-                <h3 className="text-lg font-bold text-gray-900 mb-2">Weekly Commits</h3>
+                <h3 className="text-lg font-light text-gray-900 mb-2">Weekly Commits</h3>
                 <p className="text-xs text-gray-500">Team code activity over the last 3 weeks</p>
               </div>
               <div className="flex items-end justify-center gap-4" style={{ height: '250px' }}>
@@ -316,10 +316,10 @@ export default function ProjectDetail() {
                     <div key={w.week} className="flex flex-col items-center flex-1">
                       <div className="w-full flex flex-col items-center">
                         {/* Commit count label */}
-                        <div className="text-sm font-bold text-gray-900 mb-2">{w.commits}</div>
+                        <div className="text-sm font-light text-gray-900 mb-2">{w.commits}</div>
                         {/* Bar */}
                         <div
-                          className="w-full bg-gradient-to-t from-blue-500 to-blue-400 rounded-t-lg transition hover:shadow-lg hover:from-blue-600 hover:to-blue-500 cursor-pointer"
+                          className="w-full bg-gradient-to-t from-primary to-primary/80 rounded-t-lg transition hover:shadow-lg hover:from-primary/90 hover:to-primary cursor-pointer"
                           style={{ height: `${height + 50}px`, minHeight: '60px' }}
                           title={`${w.commits} commits (${percentage}% of total)`}
                         />
@@ -346,7 +346,7 @@ export default function ProjectDetail() {
 
             {/* Team Members & Tasks */}
             <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Team Members</h2>
+              <h2 className="text-xl font-light text-gray-900 mb-6">Team Members</h2>
               <div className="space-y-4">
                 {teamMembers.map((member) => {
                   const completionPercent = (member.tasksCompleted / member.tasksAssigned) * 100;
@@ -355,7 +355,7 @@ export default function ProjectDetail() {
                       <div className="flex items-start gap-4 mb-3">
                         <div className="text-3xl">{member.avatar}</div>
                         <div className="flex-1">
-                          <h3 className="font-semibold text-gray-900">{member.name}</h3>
+                          <h3 className="font-light text-gray-900">{member.name}</h3>
                           <p className="text-xs text-gray-500">{member.role}</p>
                         </div>
                         <div className="text-right">
@@ -432,7 +432,7 @@ export default function ProjectDetail() {
 
             {/* Pull Requests */}
             <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Pull Requests & Code Reviews</h2>
+              <h2 className="text-xl font-light text-gray-900 mb-6">Pull Requests & Code Reviews</h2>
               <div className="space-y-4">
                 {pullRequests.map((pr) => (
                   <div key={pr.id} className="border border-gray-100 rounded-lg p-4 hover:shadow-md transition">
@@ -484,7 +484,7 @@ export default function ProjectDetail() {
 
             {/* Git Commits */}
             <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Recent Commits</h2>
+              <h2 className="text-xl font-light text-gray-900 mb-6">Recent Commits</h2>
               <div className="space-y-3">
                 {recentCommits.map((commit, idx) => (
                   <div
@@ -513,7 +513,7 @@ export default function ProjectDetail() {
           <aside className="space-y-6">
             {/* Project Overview */}
             <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h3 className="text-sm font-bold text-gray-900 mb-3">PROJECT OVERVIEW</h3>
+              <h3 className="text-sm font-light text-gray-900 mb-3">PROJECT OVERVIEW</h3>
               <p className="text-sm text-gray-700 mb-4">{project?.description ?? 'No description available.'}</p>
 
               {project?.tags && project.tags.length > 0 && (
@@ -529,18 +529,18 @@ export default function ProjectDetail() {
 
             {/* Metrics */}
             <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200 p-6">
-              <h3 className="text-sm font-bold text-gray-900 mb-4">AI IMPACT METRICS</h3>
+              <h3 className="text-sm font-light text-gray-900 mb-4">AI IMPACT METRICS</h3>
               {metricsLoading ? (
                 <div className="text-sm text-gray-600">Loading…</div>
               ) : metrics ? (
                 <div className="space-y-3 text-sm">
                   <div>
                     <div className="text-xs text-gray-600">Hours Saved</div>
-                    <div className="font-bold text-lg text-gray-900">{Math.round(metrics.estimatedTimeSavedHours || 0)} hrs</div>
+                    <div className="font-light text-lg text-gray-900">{Math.round(metrics.estimatedTimeSavedHours || 0)} hrs</div>
                   </div>
                   <div>
                     <div className="text-xs text-gray-600">Cost Saved</div>
-                    <div className="font-bold text-lg text-green-600">${Math.round((metrics.estimatedCostSavedUSD ?? 0)).toLocaleString()}</div>
+                    <div className="font-light text-lg text-primary">${Math.round((metrics.estimatedCostSavedUSD ?? 0)).toLocaleString()}</div>
                   </div>
                   <div>
                     <div className="text-xs text-gray-600">Hourly Rate</div>
@@ -554,7 +554,7 @@ export default function ProjectDetail() {
 
             {/* Quick Stats */}
             <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h3 className="text-sm font-bold text-gray-900 mb-4">QUICK STATS</h3>
+              <h3 className="text-sm font-light text-gray-900 mb-4">QUICK STATS</h3>
               <div className="space-y-3">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Avg Task Completion</span>

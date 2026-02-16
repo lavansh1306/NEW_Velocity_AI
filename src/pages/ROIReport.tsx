@@ -179,7 +179,7 @@ const ROIReport = () => {
       <div className="container mx-auto px-4 py-8">
         {/* Hero Section */}
         <Card className="mb-8 bg-gradient-hero p-8 text-center text-white shadow-2xl md:p-12">
-          <h1 className="mb-4 text-3xl font-bold md:text-4xl">Velocity AI Impact Report</h1>
+          <h1 className="mb-4 text-3xl font-light md:text-4xl">Velocity AI Impact Report</h1>
             <div className="mb-4 text-5xl font-bold text-[#77ff00] md:text-6xl">
             ${yearlyROI.toLocaleString()}
           </div>
@@ -209,7 +209,7 @@ const ROIReport = () => {
             <Card className="mx-4 w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
               {!formSubmitted ? (
                 <div>
-                  <h3 className="mb-4 text-xl font-semibold">Request a Callback</h3>
+                  <h3 className="mb-4 text-xl font-light">Request a Callback</h3>
                   <p className="mb-4 text-sm text-muted-foreground">Provide your details and we will call you within 24 hours.</p>
 
                   <div className="space-y-3">
@@ -270,7 +270,7 @@ const ROIReport = () => {
               ) : (
                 <div className="text-center">
                   <CheckCircle2 className="mx-auto mb-3 h-10 w-10 text-green-500" />
-                  <h4 className="mb-2 text-lg font-semibold">Congratulations on Taking Step 1 to Unlocking your ROI</h4>
+                  <h4 className="mb-2 text-lg font-light">Congratulations on Taking Step 1 to Unlocking your ROI</h4>
                   <p className="mb-4 text-sm text-muted-foreground">You'll receive a callback within 24 hours.</p>
                   <div className="flex justify-center">
                     <Button onClick={() => { setShowFormModal(false); }}>
@@ -307,7 +307,7 @@ const ROIReport = () => {
           </Card>
 
           <Card className="p-6">
-            <h3 className="mb-4 text-xl font-semibold">Departments Affected</h3>
+            <h3 className="mb-4 text-xl font-light">Departments Affected</h3>
             <div className="space-y-3">
               {Array.from(departments).map((dept) => (
                 <div
@@ -323,7 +323,7 @@ const ROIReport = () => {
 
         {/* Redeployment Initiatives */}
         <Card className="mb-8 p-6">
-          <h2 className="mb-6 text-2xl font-bold">Redeployment Initiatives</h2>
+          <h2 className="mb-6 text-2xl font-light">Redeployment Initiatives</h2>
           <div className="mb-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {getActiveInitiatives().map((initiative, index) => (
               <div
@@ -343,7 +343,7 @@ const ROIReport = () => {
         {/* Forecast */}
         <Card className="mb-8 p-6">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-            <h2 className="text-2xl font-bold">Forecasted Value (12-Month Projection)</h2>
+            <h2 className="text-2xl font-light">Forecasted Value (12-Month Projection)</h2>
             <div className="flex gap-2">
               {(["conservative", "baseline", "aggressive"] as const).map((s) => (
                 <Button

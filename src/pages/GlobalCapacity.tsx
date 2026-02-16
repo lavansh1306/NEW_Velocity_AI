@@ -78,7 +78,7 @@ export default function GlobalCapacity() {
 
   return (
     <div className="p-6">
-      <h2 className="text-2xl font-bold mb-4">Global Capacity — Blocked & Fractional (All Projects)</h2>
+      <h2 className="text-2xl font-light mb-4">Global Capacity — Blocked & Fractional (All Projects)</h2>
       {loading ? <div className="text-sm text-gray-600">Loading projects...</div> : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white rounded-lg border border-gray-200 p-4">

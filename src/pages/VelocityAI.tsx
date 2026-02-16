@@ -715,8 +715,8 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
           </div>
         </div>
 
-        {/* Left Column - Project Deadlines */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-6">
+        {/* Right Column - Project Deadlines */}
+        <div className="lg:col-span-1 bg-white rounded-xl border border-gray-200 p-6">
           <h2 className="text-lg font-bold text-gray-900 mb-6">PROJECT UPCOMING DEADLINES</h2>
           
           {upcomingDeadlines.length > 0 ? (

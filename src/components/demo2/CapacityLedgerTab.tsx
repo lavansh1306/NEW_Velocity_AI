@@ -743,7 +743,7 @@ export default function CapacityLedgerTab({ projectId, asanaTasks = [], teamMemb
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Weekly Capacity Ledger</h2>
+        <h2 className="text-xl sm:text-2xl font-light text-gray-900">Weekly Capacity Ledger</h2>
         <p className="text-xs sm:text-sm text-gray-600 mt-1">Aggregated capacity by team • Blocked and Fractional hours (computed from CSVs)</p>
         <div className="mt-3">
           <div className="text-xs text-gray-500">Project Members</div>
@@ -788,8 +788,8 @@ export default function CapacityLedgerTab({ projectId, asanaTasks = [], teamMemb
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
               {perProjectBlocked.map((p) => (
                 <div key={`${p.source}-${p.key}`} className="p-2 border rounded bg-gray-50">
-                  <div className="text-gray-700 font-semibold">{p.title ?? p.key} <span className="text-gray-400">({p.source})</span></div>
-                  <div className="text-green-600 font-bold">{p.hours} hrs</div>
+                  <div className="text-gray-700 font-light">{p.title ?? p.key} <span className="text-gray-400">({p.source})</span></div>
+                  <div className="text-primary font-light">{p.hours} hrs</div>
                 </div>
               ))}
             </div>
@@ -802,8 +802,8 @@ export default function CapacityLedgerTab({ projectId, asanaTasks = [], teamMemb
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
               {perAssigneeBlocked.map((p) => (
                 <div key={p.assignee} className="p-2 border rounded bg-gray-50">
-                  <div className="text-gray-700 font-semibold">{p.assignee}</div>
-                  <div className="text-green-600 font-bold">{p.hours} hrs</div>
+                  <div className="text-gray-700 font-light">{p.assignee}</div>
+                  <div className="text-primary font-light">{p.hours} hrs</div>
                 </div>
               ))}
             </div>
@@ -813,16 +813,16 @@ export default function CapacityLedgerTab({ projectId, asanaTasks = [], teamMemb
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-6">
         <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-lg p-4 sm:p-6 text-white">
           <div className="text-xs sm:text-sm opacity-90 mb-1">{!projectId ? 'Block Capacity (All Projects)' : 'Block Capacity (This Project)'}</div>
-          <div className="text-3xl sm:text-4xl font-bold">{!projectId ? (
+          <div className="text-3xl sm:text-4xl font-light">{!projectId ? (
             loadingAllProjects ? '...' : (allProjectsBlocked !== null ? `${allProjectsBlocked} hrs` : `${totals.blocked.toFixed(1)} hrs`)
           ) : (
             projectIdleHours !== null ? `${projectIdleHours} hrs` : `${totals.blocked.toFixed(1)} hrs`
           )}</div>
           <div className="text-xs sm:text-sm mt-2 opacity-75">Detected from task statuses and time ranges{!projectId ? ' (aggregated across Jira + Asana)' : ''}</div>
         </div>
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg p-4 sm:p-6 text-white">
+        <div className="bg-primary rounded-xl p-4 sm:p-6 text-white shadow-md">
           <div className="text-xs sm:text-sm opacity-90 mb-1">AI-SAVED TIME (This Project)</div>
-          <div className="text-3xl sm:text-4xl font-bold">{hubspotAiSavedHours !== null ? `${hubspotAiSavedHours} hrs` : `${totals.fractional.toFixed(1)} hrs`}</div>
+          <div className="text-3xl sm:text-4xl font-light">{hubspotAiSavedHours !== null ? `${hubspotAiSavedHours} hrs` : `${totals.fractional.toFixed(1)} hrs`}</div>
           <div className="text-xs sm:text-sm mt-2 opacity-75">Estimated where automation reduces per-task human time</div>
         </div>
       </div>
@@ -832,7 +832,7 @@ export default function CapacityLedgerTab({ projectId, asanaTasks = [], teamMemb
       {/* Block + Fractional charts panel removed per request */}
 
       <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
-        <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-4">Capacity by Team</h3>
+        <h3 className="text-base sm:text-lg font-light text-gray-900 mb-4">Capacity by Team</h3>
         <div className="space-y-4 sm:space-y-6">
           {/* charts removed per user request */}
           {byTeam.length === 0 && (
@@ -842,7 +842,7 @@ export default function CapacityLedgerTab({ projectId, asanaTasks = [], teamMemb
           {byTeam.map((team) => (
             <div key={team.team}>
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4 mb-2">
-                <span className="text-xs sm:text-sm font-semibold text-gray-900">{team.team}</span>
+                <span className="text-xs sm:text-sm font-light text-gray-900">{team.team}</span>
                 <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs">
                   <span className="text-gray-500">Block: {team.blocked.toFixed(1)}h</span>
                   <span className="text-gray-400">•</span>

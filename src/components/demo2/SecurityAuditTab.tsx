@@ -381,7 +381,7 @@ export default function SecurityAuditTab({ onJiraConnectionChange }: SecurityAud
                     className={`px-2 sm:px-3 py-1.5 sm:py-2 rounded text-xs font-semibold transition-colors flex-shrink-0 whitespace-nowrap ${
                       integration.connected
                         ? 'bg-red-50 text-red-600 hover:bg-red-100 active:bg-red-200'
-                        : 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800'
+                        : 'bg-primary text-white hover:bg-primary/90 active:bg-primary/80 font-light'
                     }`}
                   >
                     {integration.connected ? 'Disconnect' : (key === 'microsoft365' || key === 'hubspot') ? 'Login' : 'Connect'}
@@ -426,7 +426,7 @@ export default function SecurityAuditTab({ onJiraConnectionChange }: SecurityAud
                         {integration.events.map((event) => (
                           <span
                             key={event}
-                            className="px-2 py-1 bg-blue-50 text-blue-700 text-xs font-semibold rounded"
+                            className="px-2 py-1 bg-primary/10 text-primary text-xs font-light rounded-lg"
                           >
                             {event}
                           </span>
@@ -440,7 +440,7 @@ export default function SecurityAuditTab({ onJiraConnectionChange }: SecurityAud
           </div>
 
           {/* Security Info */}
-          <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4 sm:p-6">
+          <div className="mt-6 bg-primary/10 border border-primary/20 rounded-xl p-4 sm:p-6">
             <h3 className="text-base sm:text-lg font-bold text-blue-900 mb-3">Security & Compliance</h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs sm:text-sm">
               <div>
@@ -482,7 +482,7 @@ export default function SecurityAuditTab({ onJiraConnectionChange }: SecurityAud
                   <p className="text-xs sm:text-sm font-semibold text-gray-900">Chrome on Windows</p>
                   <p className="text-xs text-gray-600">192.168.1.100 • Now</p>
                 </div>
-                <span className="text-xs font-bold px-2 py-1 rounded bg-blue-100 text-blue-700">Current</span>
+                <span className="text-xs font-light px-2 py-1 rounded bg-primary/10 text-primary">Current</span>
               </div>
             </div>
           </Card>
@@ -662,7 +662,7 @@ export default function SecurityAuditTab({ onJiraConnectionChange }: SecurityAud
                 'Document security policies',
               ].map((practice, idx) => (
                 <li key={idx} className="flex items-center gap-2 sm:gap-3">
-                  <div className="w-2 h-2 bg-blue-600 rounded-full flex-shrink-0"></div>
+                  <div className="w-2 h-2 bg-primary rounded-full flex-shrink-0"></div>
                   <span className="text-xs sm:text-sm text-gray-700">{practice}</span>
                 </li>
               ))}
