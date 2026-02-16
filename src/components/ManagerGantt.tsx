@@ -25,6 +25,8 @@ export interface Issue {
 interface ColorGradient {
   from: string
   to: string
+  bg: string
+  hex: string
 }
 
 interface AssigneeRow {
@@ -45,18 +47,18 @@ function formatDate(d: Date): string {
 }
 
 const projectColors: ColorGradient[] = [
-  { from: 'from-primary', to: 'to-primary' },
-  { from: 'from-primary/80', to: 'to-primary' },
-  { from: 'from-primary/70', to: 'to-primary/90' },
-  { from: 'from-primary/60', to: 'to-primary/80' },
-  { from: 'from-primary/75', to: 'to-primary' },
-  { from: 'from-primary/85', to: 'to-primary' },
-  { from: 'from-primary/90', to: 'to-primary' },
-  { from: 'from-primary/65', to: 'to-primary/85' },
-  { from: 'from-primary/70', to: 'to-primary/85' },
-  { from: 'from-primary/80', to: 'to-primary/90' },
-  { from: 'from-primary/55', to: 'to-primary/75' },
-  { from: 'from-primary/72', to: 'to-primary/88' },
+  { from: 'from-blue-500', to: 'to-blue-600', bg: 'bg-blue-500', hex: '#3b82f6' },
+  { from: 'from-red-500', to: 'to-red-600', bg: 'bg-red-500', hex: '#ef4444' },
+  { from: 'from-green-500', to: 'to-green-600', bg: 'bg-green-500', hex: '#10b981' },
+  { from: 'from-purple-500', to: 'to-purple-600', bg: 'bg-purple-500', hex: '#a855f7' },
+  { from: 'from-yellow-500', to: 'to-yellow-600', bg: 'bg-yellow-500', hex: '#eab308' },
+  { from: 'from-pink-500', to: 'to-pink-600', bg: 'bg-pink-500', hex: '#ec4899' },
+  { from: 'from-indigo-500', to: 'to-indigo-600', bg: 'bg-indigo-500', hex: '#6366f1' },
+  { from: 'from-cyan-500', to: 'to-cyan-600', bg: 'bg-cyan-500', hex: '#06b6d4' },
+  { from: 'from-orange-500', to: 'to-orange-600', bg: 'bg-orange-500', hex: '#f97316' },
+  { from: 'from-teal-500', to: 'to-teal-600', bg: 'bg-teal-600', hex: '#14b8a6' },
+  { from: 'from-rose-500', to: 'to-rose-600', bg: 'bg-rose-500', hex: '#f43f5e' },
+  { from: 'from-emerald-500', to: 'to-emerald-600', bg: 'bg-emerald-500', hex: '#50c878' },
 ]
 
 interface ManagerGanttProps {
@@ -80,11 +82,30 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
   // When jiraIssues are provided externally, use those
   useEffect(() => {
     if (externalJiraIssues && externalJiraIssues.length > 0) {
+      console.log('[ManagerGantt] Received external jiraIssues:', externalJiraIssues.length, 'issues')
+      if (externalJiraIssues.length > 0) {
+        console.log('[ManagerGantt] ===== RECEIVED ISSUES DETAIL =====')
+        externalJiraIssues.slice(0, 5).forEach((issue, idx) => {
+          console.log(`[ManagerGantt] Issue ${idx} (${issue.key}):`, {
+            summary: issue.summary,
+            start: issue.start,
+            due: issue.due,
+            created: issue.created,
+            assignee: issue.assignee,
+            hasAnyDate: !!(issue.start || issue.due || issue.created)
+          })
+        })
+      }
       // Convert Jira issues to internal Issue format
       const convertedTasks = externalJiraIssues.map(issue => ({
         ...issue,
       }))
+      console.log('[ManagerGantt] Setting tasks state with', convertedTasks.length, 'issues')
       setTasks(convertedTasks)
+      setLoading(false)
+    } else if (externalJiraIssues?.length === 0) {
+      console.log('[ManagerGantt] Received empty jiraIssues array')
+      setTasks([])
       setLoading(false)
     }
   }, [externalJiraIssues])
@@ -217,6 +238,23 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
 
 
   const { assigneeRows, minDate, maxDate, totalUnits, dateMarkers, colorMap, allProjects } = useMemo(() => {
+    console.log('[ManagerGantt] === PROCESSING TASKS ===')
+    console.log('[ManagerGantt] Total tasks input:', tasks.length)
+    if (tasks.length === 0) {
+      console.warn('[ManagerGantt] No tasks to process!')
+      return { assigneeRows: [], minDate: new Date(), maxDate: new Date(), totalUnits: 0, dateMarkers: [], colorMap: {}, allProjects: [] }
+    }
+    
+    // Log all tasks to see the raw data
+    console.log('[ManagerGantt] All tasks:', tasks.map(t => ({
+      key: t.key,
+      summary: t.summary,
+      start: t.start,
+      due: t.due,
+      created: t.created,
+      assignee: t.assignee
+    })))
+    
     // Helper to normalize date to UTC midnight (start of day)
     const normalizeDate = (d: Date): Date => {
       const dd = new Date(d)
@@ -239,25 +277,98 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
     const projectSet = new Set<string>()
     let min: Date | null = null
     let max: Date | null = null
+    let validTaskCount = 0
+    const skippedTasks: any[] = []
 
-    tasks.forEach(t => {
+    tasks.forEach((t, idx) => {
+      // Log date availability for each task
+      console.log(`[ManagerGantt] Task ${idx} (${t.key}):`, {
+        hasStart: !!t.start,
+        hasDue: !!t.due,
+        hasCreated: !!t.created,
+        start: t.start,
+        due: t.due,
+        created: t.created
+      })
+
+      // Skip tasks without any date information
+      if (!t.start && !t.due && !t.created) {
+        console.warn(`[ManagerGantt] Skipping task ${t.key} - no date fields`)
+        skippedTasks.push({ key: t.key, reason: 'no date fields' })
+        return
+      }
+
       const assignee = t.assignee || 'Unassigned'
       const projectKey = deriveProjectKey(t)
 
       if (!byAssignee[assignee]) byAssignee[assignee] = []
       projectSet.add(projectKey)
 
-      const sourceStart = t.start || t.created
-      const start = normalizeDate(new Date(sourceStart!))
-      let end = t.due ? normalizeDate(new Date(t.due)) : normalizeDate(new Date(sourceStart!))
+      try {
+        const sourceStart = t.start || t.created
+        if (!sourceStart) {
+          console.warn(`[ManagerGantt] Task ${t.key} has no valid start date`)
+          skippedTasks.push({ key: t.key, reason: 'no valid start date' })
+          return
+        }
 
-      if (end.getTime() < start.getTime()) end = new Date(start.getTime())
+        const startDate = new Date(sourceStart)
+        console.log(`[ManagerGantt] Task ${t.key} start date parsed:`, sourceStart, '→', startDate)
+        
+        const start = normalizeDate(startDate)
+        if (isNaN(start.getTime())) {
+          console.warn(`[ManagerGantt] Task ${t.key} has invalid start date: ${sourceStart}`)
+          skippedTasks.push({ key: t.key, reason: `invalid start date: ${sourceStart}` })
+          return
+        }
 
-      byAssignee[assignee].push({ ...t, _start: start, _end: end, _projectKey: projectKey })
+        let end = t.due ? normalizeDate(new Date(t.due)) : new Date(start.getTime())
+        if (isNaN(end.getTime())) {
+          console.warn(`[ManagerGantt] Task ${t.key} has invalid due date: ${t.due}`)
+          end = new Date(start.getTime())
+        }
 
-      if (!isNaN(start.getTime())) min = min ? (start < min ? start : min) : start
-      if (!isNaN(end.getTime())) max = max ? (end > max ? end : max) : end
+        if (end.getTime() < start.getTime()) {
+          console.warn(`[ManagerGantt] Task ${t.key} end before start, adjusting`)
+          end = new Date(start.getTime())
+        }
+
+        console.log(`[ManagerGantt] Task ${t.key} processed:`, {
+          assignee,
+          projectKey,
+          start: start.toISOString(),
+          end: end.toISOString()
+        })
+
+        byAssignee[assignee].push({ ...t, _start: start, _end: end, _projectKey: projectKey })
+        validTaskCount++
+
+        if (!isNaN(start.getTime())) min = min ? (start < min ? start : min) : start
+        if (!isNaN(end.getTime())) max = max ? (end > max ? end : max) : end
+      } catch (error) {
+        console.error(`[ManagerGantt] Error processing task ${t.key}:`, error)
+        skippedTasks.push({ key: t.key, reason: String(error) })
+      }
     })
+
+    console.log('[ManagerGantt] ===== PROCESSING SUMMARY =====')
+    console.log('[ManagerGantt] Valid tasks:', validTaskCount, 'of', tasks.length)
+    console.log('[ManagerGantt] Skipped tasks:', skippedTasks)
+    console.log('[ManagerGantt] Assignees found:', Object.keys(byAssignee))
+    console.log('[ManagerGantt] Projects found:', Array.from(projectSet))
+    console.log('[ManagerGantt] ===== DATE FIELD ANALYSIS =====')
+    const dateFieldAnalysis = tasks.map((t, idx) => ({
+      idx,
+      key: t.key,
+      hasStart: !!t.start,
+      hasDue: !!t.due,
+      hasCreated: !!t.created,
+      start: t.start?.substring(0, 10),
+      due: t.due?.substring(0, 10),
+      created: t.created?.substring(0, 10)
+    }))
+    console.table(dateFieldAnalysis)
+    console.log('[ManagerGantt] ===== END ANALYSIS =====')
 
     if (!min) min = normalizeDate(new Date())
     if (!max) max = normalizeDate(new Date())
@@ -266,6 +377,8 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
     min = normalizeDate(new Date(min.getTime()))
     // Extend max to 6 months after last task
     max = normalizeDate(new Date(max.getFullYear(), max.getMonth() + 6, max.getDate()))
+
+    console.log('[ManagerGantt] Timeline range:', min.toISOString(), '→', max.toISOString())
 
     let totalUnits = 0
     let markers: Date[] = []
@@ -291,6 +404,7 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
 
     projectKeys.forEach((projectKey, idx) => {
       colorMap[projectKey] = projectColors[idx % projectColors.length]
+      console.log(`[ManagerGantt] Project ${projectKey} assigned color:`, projectColors[idx % projectColors.length])
     })
 
     const assigneeNames = Object.keys(byAssignee).sort()
@@ -298,6 +412,11 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
       assignee: name,
       tasks: byAssignee[name].sort((a, b) => a._start.getTime() - b._start.getTime())
     }))
+
+    console.log('[ManagerGantt] Final assignee rows:', assigneeRows.map(r => ({ 
+      assignee: r.assignee, 
+      taskCount: r.tasks.length 
+    })))
 
     return { assigneeRows, minDate: min, maxDate: max, totalUnits, dateMarkers: markers, colorMap, allProjects: projectKeys }
   }, [tasks, viewType])
@@ -310,12 +429,52 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
   const cellWidth = getCellWidth()
 
   if (loading) {
-    return <div className="p-6 bg-white rounded shadow">Loading tasks...</div>
+    return (
+      <div className="p-6 bg-white rounded-lg border border-gray-200 shadow-sm">
+        <div className="flex items-center justify-center gap-2">
+          <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent"></div>
+          <p className="text-gray-600">Loading timeline...</p>
+        </div>
+      </div>
+    )
   }
 
-  if (!assigneeRows.length) {
-    return <div className="p-6 bg-white rounded shadow">No tasks to show</div>
+  // Check if we have any valid tasks with dates
+  const validTasksWithDates = tasks.filter(t => t.start || t.due || t.created)
+  console.log('[ManagerGantt RENDER CHECK]', {
+    totalTasks: tasks.length,
+    validTasksWithDates: validTasksWithDates.length,
+    assigneeRows: assigneeRows.length,
+    showGantt: assigneeRows.length > 0 && tasks.length > 0 && validTasksWithDates.length > 0,
+  })
+
+  if (!assigneeRows.length || tasks.length === 0 || validTasksWithDates.length === 0) {
+    console.warn('[ManagerGantt] Empty render conditions:', {
+      noAssigneeRows: !assigneeRows.length,
+      noTasks: tasks.length === 0,
+      noValidTasks: validTasksWithDates.length === 0
+    })
+    return (
+      <div className="p-8 bg-white rounded-lg border border-gray-200 shadow-sm text-center">
+        <p className="text-gray-500 text-sm">
+          {tasks.length === 0 ? 'No tasks available to display' : `No tasks with dates (valid: ${validTasksWithDates.length}/${tasks.length})`}
+        </p>
+        <p className="text-gray-400 text-xs mt-2">
+          {tasks.length === 0 
+            ? 'Connect Jira or upload tasks to get started' 
+            : 'Tasks need start date, due date, or created date to display on timeline'}
+        </p>
+        <details className="mt-4 text-left bg-gray-50 p-3 rounded text-xs">
+          <summary className="cursor-pointer font-mono">Raw task data ({tasks.length} tasks)</summary>
+          <pre className="mt-2 overflow-auto bg-white p-2 rounded border border-gray-200">
+            {JSON.stringify(tasks, null, 2)}
+          </pre>
+        </details>
+      </div>
+    )
   }
+
+  console.log('[ManagerGantt] Rendering Gantt chart with', assigneeRows.length, 'assignees')
 
   return (
     <div className="bg-white rounded-xl shadow-lg p-4 md:p-6">
@@ -366,7 +525,14 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
               const colors = colorMap[projectKey]
               const projectTickets = assigneeRows.flatMap(row => row.tasks).filter(t => t._projectKey === projectKey).length
               return (
-                <div key={projectKey} className={`px-3 py-2 rounded-xl bg-gradient-to-r ${colors.from} ${colors.to} text-white text-xs font-light`}>
+                <div 
+                  key={projectKey} 
+                  className="px-3 py-2 rounded-xl text-white text-xs font-light flex items-center gap-2"
+                  style={{
+                    backgroundColor: colors?.hex || '#3b82f6'
+                  }}
+                >
+                  <div className="w-4 h-4 rounded" style={{ backgroundColor: colors?.hex || '#3b82f6' }}></div>
                   {projectKey} ({projectTickets})
                 </div>
               )
@@ -487,16 +653,24 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
                   const leftPx = startCol * cellWidth
                   const widthPx = spanCols * cellWidth
                   const colors = colorMap[task._projectKey]
+                  
+                  console.log(`[ManagerGantt] Rendering task ${task.key} for project ${task._projectKey}:`, {
+                    colors,
+                    leftPx,
+                    widthPx
+                  })
 
                   return (
                     <div
                       key={tIdx}
-                      className={`absolute rounded shadow-sm bg-gradient-to-r ${colors.from} ${colors.to} text-white text-xs font-medium hover:opacity-100 overflow-hidden cursor-pointer hover:ring-2 hover:ring-white hover:ring-offset-1 transition-all`}
+                      className="absolute rounded shadow-sm text-white text-xs font-medium hover:opacity-90 overflow-hidden cursor-pointer hover:ring-2 hover:ring-white hover:ring-offset-1 transition-all"
                       style={{
                         left: `${leftPx}px`,
                         width: `${widthPx}px`,
                         top: '9px',
-                        height: '32px'
+                        height: '32px',
+                        backgroundColor: colors?.hex || '#3b82f6',
+                        backgroundImage: `linear-gradient(135deg, ${colors?.hex || '#3b82f6'} 0%, ${colors?.hex || '#1e40af'} 100%)`
                       }}
                       title={`${task.key}: ${task.summary}`}
                       onClick={() => setSelectedTask(task)}

@@ -364,27 +364,27 @@ export const DeploymentView = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-white py-8 px-4">
+    <div className="min-h-screen bg-gray-50 py-12 px-4 font-['Inter',sans-serif]">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-light text-gray-800 mb-2">
+          <h1 className="text-4xl font-light text-gray-900 mb-2">
             🚀 Deployment Dashboard
           </h1>
-          <p className="text-gray-600">
+          <p className="text-gray-500 font-light">
             Manage projects, tasks, and AI-powered employee assignments
           </p>
         </div>
 
         {/* Jira Project Selection */}
         {jiraConnected && employees.length === 0 && (
-          <Card className="mb-8">
+          <Card className="mb-8 border-gray-100 rounded-2xl shadow-sm">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 font-light">
                 <FileText className="h-5 w-5" />
                 Select Jira Projects for Data Extraction
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="font-light">
                 Choose which Jira projects to extract employee skills from
               </CardDescription>
             </CardHeader>
@@ -392,7 +392,7 @@ export const DeploymentView = () => {
               <div className="space-y-4">
                 <div className="flex items-center gap-2 text-green-600 mb-4">
                   <CheckCircle2 className="h-4 w-4" />
-                  <span className="text-sm">Connected to Jira</span>
+                  <span className="text-sm font-light">Connected to Jira</span>
                 </div>
 
                 {jiraProjects.length > 0 ? (
@@ -442,7 +442,7 @@ export const DeploymentView = () => {
                       <Button
                         onClick={handleJiraProjectExtract}
                         disabled={selectedJiraProjects.length === 0 || extractingJira}
-                        className="bg-green-600 hover:bg-green-700"
+                        className="bg-blue-600 hover:bg-blue-700 font-light"
                       >
                         {extractingJira ? (
                           <>
@@ -471,28 +471,28 @@ export const DeploymentView = () => {
 
         {/* Data Source Setup - CSV Upload */}
         {!jiraConnected && employees.length === 0 && (
-          <Card className="mb-8">
+          <Card className="mb-8 border-gray-100 rounded-2xl shadow-sm">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 font-light">
                 <Settings className="h-5 w-5" />
                 Setup Employee Data Source
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="font-light">
                 Choose how to load employee data for AI-powered task assignments
               </CardDescription>
             </CardHeader>
             <CardContent>
               <Tabs value={dataSource || "select"} onValueChange={(value) => setDataSource(value as any)}>
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="csv">Upload CSV</TabsTrigger>
-                  <TabsTrigger value="jira">Connect Jira</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-2 bg-gray-100">
+                  <TabsTrigger value="csv" className="font-light">Upload CSV</TabsTrigger>
+                  <TabsTrigger value="jira" className="font-light">Connect Jira</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="csv" className="space-y-4">
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                  <div className="border-2 border-dashed border-gray-300 rounded-2xl p-8 text-center">
                     <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                     <div className="space-y-2">
-                      <Label htmlFor="csv-upload" className="text-sm font-medium">
+                      <Label htmlFor="csv-upload" className="text-sm font-light">
                         Drop your employee CSV file here, or click to browse
                       </Label>
                       <Input
@@ -510,7 +510,7 @@ export const DeploymentView = () => {
                   <Button
                     onClick={handleCsvUpload}
                     disabled={!csvFile || uploadingCsv}
-                    className="w-full"
+                    className="w-full bg-blue-600 hover:bg-blue-700 font-light"
                   >
                     {uploadingCsv ? (
                       <>
@@ -529,11 +529,11 @@ export const DeploymentView = () => {
                 <TabsContent value="jira" className="space-y-4">
                   <div className="text-center py-8">
                     <ExternalLink className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium mb-2">Connect to Jira</h3>
-                    <p className="text-gray-600 mb-4">
+                    <h3 className="text-lg font-light mb-2">Connect to Jira</h3>
+                    <p className="text-gray-600 mb-4 font-light">
                       Extract employee skills automatically from your Jira projects
                     </p>
-                    <Button onClick={handleJiraConnect} className="bg-blue-600 hover:bg-blue-700">
+                    <Button onClick={handleJiraConnect} className="bg-blue-600 hover:bg-blue-700 font-light">
                       <ExternalLink className="h-4 w-4 mr-2" />
                       Connect Jira Account
                     </Button>
@@ -549,46 +549,48 @@ export const DeploymentView = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Projects Sidebar */}
             <div className="lg:col-span-1">
-              <Card>
+              <Card className="border-gray-100 rounded-2xl shadow-sm">
                 <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
+                  <CardTitle className="flex items-center justify-between font-light">
                     <span className="flex items-center gap-2">
                       <Briefcase className="h-5 w-5" />
                       Projects
                     </span>
                     <Dialog open={showProjectDialog} onOpenChange={setShowProjectDialog}>
                       <DialogTrigger asChild>
-                        <Button size="sm">
+                        <Button size="sm" className="bg-blue-600 hover:bg-blue-700 font-light">
                           <Plus className="h-4 w-4" />
                         </Button>
                       </DialogTrigger>
-                      <DialogContent>
+                      <DialogContent className="rounded-2xl">
                         <DialogHeader>
-                          <DialogTitle>Create New Project</DialogTitle>
-                          <DialogDescription>
+                          <DialogTitle className="font-light">Create New Project</DialogTitle>
+                          <DialogDescription className="font-light">
                             Add a new project to organize your tasks and assignments.
                           </DialogDescription>
                         </DialogHeader>
                         <div className="space-y-4">
                           <div>
-                            <Label htmlFor="project-name">Project Name</Label>
+                            <Label htmlFor="project-name" className="font-light">Project Name</Label>
                             <Input
                               id="project-name"
                               value={newProject.name}
                               onChange={(e) => setNewProject(prev => ({ ...prev, name: e.target.value }))}
                               placeholder="Enter project name"
+                              className="border-gray-200 focus:border-blue-500 font-light"
                             />
                           </div>
                           <div>
-                            <Label htmlFor="project-desc">Description</Label>
+                            <Label htmlFor="project-desc" className="font-light">Description</Label>
                             <Textarea
                               id="project-desc"
                               value={newProject.description}
                               onChange={(e) => setNewProject(prev => ({ ...prev, description: e.target.value }))}
                               placeholder="Enter project description"
+                              className="border-gray-200 focus:border-blue-500 font-light"
                             />
                           </div>
-                          <Button onClick={handleCreateProject} className="w-full">
+                          <Button onClick={handleCreateProject} className="w-full bg-blue-600 hover:bg-blue-700 font-light">
                             Create Project
                           </Button>
                         </div>
@@ -627,54 +629,56 @@ export const DeploymentView = () => {
             {/* Tasks Area */}
             <div className="lg:col-span-2">
               {currentProject ? (
-                <Card>
+                <Card className="border-gray-100 rounded-2xl shadow-sm">
                   <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
+                    <CardTitle className="flex items-center justify-between font-light">
                       <span className="flex items-center gap-2">
                         <Target className="h-5 w-5" />
                         {currentProject.name}
                       </span>
                       <Dialog open={showTaskDialog} onOpenChange={setShowTaskDialog}>
                         <DialogTrigger asChild>
-                          <Button size="sm">
+                          <Button size="sm" className="bg-blue-600 hover:bg-blue-700 font-light">
                             <Plus className="h-4 w-4 mr-2" />
                             Add Task
                           </Button>
                         </DialogTrigger>
-                        <DialogContent className="max-w-2xl">
+                        <DialogContent className="max-w-2xl rounded-2xl">
                           <DialogHeader>
-                            <DialogTitle>Add New Task</DialogTitle>
-                            <DialogDescription>
+                            <DialogTitle className="font-light">Add New Task</DialogTitle>
+                            <DialogDescription className="font-light">
                               Create a task and get AI-powered employee suggestions.
                             </DialogDescription>
                           </DialogHeader>
                           <div className="space-y-4">
                             <div>
-                              <Label htmlFor="task-title">Task Title</Label>
+                              <Label htmlFor="task-title" className="font-light">Task Title</Label>
                               <Input
                                 id="task-title"
                                 value={newTask.title}
                                 onChange={(e) => setNewTask(prev => ({ ...prev, title: e.target.value }))}
                                 placeholder="Enter task title"
+                                className="border-gray-200 focus:border-blue-500 font-light"
                               />
                             </div>
                             <div>
-                              <Label htmlFor="task-desc">Description</Label>
+                              <Label htmlFor="task-desc" className="font-light">Description</Label>
                               <Textarea
                                 id="task-desc"
                                 value={newTask.description}
                                 onChange={(e) => setNewTask(prev => ({ ...prev, description: e.target.value }))}
                                 placeholder="Enter task description"
+                                className="border-gray-200 focus:border-blue-500 font-light"
                               />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                               <div>
-                                <Label htmlFor="task-priority">Priority</Label>
+                                <Label htmlFor="task-priority" className="font-light">Priority</Label>
                                 <Select
                                   value={newTask.priority}
                                   onValueChange={(value: any) => setNewTask(prev => ({ ...prev, priority: value }))}
                                 >
-                                  <SelectTrigger>
+                                  <SelectTrigger className="border-gray-200 font-light">
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -685,26 +689,28 @@ export const DeploymentView = () => {
                                 </Select>
                               </div>
                               <div>
-                                <Label htmlFor="task-hours">Estimated Hours</Label>
+                                <Label htmlFor="task-hours" className="font-light">Estimated Hours</Label>
                                 <Input
                                   id="task-hours"
                                   type="number"
                                   value={newTask.estimatedHours}
                                   onChange={(e) => setNewTask(prev => ({ ...prev, estimatedHours: parseInt(e.target.value) || 0 }))}
                                   placeholder="0"
+                                  className="border-gray-200 focus:border-blue-500 font-light"
                                 />
                               </div>
                             </div>
                             <div>
-                              <Label htmlFor="task-skills">Required Skills (comma-separated)</Label>
+                              <Label htmlFor="task-skills" className="font-light">Required Skills (comma-separated)</Label>
                               <Input
                                 id="task-skills"
                                 value={newTask.requiredSkills}
                                 onChange={(e) => setNewTask(prev => ({ ...prev, requiredSkills: e.target.value }))}
                                 placeholder="React, JavaScript, API"
+                                className="border-gray-200 focus:border-blue-500 font-light"
                               />
                             </div>
-                            <Button onClick={handleCreateTask} disabled={loading} className="w-full">
+                            <Button onClick={handleCreateTask} disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 font-light">
                               {loading ? (
                                 <>
                                   <Loader2 className="h-4 w-4 animate-spin mr-2" />

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import VeloNavTabs from '@/components/demo2/VeloNavTabs';
-import { Header } from '@/components/Header';
 import { Button } from '@/components/ui/button';
 // Removed Add Project dialog and delete controls per request
 import AnalyticsPanel from '@/components/analytics/AnalyticsPanel';
@@ -147,7 +146,7 @@ const TeamAvatars = ({ team, maxShow = 4 }: { team: string[]; maxShow?: number }
       {displayed.map((member) => (
         <div
           key={member}
-          className="w-8 h-8 rounded-full bg-primary text-white text-xs font-light flex items-center justify-center border-2 border-white"
+          className="w-8 h-8 rounded-full bg-blue-600 text-white text-xs font-light flex items-center justify-center border-2 border-white"
           title={member}
         >
           {member.charAt(0).toUpperCase()}
@@ -259,16 +258,16 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
   // Delete project controls removed
 
   const mainContent = (
-    <div className="bg-gray-50 min-h-screen py-6 sm:py-8 lg:py-12">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="mb-8 flex items-center justify-between">
+    <div className="bg-gray-50 min-h-screen p-12 font-['Inter',sans-serif]">
+      <div className="max-w-[1600px] mx-auto">
+        <div className="mb-12 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-light mb-3">Projects</h1>
-            <p className="text-gray-600 text-sm sm:text-base leading-relaxed">Selected case studies and platform projects demonstrating impact and outcomes.</p>
+            <h1 className="text-4xl font-light text-gray-900 mb-3 tracking-tight">Projects</h1>
+            <p className="text-gray-600 text-base font-light leading-relaxed">Selected case studies and platform projects demonstrating impact and outcomes.</p>
           </div>
           <div className="flex gap-2">
             <Link to="/velocity-ai?tab=deployment">
-              <Button className="gap-2 bg-blue-600 hover:bg-blue-700">
+              <Button className="gap-2 bg-blue-600 hover:bg-blue-700 h-11 px-6 rounded-xl font-light">
                 <span>➕</span> Add Project
               </Button>
             </Link>
@@ -279,7 +278,7 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
 
         {loading ? (
           <div className="text-center py-12">
-            <p className="text-gray-500">Loading projects...</p>
+            <p className="text-gray-500 font-light">Loading projects...</p>
           </div>
         ) : (
           <>
@@ -301,24 +300,24 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
                       <div
                         key={p.id}
                         onClick={() => handleProjectSelect(p)}
-                        className="group rounded-xl bg-white border border-gray-200 hover:border-primary/30 hover:shadow-md transition-all cursor-pointer p-4"
+                        className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer p-8 border border-gray-100"
                       >
-                        <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-center justify-between gap-6">
                           {/* Left: Project Name & Timeline */}
                           <div className="flex-1 min-w-0">
-                            <h3 className="text-lg font-light text-gray-900 group-hover:text-primary transition-colors">
+                            <h3 className="text-lg font-light text-gray-900 hover:text-blue-600 transition-colors">
                               {p.title}
                             </h3>
-                            <p className="text-sm text-gray-600 mt-1 flex items-center gap-1 font-light">
+                            <p className="text-sm text-gray-500 mt-2 flex items-center gap-2 font-light">
                               <Calendar className="w-4 h-4" />
                               {timelineText}
                             </p>
                           </div>
 
                           {/* Right Side Content */}
-                          <div className="flex items-center gap-3 flex-wrap">
+                          <div className="flex items-center gap-4 flex-wrap justify-end">
                             {/* Progress Data */}
-                            <div className="w-32">
+                            <div className="w-40">
                               <div className="flex items-center justify-between mb-2">
                                 <span className="text-xs font-light text-gray-600">Progress</span>
                                 <span className="text-xs font-light text-gray-700">
@@ -329,10 +328,10 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
                             </div>
 
                             {/* Health Badge */}
-                            <div className={`px-4 py-2 rounded-xl border ${healthColor.bg} transition-colors`}>
+                            <div className={`px-4 py-2 rounded-xl border font-light transition-colors ${healthColor.bg}`}>
                               <div className="flex items-center gap-2">
                                 <div className={`w-2 h-2 rounded-full ${healthColor.dot}`} />
-                                <span className={`text-xs font-light ${healthColor.text}`}>
+                                <span className={`text-xs ${healthColor.text}`}>
                                   {metrics.healthScore}% Health
                                 </span>
                               </div>
@@ -340,9 +339,9 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
 
                             {/* AI Alert Indicator */}
                             {metrics.hasAlert && (
-                              <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
+                              <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg font-light">
                                 <AlertCircle className="w-4 h-4 text-amber-600" />
-                                <span className="text-xs font-light text-amber-700">Alert</span>
+                                <span className="text-xs text-amber-700">Alert</span>
                               </div>
                             )}
 
@@ -354,7 +353,7 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
                             {/* Manage Button */}
                             <Link
                               to={`/projects/jira-dashboard?project=${encodeURIComponent(p.id)}&fullscreen=true`}
-                              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-light rounded-xl transition-colors flex items-center gap-2"
+                              className="px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 text-xs font-light rounded-xl transition-colors flex items-center gap-2 whitespace-nowrap border border-gray-200"
                               onClick={(e) => e.stopPropagation()}
                             >
                               <Settings className="w-4 h-4" />
@@ -364,7 +363,7 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
                             {/* View Button */}
                             <Link
                               to={`/projects/jira-dashboard?project=${encodeURIComponent(p.id)}`}
-                              className="px-4 py-2 bg-primary hover:bg-primary/90 text-white text-xs font-light rounded-xl transition-colors"
+                              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-light rounded-xl transition-colors whitespace-nowrap inline-block"
                               onClick={(e) => e.stopPropagation()}
                             >
                               View
@@ -385,7 +384,6 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
 
   return (
     <div>
-      <Header />
       {withNav ? (
         <VeloNavTabs
           activeTab="projects"

@@ -7,12 +7,12 @@ export const Header = () => {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <header className="fixed top-0 w-full bg-white border-b border-gray-100 z-50">
+    <header className="bg-white border-b border-gray-100 z-50 sticky top-0">
       <div className="max-w-[1800px] mx-auto px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 font-light text-lg text-gray-900">
-            <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center">
+            <div className="h-8 w-8 bg-blue-600 rounded-xl flex items-center justify-center">
               <span className="text-white font-light text-sm">V</span>
             </div>
             Velocity AI
@@ -39,7 +39,7 @@ export const Header = () => {
               </Button>
             </Link>
             <Link to="/signup">
-              <Button className="hidden md:block bg-primary hover:bg-primary/90 text-white font-light h-10 px-6 rounded-xl">
+              <Button className="hidden md:block bg-blue-600 hover:bg-blue-700 text-white font-light h-11 px-6 rounded-xl">
                 Get Started
               </Button>
             </Link>
