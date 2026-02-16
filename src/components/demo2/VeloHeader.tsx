@@ -1,14 +1,5 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu';
-import { Settings } from 'lucide-react';
 import { UserProfile } from '../UserProfile';
 
 interface VeloHeaderProps {
@@ -50,13 +41,6 @@ export default function VeloHeader({ onSecurityAuditClick }: VeloHeaderProps) {
           .velo-status-badge {
             display: none;
           }
-          .velo-settings-text {
-            display: none;
-          }
-          .velo-settings-icon {
-            width: 16px;
-            height: 16px;
-          }
           .velo-audit-text {
             display: none;
           }
@@ -80,31 +64,12 @@ export default function VeloHeader({ onSecurityAuditClick }: VeloHeaderProps) {
             </div>
           </div>
 
-          {/* Right: Status + Settings + User Profile */}
+          {/* Right: Status + User Profile */}
           <div className="flex items-center gap-2 sm:gap-3 ml-auto">
             <div className="hidden sm:flex items-center gap-2 bg-green-50 px-2 sm:px-3 py-1 sm:py-2 rounded-xl velo-status-badge">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
               <span className="text-xs sm:text-sm font-light text-green-700">All Systems Operational</span>
             </div>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="h-8 sm:h-10 flex items-center gap-1 sm:gap-2 px-2 sm:px-3 bg-primary border border-transparent rounded-xl text-xs sm:text-sm text-white hover:bg-primary/90 shadow-sm velo-button font-light">
-                  <Settings className="h-3 w-3 sm:h-4 sm:w-4 text-white velo-settings-icon" />
-                  <span className="hidden sm:inline font-light velo-settings-text">Settings</span>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48 sm:w-56">
-                <DropdownMenuLabel>Settings</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => { if (onSecurityAuditClick) onSecurityAuditClick(); }}>
-                  Security Audit
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Link to="/data-quality" className="w-full block">Data Quality</Link>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
 
             {/* User Profile / Logout */}
             <UserProfile />
