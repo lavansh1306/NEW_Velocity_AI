@@ -67,22 +67,49 @@ export function useJiraData(): UseJiraDataReturn {
             const projectIssues = issuesData.issues || []
             console.log(`[useJiraData] Project ${project.key}: ${projectIssues.length} issues`)
 
-            const mappedIssues = projectIssues.map((iss: any) => ({
-              key: iss.key || iss.id || '',
-              issueType: iss.issueType || iss.type || 'Task',
-              summary: iss.summary || iss.title || '',
-              description: iss.description || '',
-              project: project.key,
-              priority: iss.priority || 'Medium',
-              status: iss.status || 'Open',
-              assignee: iss.assignee || 'Unassigned',
-              team: 'Engineering',
-              start: iss.start || null,
-              due: iss.due || iss.duedate || null,
-              duration: iss.duration || 8,
-              created: iss.created || null,
-              projectKey: project.key,
-            }))
+            const mappedIssues = projectIssues.map((iss: any) => {
+              // Ensure we have proper date fields - use any available date source
+              const start = iss.start || iss.startDate || iss.created || null
+              const due = iss.due || iss.dueDate || iss.duedate || null
+              
+              console.log(`[useJiraData] Mapping issue ${iss.key}:`, {
+                rawStart: iss.start,
+                rawStartDate: iss.startDate,
+                rawCreated: iss.created,
+                rawDue: iss.due,
+                rawDueDate: iss.dueDate,
+                rawDuedate: iss.duedate,
+                mappedStart: start,
+                mappedDue: due
+              })
+              
+              return {
+                key: iss.key || iss.id || '',
+                issueType: iss.issueType || iss.type || 'Task',
+                summary: iss.summary || iss.title || '',
+                description: iss.description || '',
+                project: project.key,
+                priority: iss.priority || 'Medium',
+                status: iss.status || 'Open',
+                assignee: iss.assignee || 'Unassigned',
+                team: 'Engineering',
+                start: start,
+                due: due,
+                duration: iss.duration || 8,
+                created: iss.created || null,
+                projectKey: project.key,
+              }
+            })
+            
+            if (mappedIssues.length > 0) {
+              console.log(`[useJiraData] Sample mapped issue from ${project.key}:`, {
+                key: mappedIssues[0].key,
+                summary: mappedIssues[0].summary,
+                start: mappedIssues[0].start,
+                due: mappedIssues[0].due,
+                created: mappedIssues[0].created
+              })
+            }
 
             allIssues.push(...mappedIssues)
           }

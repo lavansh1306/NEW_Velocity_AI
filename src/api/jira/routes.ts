@@ -25,6 +25,15 @@ router.post('/auth/disconnect', (req: Request, res: Response) => {
 
 // Check connection status
 router.get('/auth/status', (req: Request, res: Response) => {
+  console.log('[Jira Auth Status] ==== STATUS CHECK ====');
+  console.log('[Jira Auth Status] Full session:', {
+    sessionID: req.sessionID,
+    jiraStoreKey: req.session?.jiraStoreKey,
+    jiraCloudId: req.session?.jiraCloudId,
+    jiraAccessibleResourcesCount: req.session?.jiraAccessibleResources?.length || 0,
+    allSessionKeys: Object.keys(req.session || {}),
+  });
+  
   const connected = jiraAuth.isConnected(req);
   const siteInfo = jiraAuth.getSiteInfo(req);
   const availableSites = req.session?.jiraAccessibleResources || [];
@@ -35,11 +44,25 @@ router.get('/auth/status', (req: Request, res: Response) => {
     console.log('[Jira Auth Status] Sites:', availableSites.map((s: any) => ({ id: s.id, name: s.name })));
   }
   
-  res.json({ 
-    connected,
-    site: siteInfo,
-    availableSites: availableSites.map((s: any) => ({ id: s.id, name: s.name, url: s.url })),
-  });
+  // Ensure response is valid JSON and includes all necessary fields
+  const responseData = {
+    connected: connected === true,
+    site: siteInfo || null,
+    availableSites: (availableSites || []).map((s: any) => ({ 
+      id: s.id || '',
+      name: s.name || '',
+      url: s.url || ''
+    })),
+  };
+  
+  console.log('[Jira Auth Status] Response:', responseData);
+  
+  // Set cache headers to prevent stale responses
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  
+  res.json(responseData);
 });
 
 // Switch to a different Jira site
@@ -142,11 +165,18 @@ router.get('/issues', async (req: Request, res: Response) => {
       const fields = issue.fields || {};
       const created = fields.created || null;
       const due = fields.duedate || null;
-      const duration = created && due 
-        ? Math.ceil((new Date(due).getTime() - new Date(created).getTime()) / MS_PER_DAY) 
+      const startDate = fields.customfield_10015 || created || null;  // Use custom start field, fallback to created
+      
+      console.log(`[Jira Issues] Issue ${issue.key}:`, {
+        created,
+        due,
+        startDate,
+        customfield_10015: fields.customfield_10015
+      })
+      
+      const duration = startDate && due 
+        ? Math.ceil((new Date(due).getTime() - new Date(startDate).getTime()) / MS_PER_DAY) 
         : "";
-
-      const startDate = fields.customfield_10015 || null;
 
       return {
         key: issue.key || "-",
@@ -166,6 +196,15 @@ router.get('/issues', async (req: Request, res: Response) => {
     });
 
     console.log('[Jira Issues] Formatted', issues.length, 'issues');
+    if (issues.length > 0) {
+      console.log('[Jira Issues] Sample formatted issue:', {
+        key: issues[0].key,
+        summary: issues[0].summary,
+        start: issues[0].start,
+        due: issues[0].due,
+        created: issues[0].created
+      })
+    }
     console.log('[Jira Issues] Sending response...');
     res.json({ issues });
     console.log('[Jira Issues] Response sent!');
@@ -336,7 +375,21 @@ router.post('/extract-employee-skills', async (req: Request, res: Response) => {
         console.log(`[Jira Extract] Processing project: ${projectKey}`);
 
         // Get project issues
-        const issuesResponse = await jiraAuth.apiRequest(req, `/rest/api/3/search?jql=project=${projectKey}&maxResults=1000`);
+        const accessToken = await jiraAuth.getAccessToken(req);
+        const cloudId = jiraAuth.getCloudId(req);
+        
+        if (!accessToken || !cloudId) {
+          console.warn(`[Jira Extract] Missing auth for project ${projectKey}`);
+          continue;
+        }
+
+        const issuesResponse = await fetch(`https://api.atlassian.com/ex/jira/${cloudId}/rest/api/3/search?jql=project=${projectKey}&maxResults=1000`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Accept': 'application/json',
+          },
+        });
+        
         if (!issuesResponse.ok) {
           console.warn(`[Jira Extract] Failed to fetch issues for project ${projectKey}`);
           continue;
@@ -422,6 +475,140 @@ router.post('/extract-employee-skills', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('[Jira Extract] Error extracting employee skills:', error);
     res.status(500).json({ error: 'Failed to extract employee skills' });
+  }
+});
+
+// Get team members from Jira projects with extracted skills
+router.get('/team-members', async (req: Request, res: Response) => {
+  try {
+    console.log('[Jira Team Members] Request received');
+    
+    const accessToken = await jiraAuth.getAccessToken(req);
+    const cloudId = jiraAuth.getCloudId(req);
+    
+    if (!accessToken || !cloudId) {
+      return res.status(401).json({ 
+        error: 'Not authenticated',
+        message: 'Please connect your Jira account first',
+      });
+    }
+
+    // Fetch all projects
+    const projectsUrl = `https://api.atlassian.com/ex/jira/${cloudId}/rest/api/2/project`;
+    const projectsResponse = await fetch(projectsUrl, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!projectsResponse.ok) {
+      throw new Error('Failed to fetch projects');
+    }
+
+    const projectsData = await projectsResponse.json() as any;
+    const projectArray = Array.isArray(projectsData) ? projectsData : (projectsData.values || projectsData.projects || []);
+
+    // Extract team members from all project issues
+    const employeeMap: Map<string, any> = new Map();
+    const skillKeywords = [
+      'react', 'angular', 'vue', 'javascript', 'typescript', 'python', 'java', 'c#', 'php', 'ruby',
+      'node.js', 'express', 'django', 'flask', 'spring', 'hibernate', '.net', 'asp.net',
+      'html', 'css', 'sass', 'less', 'bootstrap', 'tailwind',
+      'sql', 'mysql', 'postgresql', 'mongodb', 'redis', 'elasticsearch',
+      'aws', 'azure', 'gcp', 'docker', 'kubernetes', 'jenkins', 'gitlab', 'github',
+      'api', 'rest', 'graphql', 'microservices', 'testing', 'qa', 'devops',
+      'mobile', 'ios', 'android', 'flutter', 'react native',
+      'data analysis', 'machine learning', 'ai', 'ml', 'data science',
+      'ui', 'ux', 'design', 'figma', 'sketch', 'photoshop'
+    ];
+
+    // Fetch issues from each project
+    for (const project of projectArray) {
+      try {
+        const jql = `project = ${project.key}`;
+        const searchUrl = `https://api.atlassian.com/ex/jira/${cloudId}/rest/api/3/search/jql?jql=${encodeURIComponent(jql)}&maxResults=100&fields=assignee,summary,description,issuetype`;
+        
+        const issuesResponse = await fetch(searchUrl, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Accept': 'application/json',
+          },
+        });
+
+        if (issuesResponse.ok) {
+          const issuesData = await issuesResponse.json() as any;
+          const issues = issuesData.issues || [];
+
+          for (const issue of issues) {
+            const assignee = issue.fields?.assignee;
+            if (!assignee) continue;
+
+            const assigneeName = assignee.displayName || assignee.name;
+            const issueType = issue.fields?.issuetype?.name || '';
+            const summary = issue.fields?.summary || '';
+            const description = (issue.fields?.description?.content || [])
+              .map((block: any) => block.content?.map((c: any) => c.text).join('') || '')
+              .join(' ');
+
+            if (!employeeMap.has(assigneeName)) {
+              employeeMap.set(assigneeName, {
+                id: assignee.accountId,
+                name: assigneeName,
+                skills: new Set<string>(),
+                projects: new Set<string>(),
+              });
+            }
+
+            const emp = employeeMap.get(assigneeName);
+            emp.projects.add(project.key);
+
+            // Add issue type as skill
+            if (issueType) {
+              emp.skills.add(issueType);
+            }
+
+            // Extract skills from text
+            const text = `${summary} ${description}`.toLowerCase();
+            for (const skill of skillKeywords) {
+              if (text.includes(skill)) {
+                emp.skills.add(skill.charAt(0).toUpperCase() + skill.slice(1));
+              }
+            }
+          }
+        }
+      } catch (projectError) {
+        console.warn(`[Jira Team Members] Failed to fetch issues for project ${project.key}:`, projectError);
+        continue;
+      }
+    }
+
+    // Convert to array format for ML engine
+    const teamMembers = Array.from(employeeMap.values()).map(emp => ({
+      id: emp.id,
+      name: emp.name,
+      skills: Array.from(emp.skills),
+      projects: Array.from(emp.projects),
+      current_load: Math.round(Math.random() * 100), // Placeholder - must be integer for ML engine
+      role_level: 'mid' as const, // Default - can be enhanced based on project role
+      availability_hours: 160 - (Math.random() * 100 * 1.6), // Placeholder
+      avg_completion_time: 40, // Default - can be enhanced with historical data
+    }));
+
+    console.log(`[Jira Team Members] Extracted ${teamMembers.length} team members`);
+
+    res.json({ 
+      success: true,
+      count: teamMembers.length,
+      teamMembers 
+    });
+
+  } catch (error) {
+    console.error('[Jira Team Members] Error:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch team members',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 });
 

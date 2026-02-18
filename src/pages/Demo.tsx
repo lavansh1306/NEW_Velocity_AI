@@ -39,7 +39,7 @@ const Demo = () => {
       {/* Main Content */}
       <div className="container mx-auto p-4 md:p-6">
         <div className="mb-6">
-          <h1 className="mb-2 text-3xl font-bold">Workforce Intelligence Dashboard</h1>
+          <h1 className="mb-2 text-3xl font-light">Workforce Intelligence Dashboard</h1>
           <p className="text-muted-foreground">
             Real-time insights into productivity gains and  resource allocation, and ROI impact
           </p>
@@ -90,65 +90,13 @@ const Demo = () => {
 
           <TabsContent value="integrations" className="space-y-6">
             <div className="max-w-4xl mx-auto">
-              <h2 className="text-2xl font-bold mb-6">Connect Your Tools</h2>
+              <h2 className="text-2xl font-light mb-6">Connect Your Tools</h2>
               <p className="text-muted-foreground mb-8">
                 Integrate with your existing workflow tools to track productivity gains and measure ROI impact.
               </p>
               
               <div className="grid gap-6 md:grid-cols-2">
-                {/* Microsoft 365 Integration */}
-                <Card className="p-6">
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">
-                      M
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold">Microsoft 365</h3>
-                      <p className="text-sm text-muted-foreground">Track calendar events and email productivity</p>
-                    </div>
-                  </div>
-                  <div className="space-y-3 mb-4">
-                    <div className="text-sm">
-                      <span className="font-medium">Scopes:</span> calendar.read, mail.read (metadata only)
-                    </div>
-                    <div className="text-sm">
-                      <span className="font-medium">Events:</span> meeting.created, meeting.duration, email.sent
-                    </div>
-                  </div>
-                  <Button 
-                    onClick={() => window.location.href = '/api/microsoft365/auth/login'}
-                    className="w-full"
-                  >
-                    Login with Microsoft 365
-                  </Button>
-                </Card>
-
-                {/* HubSpot Integration */}
-                <Card className="p-6">
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="w-12 h-12 bg-orange-500 rounded-lg flex items-center justify-center text-white font-bold text-xl">
-                      H
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold">HubSpot</h3>
-                      <p className="text-sm text-muted-foreground">Monitor CRM activities and deal progress</p>
-                    </div>
-                  </div>
-                  <div className="space-y-3 mb-4">
-                    <div className="text-sm">
-                      <span className="font-medium">Scopes:</span> contacts.read, deals.read, companies.read
-                    </div>
-                    <div className="text-sm">
-                      <span className="font-medium">Events:</span> contact.created, deal.closed, company.updated
-                    </div>
-                  </div>
-                  <Button 
-                    onClick={() => window.location.href = '/api/hubspot/auth/connect'}
-                    className="w-full"
-                  >
-                    Login with HubSpot
-                  </Button>
-                </Card>
+                {/* Jira Integration - only Jira supported now */}
               </div>
             </div>
           </TabsContent>

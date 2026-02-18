@@ -6,13 +6,7 @@ import * as crypto from 'crypto';
 const getClientId = () => process.env.JIRA_OAUTH_CLIENT_ID || '';
 const getClientSecret = () => process.env.JIRA_OAUTH_CLIENT_SECRET || '';
 const getRedirectUri = (req?: Request) => {
-  if (process.env.JIRA_OAUTH_REDIRECT_URI) {
-    return process.env.JIRA_OAUTH_REDIRECT_URI;
-  }
-  // Always use production URL for Vercel
-  const host = req?.headers?.host || 'joinvelocity.co';
-  const protocol = host.includes('localhost') ? 'http' : 'https';
-  return `${protocol}://${host}/api/jira/auth/callback`;
+  return 'https://www.joinvelocity.co/api/jira/auth/callback';
 };
 
 const AUTHORIZE_URL = 'https://auth.atlassian.com/authorize';

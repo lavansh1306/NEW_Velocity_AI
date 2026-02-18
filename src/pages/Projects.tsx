@@ -1,30 +1,239 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import VeloNavTabs from '@/components/demo2/VeloNavTabs';
-import { Header } from '@/components/Header';
 import { Button } from '@/components/ui/button';
 // Removed Add Project dialog and delete controls per request
 import AnalyticsPanel from '@/components/analytics/AnalyticsPanel';
-import type { MetricsResponse } from '@/lib/types';
 import { loadProjects as fetchProjects, loadMetrics, type ProjectItem } from '@/lib/dataService';
 // apiUrl no longer used in this page
 import { useToast } from '@/contexts/ToastContext';
+import { AlertCircle, TrendingUp, Calendar, Zap, BarChart3 } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface ProjectsProps {
   jiraConnected?: boolean;
   withNav?: boolean;
 }
 
+interface JiraIssue {
+  key: string;
+  summary: string;
+  status: string;
+  assignee: string;
+  due?: string;
+  created?: string;
+}
+
+interface ProjectMetrics {
+  healthScore: number;
+  completedCount: number;
+  totalCount: number;
+  issues: JiraIssue[];
+  team: string[];
+  hasAlert: boolean;
+  endDate?: string;
+  weeksRemaining?: number;
+}
+
+// Fetch project issues and calculate metrics
+const fetchProjectMetrics = async (projectId: string): Promise<ProjectMetrics> => {
+  try {
+    const response = await fetch(`/api/jira/issues?projectKey=${encodeURIComponent(projectId)}`);
+    if (!response.ok) throw new Error('Failed to fetch issues');
+    
+    const data = await response.json();
+    const issues: JiraIssue[] = data.issues || [];
+
+    if (issues.length === 0) {
+      return {
+        healthScore: 0,
+        completedCount: 0,
+        totalCount: 0,
+        issues: [],
+        team: [],
+        hasAlert: false,
+      };
+    }
+
+    // Calculate health score based on status
+    const completedStatuses = ['Done', 'DONE', 'Closed', 'CLOSED', 'Resolved', 'RESOLVED'];
+    const completedCount = issues.filter(i => 
+      completedStatuses.some(status => i.status?.toLowerCase().includes(status.toLowerCase()))
+    ).length;
+
+    const healthScore = Math.round((completedCount / issues.length) * 100);
+
+    // Extract unique team members
+    const team = Array.from(new Set(
+      issues
+        .map(i => i.assignee)
+        .filter(a => a && a !== 'Unassigned')
+    ));
+
+    // Determine if there's a critical alert (low health or risk)
+    const hasAlert = healthScore < 40 || issues.some(i => 
+      i.status?.toLowerCase().includes('blocked') || 
+      i.status?.toLowerCase().includes('stuck')
+    );
+
+    // Calculate end date (latest due date)
+    const dueDates = issues
+      .filter(i => i.due)
+      .map(i => new Date(i.due!).getTime());
+    
+    const endDate = dueDates.length > 0 
+      ? new Date(Math.max(...dueDates))
+      : undefined;
+
+    // Calculate weeks remaining
+    const weeksRemaining = endDate
+      ? Math.ceil((endDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24 * 7))
+      : undefined;
+
+    return {
+      healthScore,
+      completedCount,
+      totalCount: issues.length,
+      issues,
+      team,
+      hasAlert,
+      endDate: endDate?.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      weeksRemaining,
+    };
+  } catch (error) {
+    console.error(`[Projects] Error fetching metrics for ${projectId}:`, error);
+    return {
+      healthScore: 0,
+      completedCount: 0,
+      totalCount: 0,
+      issues: [],
+      team: [],
+      hasAlert: true,
+    };
+  }
+};
+
+// Health badge color based on score
+const getHealthColor = (score: number): { bg: string; text: string; dot: string } => {
+  if (score >= 80) return { bg: 'bg-green-50', text: 'text-green-700', dot: 'bg-green-500' };
+  if (score >= 60) return { bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-500' };
+  if (score >= 40) return { bg: 'bg-yellow-50', text: 'text-yellow-700', dot: 'bg-yellow-500' };
+  return { bg: 'bg-red-50', text: 'text-red-700', dot: 'bg-red-500' };
+};
+
+// Progress bar component
+const ProgressBar = ({ percentage }: { percentage: number }) => {
+  const color = percentage >= 80 ? 'bg-green-500' : 
+                percentage >= 60 ? 'bg-blue-500' : 
+                percentage >= 40 ? 'bg-yellow-500' : 'bg-red-500';
+  return (
+    <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+      <div 
+        className={`h-full ${color} transition-all duration-300`}
+        style={{ width: `${percentage}%` }}
+      />
+    </div>
+  );
+};
+
+// Avatar group component
+const TeamAvatars = ({ team, maxShow = 4 }: { team: string[]; maxShow?: number }) => {
+  const displayed = team.slice(0, maxShow);
+  const remaining = team.length - maxShow;
+
+  return (
+    <div className="flex items-center -space-x-2">
+      {displayed.map((member) => (
+        <div
+          key={member}
+          className="w-8 h-8 rounded-full bg-blue-600 text-white text-xs font-light flex items-center justify-center border-2 border-white"
+          title={member}
+        >
+          {member.charAt(0).toUpperCase()}
+        </div>
+      ))}
+      {remaining > 0 && (
+        <div className="w-8 h-8 rounded-full bg-gray-300 text-gray-700 text-xs font-light flex items-center justify-center border-2 border-white">
+          +{remaining}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Capacity data type
+interface CapacityWeekData {
+  week: number;
+  startDate: string;
+  utilization: number;
+  available: number;
+}
+
+// Generate 8-week capacity data
+const generateCapacityData = (startOffset: number = 0): CapacityWeekData[] => {
+  const data: CapacityWeekData[] = [];
+  const today = new Date();
+  
+  for (let i = 0; i < 8; i++) {
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() + (i + startOffset) * 7);
+    
+    // Generate realistic capacity data
+    const utilization = Math.floor(Math.random() * 40 + 50); // 50-90%
+    const available = 100 - utilization;
+    
+    data.push({
+      week: i + 1,
+      startDate: weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      utilization,
+      available
+    });
+  }
+  
+  return data;
+};
+
+// Generate AI insights
+const generateAIInsights = (metrics: Record<string, ProjectMetrics>): string[] => {
+  const insights: string[] = [];
+  
+  const totalMetrics = Object.values(metrics);
+  const avgHealth = totalMetrics.length > 0 
+    ? Math.round(totalMetrics.reduce((sum, m) => sum + m.healthScore, 0) / totalMetrics.length)
+    : 0;
+  
+  if (avgHealth >= 80) {
+    insights.push('✅ Team capacity is well-balanced with strong project health across the board.');
+  } else if (avgHealth >= 60) {
+    insights.push('⚠️ Monitor team workload - some projects showing moderate utilization patterns.');
+  }
+  
+  const alertProjects = totalMetrics.filter(m => m.hasAlert).length;
+  if (alertProjects > 0) {
+    insights.push(`${alertProjects} project${alertProjects !== 1 ? 's' : ''} need immediate attention or reassessment.`);
+  }
+  
+  const totalTeamSize = new Set(totalMetrics.flatMap(m => m.team)).size;
+  if (totalTeamSize > 0) {
+    insights.push(`🤝 ${totalTeamSize} team members across ${totalMetrics.length} active projects.`);
+  }
+  
+  return insights;
+};
+
 export default function Projects({ jiraConnected = true, withNav = true }: ProjectsProps) {
   const navigate = useNavigate();
   const { addToast } = useToast();
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [selectedProject, setSelectedProject] = useState<ProjectItem | null>(null);
-  const [metricsData, setMetricsData] = useState<Record<string, MetricsResponse | null>>({});
+  const [metricsData, setMetricsData] = useState<Record<string, any>>({});
+  const [projectMetrics, setProjectMetrics] = useState<Record<string, ProjectMetrics>>({});
   const [loading, setLoading] = useState(true);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [dataConnected, setDataConnected] = useState(false);
   const [toastShown, setToastShown] = useState(false);
+  const [timeframeOffset, setTimeframeOffset] = useState(0);
+  const [capacityData, setCapacityData] = useState<CapacityWeekData[]>(generateCapacityData(0));
   
   // Add project UI removed
 
@@ -32,10 +241,19 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
   useEffect(() => {
     const doLoadProjects = async () => {
       try {
+        console.log('[Projects] Loading projects...');
         const loadedProjects = await fetchProjects();
+        console.log('[Projects] Loaded projects:', loadedProjects.length, loadedProjects);
 
         setProjects(loadedProjects);
         setDataConnected(loadedProjects.length > 0);
+
+        // Fetch metrics for each project
+        const metricsMap: Record<string, ProjectMetrics> = {};
+        for (const project of loadedProjects) {
+          metricsMap[project.id] = await fetchProjectMetrics(project.id);
+        }
+        setProjectMetrics(metricsMap);
 
         // Show success toast only once
         if (loadedProjects.length > 0 && !toastShown) {
@@ -48,7 +266,7 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
           setToastShown(true);
         }
       } catch (error) {
-        console.error('Failed to load projects:', error);
+        console.error('[Projects] Failed to load projects:', error);
         setDataConnected(false);
         addToast({
           type: 'error',
@@ -76,6 +294,11 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
     }
   }, [jiraConnected, addToast, toastShown]);
 
+  // Update capacity data when timeframe offset changes
+  useEffect(() => {
+    setCapacityData(generateCapacityData(timeframeOffset));
+  }, [timeframeOffset]);
+
   const handleProjectSelect = async (project: ProjectItem) => {
     setSelectedProject(project);
     
@@ -95,243 +318,112 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
   };
 
   // Simple separation by source for UI grouping
-  const asanaProjects = projects.filter((p) => p.source === 'asana');
-  const jiraProjects = projects.filter((p) => p.source !== 'asana');
+  const jiraProjects = projects;
 
   // Add project UI removed
 
   // Delete project controls removed
 
   const mainContent = (
-    <div className="bg-gray-50 min-h-screen py-6 sm:py-8 lg:py-12">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="mb-8 flex items-center justify-between">
+    <div className="bg-gray-50 min-h-screen p-12 font-['Inter',sans-serif]">
+      <div className="max-w-[1600px] mx-auto">
+        <div className="mb-12 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-3">Projects</h1>
-            <p className="text-gray-600 text-sm sm:text-base leading-relaxed">Selected case studies and platform projects demonstrating impact and outcomes.</p>
+            <h1 className="text-4xl font-light text-gray-900 mb-3 tracking-tight">Projects</h1>
+            <p className="text-gray-600 text-base font-light leading-relaxed">Selected case studies and platform projects demonstrating impact and outcomes.</p>
           </div>
           <div className="flex gap-2">
-            <Link to="/projects/global-gantt">
-              <Button className="gap-2 bg-blue-600 hover:bg-blue-700">
-                <span>📊</span> Global Gantt Chart
+            <Link to="/velocity-ai?tab=deployment">
+              <Button className="gap-2 bg-blue-600 hover:bg-blue-700 h-11 px-6 rounded-xl font-light">
+                <span>➕</span> Add Project
               </Button>
             </Link>
           </div>
         </div>
 
-        {/* Integration Dashboards removed per request */}
+        {/* Capacity Overview Graph */}
 
         {loading ? (
           <div className="text-center py-12">
-            <p className="text-gray-500">Loading projects...</p>
+            <p className="text-gray-500 font-light">Loading projects...</p>
           </div>
         ) : (
           <>
-            {/* Asana projects */}
-            {asanaProjects.length > 0 && (
-              <div className="mb-8">
-                <h2 className="text-xl font-semibold mb-4">Asana Projects</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-6">
-                  {asanaProjects.map((p) => (
-                    <article
-                      key={p.id}
-                      className="rounded-lg bg-white shadow-sm border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
-                      onClick={() => handleProjectSelect(p)}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleProjectSelect(p);
-                      }}
-                    >
-                      <div className="flex flex-col sm:flex-row">
-                        <div className="w-full sm:w-1/2 md:w-2/5 flex-shrink-0">
-                          <img src={p.image} alt={p.title} className="w-full h-56 sm:h-full object-cover" />
-                        </div>
-                        <div className="p-4 sm:p-5 lg:p-6 flex-1 flex flex-col">
-                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-2">
-                            <div className="flex-1 min-w-0">
-                              <h2 className="text-base sm:text-lg lg:text-xl font-semibold text-gray-900 truncate">{p.title}</h2>
-                              <div className="text-xs sm:text-sm text-gray-500">{p.category}</div>
-                            </div>
-                          </div>
-
-                          <p className="text-xs sm:text-sm lg:text-base text-gray-700 line-clamp-2 sm:line-clamp-3">{p.description}</p>
-
-                          <div className="mt-3 flex flex-wrap items-center gap-2">
-                            {p.tags.slice(0, 2).map((t) => (
-                              <span key={t} className="text-xs px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full font-medium">
-                                {t}
-                              </span>
-                            ))}
-                            {p.tags.length > 2 && (
-                              <span className="text-xs px-2 py-1 text-gray-600">+{p.tags.length - 2}</span>
-                            )}
-                          </div>
-
-                          <div className="mt-auto pt-4">
-                            <Button asChild className="w-full sm:w-auto text-xs sm:text-sm">
-                              <Link
-                                to={`/projects/asana-dashboard?project=${encodeURIComponent(p.id)}`}
-                                className="inline-block"
-                              >
-                                View Project
-                              </Link>
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Jira (and other) projects */}
+            {/* Jira (and other) projects - Row-based layout */}
             {jiraProjects.length > 0 && (
               <div className="mb-8">
-                <h2 className="text-xl font-semibold mb-4">Jira Projects</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-6">
-                  {jiraProjects.map((p) => (
-                    <article
-                      key={p.id}
-                      className="rounded-lg bg-white shadow-sm border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
-                      onClick={() => handleProjectSelect(p)}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleProjectSelect(p);
-                      }}
-                    >
-                      <div className="flex flex-col sm:flex-row">
-                        <div className="w-full sm:w-1/2 md:w-2/5 flex-shrink-0">
-                          <img src={p.image} alt={p.title} className="w-full h-56 sm:h-full object-cover" />
-                        </div>
-                        <div className="p-4 sm:p-5 lg:p-6 flex-1 flex flex-col">
-                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-2">
-                            <div className="flex-1 min-w-0">
-                              <h2 className="text-base sm:text-lg lg:text-xl font-semibold text-gray-900 truncate">{p.title}</h2>
-                              <div className="text-xs sm:text-sm text-gray-500">{p.category}</div>
+                <h2 className="text-xl font-semibold mb-6">Active Projects</h2>
+                <div className="space-y-3">
+                  {jiraProjects.map((p) => {
+                    const metrics = projectMetrics[p.id];
+                    if (!metrics) return null;
+                    
+                    const healthColor = getHealthColor(metrics.healthScore);
+                    const timelineText = metrics.endDate 
+                      ? `Ends ${metrics.endDate} · ${metrics.weeksRemaining || 0} weeks remaining`
+                      : 'Timeline unknown';
+
+                    return (
+                      <div
+                        key={p.id}
+                        onClick={() => navigate(`/projects/jira-dashboard?project=${encodeURIComponent(p.id)}&fullscreen=true`)}
+                        className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer p-8 border border-gray-100"
+                      >
+                        <div className="flex items-center justify-between gap-6">
+                          {/* Left: Project Name & Timeline */}
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-lg font-light text-gray-900 hover:text-blue-600 transition-colors">
+                              {p.title}
+                            </h3>
+                            <p className="text-sm text-gray-500 mt-2 flex items-center gap-2 font-light">
+                              <Calendar className="w-4 h-4" />
+                              {timelineText}
+                            </p>
+                          </div>
+
+                          {/* Right Side Content */}
+                          <div className="flex items-center gap-4 flex-wrap justify-end">
+                            {/* Progress Data */}
+                            <div className="w-40">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-xs font-light text-gray-600">Progress</span>
+                                <span className="text-xs font-light text-gray-700">
+                                  {metrics.completedCount}/{metrics.totalCount}
+                                </span>
+                              </div>
+                              <ProgressBar percentage={metrics.healthScore} />
                             </div>
-                          </div>
 
-                          <p className="text-xs sm:text-sm lg:text-base text-gray-700 line-clamp-2 sm:line-clamp-3">{p.description}</p>
+                            {/* Health Badge */}
+                            <div className={`px-4 py-2 rounded-xl border font-light transition-colors ${healthColor.bg}`}>
+                              <div className="flex items-center gap-2">
+                                <div className={`w-2 h-2 rounded-full ${healthColor.dot}`} />
+                                <span className={`text-xs ${healthColor.text}`}>
+                                  {metrics.healthScore}% Health
+                                </span>
+                              </div>
+                            </div>
 
-                          <div className="mt-3 flex flex-wrap items-center gap-2">
-                            {p.tags.slice(0, 2).map((t) => (
-                              <span key={t} className="text-xs px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full font-medium">
-                                {t}
-                              </span>
-                            ))}
-                            {p.tags.length > 2 && (
-                              <span className="text-xs px-2 py-1 text-gray-600">+{p.tags.length - 2}</span>
+                            {/* AI Alert Indicator */}
+                            {metrics.hasAlert && (
+                              <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg font-light">
+                                <AlertCircle className="w-4 h-4 text-amber-600" />
+                                <span className="text-xs text-amber-700">Alert</span>
+                              </div>
                             )}
-                          </div>
 
-                          <div className="mt-auto pt-4">
-                            <Button asChild className="w-full sm:w-auto text-xs sm:text-sm">
-                              <Link
-                                to={`/projects/jira-dashboard?project=${encodeURIComponent(p.id)}`}
-                                className="inline-block"
-                              >
-                                View Project
-                              </Link>
-                            </Button>
+                            {/* Team Avatars */}
+                            <div className="flex-shrink-0">
+                              <TeamAvatars team={metrics.team} />
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </article>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
-
-            {/* Jira Employee Skills Extractor */}
-            <div className="mb-8">
-              <h2 className="text-xl font-semibold mb-4">Jira Integration Tools</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-6">
-                <article className="rounded-lg bg-white shadow-sm border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow">
-                  <div className="flex flex-col sm:flex-row">
-                    <div className="w-full sm:w-1/2 md:w-2/5 flex-shrink-0 bg-gradient-to-br from-blue-500 to-cyan-500 h-56 sm:h-full flex items-center justify-center">
-                      <svg className="w-16 h-16 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                      </svg>
-                    </div>
-                    <div className="p-4 sm:p-5 lg:p-6 flex-1 flex flex-col">
-                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-2">
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-base sm:text-lg lg:text-xl font-semibold text-gray-900 truncate">Employee Skills Extractor</h3>
-                          <div className="text-xs sm:text-sm text-gray-500">Jira Integration</div>
-                        </div>
-                      </div>
-
-                      <p className="text-xs sm:text-sm lg:text-base text-gray-700 line-clamp-2 sm:line-clamp-3">
-                        Extract employee skills from Jira projects and automatically populate the employee database for AI-powered task assignments.
-                      </p>
-
-                      <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <span className="text-xs px-2.5 py-1 bg-green-50 text-green-700 rounded-full font-medium">Jira</span>
-                        <span className="text-xs px-2.5 py-1 bg-purple-50 text-purple-700 rounded-full font-medium">AI</span>
-                        <span className="text-xs px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full font-medium">Skills</span>
-                      </div>
-
-                      <div className="mt-auto pt-4">
-                        <Button asChild className="w-full sm:w-auto text-xs sm:text-sm">
-                          <Link
-                            to="/projects/jira-employee-extractor"
-                            className="inline-block"
-                          >
-                            Extract Skills
-                          </Link>
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </article>
-              </div>
-            </div>
-
-            {/* Upcoming Projects Section */}
-            <div className="mt-16 sm:mt-20">
-              <div className="mb-8">
-                <h2 className="text-2xl sm:text-3xl font-bold mb-2">Upcoming Projects</h2>
-                <p className="text-gray-600 text-sm sm:text-base">New initiatives and platform expansions launching soon.</p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                {/* Upcoming Project 1 */}
-                <article className="rounded-lg bg-white shadow-sm border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow">
-                  <div className="flex flex-col sm:flex-row">
-                    <div className="w-full sm:w-1/2 md:w-2/5 flex-shrink-0 bg-gradient-to-br from-purple-400 to-indigo-500 h-56 sm:h-full flex items-center justify-center">
-                      <svg className="w-20 h-20 text-white opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
-                    </div>
-                    <div className="p-4 sm:p-5 lg:p-6 flex-1 flex flex-col">
-                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-2">
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-base sm:text-lg lg:text-xl font-semibold text-gray-900 truncate">AI Workflow Automation</h3>
-                          <div className="text-xs sm:text-sm text-gray-500">Enterprise Automation</div>
-                        </div>
-                        <span className="text-xs font-bold bg-purple-100 text-purple-700 px-2.5 py-1 rounded-full whitespace-nowrap">Q1 2025</span>
-                      </div>
-
-                      <p className="text-xs sm:text-sm lg:text-base text-gray-700 line-clamp-2 sm:line-clamp-3">End-to-end workflow automation platform leveraging AI to reduce manual process execution by 80%.</p>
-
-                      <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <span className="text-xs px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full font-medium">Workflow</span>
-                        <span className="text-xs px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full font-medium">Automation</span>
-                      </div>
-
-                      <div className="mt-auto pt-4">
-                        <button className="w-full sm:w-auto text-xs sm:text-sm px-4 py-2 bg-gray-100 text-gray-600 rounded-lg font-semibold hover:bg-gray-200 transition cursor-not-allowed opacity-75">
-                          Coming Soon
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </article>
-              </div>
-            </div>
           </>
         )}
       </div>
@@ -340,7 +432,6 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
 
   return (
     <div>
-      <Header />
       {withNav ? (
         <VeloNavTabs
           activeTab="projects"

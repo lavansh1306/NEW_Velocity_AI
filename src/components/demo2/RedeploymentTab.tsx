@@ -15,33 +15,33 @@ export default function RedeploymentTab() {
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Capacity Redeployment Engine</h2>
+        <h2 className="text-xl sm:text-2xl font-light text-gray-900">Capacity Redeployment Engine</h2>
         <p className="text-xs sm:text-sm text-gray-600 mt-1">Drag capacity hours to tasks • Predict acceleration • Track outcomes</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Available Capacity Pool */}
         <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
-          <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-4">Available Capacity Pool</h3>
+          <h3 className="text-base sm:text-lg font-light text-gray-900 mb-4">Available Capacity Pool</h3>
           <div className="space-y-2 sm:space-y-3">
             <div className="p-3 sm:p-4 bg-green-50 border border-green-200 rounded-lg cursor-move hover:shadow-md transition">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
                 <span className="font-semibold sm:font-bold text-xs sm:text-sm text-gray-900">Marketing - Block Capacity</span>
-                <span className="text-base sm:text-lg font-bold text-green-600">28.7h</span>
+                <span className="text-base sm:text-lg font-light text-primary">28.7h</span>
               </div>
               <div className="text-xs sm:text-sm text-gray-600">From lead triage automation</div>
             </div>
-            <div className="p-3 sm:p-4 bg-blue-50 border border-blue-200 rounded-lg cursor-move hover:shadow-md transition">
+            <div className="p-3 sm:p-4 bg-primary/10 border border-primary/20 rounded-xl cursor-move hover:shadow-md transition">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
                 <span className="font-semibold sm:font-bold text-xs sm:text-sm text-gray-900">Sales - AI-SAVED TIME</span>
-                <span className="text-base sm:text-lg font-bold text-blue-600">14.1h</span>
+                <span className="text-base sm:text-lg font-light text-primary">14.1h</span>
               </div>
               <div className="text-xs sm:text-sm text-gray-600">From meeting efficiency gains</div>
             </div>
             <div className="p-3 sm:p-4 bg-purple-50 border border-purple-200 rounded-lg cursor-move hover:shadow-md transition">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
                 <span className="font-semibold sm:font-bold text-xs sm:text-sm text-gray-900">Operations - Mixed</span>
-                <span className="text-base sm:text-lg font-bold text-purple-600">18.3h</span>
+                <span className="text-base sm:text-lg font-light text-primary">18.3h</span>
               </div>
               <div className="text-xs sm:text-sm text-gray-600">From report automation</div>
             </div>
@@ -78,7 +78,7 @@ export default function RedeploymentTab() {
           </div>
 
           {/* Prediction Display */}
-          <div className="p-3 sm:p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="p-3 sm:p-4 bg-primary/10 border border-primary/20 rounded-xl">
             <div className="flex items-center gap-2 mb-3">
               <svg className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
@@ -128,7 +128,7 @@ export default function RedeploymentTab() {
               <tr className="border-b border-gray-100">
                 <td className="px-3 sm:px-6 py-2 sm:py-4 font-semibold text-gray-900">Enterprise POC Setup</td>
                 <td className="px-3 sm:px-6 py-2 sm:py-4 text-gray-600">18.5 hours</td>
-                <td className="px-3 sm:px-6 py-2 sm:py-4"><span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded">In Progress</span></td>
+                <td className="px-3 sm:px-6 py-2 sm:py-4"><span className="px-2 py-1 bg-primary/10 text-primary text-xs font-light rounded-lg">In Progress</span></td>
                 <td className="px-3 sm:px-6 py-2 sm:py-4 font-bold text-green-600">$12,000</td>
               </tr>
               <tr className="border-b border-gray-100">

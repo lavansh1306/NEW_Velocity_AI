@@ -29,35 +29,35 @@ export const Results = () => {
   ];
 
   return (
-    <section className="py-20 md:py-32 bg-slate-50">
-      <div className="container mx-auto px-4">
+    <section className="py-16 md:py-24 bg-gray-50">
+      <div className="max-w-[1800px] mx-auto px-8">
         <div className="mb-16 text-center">
-          <div className="mb-4 inline-block px-4 py-1.5 bg-blue-100 text-blue-600 rounded-full text-sm font-semibold">
+          <div className="mb-4 inline-block px-3 py-1 bg-secondary/10 text-secondary rounded-full text-xs font-light">
             THE RESULTS
           </div>
-          <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-6">
+          <h2 className="text-4xl md:text-5xl font-light text-gray-900 mb-6">
             Measurable Impact
           </h2>
-          <p className="text-lg text-slate-600">
+          <p className="text-base text-gray-600 font-light">
             Real outcomes that transform how your organization operates
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {results.map((result, index) => (
             <div key={index} className="text-center">
               <div className="mb-6 flex justify-center">
-                <div className="inline-flex h-16 w-16 items-center justify-center rounded-lg bg-blue-100">
-                  <result.icon className="h-8 w-8 text-blue-600" />
+                <div className="inline-flex h-14 w-14 items-center justify-center rounded-xl bg-secondary/10">
+                  <result.icon className="h-6 w-6 text-secondary" />
                 </div>
               </div>
-              <div className="mb-2 text-4xl md:text-5xl font-bold text-blue-600">
+              <div className="mb-2 text-4xl font-light text-primary">
                 {result.value}
               </div>
-              <h3 className="mb-2 text-lg font-semibold text-slate-900">
+              <h3 className="mb-2 text-base font-light text-gray-900">
                 {result.label}
               </h3>
-              <p className="text-slate-600">
+              <p className="text-gray-600 font-light text-sm">
                 {result.description}
               </p>
             </div>

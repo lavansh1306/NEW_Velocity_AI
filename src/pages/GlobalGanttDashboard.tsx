@@ -10,7 +10,7 @@ export default function GlobalGanttDashboard() {
   const [expandedView] = useState(true)
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="min-h-screen bg-gray-50">
       <Header />
 
       <div className="max-w-full mx-auto p-4 md:p-8">
@@ -21,7 +21,7 @@ export default function GlobalGanttDashboard() {
               <ArrowLeft className="w-4 h-4" />
               Back
             </Button>
-            <h1 className="text-4xl font-bold text-gray-900">📊 Global Gantt Dashboard</h1>
+            <h1 className="text-4xl font-light text-gray-900">📊 Global Gantt Dashboard</h1>
           </div>
         </div>
 

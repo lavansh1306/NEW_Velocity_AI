@@ -31,7 +31,7 @@ export default function CausalAttributionAnalysis() {
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
-      <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6">Causal Attribution Analysis</h3>
+      <h3 className="text-lg sm:text-xl font-light text-gray-900 mb-4 sm:mb-6">Causal Attribution Analysis</h3>
       
       <div className="space-y-2 sm:space-y-4">
         {attributions.map((item, index) => (
@@ -42,8 +42,8 @@ export default function CausalAttributionAnalysis() {
             <div className="flex flex-col gap-3 sm:gap-0 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex-1 min-w-0">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2 flex-wrap">
-                  <h4 className="text-base sm:text-lg font-bold text-gray-900">{item.title}</h4>
-                  <span className="px-2 sm:px-3 py-1 bg-blue-50 text-blue-700 text-xs font-semibold rounded-full whitespace-nowrap flex-shrink-0">
+                  <h4 className="text-base sm:text-lg font-light text-gray-900">{item.title}</h4>
+                  <span className="px-2 sm:px-3 py-1 bg-primary/10 text-primary text-xs font-light rounded-full whitespace-nowrap flex-shrink-0">
                     {item.deployed}
                   </span>
                 </div>
@@ -56,7 +56,7 @@ export default function CausalAttributionAnalysis() {
 
               <div className="flex items-center gap-3 sm:gap-4 flex-shrink-0">
                 <div className="text-right">
-                  <div className={`text-2xl sm:text-3xl font-bold ${item.impactColor}`}>
+                  <div className={`text-2xl sm:text-3xl font-light text-primary`}>
                     {item.impact}
                   </div>
                   <div className="text-xs text-gray-500 mt-1">

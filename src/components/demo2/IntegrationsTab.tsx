@@ -158,7 +158,7 @@ export default function IntegrationsTab() {
         alert('Microsoft 365 disconnect not yet implemented');
         return;
       } else if (integrationId === 'jira') {
-        await fetch('/api/jira/auth/disconnect', { method: 'POST' });
+        await fetch('/api/jira/auth/disconnect', { method: 'POST', credentials: 'include' });
       }
 
       setIntegrations(prev =>
@@ -218,7 +218,7 @@ export default function IntegrationsTab() {
     <div className="space-y-6">
       {/* Header */}
       <div className="mb-6 sm:mb-8">
-        <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">Integrations</h2>
+        <h2 className="text-xl sm:text-2xl lg:text-3xl font-light text-gray-900">Integrations</h2>
         <p className="text-xs sm:text-sm text-gray-600 mt-2 leading-relaxed">
           Connect your workflow tools to track productivity gains and measure ROI across all your systems.
         </p>
@@ -230,11 +230,11 @@ export default function IntegrationsTab() {
           <Card key={integration.id} className="p-4 sm:p-6 hover:shadow-lg transition-shadow">
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center gap-3 min-w-0">
-                <div className={`w-10 h-10 sm:w-12 sm:h-12 ${integration.bgColor} rounded-lg flex items-center justify-center text-white font-bold flex-shrink-0`}>
+                <div className={`w-10 h-10 sm:w-12 sm:h-12 ${integration.bgColor} rounded-lg flex items-center justify-center text-white font-light flex-shrink-0`}>
                   {integration.icon}
                 </div>
                 <div className="min-w-0">
-                  <h3 className="font-bold text-gray-900 text-sm sm:text-base truncate">{integration.name}</h3>
+                  <h3 className="font-light text-gray-900 text-sm sm:text-base truncate">{integration.name}</h3>
                   <p className="text-xs sm:text-sm text-gray-600 mt-1">{integration.description}</p>
                 </div>
               </div>
@@ -274,7 +274,7 @@ export default function IntegrationsTab() {
                   {integration.events.map((event) => (
                     <span
                       key={event}
-                      className="px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded"
+                      className="px-2 py-1 bg-primary/10 text-primary text-xs rounded-lg font-light"
                     >
                       {event}
                     </span>
@@ -298,7 +298,7 @@ export default function IntegrationsTab() {
                     onClick={() => handleOpen(integration.id)}
                     variant="outline"
                     size="sm"
-                    className="border-blue-300 text-blue-600 hover:bg-blue-50"
+                    className="border-primary/30 text-primary hover:bg-primary/10 font-light"
                   >
                     Open
                     <ExternalLink className="w-3 h-3 ml-1" />
@@ -319,7 +319,7 @@ export default function IntegrationsTab() {
                   size="sm"
                   className={`${
                     integration.id === 'microsoft365' || integration.id === 'hubspot'
-                      ? 'bg-blue-600 hover:bg-blue-700'
+                      ? 'bg-primary hover:bg-primary/90 font-light'
                       : 'bg-gray-600 hover:bg-gray-700'
                   }`}
                 >
@@ -335,7 +335,7 @@ export default function IntegrationsTab() {
       </div>
 
       {/* Info Card */}
-      <Card className="p-4 sm:p-6 bg-blue-50 border-blue-200">
+      <Card className="p-4 sm:p-6 bg-primary/10 border-primary/20">
         <div className="flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
           <div>

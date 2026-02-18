@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-**Velocity AI** is a full-stack workforce intelligence platform that transforms raw project events from multiple sources (Jira, Asana, HubSpot, Microsoft 365, Zapier) into actionable CFO-ready insights. It tracks productivity gains from AI tools, reallocates freed capacity to high-impact initiatives, and proves ROI through causal attribution.
+**Velocity AI** is a full-stack workforce intelligence platform that transforms raw project events from multiple sources (Jira, HubSpot, Microsoft 365) into actionable CFO-ready insights. It tracks productivity gains from AI tools, reallocates freed capacity to high-impact initiatives, and proves ROI through causal attribution.
 
 **Key Value Proposition:** Convert efficiency gains into measurable business outcomes with real-time dashboards, automation coverage metrics, cost savings analysis, and capacity forecasting.
 
@@ -33,7 +33,7 @@ A unified platform that:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  EXTERNAL DATA SOURCES (Jira, Asana, HubSpot, M365, Zapier)   │
+│  EXTERNAL DATA SOURCES (Jira, HubSpot, Microsoft 365)         │
 └──────────────────────────┬──────────────────────────────────────┘
                            │
                            ▼
@@ -42,7 +42,6 @@ A unified platform that:
 │  • Jira OAuth 2.0 (Multi-tenant SaaS)                          │
 │  • HubSpot OAuth flow with session management                  │
 │  • Microsoft 365 Graph API integration                         │
-│  • Asana & Zapier token-based auth                             │
 │  • CSV file uploads from /public/data/                         │
 └──────────────────────────┬──────────────────────────────────────┘
                            │
@@ -131,18 +130,14 @@ NEW_Velocity_AI/
 │
 ├── 📁 public/
 │   ├── data/                       # CSV data files for demo
-│   │   ├── asana_events.csv
 │   │   ├── github_events.csv
 │   │   ├── hubspot_events.csv
 │   │   ├── integrations-analytics.csv
 │   │   ├── jira_events.csv
 │   │   ├── microsoft365_events.csv
 │   │   ├── projects-analytics.csv
-│   │   ├── projects-asana.csv
 │   │   ├── projects-hubspot.csv
-│   │   ├── projects-microsoft365.csv
-│   │   ├── projects-zapier.csv
-│   │   └── zapier_events.csv
+│   │   └── projects-microsoft365.csv
 │   ├── placeholder.svg
 │   ├── robots.txt
 │   └── googleba79ddad728eb1f3.html
@@ -191,25 +186,15 @@ NEW_Velocity_AI/
 │   │   ├── 📁 analytics/                   # Analytics & Charts
 │   │   │   ├── AnalyticsPanel.tsx          # Main analytics container
 │   │   │   ├── AIUsageChart.tsx            # AI tool usage visualization
-│   │   │   ├── AsanaTasksChart.tsx         # Asana task analytics
 │   │   │   ├── BurndownChart.tsx           # Sprint burndown
 │   │   │   ├── GanttChart.tsx              # Gantt chart visualization
 │   │   │   ├── HubSpotDealsChart.tsx       # HubSpot deals pipeline
 │   │   │   ├── JiraQualityChart.tsx        # Jira quality metrics
 │   │   │   ├── Microsoft365MeetingsChart.tsx # M365 meetings analytics
 │   │   │   ├── PlannedVsActualChart.tsx    # Plan vs actual comparison
-│   │   │   ├── ZapierRunsChart.tsx         # Zapier automation runs
 │   │   │   ├── chartSetup.ts               # Chart configuration
 │   │   │   ├── types.ts                    # Analytics type definitions
 │   │   │   └── 📁 custom/                  # Custom chart components
-│   │   │
-│   │   ├── 📁 asana/                       # Asana-Specific
-│   │   │   ├── GanttChart.tsx              # Asana Gantt view
-│   │   │   ├── IssuesTable.tsx             # Task table display
-│   │   │   ├── ManagerGantt.tsx            # Manager-level Gantt
-│   │   │   ├── ManagerSummary.tsx          # Manager summary
-│   │   │   ├── index.ts                    # Export barrel
-│   │   │   └── types.ts                    # Asana types
 │   │   │
 │   │   ├── 📁 jira/                        # Jira-Specific
 │   │   │   ├── [Jira component files]
@@ -295,7 +280,6 @@ NEW_Velocity_AI/
 │   │   │   ├── Projects.tsx                # Projects list (/projects)
 │   │   │   ├── ProjectDetail.tsx           # Project details (legacy)
 │   │   │   ├── ProjectDetailNew.tsx        # Project details (new)
-│   │   │   ├── AsanaDashboard.tsx          # Asana dashboard (/projects/asana-dashboard)
 │   │   │   ├── JiraDashboard.tsx           # Jira dashboard (/projects/jira-dashboard)
 │   │   │   ├── JiraEmployeeExtractor.tsx   # Jira employee extractor
 │   │   │   ├── HubSpotDashboard.tsx        # HubSpot dashboard

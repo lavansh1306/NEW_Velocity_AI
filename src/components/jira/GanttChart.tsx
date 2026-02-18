@@ -100,37 +100,37 @@ export default function GanttChart({ tasks, assignee }: GanttChartProps) {
   const visibleWeeks = allWeeks.slice(visibleStartIndex, visibleStartIndex + weeksPerView)
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-4 md:p-6 px-8 md:px-24">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">
+    <div className="bg-white rounded-xl shadow-lg p-4 md:p-6 px-8 md:px-24">
+      <h2 className="text-2xl font-light text-gray-800 mb-6">
         📅 Gantt Chart - {assignee}
       </h2>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-8">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
-          <h4 className="text-sm font-semibold text-gray-600 mb-2">📊 Total Tasks</h4>
-          <p className="text-3xl font-bold text-blue-600">{stats.totalTasks}</p>
+          <h4 className="text-sm font-light text-gray-600 mb-2">📊 Total Tasks</h4>
+          <p className="text-3xl font-light text-primary">{stats.totalTasks}</p>
         </div>
         <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4 border border-green-200">
-          <h4 className="text-sm font-semibold text-gray-600 mb-2">✅ Completed</h4>
-          <p className="text-3xl font-bold text-green-600">{stats.completedTasks}</p>
+          <h4 className="text-sm font-light text-gray-600 mb-2">✅ Completed</h4>
+          <p className="text-3xl font-light text-primary">{stats.completedTasks}</p>
         </div>
         <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4 border border-purple-200">
-          <h4 className="text-sm font-semibold text-gray-600 mb-2">⏳ In Progress</h4>
-          <p className="text-3xl font-bold text-purple-600">{stats.inProgressTasks}</p>
+          <h4 className="text-sm font-light text-gray-600 mb-2">⏳ In Progress</h4>
+          <p className="text-3xl font-light text-primary">{stats.inProgressTasks}</p>
         </div>
         <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-4 border border-orange-200">
-          <h4 className="text-sm font-semibold text-gray-600 mb-2">⏱️ Total Hours</h4>
-          <p className="text-3xl font-bold text-orange-600">{stats.totalHours}h</p>
+          <h4 className="text-sm font-light text-gray-600 mb-2">⏱️ Total Hours</h4>
+          <p className="text-3xl font-light text-primary">{stats.totalHours}h</p>
         </div>
         <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-lg p-4 border border-red-200">
-          <h4 className="text-sm font-semibold text-gray-600 mb-2">📈 Avg Duration</h4>
-          <p className="text-3xl font-bold text-red-600">{stats.avgDuration}d</p>
+          <h4 className="text-sm font-light text-gray-600 mb-2">📈 Avg Duration</h4>
+          <p className="text-3xl font-light text-primary">{stats.avgDuration}d</p>
         </div>
         <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-lg p-4 border border-indigo-200">
-          <h4 className="text-sm font-semibold text-gray-600 mb-2">📅 Timeline</h4>
-          <p className="text-sm font-semibold text-indigo-600">{stats.minDate}</p>
-          <p className="text-sm font-semibold text-indigo-600">{stats.maxDate}</p>
+          <h4 className="text-sm font-light text-gray-600 mb-2">📅 Timeline</h4>
+          <p className="text-sm font-light text-primary">{stats.minDate}</p>
+          <p className="text-sm font-light text-primary">{stats.maxDate}</p>
         </div>
       </div>
 
@@ -138,7 +138,7 @@ export default function GanttChart({ tasks, assignee }: GanttChartProps) {
       {allWeeks.length > 0 && (
         <div className="mb-8 bg-gray-50 rounded-lg p-6 border border-gray-200">
           <div className="flex items-center justify-between mb-4">
-            <label className="text-sm font-semibold text-gray-700">📍 Timeline Navigator</label>
+            <label className="text-sm font-light text-gray-700">📍 Timeline Navigator</label>
             <span className="text-sm text-gray-600">
               Showing weeks {visibleStartIndex + 1}-{Math.min(visibleStartIndex + weeksPerView, allWeeks.length)} of {allWeeks.length}
             </span>

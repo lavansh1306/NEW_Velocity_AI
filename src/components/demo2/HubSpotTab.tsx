@@ -41,7 +41,7 @@ export default function HubSpotTab() {
       <div className="space-y-6">
         {/* Header */}
         <div className="mb-6 sm:mb-8">
-          <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">HubSpot Integration</h2>
+          <h2 className="text-xl sm:text-2xl lg:text-3xl font-light text-gray-900">HubSpot Integration</h2>
           <p className="text-xs sm:text-sm text-gray-600 mt-2 leading-relaxed">
             Connect your HubSpot CRM to track deal progress, contact activities, and measure sales productivity gains.
           </p>
@@ -50,7 +50,7 @@ export default function HubSpotTab() {
         {/* Connection Prompt */}
         <Card className="p-6 sm:p-8 text-center bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
           <div className="w-16 h-16 bg-orange-500 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-2xl font-bold text-white">H</span>
+            <span className="text-2xl font-light text-white">H</span>
           </div>
           <h3 className="text-xl font-bold text-gray-900 mb-2">Connect HubSpot</h3>
           <p className="text-gray-600 mb-6 max-w-md mx-auto">

@@ -6,20 +6,20 @@ export const Stats = () => {
   ];
 
   return (
-    <section className="py-20 md:py-32 bg-white">
-      <div className="container mx-auto px-4">
-        <div className="mx-auto max-w-4xl">
-          <div className="mb-16">
-            <div className="inline-block px-4 py-1.5 bg-blue-100 text-blue-600 rounded-full text-sm font-semibold mb-6">
+    <section className="py-16 md:py-24 bg-white">
+      <div className="max-w-[1800px] mx-auto px-8">
+        <div className="mx-auto max-w-3xl">
+          <div className="mb-12">
+            <div className="inline-block px-3 py-1 bg-secondary/10 text-secondary rounded-full text-xs font-light mb-6">
               WHY IT MATTERS
             </div>
-            <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-6">
+            <h2 className="text-4xl md:text-5xl font-light text-gray-900 mb-6">
               Remove the Noise of
-              <span className="block bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent">
+              <span className="block text-primary">
                 Workforce Management
               </span>
             </h2>
-            <p className="text-lg text-slate-600 mb-8">
+            <p className="text-base text-gray-600 font-light mb-8">
               Velocity AI removes the noise of day-to-day workforce management. Instead of managing logistics, your leaders get clarity, control, and confidence—allowing them to focus on what drives real business value.
             </p>
             
@@ -27,12 +27,12 @@ export const Stats = () => {
               {metrics.map((metric, index) => (
                 <div key={index}>
                   <div className="flex justify-between items-center mb-2">
-                    <span className="text-slate-700 font-medium">{metric.label}</span>
-                    <span className="text-blue-600 font-bold text-lg">{metric.value}%</span>
+                    <span className="text-gray-700 font-light text-sm">{metric.label}</span>
+                    <span className="text-primary font-light text-lg">{metric.value}%</span>
                   </div>
-                  <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
+                  <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
                     <div 
-                      className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all"
+                      className="h-full bg-primary rounded-full transition-all"
                       style={{ width: `${metric.value}%` }}
                     ></div>
                   </div>
@@ -40,26 +40,26 @@ export const Stats = () => {
               ))}
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div className="flex items-start gap-3">
-                <span className="text-blue-600 text-xl mt-0.5">✓</span>
-                <span className="text-slate-700">Managers no longer need to micromanage schedules</span>
+                <span className="text-primary text-lg mt-0.5 font-light">✓</span>
+                <span className="text-gray-700 font-light text-sm">Managers no longer need to micromanage schedules</span>
               </div>
               <div className="flex items-start gap-3">
-                <span className="text-blue-600 text-xl mt-0.5">✓</span>
-                <span className="text-slate-700">Eliminate staffing gaps and resource shifts</span>
+                <span className="text-primary text-lg mt-0.5 font-light">✓</span>
+                <span className="text-gray-700 font-light text-sm">Eliminate staffing gaps and resource shifts</span>
               </div>
               <div className="flex items-start gap-3">
-                <span className="text-blue-600 text-xl mt-0.5">✓</span>
-                <span className="text-slate-700">Gain clarity, control, and confidence</span>
+                <span className="text-primary text-lg mt-0.5 font-light">✓</span>
+                <span className="text-gray-700 font-light text-sm">Gain clarity, control, and confidence</span>
               </div>
               <div className="flex items-start gap-3">
-                <span className="text-blue-600 text-xl mt-0.5">✓</span>
-                <span className="text-slate-700">Focus on team performance and customer experience</span>
+                <span className="text-primary text-lg mt-0.5 font-light">✓</span>
+                <span className="text-gray-700 font-light text-sm">Focus on team performance and customer experience</span>
               </div>
               <div className="flex items-start gap-3">
-                <span className="text-blue-600 text-xl mt-0.5">✓</span>
-                <span className="text-slate-700">Drive growth with intelligent workforce decisions</span>
+                <span className="text-primary text-lg mt-0.5 font-light">✓</span>
+                <span className="text-gray-700 font-light text-sm">Drive growth with intelligent workforce decisions</span>
               </div>
             </div>
           </div>

@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { apiUrl } from '@/lib/api'
-import { hubspotFetch } from '@/lib/hubspot-fetch'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 export default function HotspotScoringTab() {
@@ -89,7 +88,7 @@ export default function HotspotScoringTab() {
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">Task Hotspot Scoring</h2>
+        <h2 className="text-xl sm:text-2xl lg:text-3xl font-light text-gray-900">Task Hotspot Scoring</h2>
         <p className="text-xs sm:text-sm text-gray-600 mt-2">Ranked by slack, proximity, and Cost of Delay (CoD)</p>
       </div>
 
@@ -101,7 +100,7 @@ export default function HotspotScoringTab() {
               <CardTitle className="text-sm font-medium text-muted-foreground">Total Deals</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{dealsMetrics.dealCount}</div>
+              <div className="text-3xl font-light text-primary">{dealsMetrics.dealCount}</div>
             </CardContent>
           </Card>
           <Card>
@@ -109,7 +108,7 @@ export default function HotspotScoringTab() {
               <CardTitle className="text-sm font-medium text-muted-foreground">Total Value</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">${(dealsMetrics.totalValue / 1000000).toFixed(1)}M</div>
+              <div className="text-3xl font-light text-primary">${(dealsMetrics.totalValue / 1000000).toFixed(1)}M</div>
             </CardContent>
           </Card>
           <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
@@ -117,7 +116,7 @@ export default function HotspotScoringTab() {
               <CardTitle className="text-sm font-medium text-orange-700">AI-Saved Time</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-orange-900">{dealsMetrics.aiSavedHours} hrs</div>
+              <div className="text-3xl font-light text-primary">{dealsMetrics.aiSavedHours} hrs</div>
             </CardContent>
           </Card>
           <Card>
@@ -125,7 +124,7 @@ export default function HotspotScoringTab() {
               <CardTitle className="text-sm font-medium text-muted-foreground">Avg Deal Value</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">${(dealsMetrics.avgDealValue / 1000000).toFixed(1)}M</div>
+              <div className="text-3xl font-light text-primary">${(dealsMetrics.avgDealValue / 1000000).toFixed(1)}M</div>
             </CardContent>
           </Card>
         </div>
@@ -170,7 +169,7 @@ export default function HotspotScoringTab() {
           >
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-3">
               <div className="flex-1 min-w-0">
-                <div className="font-bold text-gray-900 text-base sm:text-lg mb-2">{hotspot.title}</div>
+                <div className="font-light text-gray-900 text-base sm:text-lg mb-2">{hotspot.title}</div>
                 <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs sm:text-sm">
                   <span className="text-gray-600 truncate">{hotspot.team}</span>
                   <span className="hidden sm:inline text-gray-400">•</span>
@@ -180,14 +179,14 @@ export default function HotspotScoringTab() {
                   </span>
                 </div>
               </div>
-              <button className="px-4 sm:px-4 py-2.5 sm:py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 active:bg-blue-800 text-xs sm:text-sm flex-shrink-0 w-full sm:w-auto transition-colors">
+              <button className="px-4 sm:px-4 py-2.5 sm:py-2 bg-primary text-white rounded-xl font-light hover:bg-primary/90 active:bg-primary/80 text-xs sm:text-sm flex-shrink-0 w-full sm:w-auto transition-colors">
                 Investigate
               </button>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-4 mb-4">
               <div className="bg-red-50 p-2 sm:p-3 rounded-lg">
                 <div className="text-xs text-gray-600 mb-1">Hotspot Score</div>
-                <div className="text-xl sm:text-2xl font-bold text-red-600">{hotspot.hotspotScore}</div>
+                <div className="text-xl sm:text-2xl font-light text-primary">{hotspot.hotspotScore}</div>
               </div>
               <div className="bg-orange-50 p-2 sm:p-3 rounded-lg">
                 <div className="text-xs text-gray-600 mb-1">Slack</div>
@@ -199,7 +198,7 @@ export default function HotspotScoringTab() {
                   {hotspot.cod}
                 </div>
               </div>
-              <div className="bg-blue-50 p-2 sm:p-3 rounded-lg">
+              <div className="bg-primary/10 p-2 sm:p-3 rounded-xl">
                 <div className="text-xs text-gray-600 mb-1">Proximity</div>
                 <div className="text-base sm:text-lg font-bold text-blue-600">{hotspot.proximity}</div>
               </div>

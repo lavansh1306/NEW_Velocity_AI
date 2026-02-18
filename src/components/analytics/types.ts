@@ -44,14 +44,6 @@ export interface HubSpotSummary {
   last_sync?: string;
 }
 
-export interface AsanaSummary {
-  projects_count?: number;
-  tasks_total?: number;
-  tasks_automated_count?: number;
-  asana_time_saved_hours?: number;
-  last_sync?: string;
-}
-
 export interface Microsoft365Summary {
   mail_count?: number;
   calendar_meetings_count?: number;
@@ -61,22 +53,10 @@ export interface Microsoft365Summary {
   last_sync?: string;
 }
 
-export interface ZapierSummary {
-  zaps_count?: number;
-  active_zaps?: number;
-  runs_last_30_days?: number;
-  success_rate?: number;
-  runs_automated_by_ai?: number;
-  zapier_time_saved_hours?: number;
-  last_sync?: string;
-}
-
 // Extend ProjectAnalytics with optional integration summaries
 export interface ProjectAnalyticsWithIntegrations extends ProjectAnalytics {
   hubspot?: HubSpotSummary;
-  asana?: AsanaSummary;
   microsoft365?: Microsoft365Summary;
-  zapier?: ZapierSummary;
   // Whether Jira-derived analytics were available for this project
   jira_available?: boolean;
 }

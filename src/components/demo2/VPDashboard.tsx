@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { apiUrl } from '@/lib/api';
-import { hubspotFetch } from '@/lib/hubspot-fetch';
 import { loadAllMetrics } from '@/lib/dataService';
 
 export default function VPDashboard() {
@@ -98,13 +97,11 @@ export default function VPDashboard() {
   const tools = [
     { name: 'JIRA', investment: 10 },
     { name: 'HubSpot AI', investment: 10 },
-    { name: 'Zapier Auto', investment: 10 },
-    { name: 'Asana', investment: 10 },
     { name: 'Microsoft 365', investment: 10 },
   ];
 
   const rows = tools.map((tool) => {
-    const appKey = tool.name === 'JIRA' ? 'Jira' : tool.name === 'Zapier Auto' ? 'Zapier' : tool.name === 'HubSpot AI' ? 'HubSpot' : tool.name === 'Microsoft 365' ? 'Microsoft365' : tool.name;
+    const appKey = tool.name === 'JIRA' ? 'Jira' : tool.name === 'HubSpot AI' ? 'HubSpot' : tool.name === 'Microsoft 365' ? 'Microsoft365' : tool.name;
     const hours = perAppHours?.[appKey] ?? 0;
     const returnsUSD = perAppReturns?.[appKey] ?? 0;
     const investmentUSD = tool.investment * 1000; // K -> USD
@@ -158,7 +155,7 @@ export default function VPDashboard() {
           <div className="text-xs mt-1 opacity-75">Verified ROI this quarter</div>
         </div>
 
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg p-3 sm:p-4 text-white shadow-lg hover:shadow-xl transition-shadow">
+        <div className="bg-gradient-to-br from-primary to-primary rounded-lg p-3 sm:p-4 text-white shadow-lg hover:shadow-xl transition-shadow">
           <div className="flex items-center justify-between mb-2">
             <div className="w-8 h-8 bg-white bg-opacity-20 rounded-lg flex items-center justify-center flex-shrink-0">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

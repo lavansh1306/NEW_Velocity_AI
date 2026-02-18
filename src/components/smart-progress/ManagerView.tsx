@@ -62,7 +62,7 @@ export const ManagerView: React.FC<ManagerViewProps> = ({ tasks, onUpdateTask })
       {/* Header */}
       <div className="bg-indigo-900 text-white p-6 rounded-2xl shadow-xl flex justify-between items-center">
         <div>
-          <h2 className="text-xl font-bold flex items-center gap-2">
+          <h2 className="text-xl font-light flex items-center gap-2">
             <LayoutDashboard className="w-5 h-5" /> Project Weights & Progress
           </h2>
           <p className="text-indigo-200 text-sm">Configure weighted milestones. Progress updates automatically.</p>
@@ -92,7 +92,7 @@ export const ManagerView: React.FC<ManagerViewProps> = ({ tasks, onUpdateTask })
 
               <div className="flex justify-between items-start mb-6">
                 <div>
-                  <h3 className="font-bold text-gray-900 text-lg">{task.title}</h3>
+                  <h3 className="font-light text-gray-900 text-lg">{task.title}</h3>
                   <p className="text-sm text-slate-500">Assignee: {task.assignee}</p>
                 </div>
                 

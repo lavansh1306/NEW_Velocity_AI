@@ -18,6 +18,8 @@ export interface Task {
   originalAssignee?: string;
   logs?: TimeLog[];
   totalLogged?: number;
+  created_date?: string; // ISO date string
+  due_date?: string; // ISO date string
 }
 
 export interface LeaveRequest {

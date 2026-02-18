@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => ({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:3000',
+        target: 'http://127.0.0.1:4000',
         changeOrigin: true,
       },
     },
@@ -21,11 +21,20 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    target: "esnext", 
+    target: "esnext",
+    rollupOptions: {
+      external: ['xlsx'],
+      output: {
+        globals: {
+          xlsx: 'XLSX',
+        },
+      },
+    },
   },
   optimizeDeps: {
     esbuildOptions: {
       target: "esnext",
     },
+    exclude: ['xlsx'],
   },
 }));
