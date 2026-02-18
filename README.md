@@ -369,7 +369,6 @@ Measure productivity improvements in monetary terms:
 ---
 
 ## 🏗️ Architecture
-## 🏗️ Architecture
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
