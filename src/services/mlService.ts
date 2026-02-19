@@ -529,3 +529,61 @@ export const mlService = {
 };
 
 export default mlService;
+
+/**
+ * Analyze team capacity (Productive Hours - PTO - Holidays)
+ * POST /api/v1/analyze/capacity
+ */
+export async function analyzeCapacity(
+  candidates: MLCandidate[]
+): Promise<CapacityReport[]> {
+  try {
+    const isOnline = await checkMLEngineHealth();
+    if (!isOnline) {
+      console.warn('[MLService] ML engine offline, returning fallback capacity');
+      return getFallbackCapacityAnalysis(candidates);
+    }
+
+    const request: CapacityRequest = { candidates };
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+
+    const capacityUrl = isProduction 
+      ? `${ML_API_BASE}/analyze-capacity`
+      : `${ML_API_BASE}/api/v1/analyze/capacity`;
+
+    const response = await fetch(capacityUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(`Capacity analysis failed with status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('[MLService] Error analyzing capacity:', error);
+    return getFallbackCapacityAnalysis(candidates);
+  }
+}
+
+// Add the fallback function
+function getFallbackCapacityAnalysis(candidates: MLCandidate[]): CapacityReport[] {
+  return candidates.map(c => {
+    const net = (c.base_productive_hours || 40) - (c.pto_hours_this_week || 0) - (c.holiday_hours_this_week || 0);
+    return {
+      employee_id: c.id,
+      name: c.name || 'Unknown',
+      base_productive_hours: c.base_productive_hours || 40,
+      pto_hours_this_week: c.pto_hours_this_week || 0,
+      holiday_hours_this_week: c.holiday_hours_this_week || 0,
+      net_available_hours: Math.max(0, net),
+      status: net <= 0 ? 'Overloaded' : 'Available'
+    };
+  });
+}
