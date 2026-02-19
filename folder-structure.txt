@@ -1,32 +1,26 @@
 NEW_Velocity_AI
 ├── .env
 ├── .env.example
+├── .env.local
+├── .env.production
 ├── .git/
-├── .github
-│   └── appmod
-│       └── appcat
 ├── .gitignore
 ├── api
-│   ├── diagnose.ts
-│   ├── health.ts
-│   ├── hubspot-callback.ts
 │   ├── index.ts
-│   └── jira
-│       ├── auth
-│       │   ├── callback.ts
-│       │   ├── connect.ts
-│       │   ├── disconnect.ts
-│       │   ├── status.ts
-│       │   └── switch-site.ts
-│       ├── auth.ts
-│       ├── issues.ts
-│       └── projects.ts
+│   ├── jira
+│   │   └── auth.ts
+│   ├── leave-approval
+│   │   └── approve-batch.ts
+│   ├── ml.ts
+│   └── [...route].ts
 ├── architecture-old.svg
 ├── architecture.svg
 ├── archives
 │   └── VelocityAI.tsx
 ├── asana
 ├── components.json
+├── DASHBOARD_IMPLEMENTATION_SUMMARY.md
+├── DASHBOARD_INTEGRATION_GUIDE.md
 ├── demo
 │   ├── LiveFeed.tsx
 │   ├── ROIMetrics.tsx
@@ -34,6 +28,9 @@ NEW_Velocity_AI
 ├── eslint.config.js
 ├── googleba79ddad728eb1f3.html
 ├── index.html
+├── JIRA_DASHBOARD_COMPLETE.md
+├── JIRA_DASHBOARD_INTEGRATION.md
+├── JIRA_DASHBOARD_QUICK_REFERENCE.md
 ├── krish.txt
 ├── LICENSE
 ├── node_modules/
@@ -42,19 +39,13 @@ NEW_Velocity_AI
 ├── postcss.config.js
 ├── public
 │   ├── data
-│   │   ├── asana_events.csv
 │   │   ├── employees.csv
 │   │   ├── github_events.csv
-│   │   ├── hubspot_events.csv
 │   │   ├── integrations-analytics.csv
 │   │   ├── jira_events.csv
-│   │   ├── microsoft365_events.csv
 │   │   ├── projects-analytics.csv
-│   │   ├── projects-asana.csv
 │   │   ├── projects-hubspot.csv
-│   │   ├── projects-microsoft365.csv
-│   │   ├── projects-zapier.csv
-│   │   └── zapier_events.csv
+│   │   └── projects-microsoft365.csv
 │   ├── googleba79ddad728eb1f3.html
 │   ├── placeholder.svg
 │   └── robots.txt
@@ -64,20 +55,11 @@ NEW_Velocity_AI
 │   ├── api
 │   │   ├── deployed
 │   │   │   └── routes.ts
-│   │   ├── hubspot
-│   │   │   ├── auth.ts
-│   │   │   ├── oauth-errors.ts
-│   │   │   ├── routes.ts
-│   │   │   └── session-store.ts
 │   │   ├── jira
 │   │   │   ├── auth.ts
 │   │   │   └── routes.ts
-│   │   ├── microsoft365
-│   │   │   ├── auth.ts
-│   │   │   ├── graphClient.ts
-│   │   │   └── routes
-│   │   │       ├── metrics.ts
-│   │   │       └── roi.ts
+│   │   ├── leave-approval
+│   │   │   └── routes.ts
 │   │   └── projects
 │   │       ├── index.ts
 │   │       └── [projectId]
@@ -102,17 +84,15 @@ NEW_Velocity_AI
 │   │   │   ├── JiraQualityChart.tsx
 │   │   │   ├── Microsoft365MeetingsChart.tsx
 │   │   │   ├── PlannedVsActualChart.tsx
-│   │   │   ├── types.ts
-│   │   │   └── ZapierRunsChart.tsx
-│   │   ├── Architecture.tsx
-│   │   ├── asana
-│   │   │   ├── GanttChart.tsx
-│   │   │   ├── index.ts
-│   │   │   ├── IssuesTable.tsx
-│   │   │   ├── ManagerGantt.tsx
-│   │   │   ├── ManagerSummary.tsx
 │   │   │   └── types.ts
+│   │   ├── Architecture.tsx
 │   │   ├── CTA.tsx
+│   │   ├── dashboard
+│   │   │   ├── AIInsightsDashboard.tsx
+│   │   │   ├── EXAMPLES.tsx
+│   │   │   ├── index.ts
+│   │   │   ├── JiraPoweredDashboard.tsx
+│   │   │   └── ProjectDashboardWithInsights.tsx
 │   │   ├── demo
 │   │   │   ├── DeploymentView.tsx
 │   │   │   ├── LiveFeed.tsx
@@ -139,13 +119,6 @@ NEW_Velocity_AI
 │   │   ├── Footer.tsx
 │   │   ├── Header.tsx
 │   │   ├── Hero.tsx
-│   │   ├── hubspot
-│   │   │   ├── CampaignsList.tsx
-│   │   │   ├── ContactsList.tsx
-│   │   │   ├── DealsList.tsx
-│   │   │   ├── HubSpotHub.tsx
-│   │   │   ├── RealizationDeals.tsx
-│   │   │   └── TicketsList.tsx
 │   │   ├── jira
 │   │   │   ├── dataLoader.ts
 │   │   │   ├── GanttChart.tsx
@@ -154,27 +127,24 @@ NEW_Velocity_AI
 │   │   │   ├── ManagerGantt.tsx
 │   │   │   ├── ManagerSummary.tsx
 │   │   │   └── types.ts
+│   │   ├── leave-approval
+│   │   │   └── LeaveApprovalAgent.tsx
 │   │   ├── leave-management
 │   │   │   ├── data.ts
+│   │   │   ├── EmployeeLeavePortal.tsx
 │   │   │   ├── ImpactAnalysisDialog.tsx
 │   │   │   ├── index.tsx
 │   │   │   ├── JiraCapacityMap.tsx
 │   │   │   ├── LeaveApplicationDialog.tsx
+│   │   │   ├── LeaveNotificationPanel.tsx
 │   │   │   ├── LeaveRequestTable.tsx
 │   │   │   ├── OrganizationalWorkloadTable.tsx
 │   │   │   ├── TimeLoggingDialog.tsx
-│   │   │   ├── TimesheetUploadDialog.tsx
+│   │   │   ├── TimeSheetUploadDialog.tsx
 │   │   │   ├── types.ts
 │   │   │   └── WorkloadTable.tsx
 │   │   ├── ManagerGantt.tsx
-│   │   ├── microsoft365
-│   │   │   ├── EmailMetrics.tsx
-│   │   │   ├── MeetingsMetrics.tsx
-│   │   │   ├── Microsoft365Hub.tsx
-│   │   │   └── ROICalculator.tsx
 │   │   ├── ml-model
-│   │   │   ├── datasets
-│   │   │   │   └── master_employee_task_report.csv
 │   │   │   ├── index.tsx
 │   │   │   ├── JsonOutputDialog.tsx
 │   │   │   ├── pdfParser.ts
@@ -184,6 +154,9 @@ NEW_Velocity_AI
 │   │   │   ├── RecommendationEngine.ts
 │   │   │   └── types.ts
 │   │   ├── NavLink.tsx
+│   │   ├── projects
+│   │   │   └── ProjectManagementDashboard.tsx
+│   │   ├── ProtectedRoute.tsx
 │   │   ├── Results.tsx
 │   │   ├── smart-progress
 │   │   │   ├── EmployeeView.tsx
@@ -244,20 +217,29 @@ NEW_Velocity_AI
 │   │   │   ├── toggle.tsx
 │   │   │   ├── tooltip.tsx
 │   │   │   └── use-toast.ts
-│   │   └── unified-system
-│   │       ├── allocator
-│   │       │   └── AllocatorEngine.tsx
-│   │       ├── execution
-│   │       │   ├── ActiveProjectDetail.tsx
-│   │       │   └── BurnoutMonitor.tsx
-│   │       ├── ideation
-│   │       │   ├── DraftProjectDialog.tsx
-│   │       │   └── ProjectQueue.tsx
-│   │       ├── IdeationSandbox
-│   │       │   └── QueueList.tsx
-│   │       ├── types.ts
-│   │       └── UnifiedView.tsx
+│   │   ├── unified-system
+│   │   │   ├── allocator
+│   │   │   │   └── AllocatorEngine.tsx
+│   │   │   ├── execution
+│   │   │   │   ├── ActiveProjectDetail.tsx
+│   │   │   │   ├── BurnoutMonitor.tsx
+│   │   │   │   └── ProjectCompletionDialog.tsx
+│   │   │   ├── ideation
+│   │   │   │   ├── DraftProjectDialog.tsx
+│   │   │   │   └── ProjectQueue.tsx
+│   │   │   ├── IdeationSandbox
+│   │   │   │   └── QueueList.tsx
+│   │   │   ├── leaves
+│   │   │   │   └── LeaveManagementDialog.tsx
+│   │   │   ├── notifications
+│   │   │   │   └── NotificationPanel.tsx
+│   │   │   ├── timetable
+│   │   │   │   └── TimetableView.tsx
+│   │   │   ├── types.ts
+│   │   │   └── UnifiedView.tsx
+│   │   └── UserProfile.tsx
 │   ├── contexts
+│   │   ├── AuthContext.tsx
 │   │   └── ToastContext.tsx
 │   ├── hooks
 │   │   ├── use-mobile.tsx
@@ -269,40 +251,44 @@ NEW_Velocity_AI
 │   │   ├── api.ts
 │   │   ├── csvLoader.ts
 │   │   ├── dataService.ts
-│   │   ├── hubspot-fetch.ts
+│   │   ├── leaveApprovalAgent.ts
 │   │   ├── metrics.ts
 │   │   ├── normalizers
-│   │   │   ├── asana.ts
-│   │   │   ├── hubspot.ts
 │   │   │   ├── index.ts
-│   │   │   ├── jira.ts
-│   │   │   ├── microsoft365.ts
-│   │   │   └── zapier.ts
+│   │   │   └── jira.ts
 │   │   ├── storage.ts
+│   │   ├── supabase.ts
 │   │   ├── types.ts
 │   │   └── utils.ts
 │   ├── main.tsx
 │   ├── pages
-│   │   ├── AsanaDashboard.tsx
+│   │   ├── AuthCallback.tsx
+│   │   ├── Dashboard.tsx
 │   │   ├── DebugNormalization.tsx
 │   │   ├── Demo.tsx
 │   │   ├── GlobalCapacity.tsx
 │   │   ├── GlobalGanttDashboard.tsx
-│   │   ├── HubSpotDashboard.tsx
 │   │   ├── Index.tsx
 │   │   ├── JiraDashboard.tsx
 │   │   ├── JiraEmployeeExtractor.tsx
-│   │   ├── Microsoft365Dashboard.tsx
+│   │   ├── Login.tsx
 │   │   ├── NotFound.tsx
+│   │   ├── PlanMyProject.tsx
 │   │   ├── ProjectDetail.tsx
 │   │   ├── ProjectDetailNew.tsx
 │   │   ├── Projects.tsx
 │   │   ├── ROICalculator.tsx
 │   │   ├── ROIReport.tsx
+│   │   ├── SignUp.tsx
 │   │   ├── UseCases.tsx
 │   │   └── VelocityAI.tsx
+│   ├── services
+│   │   └── mlService.ts
 │   └── vite-env.d.ts
+├── supabase-migrations
+│   └── create_jira_oauth_pkce_table.sql
 ├── tailwind.config.ts
+├── TECHNICAL_REPORT.md
 ├── test-server.ts
 ├── tsconfig.app.json
 ├── tsconfig.json

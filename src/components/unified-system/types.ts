@@ -49,6 +49,9 @@ export interface UnifiedEmployee {
   totalProjectsCompleted: number;
   avgHoursPerTask: number;
   isOnLeave?: boolean; 
+  base_productive_hours?: number;
+  pto_hours_this_week?: number;
+  holiday_hours_this_week?: number;
 }
 
 export interface MLCandidate {
@@ -59,7 +62,6 @@ export interface MLCandidate {
   name?: string;
   availability_hours?: number;
   avg_completion_time?: number;
-  // --- NEW CAPACITY FIELDS ---
   base_productive_hours?: number;
   pto_hours_this_week?: number;
   holiday_hours_this_week?: number;
