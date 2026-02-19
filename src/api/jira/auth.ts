@@ -15,6 +15,8 @@ declare module 'express-session' {
     jiraStoreKey?: string;
     jiraCodeVerifier?: string;
     jiraAccessibleResources?: JiraResource[];
+    orgId?: string;
+    supabaseUserId?: string;
   }
 }
 
@@ -141,12 +143,11 @@ function cleanupExpiredPKCE() {
 setInterval(() => cleanupExpiredPKCE(), 5 * 60 * 1000);
 
 // Store PKCE in Supabase for serverless compatibility
-async function storePKCEInDatabase(state: string, codeVerifier: string): Promise<void> {
+async function storePKCEInDatabase(state: string, codeVerifier: string, supabaseUserId?: string): Promise<void> {
   try {
     const supabaseClient = getSupabaseClient();
     if (!supabaseClient) {
       console.log('[Jira OAuth] Supabase not configured, using in-memory store only');
-      // Fallback to in-memory storage
       jiraPKCEStore.set(state, { codeVerifier, timestamp: Date.now() });
       return;
     }
@@ -156,46 +157,45 @@ async function storePKCEInDatabase(state: string, codeVerifier: string): Promise
       .insert({
         state,
         code_verifier: codeVerifier,
+        supabase_user_id: supabaseUserId || null,
         created_at: new Date().toISOString(),
-        expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString() // 15 min expiry
+        expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString()
       });
 
     if (error) {
       console.warn('[Jira OAuth] Failed to store PKCE in Supabase, falling back to memory:', error);
       jiraPKCEStore.set(state, { codeVerifier, timestamp: Date.now() });
     } else {
-      console.log('[Jira OAuth] PKCE stored in Supabase');
+      console.log('[Jira OAuth] PKCE stored in Supabase (userId:', supabaseUserId || 'none', ')');
     }
   } catch (err) {
     console.warn('[Jira OAuth] Error storing PKCE:', err);
-    // Fallback to in-memory
     jiraPKCEStore.set(state, { codeVerifier, timestamp: Date.now() });
   }
 }
 
 // Retrieve PKCE from Supabase (or memory as fallback)
-async function retrievePKCEFromDatabase(state: string): Promise<string | null> {
+async function retrievePKCEFromDatabase(state: string): Promise<{ codeVerifier: string; supabaseUserId: string | null } | null> {
   try {
     const supabaseClient = getSupabaseClient();
     if (!supabaseClient) {
       console.log('[Jira OAuth] Supabase not configured, checking in-memory store');
       const data = jiraPKCEStore.get(state);
-      return data?.codeVerifier || null;
+      return data ? { codeVerifier: data.codeVerifier, supabaseUserId: null } : null;
     }
 
     const { data, error } = await supabaseClient
       .from('jira_oauth_pkce')
-      .select('code_verifier')
+      .select('code_verifier, supabase_user_id')
       .eq('state', state)
       .single();
 
     if (error) {
       console.warn('[Jira OAuth] PKCE not found in Supabase:', error.message);
-      // Check in-memory as fallback
       const memData = jiraPKCEStore.get(state);
       if (memData) {
         console.log('[Jira OAuth] Found PKCE in memory store');
-        return memData.codeVerifier;
+        return { codeVerifier: memData.codeVerifier, supabaseUserId: null };
       }
       return null;
     }
@@ -203,13 +203,16 @@ async function retrievePKCEFromDatabase(state: string): Promise<string | null> {
     if (data) {
       console.log('[Jira OAuth] Retrieved PKCE from Supabase');
       // Delete after retrieval (one-time use)
-      await supabaseClient
-        .from('jira_oauth_pkce')
-        .delete()
-        .eq('state', state)
-        .catch(err => console.warn('[Jira OAuth] Failed to cleanup PKCE:', err));
+      try {
+        await supabaseClient
+          .from('jira_oauth_pkce')
+          .delete()
+          .eq('state', state);
+      } catch (cleanupErr) {
+        console.warn('[Jira OAuth] Failed to cleanup PKCE:', cleanupErr);
+      }
       
-      return data.code_verifier;
+      return { codeVerifier: data.code_verifier, supabaseUserId: data.supabase_user_id || null };
     }
 
     return null;
@@ -217,7 +220,7 @@ async function retrievePKCEFromDatabase(state: string): Promise<string | null> {
     console.warn('[Jira OAuth] Error retrieving PKCE:', err);
     // Check in-memory as fallback
     const memData = jiraPKCEStore.get(state);
-    return memData?.codeVerifier || null;
+    return memData ? { codeVerifier: memData.codeVerifier, supabaseUserId: null } : null;
   }
 }
 
@@ -328,6 +331,13 @@ async function saveJiraUserToSupabase(jiraUser: any, tokenData: any): Promise<vo
 // Initiate OAuth flow
 async function login(req: Request, res: Response): Promise<void> {
   try {
+    // Capture the Supabase Auth user id (sent by client)
+    const supabaseUserId = (req.query.supabaseUserId as string) || undefined;
+    if (supabaseUserId) {
+      req.session.supabaseUserId = supabaseUserId;
+      console.log('[Jira OAuth Login] supabaseUserId:', supabaseUserId);
+    }
+
     // Generate PKCE parameters
     const { codeVerifier, codeChallenge } = generatePKCE();
     
@@ -337,12 +347,12 @@ async function login(req: Request, res: Response): Promise<void> {
     console.log('[Jira OAuth Login] Starting OAuth flow:', {
       sessionID: req.sessionID,
       state,
+      supabaseUserId: supabaseUserId || 'none',
       timestamp: new Date().toISOString()
     });
 
-    // Store PKCE data in Supabase (for serverless/Vercel compatibility)
-    // Falls back to in-memory if Supabase is not configured
-    await storePKCEInDatabase(state, codeVerifier);
+    // Store PKCE data in Supabase (with supabaseUserId for serverless compatibility)
+    await storePKCEInDatabase(state, codeVerifier, supabaseUserId);
 
     // Also store PKCE data in session as backup
     req.session.jiraCodeVerifier = codeVerifier;
@@ -474,30 +484,23 @@ async function callback(req: Request, res: Response): Promise<any> {
   try {
     console.log('[Jira OAuth Callback] Retrieving PKCE with state:', `${state.substring(0, 20)}...`);
     
-    // Retrieve PKCE code verifier from database (works in serverless environments)
-    // Falls back to in-memory if database retrieval fails
-    const codeVerifier = await retrievePKCEFromDatabase(state);
+    // Retrieve PKCE code verifier + supabaseUserId from database
+    const pkceResult = await retrievePKCEFromDatabase(state);
     
-    if (!codeVerifier) {
+    if (!pkceResult) {
       console.error('[Jira OAuth Callback] ✗ Code verifier not found in database or session');
-      console.error('[Jira OAuth Callback] Debug:', {
-        state: state.substring(0, 30),
-        hasMemoryStore: jiraPKCEStore.has(state),
-        sessionHasVerifier: !!req.session?.jiraCodeVerifier,
-      });
-      
       res.status(400).json({ 
         error: 'PKCE verification failed',
         details: 'State parameter not found. Session may have expired.',
-        debug: process.env.NODE_ENV === 'development' ? {
-          stateReceived: state.substring(0, 30),
-          memoryStoreHasState: jiraPKCEStore.has(state),
-          sessionHasVerifier: !!req.session?.jiraCodeVerifier,
-        } : undefined
       });
+      return;
     }
 
-    console.log('[Jira OAuth Callback] ✓ Code verifier retrieved, exchanging for token...');
+    const { codeVerifier, supabaseUserId: pkceUserId } = pkceResult;
+    // Resolve supabaseUserId: PKCE store > session > null
+    const supabaseUserId = pkceUserId || req.session?.supabaseUserId || null;
+
+    console.log('[Jira OAuth Callback] ✓ Code verifier retrieved, supabaseUserId:', supabaseUserId || 'none');
     
     // Exchange code for tokens
     const tokenResp = await exchangeCodeForToken(code, codeVerifier, req);
@@ -521,67 +524,119 @@ async function callback(req: Request, res: Response): Promise<any> {
 
     // Use the first accessible resource by default
     const primaryResource = resources[0];
+    const cloudId = primaryResource.id;
     
-    // Store tokens using the current sessionID
+    // --- Multi-tenant: create/find org and store connection in DB ---
+    // Import DB helpers (dynamic to avoid circular deps at module level)
+    console.log('[Jira OAuth Callback] Loading db module...');
+    const db = await import('./db.js');
+    console.log('[Jira OAuth Callback] db module loaded, functions:', Object.keys(db).join(', '));
+    let orgId: string | null = null;
+
+    // 1. Check if an org already exists for this Jira cloud site
+    console.log('[Jira OAuth Callback] Checking for existing org with cloudId:', cloudId);
+    orgId = await db.findOrgByCloudId(cloudId);
+    if (orgId) {
+      console.log('[Jira OAuth Callback] Found existing org for cloud', cloudId, '→', orgId);
+      // If we have a supabaseUserId and they're not already a member, add them
+      if (supabaseUserId) {
+        const existingMembership = await db.findUserOrg(supabaseUserId);
+        if (!existingMembership || existingMembership.orgId !== orgId) {
+          await db.addOrgMember(orgId, supabaseUserId, 'employee');
+        }
+      }
+    }
+
+    // 2. If no org exists for this cloud site, create one
+    if (!orgId) {
+      console.log('[Jira OAuth Callback] Creating new org for site:', primaryResource.name);
+      // If we have a supabaseUserId, they become the owner; otherwise create org without owner
+      orgId = await db.createOrganization(
+        primaryResource.name || 'My Organization',
+        supabaseUserId || null // pass null if no user
+      );
+      console.log('[Jira OAuth Callback] Created org:', orgId);
+    }
+
+    // 3. Store Jira connection (tokens) in DB — persists across restarts/serverless
+    if (orgId) {
+      console.log('[Jira OAuth Callback] Storing Jira connection for org:', orgId);
+      let jiraAccountId: string | undefined;
+      try {
+        const jiraUser = await getJiraUserInfo(tokenResp.access_token, tokenResp);
+        jiraAccountId = jiraUser?.account_id;
+        await saveJiraUserToSupabase(jiraUser, tokenResp);
+      } catch (e) {
+        console.warn('[Jira OAuth Callback] Could not fetch Jira user info:', e);
+      }
+
+      await db.upsertJiraConnection(
+        orgId, cloudId, primaryResource.name, primaryResource.url,
+        tokenResp.access_token, tokenResp.refresh_token,
+        tokenResp.expires_in, jiraAccountId, supabaseUserId || undefined
+      );
+      console.log('[Jira OAuth Callback] ✓ Jira connection stored');
+
+      // Also store for all accessible resources
+      for (let i = 1; i < resources.length; i++) {
+        await db.upsertJiraConnection(
+          orgId, resources[i].id, resources[i].name, resources[i].url,
+          tokenResp.access_token, tokenResp.refresh_token,
+          tokenResp.expires_in, jiraAccountId, supabaseUserId || undefined
+        );
+      }
+    } else {
+      console.error('[Jira OAuth Callback] ✗ FAILED to create/find org - no DB storage will happen!');
+    }
+
+    // Also keep in-memory for backward compat (same session requests)
     const storeKey = req.sessionID;
-    const expiresAt = Date.now() + (tokenResp.expires_in * 1000);
-    
     const tokenStore: TokenStore = {
       accessToken: tokenResp.access_token,
       refreshToken: tokenResp.refresh_token,
-      expiresAt: expiresAt,
-      cloudId: primaryResource.id,
+      expiresAt: Date.now() + (tokenResp.expires_in * 1000),
+      cloudId: cloudId,
       userId: storeKey,
       siteName: primaryResource.name,
       siteUrl: primaryResource.url,
     };
-    
     jiraTokens.set(storeKey, tokenStore);
 
-    console.log('[Jira OAuth] Stored token for user:', storeKey);
-
-    // Store cloudId and user info in session
-    req.session.jiraCloudId = primaryResource.id;
+    // Store cloudId, orgId and user info in session
+    req.session.jiraCloudId = cloudId;
     req.session.jiraUserId = storeKey;
     req.session.jiraStoreKey = storeKey;
+    if (orgId) req.session.orgId = orgId;
+    if (supabaseUserId) req.session.supabaseUserId = supabaseUserId;
 
     // Save session before redirecting
     await new Promise<void>((resolve, reject) => {
       req.session.save((err) => {
-        if (err) {
-          console.error('[Jira OAuth] Session save failed:', err);
-          reject(err);
-        } else {
-          console.log('[Jira OAuth] ✓ Session saved');
-          resolve();
-        }
+        if (err) { console.error('[Jira OAuth] Session save failed:', err); reject(err); }
+        else { console.log('[Jira OAuth] ✓ Session saved (orgId:', orgId, ')'); resolve(); }
       });
     });
     
-    // Fetch and save Jira user info to Supabase
-    try {
-      console.log('[Jira OAuth Callback] Fetching user info...');
-      const jiraUser = await getJiraUserInfo(tokenResp.access_token, tokenResp);
-      await saveJiraUserToSupabase(jiraUser, tokenResp);
-      console.log('[Jira OAuth Callback] ✓ User saved to Supabase');
-    } catch (error) {
-      console.warn('[Jira OAuth Callback] Warning - could not save user to Supabase:', error);
-      // Continue anyway - auth still works without Supabase save
+    // Fetch and save Jira user info if we didn't already
+    if (!supabaseUserId) {
+      try {
+        const jiraUser = await getJiraUserInfo(tokenResp.access_token, tokenResp);
+        await saveJiraUserToSupabase(jiraUser, tokenResp);
+      } catch (error) {
+        console.warn('[Jira OAuth Callback] Warning - could not save user to Supabase:', error);
+      }
     }
 
-    console.log('[Jira OAuth Callback] ✓ Authentication complete! Redirecting...');
+    console.log('[Jira OAuth Callback] ✓ Authentication complete! orgId:', orgId);
     
     // Determine redirect URL based on environment and request origin
-    let redirectUrl = 'http://localhost:5173/velocity-ai'; // Default for dev
+    let redirectUrl = 'http://localhost:5173/velocity-ai';
     
-    // Check if we're on Vercel (process.env.VERCEL) or if NODE_ENV is production
     const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1' || req.hostname === 'www.joinvelocity.co' || req.hostname === 'joinvelocity.co';
     
     if (isProduction) {
-      // Use production URL
       redirectUrl = (process.env.FRONTEND_URL_PROD || 'https://www.joinvelocity.co') + '/velocity-ai';
     } else if (process.env.FRONTEND_URL) {
-      // Use development URL if explicitly set
       redirectUrl = process.env.FRONTEND_URL + '/velocity-ai';
     }
     
@@ -633,116 +688,139 @@ async function refreshAccessToken(refreshToken: string): Promise<TokenResponse> 
   return tokenData;
 }
 
-// Get valid access token for user (with automatic refresh)
+// Get valid access token for an org (DB-based, with automatic refresh)
+export async function getAccessTokenForOrg(orgId: string, cloudId?: string): Promise<{ accessToken: string; cloudId: string } | null> {
+  try {
+    const db = await import('./db.js');
+    const conn = await db.getJiraConnection(orgId, cloudId);
+    if (!conn) {
+      console.log('[Jira OAuth] No DB connection found for org:', orgId);
+      return null;
+    }
+
+    // Check if token needs refresh (5 min buffer)
+    const expiresAt = conn.token_expires_at ? new Date(conn.token_expires_at).getTime() : 0;
+    if (Date.now() >= expiresAt - 5 * 60 * 1000 && conn.refresh_token) {
+      try {
+        console.log('[Jira OAuth] Token expired for org', orgId, ', refreshing...');
+        const newTokens = await refreshAccessToken(conn.refresh_token);
+        await db.updateConnectionTokens(conn.id, newTokens.access_token, newTokens.refresh_token, newTokens.expires_in);
+        return { accessToken: newTokens.access_token, cloudId: conn.cloud_id };
+      } catch (err) {
+        console.error('[Jira OAuth] Token refresh failed for org', orgId, ':', err);
+        return null;
+      }
+    }
+
+    return { accessToken: conn.access_token, cloudId: conn.cloud_id };
+  } catch (err) {
+    console.error('[Jira OAuth] getAccessTokenForOrg error:', err);
+    return null;
+  }
+}
+
+// Get valid access token for user (tries org DB first, falls back to in-memory)
 export async function getAccessToken(req: Request): Promise<string | null> {
+  // Try org-based DB lookup first
+  const orgId = (req.query?.orgId as string) || req.session?.orgId;
+  if (orgId) {
+    const result = await getAccessTokenForOrg(orgId, req.session?.jiraCloudId || undefined);
+    if (result) return result.accessToken;
+  }
+
+  // Fallback to in-memory Map (backward compat)
   const storeKey = req.session?.jiraStoreKey;
-  console.log('[Jira OAuth] getAccessToken - sessionID:', req.sessionID);
-  console.log('[Jira OAuth] getAccessToken - jiraStoreKey:', storeKey);
-  console.log('[Jira OAuth] getAccessToken - available keys:', Array.from(jiraTokens.keys()));
-  
-  if (!storeKey) {
-    console.log('[Jira OAuth] No jiraStoreKey in session');
-    return null;
-  }
-
+  if (!storeKey) return null;
   const tokenStore = jiraTokens.get(storeKey);
-  if (!tokenStore) {
-    console.log('[Jira OAuth] No tokens found for user with key:', storeKey);
-    return null;
-  }
+  if (!tokenStore) return null;
 
-  // Check if token needs refresh (refresh 5 minutes before expiry)
   const needsRefresh = Date.now() >= (tokenStore.expiresAt - 5 * 60 * 1000);
-  
   if (needsRefresh && tokenStore.refreshToken) {
     try {
-      console.log('[Jira OAuth] Access token expired, refreshing...');
       const newTokens = await refreshAccessToken(tokenStore.refreshToken);
-      
-      // Update stored tokens
       tokenStore.accessToken = newTokens.access_token;
       tokenStore.refreshToken = newTokens.refresh_token;
       tokenStore.expiresAt = Date.now() + (newTokens.expires_in * 1000);
-      
       jiraTokens.set(storeKey, tokenStore);
-      console.log('[Jira OAuth] Token refreshed and updated');
-      
       return newTokens.access_token;
     } catch (err) {
-      console.error('[Jira OAuth] Token refresh failed:', err);
-      // Token refresh failed - user needs to re-authenticate
       jiraTokens.delete(storeKey);
       return null;
     }
   }
-
   return tokenStore.accessToken;
 }
 
-// Get Jira Cloud ID for user
-export function getCloudId(req: Request): string | null {
-  // FIRST check if user switched to a different site (session.jiraCloudId takes precedence)
-  if (req.session?.jiraCloudId) {
-    return req.session.jiraCloudId;
+// Get Jira Cloud ID for user (tries org DB first)
+export async function getCloudId(req: Request): Promise<string | null> {
+  if (req.session?.jiraCloudId) return req.session.jiraCloudId;
+
+  const orgId = (req.query?.orgId as string) || req.session?.orgId;
+  if (orgId) {
+    try {
+      const db = await import('./db.js');
+      const conn = await db.getJiraConnection(orgId);
+      if (conn) return conn.cloud_id;
+    } catch (e) { /* fallthrough */ }
   }
-  
-  // Fallback to token store's original cloudId
+
   const storeKey = req.session?.jiraStoreKey;
   if (!storeKey) return null;
-  
   const tokenStore = jiraTokens.get(storeKey);
   return tokenStore?.cloudId || null;
 }
 
 // Get user's Jira site info
-export function getSiteInfo(req: Request): { name?: string; url?: string } | null {
+export async function getSiteInfo(req: Request): Promise<{ name?: string; url?: string } | null> {
+  const orgId = (req.query?.orgId as string) || req.session?.orgId;
+  if (orgId) {
+    try {
+      const db = await import('./db.js');
+      const conn = await db.getJiraConnection(orgId);
+      if (conn) return { name: conn.site_name, url: conn.site_url };
+    } catch (e) { /* fallthrough */ }
+  }
+
   const storeKey = req.session?.jiraStoreKey;
   if (!storeKey) return null;
-  
   const tokenStore = jiraTokens.get(storeKey);
   if (!tokenStore) return null;
-  
-  return {
-    name: tokenStore.siteName,
-    url: tokenStore.siteUrl,
-  };
+  return { name: tokenStore.siteName, url: tokenStore.siteUrl };
 }
 
 // Check if user has valid Jira connection
 export function isConnected(req: Request): boolean {
+  // Check session-based indicators
+  if (req.session?.orgId && req.session?.jiraCloudId) return true;
   const storeKey = req.session?.jiraStoreKey;
-  const cloudId = req.session?.jiraCloudId;
-  
-  // PRIMARY: Check if tokens exist in memory store
-  if (storeKey && jiraTokens.has(storeKey)) {
-    console.log('[Jira OAuth] isConnected: TRUE (tokens in memory)');
-    return true;
-  }
-  
-  // FALLBACK: Check if session has Jira credentials saved
-  // This allows connection check to pass even if tokens were cleared from memory
-  if (storeKey && cloudId) {
-    console.log('[Jira OAuth] isConnected: TRUE (session has Jira credentials)');
-    return true;
-  }
-  
-  console.log('[Jira OAuth] isConnected: FALSE', { storeKey, cloudId, hasTokens: storeKey ? jiraTokens.has(storeKey) : false });
+  if (storeKey && jiraTokens.has(storeKey)) return true;
+  if (storeKey && req.session?.jiraCloudId) return true;
   return false;
 }
 
 // Disconnect user's Jira account
-export function disconnect(req: Request): void {
-  const storeKey = req.session?.jiraStoreKey;
-  if (storeKey) {
-    jiraTokens.delete(storeKey);
+export async function disconnect(req: Request): Promise<void> {
+  const orgId = req.session?.orgId;
+  const cloudId = req.session?.jiraCloudId;
+
+  // Remove from DB
+  if (orgId) {
+    try {
+      const db = await import('./db.js');
+      await db.deleteJiraConnection(orgId, cloudId || undefined);
+    } catch (e) { console.warn('[Jira OAuth] DB disconnect failed:', e); }
   }
-  
+
+  // Remove from memory
+  const storeKey = req.session?.jiraStoreKey;
+  if (storeKey) jiraTokens.delete(storeKey);
+
   delete req.session.jiraCloudId;
   delete req.session.jiraUserId;
   delete req.session.jiraStoreKey;
   delete req.session.jiraCodeVerifier;
-  
-  console.log('[Jira OAuth] User disconnected');
+  delete req.session.orgId;
+  console.log('[Jira OAuth] User disconnected (orgId:', orgId, ')');
 }
 
 // Export OAuth handlers
@@ -750,6 +828,7 @@ export const jiraAuth = {
   login,
   callback,
   getAccessToken,
+  getAccessTokenForOrg,
   getCloudId,
   getSiteInfo,
   isConnected,

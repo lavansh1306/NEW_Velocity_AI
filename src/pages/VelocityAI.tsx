@@ -42,6 +42,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { JiraCapacityMap } from '../components/leave-management/JiraCapacityMap';
 import { useJiraData } from '../hooks/useJiraData';
 import { fetchProjectsHybrid, fetchAllIssuesHybrid } from '../lib/jiraDbClient';
+import { setCurrentOrgId } from '../lib/orgContext';
 import { parseCSV } from '../components/ml-model/RecommendationEngine';
 import { Task, EmployeeProfile } from '../components/leave-management/types';
 
@@ -62,6 +63,10 @@ async function fetchJiraStatus() {
     }
 
     const data = await response.json();
+    // Store orgId in localStorage so jiraDbClient can use it
+    if (data.orgId) {
+      setCurrentOrgId(data.orgId);
+    }
     return data.connected ? data : null;
   } catch (error) {
     console.error('Error fetching Jira status:', error instanceof Error ? error.message : error);

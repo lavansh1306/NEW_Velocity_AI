@@ -1,10 +1,28 @@
 // src/api/jira/routes.ts
-// API routes for Jira multi-tenant integration
+// API routes for Jira multi-tenant integration — all data scoped by org_id
 import express, { Request, Response } from 'express';
 import { jiraAuth } from './auth.js';
-import { upsertProjects, upsertIssues, getProjects, getAllProjects, getIssues, getIssuesByProjectKey, getAllIssues, type DBJiraIssue } from './db.js';
+import { upsertProjects, upsertIssues, getProjects, getIssues, getAllIssues, getJiraConnection, findUserOrg, type DBJiraIssue } from './db.js';
+import * as db from './db.js';
 
 const router = express.Router();
+
+// ==== DEBUG: Test DB write (remove in production) ====
+router.get('/test-db-write', async (req: Request, res: Response) => {
+  console.log('[TEST] Testing DB write...');
+  try {
+    const testOrgName = 'Test-Org-' + Date.now();
+    const orgId = await db.createOrganization(testOrgName, null);
+    if (orgId) {
+      res.json({ success: true, message: 'DB write works!', orgId, testOrgName });
+    } else {
+      res.json({ success: false, message: 'createOrganization returned null - check server logs' });
+    }
+  } catch (e) {
+    console.error('[TEST] DB write error:', e);
+    res.json({ success: false, error: e instanceof Error ? e.message : String(e) });
+  }
+});
 
 // Debug middleware - log all requests to this router
 router.use((req, res, next) => {
@@ -19,25 +37,19 @@ router.get('/auth/connect', jiraAuth.login);
 router.get('/auth/callback', jiraAuth.callback);
 
 // Disconnect/logout route
-router.post('/auth/disconnect', (req: Request, res: Response) => {
-  jiraAuth.disconnect(req);
+router.post('/auth/disconnect', async (req: Request, res: Response) => {
+  await jiraAuth.disconnect(req);
   res.json({ success: true, message: 'Jira account disconnected' });
 });
 
 // Check connection status
-router.get('/auth/status', (req: Request, res: Response) => {
+router.get('/auth/status', async (req: Request, res: Response) => {
   console.log('[Jira Auth Status] ==== STATUS CHECK ====');
-  console.log('[Jira Auth Status] Full session:', {
-    sessionID: req.sessionID,
-    jiraStoreKey: req.session?.jiraStoreKey,
-    jiraCloudId: req.session?.jiraCloudId,
-    jiraAccessibleResourcesCount: req.session?.jiraAccessibleResources?.length || 0,
-    allSessionKeys: Object.keys(req.session || {}),
-  });
   
   const connected = jiraAuth.isConnected(req);
-  const siteInfo = jiraAuth.getSiteInfo(req);
+  const siteInfo = await jiraAuth.getSiteInfo(req);
   const availableSites = req.session?.jiraAccessibleResources || [];
+  const orgId = req.session?.orgId || null;
   
   console.log('[Jira Auth Status] Connected:', connected);
   console.log('[Jira Auth Status] Available sites in session:', availableSites.length);
@@ -45,10 +57,10 @@ router.get('/auth/status', (req: Request, res: Response) => {
     console.log('[Jira Auth Status] Sites:', availableSites.map((s: any) => ({ id: s.id, name: s.name })));
   }
   
-  // Ensure response is valid JSON and includes all necessary fields
   const responseData = {
     connected: connected === true,
     site: siteInfo || null,
+    orgId: orgId,
     availableSites: (availableSites || []).map((s: any) => ({ 
       id: s.id || '',
       name: s.name || '',
@@ -117,10 +129,8 @@ router.get('/issues', async (req: Request, res: Response) => {
 
     // Get user's access token and cloudId
     const accessToken = await jiraAuth.getAccessToken(req);
-    const cloudId = jiraAuth.getCloudId(req);
-    
-    console.log('[Jira Issues] accessToken:', accessToken ? 'EXISTS' : 'NULL');
-    console.log('[Jira Issues] cloudId:', cloudId);
+    const cloudId = await jiraAuth.getCloudId(req);
+    const orgId = (req.query.orgId as string) || req.session?.orgId;
     
     if (!accessToken || !cloudId) {
       console.log('[Jira Issues] Not authenticated');
@@ -133,8 +143,19 @@ router.get('/issues', async (req: Request, res: Response) => {
 
     // Fetch issues from Jira Cloud API - use /rest/api/3/search/jql (required endpoint)
     const jql = `project = ${projectKey}`;
-    const fields = 'key,summary,created,duedate,description,priority,status,assignee,issuetype,customfield_10015';
-    const searchUrl = `https://api.atlassian.com/ex/jira/${cloudId}/rest/api/3/search/jql?jql=${encodeURIComponent(jql)}&maxResults=100&fields=${encodeURIComponent(fields)}`;
+    // Request ALL useful fields from Jira
+    const fields = [
+      'key', 'summary', 'description', 'issuetype', 'priority', 'status', 'resolution',
+      'assignee', 'reporter', 'labels', 'components',
+      'timetracking', 'timeoriginalestimate', 'timespent',
+      'created', 'updated', 'resolutiondate', 'duedate',
+      'customfield_10015', // Start date
+      'customfield_10016', // Story points (might differ per Jira instance)
+      'customfield_10014', // Epic Link
+      'customfield_10018', // Sprint
+      'parent', 'project'
+    ].join(',');
+    const searchUrl = `https://api.atlassian.com/ex/jira/${cloudId}/rest/api/3/search/jql?jql=${encodeURIComponent(jql)}&maxResults=100&fields=${encodeURIComponent(fields)}&expand=names`;
     
     console.log('[Jira Issues] Search URL:', searchUrl);
     console.log('[Jira Issues] JQL:', jql);
@@ -165,15 +186,47 @@ router.get('/issues', async (req: Request, res: Response) => {
     const issues = (data.issues || []).map((issue: any) => {
       const fields = issue.fields || {};
       const created = fields.created || null;
+      const updated = fields.updated || null;
       const due = fields.duedate || null;
-      const startDate = fields.customfield_10015 || created || null;  // Use custom start field, fallback to created
+      const resolved = fields.resolutiondate || null;
+      const startDate = fields.customfield_10015 || created || null;
       
-      console.log(`[Jira Issues] Issue ${issue.key}:`, {
-        created,
-        due,
-        startDate,
-        customfield_10015: fields.customfield_10015
-      })
+      // Time tracking
+      const timeTracking = fields.timetracking || {};
+      const originalEstimate = timeTracking.originalEstimate || '';
+      const originalEstimateSeconds = timeTracking.originalEstimateSeconds || fields.timeoriginalestimate || 0;
+      const timeSpent = timeTracking.timeSpent || '';
+      const timeSpentSeconds = timeTracking.timeSpentSeconds || fields.timespent || 0;
+      const remainingEstimate = timeTracking.remainingEstimate || '';
+      const remainingEstimateSeconds = timeTracking.remainingEstimateSeconds || 0;
+      
+      // Labels and components
+      const labels = (fields.labels || []);
+      const components = (fields.components || []).map((c: any) => c.name || c);
+      
+      // Sprint (often in customfield_10018 - extract sprint name)
+      let sprint = '';
+      const sprintField = fields.customfield_10018;
+      if (Array.isArray(sprintField) && sprintField.length > 0) {
+        // Sprint field contains sprint objects with name property
+        sprint = sprintField[sprintField.length - 1]?.name || '';
+      } else if (typeof sprintField === 'string') {
+        // Some instances return sprint as string
+        const match = sprintField.match(/name=([^,\]]+)/);
+        sprint = match ? match[1] : sprintField;
+      }
+      
+      // Story points (customfield_10016 - varies by instance)
+      const storyPoints = fields.customfield_10016 || 0;
+      
+      // Epic link (customfield_10014)
+      const epicKey = fields.customfield_10014 || fields.parent?.key || '';
+      
+      // Parent (for subtasks)
+      const parentKey = fields.parent?.key || '';
+      
+      // Project info
+      const projectName = fields.project?.name || projectKey;
       
       const duration = startDate && due 
         ? Math.ceil((new Date(due).getTime() - new Date(startDate).getTime()) / MS_PER_DAY) 
@@ -186,13 +239,38 @@ router.get('/issues', async (req: Request, res: Response) => {
         description: extractDescription(fields.description),
         priority: fields.priority?.name || "-",
         status: fields.status?.name || "-",
+        resolution: fields.resolution?.name || "",
         assignee: fields.assignee?.displayName || "Unassigned",
+        assigneeEmail: fields.assignee?.emailAddress || "",
+        reporter: fields.reporter?.displayName || "",
+        reporterEmail: fields.reporter?.emailAddress || "",
         team: projectKey,
+        projectName,
+        labels,
+        components,
+        // Time tracking
+        originalEstimate,
+        originalEstimateSeconds,
+        timeSpent,
+        timeSpentSeconds,
+        remainingEstimate,
+        remainingEstimateSeconds,
+        // Dates
         created,
+        updated,
         due,
+        resolved,
         duration,
         start: startDate,
         customfield_10015: fields.customfield_10015 || null,
+        // Hierarchy
+        parentKey,
+        epicKey,
+        epicName: '', // Would need separate API call to get epic name
+        sprint,
+        storyPoints,
+        // Raw fields for debugging
+        rawFields: fields,
       };
     });
 
@@ -203,7 +281,10 @@ router.get('/issues', async (req: Request, res: Response) => {
         summary: issues[0].summary,
         start: issues[0].start,
         due: issues[0].due,
-        created: issues[0].created
+        created: issues[0].created,
+        timeSpent: issues[0].timeSpent,
+        originalEstimate: issues[0].originalEstimate,
+        sprint: issues[0].sprint,
       })
     }
 
@@ -211,23 +292,47 @@ router.get('/issues', async (req: Request, res: Response) => {
     const dbIssues: DBJiraIssue[] = issues.map((iss: any) => ({
       cloud_id: cloudId!,
       project_key: projectKey,
+      project_name: iss.projectName || '',
       issue_key: iss.key,
       issue_type: iss.issueType,
       summary: iss.summary,
       description: iss.description,
       priority: iss.priority,
       status: iss.status,
+      resolution: iss.resolution || '',
       assignee: iss.assignee,
+      assignee_email: iss.assigneeEmail || '',
+      reporter: iss.reporter || '',
+      reporter_email: iss.reporterEmail || '',
       team: iss.team,
+      labels: iss.labels || [],
+      components: iss.components || [],
+      // Time tracking
+      original_estimate: iss.originalEstimate || '',
+      original_estimate_seconds: iss.originalEstimateSeconds || 0,
+      time_spent: iss.timeSpent || '',
+      time_spent_seconds: iss.timeSpentSeconds || 0,
+      remaining_estimate: iss.remainingEstimate || '',
+      remaining_estimate_seconds: iss.remainingEstimateSeconds || 0,
+      // Dates
       start_date: iss.start || null,
       due_date: iss.due || null,
       created_date: iss.created || null,
+      updated_date: iss.updated || null,
+      resolved_date: iss.resolved || null,
       duration: String(iss.duration ?? ''),
       custom_start: iss.customfield_10015 || null,
-      raw_fields: {},
+      // Hierarchy
+      parent_key: iss.parentKey || '',
+      epic_key: iss.epicKey || '',
+      epic_name: iss.epicName || '',
+      sprint: iss.sprint || '',
+      story_points: iss.storyPoints || 0,
+      // Raw
+      raw_fields: iss.rawFields || {},
       fetched_by: req.session?.jiraUserId || null,
     }));
-    upsertIssues(cloudId!, projectKey, dbIssues).catch(err =>
+    if (orgId) upsertIssues(orgId, cloudId!, projectKey, dbIssues).catch(err =>
       console.error('[Jira Issues] DB upsert failed (non-blocking):', err)
     );
 
@@ -248,7 +353,7 @@ router.get('/test-auth', async (req: Request, res: Response) => {
   try {
     console.log('[Jira Test Auth] Testing authentication...');
     const accessToken = await jiraAuth.getAccessToken(req);
-    const cloudId = jiraAuth.getCloudId(req);
+    const cloudId = await jiraAuth.getCloudId(req);
     
     console.log('[Jira Test Auth] accessToken exists:', !!accessToken);
     console.log('[Jira Test Auth] cloudId:', cloudId);
@@ -292,7 +397,8 @@ router.get('/projects', async (req: Request, res: Response) => {
     
     // Get user's access token and cloudId
     const accessToken = await jiraAuth.getAccessToken(req);
-    const cloudId = jiraAuth.getCloudId(req);
+    const cloudId = await jiraAuth.getCloudId(req);
+    const orgId = (req.query.orgId as string) || req.session?.orgId;
     
     console.log('[Jira Projects] accessToken:', accessToken ? 'EXISTS' : 'NULL');
     console.log('[Jira Projects] cloudId:', cloudId);
@@ -361,7 +467,7 @@ router.get('/projects', async (req: Request, res: Response) => {
       category: '',
       fetched_by: req.session?.jiraUserId || null,
     }));
-    upsertProjects(cloudId!, dbProjects).catch(err =>
+    if (orgId) upsertProjects(orgId, cloudId!, dbProjects).catch(err =>
       console.error('[Jira Projects] DB upsert failed (non-blocking):', err)
     );
 
@@ -418,7 +524,7 @@ router.post('/extract-employee-skills', async (req: Request, res: Response) => {
 
         // Get project issues
         const accessToken = await jiraAuth.getAccessToken(req);
-        const cloudId = jiraAuth.getCloudId(req);
+        const cloudId = await jiraAuth.getCloudId(req);
         
         if (!accessToken || !cloudId) {
           console.warn(`[Jira Extract] Missing auth for project ${projectKey}`);
@@ -526,7 +632,7 @@ router.get('/team-members', async (req: Request, res: Response) => {
     console.log('[Jira Team Members] Request received');
     
     const accessToken = await jiraAuth.getAccessToken(req);
-    const cloudId = jiraAuth.getCloudId(req);
+    const cloudId = await jiraAuth.getCloudId(req);
     
     if (!accessToken || !cloudId) {
       return res.status(401).json({ 
@@ -705,10 +811,13 @@ router.post('/save-employee-skills', async (req: Request, res: Response) => {
  */
 router.get('/db/projects', async (req: Request, res: Response) => {
   try {
-    const cloudId = req.query.cloudId as string | undefined;
-    console.log('[Jira DB] GET /db/projects, cloudId:', cloudId || '(all)');
+    const orgId = req.query.orgId as string | undefined;
+    if (!orgId) {
+      return res.status(400).json({ error: 'orgId query parameter is required' });
+    }
+    console.log('[Jira DB] GET /db/projects, orgId:', orgId);
 
-    const projects = cloudId ? await getProjects(cloudId) : await getAllProjects();
+    const projects = await getProjects(orgId);
 
     // Map to the same shape the frontend already expects
     const formatted = projects.map((p) => ({
@@ -734,17 +843,18 @@ router.get('/db/projects', async (req: Request, res: Response) => {
  */
 router.get('/db/issues', async (req: Request, res: Response) => {
   try {
+    const orgId = req.query.orgId as string | undefined;
+    if (!orgId) {
+      return res.status(400).json({ error: 'orgId query parameter is required' });
+    }
     const projectKey = req.query.projectKey as string | undefined;
-    const cloudId = req.query.cloudId as string | undefined;
-    console.log('[Jira DB] GET /db/issues, projectKey:', projectKey, 'cloudId:', cloudId || '(all)');
+    console.log('[Jira DB] GET /db/issues, orgId:', orgId, 'projectKey:', projectKey || '(all)');
 
     let dbIssues: DBJiraIssue[];
-    if (projectKey && cloudId) {
-      dbIssues = await getIssues(cloudId, projectKey);
-    } else if (projectKey) {
-      dbIssues = await getIssuesByProjectKey(projectKey);
+    if (projectKey) {
+      dbIssues = await getIssues(orgId, projectKey);
     } else {
-      dbIssues = await getAllIssues();
+      dbIssues = await getAllIssues(orgId);
     }
 
     // Map to the same shape the frontend expects (matching /issues response)
@@ -779,8 +889,12 @@ router.get('/db/issues', async (req: Request, res: Response) => {
  */
 router.get('/db/all-issues', async (req: Request, res: Response) => {
   try {
-    console.log('[Jira DB] GET /db/all-issues');
-    const dbIssues = await getAllIssues();
+    const orgId = req.query.orgId as string | undefined;
+    if (!orgId) {
+      return res.status(400).json({ error: 'orgId query parameter is required' });
+    }
+    console.log('[Jira DB] GET /db/all-issues, orgId:', orgId);
+    const dbIssues = await getAllIssues(orgId);
 
     const issues = dbIssues.map((i) => ({
       key: i.issue_key,
@@ -807,3 +921,32 @@ router.get('/db/all-issues', async (req: Request, res: Response) => {
 });
 
 export default router;
+
+// New endpoint: get org info for a Supabase user
+router.get('/auth/org', async (req: Request, res: Response) => {
+  try {
+    const supabaseUserId = req.query.userId as string;
+    if (!supabaseUserId) {
+      return res.status(400).json({ error: 'userId query parameter is required' });
+    }
+    const orgInfo = await findUserOrg(supabaseUserId);
+    if (!orgInfo) {
+      return res.json({ org: null });
+    }
+    // Also check if org has a Jira connection
+    const conn = await getJiraConnection(orgInfo.orgId);
+    res.json({
+      org: {
+        id: orgInfo.orgId,
+        name: orgInfo.orgName,
+        role: orgInfo.role,
+        jiraConnected: !!conn,
+        siteName: conn?.site_name || null,
+        siteUrl: conn?.site_url || null,
+      },
+    });
+  } catch (err) {
+    console.error('[Jira Org] Error:', err);
+    res.status(500).json({ error: 'Failed to get org info' });
+  }
+});

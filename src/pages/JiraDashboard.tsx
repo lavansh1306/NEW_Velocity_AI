@@ -7,6 +7,7 @@ import { IssuesTable, GanttChart, ManagerGantt, ManagerSummary } from '@/compone
 import { Issue } from '@/components/jira/types'
 import { apiUrl } from '@/lib/api'
 import { fetchProjectsHybrid, fetchIssuesHybrid, syncProjectFromJira } from '@/lib/jiraDbClient'
+import { setCurrentOrgId } from '@/lib/orgContext'
 import ProjectManagementDashboard from '@/components/projects/ProjectManagementDashboard'
 
 export default function JiraDashboard() {
@@ -34,6 +35,10 @@ export default function JiraDashboard() {
         })
         if (response.ok) {
           const data = await response.json()
+          // Store orgId in localStorage for jiraDbClient
+          if (data.orgId) {
+            setCurrentOrgId(data.orgId)
+          }
           setCurrentSiteId(data.site?.cloudId || null)
           if (data.availableSites && Array.isArray(data.availableSites)) {
             setAvailableSites(data.availableSites)
