@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { IssuesTable, GanttChart, ManagerGantt, ManagerSummary } from '@/components/jira'
 import { Issue } from '@/components/jira/types'
 import { apiUrl } from '@/lib/api'
+import { fetchProjectsHybrid, fetchIssuesHybrid, syncProjectFromJira } from '@/lib/jiraDbClient'
 import ProjectManagementDashboard from '@/components/projects/ProjectManagementDashboard'
 
 export default function JiraDashboard() {
@@ -80,7 +81,8 @@ export default function JiraDashboard() {
 
   const fetchProjectsFromNewSite = async () => {
     try {
-      console.log('[JiraDashboard] Fetching projects from new site');
+      console.log('[JiraDashboard] Fetching projects from new site (API → DB)');
+      // After switching site, we need live API (which writes to DB)
       const url = apiUrl('/api/jira/projects')
       const response = await fetch(url, { credentials: 'include' })
       
@@ -88,10 +90,9 @@ export default function JiraDashboard() {
         const data = await response.json()
         const projects = data.projects || []
         console.log('[JiraDashboard] Fetched projects from new site:', projects.length);
-        setAvailableProjects(projects)
+        setAvailableProjects(projects.map((p: any) => ({ key: p.key, title: p.title || p.name || p.key })))
         setRefreshing(false);
         
-        // Auto-load first project if available
         if (projects.length > 0) {
           const firstProjectKey = projects[0].key
           console.log('[JiraDashboard] Auto-loading first project from new site:', firstProjectKey)
@@ -109,51 +110,31 @@ export default function JiraDashboard() {
 
   const handleFetchProjects = async () => {
     try {
-      const url = apiUrl('/api/jira/projects')
-      const response = await fetch(url, { credentials: 'include' })
-      
-      if (response.ok) {
-        const data = await response.json()
-        const projects = data.projects || []
-        setAvailableProjects(projects)
-      }
+      const { projects } = await fetchProjectsHybrid()
+      setAvailableProjects(projects.map(p => ({ key: p.key, title: p.title })))
     } catch (err) {
       console.error('[JiraDashboard] Error fetching projects:', err)
     }
   }
 
   useEffect(() => {
-    // Auto-fetch available projects on mount
+    // Auto-fetch available projects on mount — DB-first
     const fetchAvailableProjects = async () => {
       try {
-        const url = apiUrl('/api/jira/projects')
-        const response = await fetch(url, { credentials: 'include' })
-        
-        if (response.status === 401) {
-          // Not authenticated - skip auto load
-          console.log('[JiraDashboard] Not authenticated, skipping auto-load')
-          setLoading(false)
+        // Try DB first (no session needed)
+        const { projects, source } = await fetchProjectsHybrid()
+        console.log(`[JiraDashboard] Loaded ${projects.length} projects from ${source}`)
+
+        if (projects.length > 0) {
+          setAvailableProjects(projects.map(p => ({ key: p.key, title: p.title })))
           setProjectsLoaded(true)
-          return
-        }
-        
-        if (response.ok) {
-          const data = await response.json()
-          const projects = data.projects || []
-          console.log('[JiraDashboard] Found projects:', projects.length, projects)
-          setAvailableProjects(projects)
-          setProjectsLoaded(true)
-          
-          // Auto-load first project if available
-          if (projects.length > 0) {
-            const firstProjectKey = projects[0].key
-            console.log('[JiraDashboard] Auto-loading first project:', firstProjectKey)
-            handleSwitchProject(firstProjectKey)
-          } else {
-            setLoading(false)
-          }
+
+          // Auto-load first project
+          const firstProjectKey = projects[0].key
+          console.log('[JiraDashboard] Auto-loading first project:', firstProjectKey)
+          handleSwitchProject(firstProjectKey)
         } else {
-          console.log('[JiraDashboard] Failed to fetch projects, status:', response.status)
+          console.log('[JiraDashboard] No projects found in DB or API')
           setProjectsLoaded(true)
           setLoading(false)
         }
@@ -205,21 +186,11 @@ export default function JiraDashboard() {
 
   const fetchProjectData = async (projectKey: string): Promise<Issue[]> => {
     try {
-      // Add cache-busting timestamp to prevent browser caching 410 responses
-      const url = apiUrl(`/api/jira/issues?projectKey=${projectKey}&_t=${Date.now()}`)
-      console.log('[fetchProjectData] Fetching from:', url)
-      const response = await fetch(url, {
-        credentials: 'include', // Include session cookies
-        cache: 'no-store', // Prevent caching
-      })
-      console.log('[fetchProjectData] Response status:', response.status)
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch project issues: ${response.status}`)
-      }
-      const projectIssues = await response.json()
-      console.log('[fetchProjectData] Received data:', projectIssues)
-      const formattedIssues = (Array.isArray(projectIssues) ? projectIssues : (projectIssues.issues || [])).map((issue: any) => ({
+      console.log('[fetchProjectData] Fetching from DB (hybrid) for:', projectKey)
+      const { issues: rawIssues, source } = await fetchIssuesHybrid(projectKey)
+      console.log(`[fetchProjectData] Got ${rawIssues.length} issues from ${source}`)
+
+      const formattedIssues = rawIssues.map((issue: any) => ({
         key: issue.key || '-',
         issueType: issue.issueType || issue.type || '-',
         summary: issue.summary || '-',
@@ -228,7 +199,6 @@ export default function JiraDashboard() {
         status: issue.status || '-',
         assignee: issue.assignee || 'Unassigned',
         team: projectKey,
-        // prefer customfield_10015 (start date) if present
         start: issue.customfield_10015 || issue.start || null,
         due: issue.due || null,
         duration: issue.duration === undefined ? '' : issue.duration,
@@ -302,7 +272,22 @@ export default function JiraDashboard() {
     setRefreshing(true)
     setError(null)
     try {
-      const formattedIssues = await fetchProjectData(currentProject)
+      // Force a live sync from Jira API (writes to DB), then use that data
+      console.log('[JiraDashboard] Refreshing from live Jira API for:', currentProject)
+      const liveIssues = await syncProjectFromJira(currentProject)
+      const formattedIssues = liveIssues.map((issue: any) => ({
+        key: issue.key || '-',
+        issueType: issue.issueType || '-',
+        summary: issue.summary || '-',
+        description: issue.description || '-',
+        priority: issue.priority || '-',
+        status: issue.status || '-',
+        assignee: issue.assignee || 'Unassigned',
+        team: currentProject,
+        start: issue.customfield_10015 || issue.start || null,
+        due: issue.due || null,
+        duration: issue.duration === undefined ? '' : issue.duration,
+      }))
       setAllIssues(formattedIssues)
       const newAssignees = [...new Set(formattedIssues.map(i => i.assignee))].sort()
       setAssignees(newAssignees)

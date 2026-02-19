@@ -8,6 +8,7 @@ import { loadProjects as fetchProjects, loadMetrics, type ProjectItem } from '@/
 // apiUrl no longer used in this page
 import { useToast } from '@/contexts/ToastContext';
 import { AlertCircle, TrendingUp, Calendar, Zap, BarChart3 } from 'lucide-react';
+import { fetchIssuesHybrid } from '@/lib/jiraDbClient';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface ProjectsProps {
@@ -38,11 +39,8 @@ interface ProjectMetrics {
 // Fetch project issues and calculate metrics
 const fetchProjectMetrics = async (projectId: string): Promise<ProjectMetrics> => {
   try {
-    const response = await fetch(`/api/jira/issues?projectKey=${encodeURIComponent(projectId)}`);
-    if (!response.ok) throw new Error('Failed to fetch issues');
-    
-    const data = await response.json();
-    const issues: JiraIssue[] = data.issues || [];
+    const { issues: rawIssues } = await fetchIssuesHybrid(projectId);
+    const issues: JiraIssue[] = rawIssues as unknown as JiraIssue[];
 
     if (issues.length === 0) {
       return {

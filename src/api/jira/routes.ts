@@ -2,6 +2,7 @@
 // API routes for Jira multi-tenant integration
 import express, { Request, Response } from 'express';
 import { jiraAuth } from './auth.js';
+import { upsertProjects, upsertIssues, getProjects, getAllProjects, getIssues, getIssuesByProjectKey, getAllIssues, type DBJiraIssue } from './db.js';
 
 const router = express.Router();
 
@@ -205,6 +206,31 @@ router.get('/issues', async (req: Request, res: Response) => {
         created: issues[0].created
       })
     }
+
+    // Persist issues to Supabase DB (fire-and-forget, don't block response)
+    const dbIssues: DBJiraIssue[] = issues.map((iss: any) => ({
+      cloud_id: cloudId!,
+      project_key: projectKey,
+      issue_key: iss.key,
+      issue_type: iss.issueType,
+      summary: iss.summary,
+      description: iss.description,
+      priority: iss.priority,
+      status: iss.status,
+      assignee: iss.assignee,
+      team: iss.team,
+      start_date: iss.start || null,
+      due_date: iss.due || null,
+      created_date: iss.created || null,
+      duration: String(iss.duration ?? ''),
+      custom_start: iss.customfield_10015 || null,
+      raw_fields: {},
+      fetched_by: req.session?.jiraUserId || null,
+    }));
+    upsertIssues(cloudId!, projectKey, dbIssues).catch(err =>
+      console.error('[Jira Issues] DB upsert failed (non-blocking):', err)
+    );
+
     console.log('[Jira Issues] Sending response...');
     res.json({ issues });
     console.log('[Jira Issues] Response sent!');
@@ -323,6 +349,22 @@ router.get('/projects', async (req: Request, res: Response) => {
     }));
 
     console.log('[Jira Projects] Formatted projects:', projects.length);
+
+    // Persist projects to Supabase DB (fire-and-forget)
+    const dbProjects = projects.map((p: any) => ({
+      jira_project_id: String(p.id || ''),
+      cloud_id: cloudId!,
+      key: p.key,
+      title: p.title || '',
+      description: typeof p.description === 'string' ? p.description : '',
+      avatar: p.avatar || '',
+      category: '',
+      fetched_by: req.session?.jiraUserId || null,
+    }));
+    upsertProjects(cloudId!, dbProjects).catch(err =>
+      console.error('[Jira Projects] DB upsert failed (non-blocking):', err)
+    );
+
     console.log('[Jira Projects] Sending response...');
     res.json({ projects });
     console.log('[Jira Projects] Response sent!');
@@ -648,6 +690,119 @@ router.post('/save-employee-skills', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('[Jira Save] Error saving employee skills:', error);
     res.status(500).json({ error: 'Failed to save employee skills' });
+  }
+});
+
+// ============================================================
+// DB-read endpoints — frontend reads Jira data from Supabase
+// These do NOT require an active Jira session/cookie.
+// ============================================================
+
+/**
+ * GET /db/projects
+ * Returns all Jira projects stored in DB.
+ * Optional query: ?cloudId=xxx to filter by site.
+ */
+router.get('/db/projects', async (req: Request, res: Response) => {
+  try {
+    const cloudId = req.query.cloudId as string | undefined;
+    console.log('[Jira DB] GET /db/projects, cloudId:', cloudId || '(all)');
+
+    const projects = cloudId ? await getProjects(cloudId) : await getAllProjects();
+
+    // Map to the same shape the frontend already expects
+    const formatted = projects.map((p) => ({
+      id: p.jira_project_id,
+      key: p.key,
+      title: p.title,
+      description: p.description,
+      avatar: p.avatar,
+    }));
+
+    res.json({ projects: formatted, source: 'database' });
+  } catch (err) {
+    console.error('[Jira DB] Error reading projects:', err);
+    res.status(500).json({ error: 'Failed to read projects from database' });
+  }
+});
+
+/**
+ * GET /db/issues
+ * Returns Jira issues from DB.
+ * Query: ?projectKey=PROJ  (required)
+ *        ?cloudId=xxx      (optional — if omitted, returns across all clouds)
+ */
+router.get('/db/issues', async (req: Request, res: Response) => {
+  try {
+    const projectKey = req.query.projectKey as string | undefined;
+    const cloudId = req.query.cloudId as string | undefined;
+    console.log('[Jira DB] GET /db/issues, projectKey:', projectKey, 'cloudId:', cloudId || '(all)');
+
+    let dbIssues: DBJiraIssue[];
+    if (projectKey && cloudId) {
+      dbIssues = await getIssues(cloudId, projectKey);
+    } else if (projectKey) {
+      dbIssues = await getIssuesByProjectKey(projectKey);
+    } else {
+      dbIssues = await getAllIssues();
+    }
+
+    // Map to the same shape the frontend expects (matching /issues response)
+    const issues = dbIssues.map((i) => ({
+      key: i.issue_key,
+      issueType: i.issue_type,
+      summary: i.summary,
+      description: i.description,
+      priority: i.priority,
+      status: i.status,
+      assignee: i.assignee,
+      team: i.team || i.project_key,
+      created: i.created_date,
+      due: i.due_date,
+      duration: i.duration,
+      start: i.start_date,
+      customfield_10015: i.custom_start,
+      project_key: i.project_key,
+    }));
+
+    res.json({ issues, source: 'database' });
+  } catch (err) {
+    console.error('[Jira DB] Error reading issues:', err);
+    res.status(500).json({ error: 'Failed to read issues from database' });
+  }
+});
+
+/**
+ * GET /db/all-issues
+ * Returns ALL issues across all projects from DB. 
+ * Used by the useJiraData hook and dataService.
+ */
+router.get('/db/all-issues', async (req: Request, res: Response) => {
+  try {
+    console.log('[Jira DB] GET /db/all-issues');
+    const dbIssues = await getAllIssues();
+
+    const issues = dbIssues.map((i) => ({
+      key: i.issue_key,
+      issueType: i.issue_type,
+      summary: i.summary,
+      description: i.description,
+      priority: i.priority,
+      status: i.status,
+      assignee: i.assignee,
+      team: i.team || i.project_key,
+      created: i.created_date,
+      due: i.due_date,
+      duration: i.duration,
+      start: i.start_date,
+      customfield_10015: i.custom_start,
+      project_key: i.project_key,
+    }));
+
+    res.json({ issues, source: 'database' });
+  } catch (err) {
+    console.error('[Jira DB] Error reading all issues:', err);
+    res.status(500).json({ error: 'Failed to read issues from database' });
   }
 });
 

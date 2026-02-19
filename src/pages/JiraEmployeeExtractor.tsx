@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Loader2, Users, CheckCircle, AlertCircle, ExternalLink } from 'lucide-react'
 import { apiUrl } from '@/lib/api'
+import { fetchProjectsHybrid } from '@/lib/jiraDbClient'
 import { useToast } from '@/hooks/use-toast'
 
 interface JiraSite {
@@ -92,13 +93,10 @@ export default function JiraEmployeeExtractor() {
 
   const fetchProjects = async () => {
     try {
-      const response = await fetch(apiUrl('/api/jira/projects'), {
-        credentials: 'include'
-      })
-      if (response.ok) {
-        const data = await response.json()
-        setAvailableProjects(data.projects || [])
-      }
+      // DB-first: try Supabase, fall back to API
+      const { projects, source } = await fetchProjectsHybrid()
+      console.log(`[JiraEmployeeExtractor] Loaded ${projects.length} projects from ${source}`)
+      setAvailableProjects(projects.map(p => ({ key: p.key, title: p.title, id: p.id })))
     } catch (error) {
       console.error('Error fetching projects:', error)
       toast({

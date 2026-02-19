@@ -23,6 +23,7 @@ import LeaveApprovalAgent from '../leave-approval/LeaveApprovalAgent';
 
 // FIX: Import 'fetchRawCSV' to get the actual Task data, not the ML Summary
 import { fetchRawCSV } from '../ml-model/RecommendationEngine';
+import { fetchProjectsHybrid, fetchIssuesHybrid } from '@/lib/jiraDbClient';
 
 // --- JIRA INTEGRATION HELPERS ---
 interface JiraProjectData {
@@ -47,13 +48,8 @@ const checkJiraConnectionForLeaves = async (): Promise<boolean> => {
 
 const fetchJiraProjectsForLeaves = async (): Promise<any[]> => {
   try {
-    const response = await fetch('/api/jira/projects', { credentials: 'include' });
-    if (response.ok) {
-      const data = await response.json();
-      return data.projects || [];
-    }
-    console.warn('[Jira Leave] Failed to fetch projects:', response.status);
-    return [];
+    const { projects } = await fetchProjectsHybrid();
+    return projects;
   } catch (error) {
     console.error('[Jira Leave] Error fetching projects:', error);
     return [];
@@ -97,13 +93,7 @@ const fetchJiraLeaveAndTaskData = async (): Promise<JiraProjectData> => {
 
     for (const project of jiraProjects) {
       try {
-        const issuesResponse = await fetch(`/api/jira/issues?projectKey=${encodeURIComponent(project.key)}`);
-        if (!issuesResponse.ok) {
-          continue;
-        }
-
-        const issuesData = await issuesResponse.json();
-        const issues = issuesData.issues || [];
+        const { issues } = await fetchIssuesHybrid(project.key);
 
         issues.forEach((issue: any, idx: number) => {
           // Create task from issue - extract Jira dates
@@ -150,10 +140,8 @@ const fetchJiraLeaveAndTaskData = async (): Promise<JiraProjectData> => {
     // Try to fetch leave-related data (look for issues with "Leave" label)
     // Note: This requires a Leave issue type or custom label in Jira
     try {
-      const leaveIssuesResponse = await fetch('/api/jira/issues?projectKey=LEAVE', { credentials: 'include' });
-      if (leaveIssuesResponse.ok) {
-        const leaveData = await leaveIssuesResponse.json();
-        const leaveIssues = leaveData.issues || [];
+      const { issues: leaveIssues } = await fetchIssuesHybrid('LEAVE');
+      if (leaveIssues.length > 0) {
         
         result.leaves = leaveIssues.map((issue: any, idx: number) => ({
           id: idx,

@@ -10,6 +10,7 @@ import {
   SelectTrigger, 
   SelectValue 
 } from '../ui/select';
+import { fetchProjectsHybrid, fetchIssuesHybrid } from '@/lib/jiraDbClient';
 
 interface JiraIssue {
   key: string;
@@ -44,12 +45,8 @@ const checkJiraConnection = async (): Promise<boolean> => {
 
 const fetchJiraProjects = async (): Promise<JiraProject[]> => {
   try {
-    const response = await fetch('/api/jira/projects', { credentials: 'include' });
-    if (response.ok) {
-      const data = await response.json();
-      return data.projects || [];
-    }
-    return [];
+    const { projects } = await fetchProjectsHybrid();
+    return projects as unknown as JiraProject[];
   } catch (error) {
     console.error('[SmartProgress] Error fetching projects:', error);
     return [];
@@ -61,12 +58,8 @@ const fetchJiraIssuesForProjects = async (projects: JiraProject[]): Promise<Jira
   
   for (const project of projects) {
     try {
-      const response = await fetch(`/api/jira/issues?projectKey=${encodeURIComponent(project.key)}`);
-      if (response.ok) {
-        const data = await response.json();
-        const issues = data.issues || [];
-        allIssues.push(...issues);
-      }
+      const { issues } = await fetchIssuesHybrid(project.key);
+      allIssues.push(...(issues as unknown as JiraIssue[]));
     } catch (error) {
       console.error(`[SmartProgress] Error fetching issues for ${project.key}:`, error);
     }
