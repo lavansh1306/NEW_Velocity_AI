@@ -106,7 +106,7 @@ export default function ProjectAnalytics() {
   }, [id]);
 
   const handleReturn = () => {
-    const returnPage = localStorage.getItem('returnPage') || '/projects';
+    const returnPage = localStorage.getItem('returnPage') || '/velocity-ai';
     localStorage.removeItem('returnPage');
     navigate(returnPage);
   };
