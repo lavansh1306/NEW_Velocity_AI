@@ -12,7 +12,7 @@ Your Velocity AI dashboard now displays **real Jira backend data** in a beautifu
 
 ### Features
 
-✅ **KPI Cards** - Shows real metrics from Jira:
+✅ **KPI Cards** - Shows real metrics from Jir
 - Active Projects (count of Jirrojects)
 - Team Utilization % (calculated from issue durations)
 - Available Capacity (in hours)
