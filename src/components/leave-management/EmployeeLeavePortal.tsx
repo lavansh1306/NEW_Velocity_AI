@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { AlertCircle, Send, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
+import { AlertCircle, Send, ChevronLeft, ChevronRight, CalendarDays, Plus, Trash2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Task, EmployeeProfile } from './types';
 
@@ -43,9 +43,11 @@ export function EmployeeLeavePortal({
     );
     return matchingEmployee?.name || employees[0]?.name || currentUserEmail;
   });
-  const [selectedLeaveDate, setSelectedLeaveDate] = useState<string>('');
+  const [startLeaveDate, setStartLeaveDate] = useState<string>('');
+  const [endLeaveDate, setEndLeaveDate] = useState<string>('');
   const [leaveReason, setLeaveReason] = useState<string>('');
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [pendingLeaveRanges, setPendingLeaveRanges] = useState<Array<{start: string, end: string}>>([]);
 
   // Get all tasks by employee
   const activeTasks = useMemo(() => {
@@ -134,12 +136,14 @@ export function EmployeeLeavePortal({
     return { tasks: tasksOnDay, color: selectedEmpColor };
   };
 
-  // Get selected employee's tasks on leave date
-  const tasksOnLeaveDate = useMemo(() => {
-    if (!selectedLeaveDate) return [];
+  // Get affecting tasks for date range
+  const tasksInLeaveRange = useMemo(() => {
+    if (!startLeaveDate || !endLeaveDate) return [];
 
-    const leaveDate = new Date(selectedLeaveDate);
-    leaveDate.setHours(0, 0, 0, 0);
+    const rangeStart = new Date(startLeaveDate);
+    const rangeEnd = new Date(endLeaveDate);
+    rangeStart.setHours(0, 0, 0, 0);
+    rangeEnd.setHours(23, 59, 59, 999);
 
     return userTasks.filter(task => {
       let taskStart: Date;
@@ -166,30 +170,104 @@ export function EmployeeLeavePortal({
         taskEnd.setHours(23, 59, 59, 999);
       }
 
-      return leaveDate >= taskStart && leaveDate <= taskEnd;
+      // Check if task overlaps with leave range
+      return taskStart <= rangeEnd && taskEnd >= rangeStart;
     });
-  }, [selectedLeaveDate, userTasks, currentMonth]);
+  }, [startLeaveDate, endLeaveDate, userTasks, currentMonth]);
 
+  // Get selected employee's tasks on leave date (for backward compatibility)
+  const tasksOnLeaveDate = useMemo(() => {
+    if (!startLeaveDate) return [];
+    return tasksInLeaveRange;
+  }, [startLeaveDate, tasksInLeaveRange]);
+
+  // Check if a date is in the selected range
+  const isDateInRange = (day: number) => {
+    if (!startLeaveDate || !endLeaveDate) return false;
+    const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+    const start = new Date(startLeaveDate);
+    const end = new Date(endLeaveDate);
+    return date >= start && date <= end;
+  };
+
+  // Handle date range selection
+  const handleDateClick = (day: number) => {
+    const clickedDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+    const dateStr = clickedDate.toISOString().split('T')[0];
+    
+    if (!startLeaveDate) {
+      setStartLeaveDate(dateStr);
+      setEndLeaveDate(dateStr);
+    } else if (!endLeaveDate || dateStr < startLeaveDate) {
+      setStartLeaveDate(dateStr);
+      setEndLeaveDate(startLeaveDate);
+    } else if (dateStr === startLeaveDate && dateStr === endLeaveDate) {
+      setStartLeaveDate('');
+      setEndLeaveDate('');
+    } else {
+      setEndLeaveDate(dateStr);
+    }
+  };
+
+  const handleAddLeaveToQueue = () => {
+    if (!startLeaveDate || !endLeaveDate || !leaveReason) {
+      alert('Please select dates and provide a reason');
+      return;
+    }
+
+    setPendingLeaveRanges(prev => [...prev, {start: startLeaveDate, end: endLeaveDate}]);
+    setStartLeaveDate('');
+    setEndLeaveDate('');
+    setLeaveReason('');
+  };
+
+  const handleRemoveLeaveRange = (index: number) => {
+    setPendingLeaveRanges(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSubmitAllLeaves = () => {
+    if (pendingLeaveRanges.length === 0) {
+      alert('Please add at least one leave request');
+      return;
+    }
+
+    pendingLeaveRanges.forEach(range => {
+      onLeaveRequest({
+        employeeName: selectedEmployee,
+        startDate: range.start,
+        endDate: range.end,
+        reason: leaveReason,
+        affectedTasks: tasksOnLeaveDate,
+        project: 'All',
+      });
+    });
+
+    setPendingLeaveRanges([]);
+    setLeaveReason('');
+  };
+
+  // Legacy single date submit
   const totalHoursAffected = tasksOnLeaveDate.reduce((sum, task) => sum + task.hours, 0);
 
   const handleSubmitLeave = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedLeaveDate || !leaveReason) {
+    if (!startLeaveDate || !leaveReason) {
       alert('Please select a date and provide a reason');
       return;
     }
 
     onLeaveRequest({
       employeeName: selectedEmployee,
-      startDate: selectedLeaveDate,
-      endDate: selectedLeaveDate,
+      startDate: startLeaveDate,
+      endDate: endLeaveDate || startLeaveDate,
       reason: leaveReason,
       affectedTasks: tasksOnLeaveDate,
       project: 'All',
     });
 
     setLeaveReason('');
-    setSelectedLeaveDate('');
+    setStartLeaveDate('');
+    setEndLeaveDate('');
   };
 
   const handlePrevMonth = () => {
@@ -262,7 +340,9 @@ export function EmployeeLeavePortal({
               }
 
               const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-              const isSelected = selectedLeaveDate === dateStr;
+              const isInRange = isDateInRange(day);
+              const isRangeStart = dateStr === startLeaveDate;
+              const isRangeEnd = dateStr === endLeaveDate;
               const dayTasksData = getTasksForDay(day);
               const dayTasks = dayTasksData.tasks;
               const isToday = new Date().toDateString() === new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day).toDateString();
@@ -272,18 +352,20 @@ export function EmployeeLeavePortal({
               return (
                 <button
                   key={day}
-                  onClick={() => setSelectedLeaveDate(dateStr)}
+                  onClick={() => handleDateClick(day)}
                   className={`h-24 rounded-lg transition-all relative group flex flex-col items-center justify-start p-2 border hover:scale-105 transform cursor-pointer ${
-                    isSelected
+                    isRangeStart || isRangeEnd
                       ? 'bg-blue-600 text-white border-blue-700 shadow-md'
+                      : isInRange
+                      ? 'bg-blue-200 text-gray-900 border-blue-400 shadow-sm'
                       : isToday
-                      ? 'bg-blue-50 border-blue-400 shadow-sm'
+                      ? 'bg-amber-50 border-amber-400 shadow-sm'
                       : isWeekend
                       ? 'bg-gray-50 border-gray-300 text-gray-400'
                       : 'bg-white border-gray-200 hover:border-blue-400'
                   }`}
                 >
-                  <span className={`text-lg font-light mb-1 ${isSelected ? 'text-white' : isWeekend ? 'text-gray-400' : 'text-gray-700'}`}>
+                  <span className={`text-lg font-light mb-1 ${(isRangeStart || isRangeEnd) ? 'text-white' : isInRange ? 'text-blue-900' : isWeekend ? 'text-gray-400' : 'text-gray-700'}`}>
                     {day}
                   </span>
                   
@@ -293,7 +375,7 @@ export function EmployeeLeavePortal({
                       <>
                         <div 
                           className={`w-3 h-3 rounded-full ${
-                            isSelected ? 'bg-yellow-300' : dayTasksData.color.badge
+                            (isRangeStart || isRangeEnd) ? 'bg-yellow-300' : isInRange ? 'bg-yellow-400' : dayTasksData.color.badge
                           }`}
                           title={selectedEmployee}
                         />
@@ -302,12 +384,12 @@ export function EmployeeLeavePortal({
                   </div>
 
                   {dayTasks.length > 0 && (
-                    <span className={`text-[10px] font-light mt-auto ${isSelected ? 'text-blue-200' : 'text-gray-600'}`}>
+                    <span className={`text-[10px] font-light mt-auto ${(isRangeStart || isRangeEnd || isInRange) ? 'text-blue-200' : 'text-gray-600'}`}>
                       {dayTasks.length} task{dayTasks.length !== 1 ? 's' : ''}
                     </span>
                   )}
 
-                  {isToday && !isSelected && (
+                  {isToday && !(isRangeStart || isRangeEnd || isInRange) && (
                     <span className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full"></span>
                   )}
                 </button>
@@ -318,105 +400,153 @@ export function EmployeeLeavePortal({
       </div>
 
       {/* Selected Date Tasks and Form */}
-      <div className="grid md:grid-cols-2 gap-6">
-        {/* Tasks on Selected Date */}
+      <div className="grid md:grid-cols-3 gap-6">
+        {/* Tasks on Selected Range */}
         <div className="space-y-3">
           <h3 className="text-lg font-light text-gray-900">
-            {selectedLeaveDate ? `${selectedEmployee}'s Tasks` : 'Select a Date'}
+            {startLeaveDate ? `Tasks in Range` : 'Select Dates'}
           </h3>
-          <div className="bg-white border border-gray-100 rounded-2xl p-8 h-[300px] overflow-y-auto shadow-sm">
-            {selectedLeaveDate ? (
+          <div className="bg-white border border-gray-100 rounded-2xl p-6 h-[300px] overflow-y-auto shadow-sm">
+            {startLeaveDate ? (
               tasksOnLeaveDate.length > 0 ? (
                 <div className="space-y-3">
-                  {tasksOnLeaveDate.map((task) => (
+                  {tasksOnLeaveDate.slice(0, 5).map((task) => (
                     <div key={task.id} className="p-3 bg-gray-50 border-l-4 border-blue-600 rounded-lg">
-                      <p className="font-light text-gray-900 text-sm mb-1">{task.taskName}</p>
-                      <div className="flex items-center gap-3 text-xs">
-                        <span className="px-2 py-1 bg-blue-100 text-blue-900 rounded-full font-light">
+                      <p className="font-light text-gray-900 text-sm mb-1">{task.taskName.substring(0, 40)}</p>
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="px-2 py-1 bg-blue-100 text-blue-900 rounded font-light">
                           {task.projectName}
                         </span>
-                        <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded-full font-light">
+                        <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded font-light">
                           {task.hours}h
                         </span>
                       </div>
                     </div>
                   ))}
+                  {tasksOnLeaveDate.length > 5 && (
+                    <p className="text-xs text-gray-500 text-center py-2">+{tasksOnLeaveDate.length - 5} more tasks</p>
+                  )}
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-gray-500">
-                  <AlertCircle className="w-12 h-12 text-gray-300 mb-3" />
-                  <p className="text-sm">No tasks on this date</p>
+                  <AlertCircle className="w-8 h-8 text-gray-300 mb-2" />
+                  <p className="text-xs">No tasks in range</p>
                 </div>
               )
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-gray-400">
-                <CalendarDays className="w-12 h-12 text-gray-300 mb-3" />
-                <p className="text-sm">Pick a date from the calendar</p>
+                <CalendarDays className="w-8 h-8 text-gray-300 mb-2" />
+                <p className="text-xs">Click dates to select range</p>
               </div>
             )}
           </div>
         </div>
 
         {/* Leave Request Form */}
-        <form onSubmit={handleSubmitLeave} className="space-y-4">
-          <h3 className="text-lg font-light text-gray-900">Leave Request</h3>
+        <div className="space-y-4">
+          <h3 className="text-lg font-light text-gray-900">New Leave Request</h3>
           
-          <div className="space-y-3">
-            <label className="block text-sm font-light text-gray-700">
-              📝 Reason for Leave
-            </label>
-            <textarea
-              value={leaveReason}
-              onChange={(e) => setLeaveReason(e.target.value)}
-              placeholder="e.g., Medical appointment, Personal event..."
-              className="w-full h-24 px-4 py-3 border border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none text-sm resize-none font-light"
-            />
-          </div>
-
-          {/* Impact Summary */}
-          <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6 space-y-3">
-            <h4 className="font-light text-gray-900 text-sm">Impact Summary</h4>
+          <div className="space-y-3 bg-white border border-gray-100 rounded-2xl p-6">
+            {/* Date Range Display */}
             <div className="space-y-2 text-sm">
+              <div>
+                <label className="text-xs font-light text-gray-600 uppercase">Start Date</label>
+                <p className="font-light text-gray-900">
+                  {startLeaveDate ? new Date(startLeaveDate).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : 'Not set'}
+                </p>
+              </div>
+              <div>
+                <label className="text-xs font-light text-gray-600 uppercase">End Date</label>
+                <p className="font-light text-gray-900">
+                  {endLeaveDate ? new Date(endLeaveDate).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : 'Not set'}
+                </p>
+              </div>
+            </div>
+
+            <div className="border-t pt-3">
+              <label className="block text-xs font-light text-gray-600 uppercase mb-2">
+                📝 Reason
+              </label>
+              <textarea
+                value={leaveReason}
+                onChange={(e) => setLeaveReason(e.target.value)}
+                placeholder="Medical, vacation, personal..."
+                className="w-full h-20 px-3 py-2 border border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none text-sm resize-none font-light"
+              />
+            </div>
+
+            {/* Impact Summary */}
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-2 text-xs">
               <div className="flex justify-between">
-                <span className="text-gray-700">Tasks Affected:</span>
+                <span className="text-gray-600">Tasks Affected:</span>
                 <span className="font-light text-gray-900">{tasksOnLeaveDate.length}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-700">Hours Lost:</span>
+                <span className="text-gray-600">Hours Lost:</span>
                 <span className="font-light text-gray-900">{totalHoursAffected}h</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-700">Leave Date:</span>
-                <span className="font-light text-gray-900">
-                  {selectedLeaveDate ? new Date(selectedLeaveDate).toLocaleDateString() : 'Not set'}
-                </span>
-              </div>
             </div>
+
+            {/* Add to Queue Button */}
+            <Button
+              type="button"
+              onClick={handleAddLeaveToQueue}
+              disabled={!startLeaveDate || !endLeaveDate || !leaveReason}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white border-0 gap-2 disabled:opacity-50 disabled:cursor-not-allowed font-light"
+            >
+              <Plus className="w-4 h-4" />
+              Add to Queue
+            </Button>
+          </div>
+        </div>
+
+        {/* Queued Leaves */}
+        <div className="space-y-3">
+          <h3 className="text-lg font-light text-gray-900">Queued Requests ({pendingLeaveRanges.length})</h3>
+          
+          <div className="bg-white border border-gray-100 rounded-2xl p-6 h-[300px] overflow-y-auto shadow-sm space-y-3">
+            {pendingLeaveRanges.length > 0 ? (
+              <>
+                {pendingLeaveRanges.map((range, idx) => (
+                  <div key={idx} className="p-3 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg">
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div>
+                        <p className="text-xs font-light text-gray-600 uppercase">Leave {idx + 1}</p>
+                        <p className="text-sm font-light text-gray-900">
+                          {new Date(range.start).toLocaleDateString('en-US', {month: 'short', day: 'numeric'})} → {new Date(range.end).toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveLeaveRange(idx)}
+                        className="text-red-500 hover:bg-red-50 p-1"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
+                    <p className="text-xs text-gray-600 line-clamp-2">{leaveReason}</p>
+                  </div>
+                ))}
+              </>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full text-gray-500">
+                <p className="text-xs">No queued requests yet</p>
+              </div>
+            )}
           </div>
 
-          {/* Submit Button */}
-          <div className="flex gap-3 pt-4">
-            <Button 
-              variant="outline" 
-              type="button" 
-              className="flex-1 border border-gray-300 hover:bg-gray-50 font-light"
-              onClick={() => {
-                setLeaveReason('');
-                setSelectedLeaveDate('');
-              }}
-            >
-              Clear
-            </Button>
+          {/* Submit All Button */}
+          {pendingLeaveRanges.length > 0 && (
             <Button
-              type="submit"
-              disabled={!selectedLeaveDate || !leaveReason}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white border-0 gap-2 disabled:opacity-50 disabled:cursor-not-allowed font-light"
+              onClick={handleSubmitAllLeaves}
+              className="w-full bg-green-600 hover:bg-green-700 text-white border-0 gap-2 font-light"
             >
               <Send className="w-4 h-4" />
-              Submit Leave
+              Submit All ({pendingLeaveRanges.length})
             </Button>
-          </div>
-        </form>
+          )}
+        </div>
       </div>
     </div>
   );
