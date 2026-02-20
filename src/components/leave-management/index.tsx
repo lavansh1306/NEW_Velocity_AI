@@ -195,6 +195,12 @@ export default function LeaveManagementTab() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [predictions, setPredictions] = useState<any[]>([]);
 
+  // --- EFFECT: Update capacity when leaves change ---
+  useEffect(() => {
+    console.log('[LeaveManagement] Leaves updated:', leaves.filter(l => l.status === 'Approved').map(l => `${l.name}: ${l.startDate}`));
+    // Dependency on leaves ensures CapacityAnalysis re-renders with updated leave data
+  }, [leaves]);
+
   // --- 1. LOAD DATA FROM JIRA OR CSV ---
   useEffect(() => {
     const fetchData = async () => {
@@ -410,11 +416,17 @@ export default function LeaveManagementTab() {
 
   const handleApplyLeave = (request: Omit<LeaveRequest, 'id' | 'status'>) => {
     const newLeave: LeaveRequest = {
-      id: Date.now(),
+      id: Date.now() + Math.random(), // Ensure unique IDs for multiple rapid requests
       ...request,
       status: 'Pending'
     };
     setLeaves(prev => [newLeave, ...prev]);
+    
+    // Show notification
+    toast({
+      title: "✓ Leave Request Submitted",
+      description: `${request.name}'s leave from ${new Date(request.startDate).toLocaleDateString()} has been submitted for approval.`,
+    });
   };
 
   // Handle leave request from Employee Portal
@@ -446,12 +458,13 @@ export default function LeaveManagementTab() {
   const handleApproveLeave = (leave: LeaveRequest) => {
     console.log('=== APPROVAL TRIGGERED ===');
     console.log('Leave being approved:', leave);
+    console.log('Before approval - leaves:', leaves);
     setLeaves(prev => {
       const updated = prev.map(l => l.id === leave.id ? { ...l, status: 'Approved' } : l);
-      console.log('Updated leaves array:', updated);
-      seterUpdateCount(leaveUpdateCount + 1);
+      console.log('After approval - updated leaves:', updated);
       return updated;
     });
+    setLeaveUpdateCount(leaveUpdateCount + 1);
     
     // Show success notification
     toast({
@@ -649,20 +662,27 @@ export default function LeaveManagementTab() {
           </div>
 
           {/* Team Capacity Check */}
-          <CapacityAnalysis 
-            employees={employees}
-            approvedLeaves={leaves.filter(l => l.status === 'Approved')}
-            onRefresh={() => {
-              // Trigger refresh of data if needed
-              window.location.reload();
-            }}
-          />
+          <div key={leaveUpdateCount} className="w-full">
+            <CapacityAnalysis 
+              employees={employees}
+              approvedLeaves={leaves.filter(l => l.status === 'Approved')}
+              onRefresh={() => {
+                // Trigger refresh of data if needed
+                window.location.reload();
+              }}
+            />
+          </div>
         </div>
       )}
 
       {/* Main Views */}
       {activePersona === 'employee' && (
-        <div className="animate-in fade-in slide-in-from-left-4 duration-500">
+        <div className="animate-in fade-in slide-in-from-left-4 duration-500 space-y-4">
+          {/* DEBUG: Show employee view is rendering */}
+          <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg text-xs text-blue-700">
+            ✓ Employee View Loaded | Tasks: {tasks.length} | Current User: {currentUser}
+          </div>
+          
           {tasks.length > 0 ? (
             <EmployeeLeavePortal
               tasks={tasks}

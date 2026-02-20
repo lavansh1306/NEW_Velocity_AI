@@ -64,13 +64,8 @@ export default function VeloHeader({ onSecurityAuditClick }: VeloHeaderProps) {
             </div>
           </div>
 
-          {/* Right: Status + User Profile */}
+          {/* Right: User Profile */}
           <div className="flex items-center gap-2 sm:gap-3 ml-auto">
-            <div className="hidden sm:flex items-center gap-2 bg-green-50 px-2 sm:px-3 py-1 sm:py-2 rounded-xl velo-status-badge">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="text-xs sm:text-sm font-light text-green-700">All Systems Operational</span>
-            </div>
-
             {/* User Profile / Logout */}
             <UserProfile />
           </div>

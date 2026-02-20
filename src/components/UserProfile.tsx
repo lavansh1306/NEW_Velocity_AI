@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, User, Mail } from 'lucide-react';
+import { LogOut, User, Mail, FileText } from 'lucide-react';
 import { apiUrl } from '@/lib/api';
 
 interface JiraStatus {
@@ -142,7 +142,17 @@ export const UserProfile = () => {
           </div>
 
           {/* Actions */}
-          <div className="px-4 py-3">
+          <div className="px-4 py-3 space-y-2">
+            <button
+              onClick={() => {
+                window.open('/audit', '_blank');
+                setIsOpen(false);
+              }}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium rounded-lg transition-colors"
+            >
+              <FileText className="h-4 w-4" />
+              Audit
+            </button>
             <button
               onClick={handleLogout}
               className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-50 hover:bg-red-100 text-red-700 font-medium rounded-lg transition-colors"

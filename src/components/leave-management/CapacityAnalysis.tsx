@@ -139,29 +139,43 @@ export const CapacityAnalysis: React.FC<CapacityAnalysisProps> = ({
         };
       });
 
-      console.log('[CapacityAnalysis] Sending candidates to API:', candidates);
+      console.log('[CapacityAnalysis] Candidates:', candidates);
 
-      // Call the capacity analysis endpoint
-      const response = await fetch('/api/leave-approval/team-capacity', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      // LOCAL CALCULATION - No API call needed
+      const totalBaseHours = candidates.reduce((sum, c) => sum + c.base_productive_hours, 0);
+      const totalPtoHours = candidates.reduce((sum, c) => sum + c.pto_hours_this_week, 0);
+      const totalHolidayHours = candidates.reduce((sum, c) => sum + c.holiday_hours_this_week, 0);
+      const totalAvailableHours = totalBaseHours - totalPtoHours - totalHolidayHours;
+      
+      const capacityData: CapacityResponse = {
+        success: true,
+        timestamp: new Date().toISOString(),
+        summary: {
+          total_candidates: candidates.length,
+          total_base_hours: totalBaseHours,
+          total_pto_hours: totalPtoHours,
+          total_holiday_hours: totalHolidayHours,
+          total_available_hours: totalAvailableHours,
+          available_members: candidates.filter(c => c.pto_hours_this_week === 0).length,
+          utilization_rate: totalBaseHours > 0 ? Math.round(((totalBaseHours - totalAvailableHours) / totalBaseHours) * 100) : 0,
         },
-        credentials: 'include',
-        body: JSON.stringify({ candidates }),
-      });
+        data: candidates.map(c => ({
+          employee_id: c.id,
+          name: c.name,
+          base_productive_hours: c.base_productive_hours,
+          pto_hours_this_week: c.pto_hours_this_week,
+          holiday_hours_this_week: c.holiday_hours_this_week,
+          net_available_hours: c.base_productive_hours - c.pto_hours_this_week - c.holiday_hours_this_week,
+          status: c.pto_hours_this_week >= 40 ? 'unavailable' : c.pto_hours_this_week > 0 ? 'limited' : 'available',
+        })),
+      };
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch capacity data: ${response.statusText}`);
-      }
-
-      const data: CapacityResponse = await response.json();
-      console.log('[CapacityAnalysis] Response received:', data);
-      setCapacityData(data);
+      console.log('[CapacityAnalysis] Local capacity data:', capacityData);
+      setCapacityData(capacityData);
       setIsRefreshing(false);
     } catch (err) {
-      console.error('[CapacityAnalysis] Error fetching data:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch capacity data');
+      console.error('[CapacityAnalysis] Error calculating data:', err);
+      setError(err instanceof Error ? err.message : 'Failed to calculate capacity data');
       setIsRefreshing(false);
     } finally {
       setLoading(false);
