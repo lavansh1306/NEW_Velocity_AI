@@ -97,91 +97,88 @@ export const Hero = () => {
   };
 
   return (
-    <section className="relative overflow-hidden bg-white pt-32 pb-20 md:pt-40 md:pb-32">
-      {/* Background Decorative Mesh & Grid */}
+    <section className="relative overflow-hidden bg-slate-50 pt-32 pb-20 md:pt-40 md:pb-32">
+      {/* Colorful Aurora Background Blobs */}
+      <div className="absolute top-0 -left-4 w-72 h-72 bg-fuchsia-400 rounded-full mix-blend-multiply filter blur-[128px] opacity-60 animate-blob"></div>
+      <div className="absolute top-0 -right-4 w-72 h-72 bg-cyan-400 rounded-full mix-blend-multiply filter blur-[128px] opacity-60 animate-blob animation-delay-2000"></div>
+      <div className="absolute -bottom-8 left-20 w-72 h-72 bg-amber-300 rounded-full mix-blend-multiply filter blur-[128px] opacity-60 animate-blob animation-delay-4000"></div>
+      
+      {/* Dotted Mesh Overlay */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
-      <div className="absolute left-0 right-0 top-0 -z-10 m-auto h-[310px] w-[310px] rounded-full bg-indigo-500 opacity-20 blur-[100px]"></div>
-      <div className="absolute right-0 top-0 -z-10 h-[400px] w-[400px] rounded-full bg-purple-500 opacity-10 blur-[120px]"></div>
 
       <div className="relative mx-auto max-w-[1200px] px-6 lg:px-8">
         <div className="mx-auto max-w-4xl text-center">
           
-          {/* Badge */}
-          <div className="mb-8 inline-flex items-center gap-2 rounded-full bg-indigo-50/80 backdrop-blur-sm border border-indigo-200/50 px-5 py-2 text-sm font-medium text-indigo-700 shadow-sm transition-all hover:bg-indigo-100/80">
-            <Sparkles className="h-4 w-4 text-indigo-500" />
+          {/* Vibrant Badge */}
+          <div className="mb-8 inline-flex items-center gap-2 rounded-full bg-white/90 backdrop-blur-md border border-pink-200 px-5 py-2 text-sm font-bold text-pink-600 shadow-[0_0_20px_rgba(236,72,153,0.15)] transition-transform hover:scale-105">
+            <Sparkles className="h-4 w-4 text-pink-500" />
             <span>AI-Powered Workforce Intelligence</span>
           </div>
           
           {/* Headline */}
-          <h1 className="mb-8 text-5xl font-extrabold tracking-tight text-slate-900 md:text-7xl">
+          <h1 className="mb-8 text-6xl font-black tracking-tight text-slate-900 md:text-8xl">
             Focus on What <br className="hidden md:block" />
-            <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 bg-clip-text text-transparent drop-shadow-sm">
               Actually Matters
             </span>
           </h1>
           
           {/* Subtext */}
-          <p className="mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-slate-600 md:text-xl">
+          <p className="mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-slate-700 md:text-xl font-medium">
             Eliminate redundant operational work with AI-powered scheduling and workforce optimization. 
-            <span className="font-semibold text-slate-800"> Let your managers drive outcomes, not logistics.</span>
+            <span className="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-indigo-600"> Let your managers drive outcomes, not logistics.</span>
           </p>
           
-          {/* Action Area */}
-          <div className="mx-auto flex max-w-lg flex-col items-center justify-center gap-3 sm:flex-row p-2 rounded-2xl bg-white/60 backdrop-blur-md border border-slate-200 shadow-xl shadow-indigo-900/5">
-            <Input
-              type="email"
-              placeholder="Enter your work email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onKeyPress={handleKeyPress}
-              disabled={loading}
-              className="h-12 border-none bg-transparent px-4 text-base font-medium text-slate-900 focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-slate-400"
-            />
-            <Button
-              aria-label="Join the waitlist"
-              onClick={handleJoin}
-              disabled={loading || !isValidEmail(email)}
-              className="h-12 px-8 gap-2 bg-slate-900 hover:bg-indigo-600 text-white font-semibold rounded-xl flex-shrink-0 transition-all duration-300 shadow-md"
-            >
-              {loading ? "Joining..." : "Get Early Access"}
-              {!loading && <ArrowRight className="h-4 w-4" />}
-            </Button>
+          {/* Colorful Action Area */}
+          <div className="mx-auto max-w-lg p-[3px] rounded-2xl bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 shadow-2xl shadow-purple-500/20 transition-all hover:shadow-purple-500/40">
+            <div className="flex flex-col items-center justify-center gap-2 sm:flex-row p-1.5 rounded-[14px] bg-white backdrop-blur-xl">
+              <Input
+                type="email"
+                placeholder="Enter your work email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onKeyPress={handleKeyPress}
+                disabled={loading}
+                className="h-14 border-none bg-transparent px-4 text-base font-bold text-slate-900 focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-slate-400 placeholder:font-normal"
+              />
+              <Button
+                aria-label="Join the waitlist"
+                onClick={handleJoin}
+                disabled={loading || !isValidEmail(email)}
+                className="h-14 px-8 gap-2 bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-500 hover:to-pink-400 text-white font-bold rounded-xl flex-shrink-0 transition-all duration-300 border-0 shadow-lg shadow-pink-500/30"
+              >
+                {loading ? "Joining..." : "Get Early Access"}
+                {!loading && <ArrowRight className="h-5 w-5" />}
+              </Button>
+            </div>
           </div>
           
           {/* Status Message */}
-          <div className="mt-4 h-6">
+          <div className="mt-6 h-6">
             {message && (
-              <p className={`text-sm font-medium animate-in fade-in slide-in-from-bottom-2 ${message.includes("Failed") || message.includes("Unexpected") || message.includes("Error") ? "text-red-500" : "text-emerald-600"}`}>
+              <p className={`text-base font-bold animate-in fade-in slide-in-from-bottom-2 ${message.includes("Failed") || message.includes("Unexpected") || message.includes("Error") ? "text-red-500" : "text-emerald-500 drop-shadow-sm"}`}>
                 {message}
               </p>
             )}
           </div>
           
           {/* Trust Section */}
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-x-8 gap-y-4 text-sm font-medium text-slate-500">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-x-8 gap-y-4 text-sm font-bold text-slate-600">
+            <div className="flex items-center gap-2 bg-white/60 px-3 py-1.5 rounded-full border border-slate-200/50">
+              <CheckCircle2 className="h-4 w-4 text-cyan-500" />
               No credit card required
             </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+            <div className="flex items-center gap-2 bg-white/60 px-3 py-1.5 rounded-full border border-slate-200/50">
+              <CheckCircle2 className="h-4 w-4 text-purple-500" />
               14-day free trial
             </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+            <div className="flex items-center gap-2 bg-white/60 px-3 py-1.5 rounded-full border border-slate-200/50">
+              <CheckCircle2 className="h-4 w-4 text-pink-500" />
               Enterprise ready
             </div>
           </div>
 
         </div>
-
-        {/* Dashboard Preview Mockup (Optional but highly recommended for SaaS) */}
-        <div className="mt-20 mx-auto max-w-5xl rounded-2xl border border-slate-200/50 bg-white/40 p-2 shadow-2xl shadow-indigo-900/10 backdrop-blur-sm">
-          <div className="rounded-xl overflow-hidden border border-slate-100 bg-white">
-            
-          </div>
-        </div>
-
       </div>
     </section>
   );
