@@ -97,41 +97,30 @@ export const Hero = () => {
   };
 
   return (
-    <section className="relative overflow-hidden bg-slate-50 pt-32 pb-20 md:pt-40 md:pb-32">
-      {/* Colorful Aurora Background Blobs */}
-      <div className="absolute top-0 -left-4 w-72 h-72 bg-fuchsia-400 rounded-full mix-blend-multiply filter blur-[128px] opacity-60 animate-blob"></div>
-      <div className="absolute top-0 -right-4 w-72 h-72 bg-cyan-400 rounded-full mix-blend-multiply filter blur-[128px] opacity-60 animate-blob animation-delay-2000"></div>
-      <div className="absolute -bottom-8 left-20 w-72 h-72 bg-amber-300 rounded-full mix-blend-multiply filter blur-[128px] opacity-60 animate-blob animation-delay-4000"></div>
-      
-      {/* Dotted Mesh Overlay */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
-
+    <section className="relative bg-white pt-24 pb-20 md:pt-32 md:pb-32">
       <div className="relative mx-auto max-w-[1200px] px-6 lg:px-8">
         <div className="mx-auto max-w-4xl text-center">
           
-          {/* Vibrant Badge */}
-          <div className="mb-8 inline-flex items-center gap-2 rounded-full bg-white/90 backdrop-blur-md border border-pink-200 px-5 py-2 text-sm font-bold text-pink-600 shadow-[0_0_20px_rgba(236,72,153,0.15)] transition-transform hover:scale-105">
-            <Sparkles className="h-4 w-4 text-pink-500" />
-            <span>AI-Powered Workforce Intelligence</span>
+          {/* Badge */}
+          <div className="mb-8 inline-flex items-center gap-2 rounded-full bg-blue-50 border border-blue-200 px-4 py-2 text-sm font-light text-blue-700">
+            <Sparkles className="h-4 w-4" />
+            <span>AI-Powered Workforce Management</span>
           </div>
           
           {/* Headline */}
-          <h1 className="mb-8 text-6xl font-black tracking-tight text-slate-900 md:text-8xl">
-            Focus on What <br className="hidden md:block" />
-            <span className="bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 bg-clip-text text-transparent drop-shadow-sm">
-              Actually Matters
-            </span>
+          <h1 className="mb-6 text-5xl md:text-6xl font-light tracking-tight text-gray-900">
+            Focus on What Matters
           </h1>
           
           {/* Subtext */}
-          <p className="mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-slate-700 md:text-xl font-medium">
-            Eliminate redundant operational work with AI-powered scheduling and workforce optimization. 
-            <span className="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-indigo-600"> Let your managers drive outcomes, not logistics.</span>
+          <p className="mx-auto mb-12 max-w-2xl text-lg leading-relaxed text-gray-600 font-light">
+            Eliminate operational overhead with AI-powered scheduling and workforce optimization. 
+            Let your managers drive outcomes, not logistics.
           </p>
           
-          {/* Colorful Action Area */}
-          <div className="mx-auto max-w-lg p-[3px] rounded-2xl bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 shadow-2xl shadow-purple-500/20 transition-all hover:shadow-purple-500/40">
-            <div className="flex flex-col items-center justify-center gap-2 sm:flex-row p-1.5 rounded-[14px] bg-white backdrop-blur-xl">
+          {/* Action Area */}
+          <div className="mx-auto max-w-lg rounded-2xl bg-gray-50 border-2 border-gray-200 shadow-sm p-1.5">
+            <div className="flex flex-col items-stretch justify-center gap-2 sm:flex-row p-3.5 rounded-xl bg-white">
               <Input
                 type="email"
                 placeholder="Enter your work email"
@@ -139,16 +128,16 @@ export const Hero = () => {
                 onChange={(e) => setEmail(e.target.value)}
                 onKeyPress={handleKeyPress}
                 disabled={loading}
-                className="h-14 border-none bg-transparent px-4 text-base font-bold text-slate-900 focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-slate-400 placeholder:font-normal"
+                className="h-11 border border-gray-200 bg-white px-4 text-base font-light text-gray-900 focus-visible:ring-blue-500 focus-visible:border-blue-500 placeholder:text-gray-400 placeholder:font-light rounded-lg"
               />
               <Button
                 aria-label="Join the waitlist"
                 onClick={handleJoin}
                 disabled={loading || !isValidEmail(email)}
-                className="h-14 px-8 gap-2 bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-500 hover:to-pink-400 text-white font-bold rounded-xl flex-shrink-0 transition-all duration-300 border-0 shadow-lg shadow-pink-500/30"
+                className="h-11 px-6 gap-2 bg-blue-600 hover:bg-blue-700 text-white font-light rounded-lg flex-shrink-0 transition-colors border-0"
               >
-                {loading ? "Joining..." : "Get Early Access"}
-                {!loading && <ArrowRight className="h-5 w-5" />}
+                {loading ? "Joining..." : "Get Started"}
+                {!loading && <ArrowRight className="h-4 w-4" />}
               </Button>
             </div>
           </div>
@@ -156,24 +145,24 @@ export const Hero = () => {
           {/* Status Message */}
           <div className="mt-6 h-6">
             {message && (
-              <p className={`text-base font-bold animate-in fade-in slide-in-from-bottom-2 ${message.includes("Failed") || message.includes("Unexpected") || message.includes("Error") ? "text-red-500" : "text-emerald-500 drop-shadow-sm"}`}>
+              <p className={`text-sm font-light animate-in fade-in slide-in-from-bottom-2 ${message.includes("Failed") || message.includes("Unexpected") || message.includes("Error") ? "text-red-600" : "text-green-600"}`}>
                 {message}
               </p>
             )}
           </div>
           
           {/* Trust Section */}
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-x-8 gap-y-4 text-sm font-bold text-slate-600">
-            <div className="flex items-center gap-2 bg-white/60 px-3 py-1.5 rounded-full border border-slate-200/50">
-              <CheckCircle2 className="h-4 w-4 text-cyan-500" />
+          <div className="mt-12 flex flex-wrap items-center justify-center gap-x-6 gap-y-4 text-sm font-light text-gray-600">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-blue-600" />
               No credit card required
             </div>
-            <div className="flex items-center gap-2 bg-white/60 px-3 py-1.5 rounded-full border border-slate-200/50">
-              <CheckCircle2 className="h-4 w-4 text-purple-500" />
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-blue-600" />
               14-day free trial
             </div>
-            <div className="flex items-center gap-2 bg-white/60 px-3 py-1.5 rounded-full border border-slate-200/50">
-              <CheckCircle2 className="h-4 w-4 text-pink-500" />
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-blue-600" />
               Enterprise ready
             </div>
           </div>

@@ -4,6 +4,7 @@ import VeloNavTabs from '@/components/demo2/VeloNavTabs';
 import { Button } from '@/components/ui/button';
 // Removed Add Project dialog and delete controls per request
 import AnalyticsPanel from '@/components/analytics/AnalyticsPanel';
+import { ProjectLeaveManagement } from '@/components/projects/ProjectLeaveManagement';
 import { loadProjects as fetchProjects, loadMetrics, type ProjectItem } from '@/lib/dataService';
 // apiUrl no longer used in this page
 import { useToast } from '@/contexts/ToastContext';
@@ -364,7 +365,10 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
                     return (
                       <div
                         key={p.id}
-                        onClick={() => navigate(`/projects/jira-dashboard?project=${encodeURIComponent(p.id)}&fullscreen=true`)}
+                        onClick={() => {
+                          localStorage.setItem('returnPage', '/projects');
+                          navigate(`/project-analytics/${encodeURIComponent(p.id)}`);
+                        }}
                         className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer p-8 border border-gray-100"
                       >
                         <div className="flex items-center justify-between gap-6">
@@ -423,6 +427,22 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
               </div>
             )}
           </>
+        )}
+
+        {/* Leave Management Section */}
+        {jiraProjects.length > 0 && (
+          <div className="mt-12 pt-12 border-t border-gray-200">
+            <h2 className="text-xl font-semibold mb-6">Team Leave Management</h2>
+            <div className="space-y-6">
+              {jiraProjects.map((project) => (
+                <ProjectLeaveManagement
+                  key={project.id}
+                  projectId={project.id}
+                  projectName={project.title}
+                />
+              ))}
+            </div>
+          </div>
         )}
       </div>
     </div>
