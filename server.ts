@@ -47,7 +47,7 @@ async function initializeRedis() {
 // Static imports
 import jiraRoutes from "./src/api/jira/routes.js"
 import deployedRoutes from "./src/api/deployed/routes.js"
-import leaveApprovalRoutes from "./src/api/leave-approval/routes.js"
+import leaveApprovalRoutes from "./src/api/leave-approval/routes.ts"
 const app = express()
 
 console.log("typeof express:", typeof express)

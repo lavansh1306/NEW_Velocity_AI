@@ -70,6 +70,7 @@ app.get('/health', (_req: Request, res: Response) => {
 // Mount API routers with /api prefix to match the expected routes
 app.use('/api/jira', jiraRoutes);
 app.use('/api/leave-approval', leaveApprovalRoutes);
+app.use('/api/v1/analyze', leaveApprovalRoutes);
 
 // Also mount at root level for backwards compatibility
 app.use('/jira', jiraRoutes);

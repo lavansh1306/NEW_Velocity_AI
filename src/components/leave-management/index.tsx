@@ -8,6 +8,7 @@ import {
   SelectTrigger, 
   SelectValue 
 } from '../ui/select';
+import { useToast } from '@/hooks/use-toast';
 
 // Imports from your existing structure
 import { Task, LeaveRequest, TimeLog, EmployeeProfile } from './types';
@@ -19,6 +20,7 @@ import { LeaveRequestTable } from './LeaveRequestTable';
 import { LeaveApplicationDialog } from './LeaveApplicationDialog';
 import { EmployeeLeavePortal } from './EmployeeLeavePortal';
 import { LeaveNotificationPanel } from './LeaveNotificationPanel';
+import { CapacityAnalysis } from './CapacityAnalysis';
 import LeaveApprovalAgent from '../leave-approval/LeaveApprovalAgent';
 
 // FIX: Import 'fetchRawCSV' to get the actual Task data, not the ML Summary
@@ -170,6 +172,7 @@ const fetchJiraLeaveAndTaskData = async (): Promise<JiraProjectData> => {
 
 export default function LeaveManagementTab() {
   const [activePersona, setActivePersona] = useState<'manager' | 'employee'>('manager');
+  const { toast } = useToast();
   
   // State for Real Data
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -180,6 +183,7 @@ export default function LeaveManagementTab() {
 
   // Leave State
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
+  const [leaveUpdateCount, setLeaveUpdateCount] = useState(0);
 
   // Dialog States
   const [scenarioOpen, setScenarioOpen] = useState(false);
@@ -440,10 +444,20 @@ export default function LeaveManagementTab() {
 
   // Handle leave approval from notification panel
   const handleApproveLeave = (leave: LeaveRequest) => {
-    setLeaves(prev => 
-      prev.map(l => l.id === leave.id ? { ...l, status: 'Approved' } : l)
-    );
-
+    console.log('=== APPROVAL TRIGGERED ===');
+    console.log('Leave being approved:', leave);
+    setLeaves(prev => {
+      const updated = prev.map(l => l.id === leave.id ? { ...l, status: 'Approved' } : l);
+      console.log('Updated leaves array:', updated);
+      seterUpdateCount(leaveUpdateCount + 1);
+      return updated;
+    });
+    
+    // Show success notification
+    toast({
+      title: "✓ Leave Request Approved",
+      description: `${leave.name}'s leave from ${new Date(leave.startDate).toLocaleDateString()} to ${new Date(leave.endDate).toLocaleDateString()} has been approved. Team capacity has been updated.`,
+    });
   };
 
   // Handle leave rejection from notification panel
@@ -451,6 +465,12 @@ export default function LeaveManagementTab() {
     setLeaves(prev => 
       prev.map(l => l.id === leave.id ? { ...l, status: 'Rejected' } : l)
     );
+    
+    // Show rejection notification
+    toast({
+      title: "✗ Leave Request Rejected",
+      description: `${leave.name}'s leave request has been rejected.`,
+    });
   };
 
   // Handle redeploy - reassign tasks from one employee to another
@@ -627,6 +647,16 @@ export default function LeaveManagementTab() {
               </div>
             )}
           </div>
+
+          {/* Team Capacity Check */}
+          <CapacityAnalysis 
+            employees={employees}
+            approvedLeaves={leaves.filter(l => l.status === 'Approved')}
+            onRefresh={() => {
+              // Trigger refresh of data if needed
+              window.location.reload();
+            }}
+          />
         </div>
       )}
 
@@ -654,22 +684,7 @@ export default function LeaveManagementTab() {
         </div>
       )}
 
-      {/* Manager View - Team Workload */}
-      {activePersona === 'manager' && (
-        <div className="animate-in fade-in slide-in-from-right-4 duration-500">
-          <div className="bg-white border-2 border-slate-200 rounded-2xl p-6 shadow-lg">
-            <h3 className="text-xl font-light text-slate-900 mb-4 flex items-center gap-2">
-              👥 Team Workload Overview
-            </h3>
-            <WorkloadTable 
-              tasks={tasks}
-              employees={employees}
-              persona="manager"
-              onTaskClick={handleTaskClick}
-            />
-          </div>
-        </div>
-      )}
+
 
       {/* Dialogs */}
       <ImpactAnalysisDialog open={scenarioOpen} onOpenChange={setScenarioOpen} predictions={predictions} onConfirm={confirmReallocation} />

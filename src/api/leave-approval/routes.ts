@@ -10,6 +10,8 @@ import {
 
 const router = express.Router()
 
+console.log('[LeaveApprovalRoutes] Routes loaded, registering endpoints...')
+
 /**
  * POST /api/leave-approval/approve-single
  * Approves a single leave request
@@ -206,6 +208,83 @@ router.get("/weights", async (req: Request, res: Response) => {
     console.error("[LeaveApprovalAgent] Error getting weights:", error)
     res.status(500).json({
       error: "Failed to get weights",
+      details: error instanceof Error ? error.message : String(error),
+    })
+  }
+})
+
+/**
+ * POST /api/leave-approval/team-capacity
+ * Check Team Capacity - Calculates true available hours based on base capacity, PTO, and holidays
+ */
+console.log('[LeaveApprovalRoutes] Registering /team-capacity endpoint...')
+router.post("/team-capacity", async (req: Request, res: Response) => {
+  console.log("[CapacityAnalysis] POST /capacity endpoint called with body:", req.body)
+  try {
+    const { candidates } = req.body
+    console.log("[CapacityAnalysis] Candidates:", candidates)
+
+    if (!Array.isArray(candidates)) {
+      console.log("[CapacityAnalysis] Error: candidates is not an array")
+      return res.status(400).json({
+        error: "Invalid request. Expected 'candidates' array",
+      })
+    }
+
+    console.log(`[CapacityAnalysis] Analyzing capacity for ${candidates.length} candidates`)
+
+    // Calculate available hours for each candidate
+    const capacityAnalysis = candidates.map((candidate: any) => {
+      const baseProductiveHours = candidate.base_productive_hours || 40
+      const ptoHours = candidate.pto_hours_this_week || 0
+      const holidayHours = candidate.holiday_hours_this_week || 0
+      const netAvailableHours = Math.max(0, baseProductiveHours - ptoHours - holidayHours)
+
+      let status = "available"
+      if (netAvailableHours === 0) {
+        status = "unavailable"
+      } else if (netAvailableHours < 10) {
+        status = "limited"
+      } else if (netAvailableHours >= 35) {
+        status = "full"
+      }
+
+      return {
+        employee_id: candidate.id,
+        name: candidate.name,
+        base_productive_hours: baseProductiveHours,
+        pto_hours_this_week: ptoHours,
+        holiday_hours_this_week: holidayHours,
+        net_available_hours: netAvailableHours,
+        status: status,
+      }
+    })
+
+    const totalBaseHours = capacityAnalysis.reduce((sum: number, emp: any) => sum + emp.base_productive_hours, 0)
+    const totalPtoHours = capacityAnalysis.reduce((sum: number, emp: any) => sum + emp.pto_hours_this_week, 0)
+    const totalAvailableHours = capacityAnalysis.reduce((sum: number, emp: any) => sum + emp.net_available_hours, 0)
+    const availableCount = capacityAnalysis.filter((emp: any) => emp.status !== "unavailable").length
+
+    const response = {
+      success: true,
+      timestamp: new Date().toISOString(),
+      summary: {
+        total_candidates: candidates.length,
+        total_base_hours: totalBaseHours,
+        total_pto_hours: totalPtoHours,
+        total_available_hours: totalAvailableHours,
+        available_members: availableCount,
+        utilization_rate: totalBaseHours > 0 ? Math.round((totalAvailableHours / totalBaseHours) * 100) : 0,
+      },
+      data: capacityAnalysis,
+    }
+
+    console.log("[CapacityAnalysis] Sending response")
+    res.json(response)
+  } catch (error) {
+    console.error("[CapacityAnalysis] Error analyzing capacity:", error)
+    res.status(500).json({
+      error: "Failed to analyze team capacity",
       details: error instanceof Error ? error.message : String(error),
     })
   }
