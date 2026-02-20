@@ -60,6 +60,7 @@ const SCOPES: string = [
   'read:jira-user',
   'read:issue:jira',
   'read:project:jira',
+  'read:account',  // Required for /me endpoint
   'offline_access'
 ].join(' ');
 
@@ -265,25 +266,43 @@ async function getJiraUserInfo(accessToken: string, tokenData?: any): Promise<an
       return userData;
     }
 
+    console.warn(`[Jira] /me endpoint returned ${response.status}: ${response.statusText}, attempting fallback...`);
+
     // If /me endpoint fails, try to extract from ID token
     if (tokenData?.id_token) {
-      console.log('[Jira] /me endpoint failed, extracting user info from ID token...');
+      console.log('[Jira] Extracting user info from ID token...');
       const idTokenPayload = decodeIdToken(tokenData.id_token);
       
       if (idTokenPayload) {
         console.log('[Jira] User info extracted from ID token:', { 
           email: idTokenPayload.email,
-          name: idTokenPayload.name
+          name: idTokenPayload.name,
+          sub: idTokenPayload.sub
         });
         return idTokenPayload;
+      } else {
+        console.warn('[Jira] ID token decoding returned null');
       }
+    } else {
+      console.warn('[Jira] No ID token available in token response');
     }
 
-    // If both fail, throw error
-    throw new Error(`Failed to fetch user info: ${response.statusText}`);
+    // If both fail, return a minimal user object with available data
+    console.warn('[Jira] Could not fetch user info from /me or ID token, using minimal fallback');
+    return {
+      email: 'unknown@jira.atlassian.net',
+      name: 'Jira User',
+      account_id: 'unknown'
+    };
   } catch (error) {
     console.error('[Jira] Error fetching user info:', error);
-    throw error;
+    // Return minimal fallback instead of throwing
+    console.warn('[Jira] Returning minimal fallback user object due to error');
+    return {
+      email: 'unknown@jira.atlassian.net',
+      name: 'Jira User',
+      account_id: 'unknown'
+    };
   }
 }
 
@@ -394,12 +413,25 @@ async function login(req: Request, res: Response): Promise<void> {
 
 // Exchange authorization code for tokens
 async function exchangeCodeForToken(code: string, codeVerifier: string, req?: Request): Promise<TokenResponse> {
+  const clientId = getClientId();
+  const clientSecret = getClientSecret();
+  const redirectUri = getRedirectUri(req);
+  
+  console.log('[Jira OAuth] Token exchange params:', {
+    grant_type: 'authorization_code',
+    client_id: clientId ? '***' : 'MISSING',
+    client_secret: clientSecret ? '***' : 'MISSING',
+    code: code ? code.substring(0, 20) + '...' : 'MISSING',
+    redirect_uri: redirectUri,
+    code_verifier: codeVerifier ? codeVerifier.substring(0, 20) + '...' : 'MISSING',
+  });
+
   const params = new URLSearchParams({
     grant_type: 'authorization_code',
-    client_id: getClientId(),
-    client_secret: getClientSecret(),
+    client_id: clientId,
+    client_secret: clientSecret,
     code: code,
-    redirect_uri: getRedirectUri(req),
+    redirect_uri: redirectUri,
     code_verifier: codeVerifier,
   });
 
@@ -413,8 +445,17 @@ async function exchangeCodeForToken(code: string, codeVerifier: string, req?: Re
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('[Jira OAuth] Token exchange failed:', response.status, errorText);
-    throw new Error(`Token exchange failed: ${response.status} ${errorText}`);
+    console.error('[Jira OAuth] Token exchange failed:', {
+      status: response.status,
+      statusText: response.statusText,
+      error: errorText,
+      redirectUri: redirectUri,
+      hasClientId: !!clientId,
+      hasClientSecret: !!clientSecret,
+      hasCode: !!code,
+      hasCodeVerifier: !!codeVerifier
+    });
+    throw new Error(`Token exchange failed: ${response.status} ${response.statusText}. ${errorText}`);
   }
 
   const tokenData = await response.json() as TokenResponse;
@@ -489,9 +530,11 @@ async function callback(req: Request, res: Response): Promise<any> {
     
     if (!pkceResult) {
       console.error('[Jira OAuth Callback] ✗ Code verifier not found in database or session');
+      console.error('[Jira OAuth Callback] DEBUG: State was:', state);
       res.status(400).json({ 
         error: 'PKCE verification failed',
         details: 'State parameter not found. Session may have expired.',
+        state: state.substring(0, 20) + '...'
       });
       return;
     }
@@ -503,152 +546,153 @@ async function callback(req: Request, res: Response): Promise<any> {
     console.log('[Jira OAuth Callback] ✓ Code verifier retrieved, supabaseUserId:', supabaseUserId || 'none');
     
     // Exchange code for tokens
-    const tokenResp = await exchangeCodeForToken(code, codeVerifier, req);
+    try {
+      const tokenResp = await exchangeCodeForToken(code, codeVerifier, req);
+      console.log('[Jira OAuth Callback] ✓ Token exchange successful');
+      
+      // Clear the code_verifier from session after use
+      delete req.session.jiraCodeVerifier;
 
-    // Clear the code_verifier from session after use
-    delete req.session.jiraCodeVerifier;
+      // Get accessible Jira resources (sites)
+      const resources = await getAccessibleResources(tokenResp.access_token);
+      
+      if (resources.length === 0) {
+        throw new Error('No Jira sites accessible with this account');
+      }
 
-    console.log('[Jira OAuth Callback] ✓ Token exchange successful');
+      console.log('[Jira OAuth Callback] ✓ Got', resources.length, 'accessible resource(s)');
 
-    // Get accessible Jira resources (sites)
-    const resources = await getAccessibleResources(tokenResp.access_token);
-    
-    if (resources.length === 0) {
-      throw new Error('No Jira sites accessible with this account');
-    }
+      // Store ALL accessible resources in session
+      req.session.jiraAccessibleResources = resources;
 
-    console.log('[Jira OAuth Callback] ✓ Got', resources.length, 'accessible resource(s)');
+      // Use the first accessible resource by default
+      const primaryResource = resources[0];
+      const cloudId = primaryResource.id;
+      
+      // --- Multi-tenant: create/find org and store connection in DB ---
+      // Import DB helpers (dynamic to avoid circular deps at module level)
+      console.log('[Jira OAuth Callback] Loading db module...');
+      const db = await import('./db.js');
+      console.log('[Jira OAuth Callback] db module loaded, functions:', Object.keys(db).join(', '));
+      let orgId: string | null = null;
 
-    // Store ALL accessible resources in session
-    req.session.jiraAccessibleResources = resources;
-
-    // Use the first accessible resource by default
-    const primaryResource = resources[0];
-    const cloudId = primaryResource.id;
-    
-    // --- Multi-tenant: create/find org and store connection in DB ---
-    // Import DB helpers (dynamic to avoid circular deps at module level)
-    console.log('[Jira OAuth Callback] Loading db module...');
-    const db = await import('./db.js');
-    console.log('[Jira OAuth Callback] db module loaded, functions:', Object.keys(db).join(', '));
-    let orgId: string | null = null;
-
-    // 1. Check if an org already exists for this Jira cloud site
-    console.log('[Jira OAuth Callback] Checking for existing org with cloudId:', cloudId);
-    orgId = await db.findOrgByCloudId(cloudId);
-    if (orgId) {
-      console.log('[Jira OAuth Callback] Found existing org for cloud', cloudId, '→', orgId);
-      // If we have a supabaseUserId and they're not already a member, add them
-      if (supabaseUserId) {
-        const existingMembership = await db.findUserOrg(supabaseUserId);
-        if (!existingMembership || existingMembership.orgId !== orgId) {
-          await db.addOrgMember(orgId, supabaseUserId, 'employee');
+      // 1. Check if an org already exists for this Jira cloud site
+      console.log('[Jira OAuth Callback] Checking for existing org with cloudId:', cloudId);
+      orgId = await db.findOrgByCloudId(cloudId);
+      if (orgId) {
+        console.log('[Jira OAuth Callback] Found existing org for cloud', cloudId, '→', orgId);
+        // If we have a supabaseUserId and they're not already a member, add them
+        if (supabaseUserId) {
+          const existingMembership = await db.findUserOrg(supabaseUserId);
+          if (!existingMembership || existingMembership.orgId !== orgId) {
+            await db.addOrgMember(orgId, supabaseUserId, 'employee');
+          }
         }
       }
-    }
 
-    // 2. If no org exists for this cloud site, create one
-    if (!orgId) {
-      console.log('[Jira OAuth Callback] Creating new org for site:', primaryResource.name);
-      // If we have a supabaseUserId, they become the owner; otherwise create org without owner
-      orgId = await db.createOrganization(
-        primaryResource.name || 'My Organization',
-        supabaseUserId || null // pass null if no user
-      );
-      console.log('[Jira OAuth Callback] Created org:', orgId);
-    }
-
-    // 3. Store Jira connection (tokens) in DB — persists across restarts/serverless
-    if (orgId) {
-      console.log('[Jira OAuth Callback] Storing Jira connection for org:', orgId);
-      let jiraAccountId: string | undefined;
-      try {
-        const jiraUser = await getJiraUserInfo(tokenResp.access_token, tokenResp);
-        jiraAccountId = jiraUser?.account_id;
-        await saveJiraUserToSupabase(jiraUser, tokenResp);
-      } catch (e) {
-        console.warn('[Jira OAuth Callback] Could not fetch Jira user info:', e);
+      // 2. If no org exists for this cloud site, create one
+      if (!orgId) {
+        console.log('[Jira OAuth Callback] Creating new org for site:', primaryResource.name);
+        // If we have a supabaseUserId, they become the owner; otherwise create org without owner
+        orgId = await db.createOrganization(
+          primaryResource.name || 'My Organization',
+          supabaseUserId || null // pass null if no user
+        );
+        console.log('[Jira OAuth Callback] Created org:', orgId);
       }
 
-      await db.upsertJiraConnection(
-        orgId, cloudId, primaryResource.name, primaryResource.url,
-        tokenResp.access_token, tokenResp.refresh_token,
-        tokenResp.expires_in, jiraAccountId, supabaseUserId || undefined
-      );
-      console.log('[Jira OAuth Callback] ✓ Jira connection stored');
+      // 3. Store Jira connection (tokens) in DB — persists across restarts/serverless
+      if (orgId) {
+        console.log('[Jira OAuth Callback] Storing Jira connection for org:', orgId);
+        let jiraAccountId: string | undefined;
+        try {
+          const jiraUser = await getJiraUserInfo(tokenResp.access_token, tokenResp);
+          jiraAccountId = jiraUser?.account_id;
+          if (jiraUser && jiraUser.email !== 'unknown@jira.atlassian.net') {
+            await saveJiraUserToSupabase(jiraUser, tokenResp);
+          }
+        } catch (e) {
+          console.warn('[Jira OAuth Callback] Could not fetch Jira user info:', e);
+        }
 
-      // Also store for all accessible resources
-      for (let i = 1; i < resources.length; i++) {
         await db.upsertJiraConnection(
-          orgId, resources[i].id, resources[i].name, resources[i].url,
+          orgId, cloudId, primaryResource.name, primaryResource.url,
           tokenResp.access_token, tokenResp.refresh_token,
           tokenResp.expires_in, jiraAccountId, supabaseUserId || undefined
         );
+        console.log('[Jira OAuth Callback] ✓ Jira connection stored');
+
+        // Also store for all accessible resources
+        for (let i = 1; i < resources.length; i++) {
+          await db.upsertJiraConnection(
+            orgId, resources[i].id, resources[i].name, resources[i].url,
+            tokenResp.access_token, tokenResp.refresh_token,
+            tokenResp.expires_in, jiraAccountId, supabaseUserId || undefined
+          );
+        }
+      } else {
+        console.error('[Jira OAuth Callback] ✗ FAILED to create/find org - no DB storage will happen!');
       }
-    } else {
-      console.error('[Jira OAuth Callback] ✗ FAILED to create/find org - no DB storage will happen!');
-    }
 
-    // Also keep in-memory for backward compat (same session requests)
-    const storeKey = req.sessionID;
-    const tokenStore: TokenStore = {
-      accessToken: tokenResp.access_token,
-      refreshToken: tokenResp.refresh_token,
-      expiresAt: Date.now() + (tokenResp.expires_in * 1000),
-      cloudId: cloudId,
-      userId: storeKey,
-      siteName: primaryResource.name,
-      siteUrl: primaryResource.url,
-    };
-    jiraTokens.set(storeKey, tokenStore);
+      // Also keep in-memory for backward compat (same session requests)
+      const storeKey = req.sessionID;
+      const tokenStore: TokenStore = {
+        accessToken: tokenResp.access_token,
+        refreshToken: tokenResp.refresh_token,
+        expiresAt: Date.now() + (tokenResp.expires_in * 1000),
+        cloudId: cloudId,
+        userId: storeKey,
+        siteName: primaryResource.name,
+        siteUrl: primaryResource.url,
+      };
+      jiraTokens.set(storeKey, tokenStore);
 
-    // Store cloudId, orgId and user info in session
-    req.session.jiraCloudId = cloudId;
-    req.session.jiraUserId = storeKey;
-    req.session.jiraStoreKey = storeKey;
-    if (orgId) req.session.orgId = orgId;
-    if (supabaseUserId) req.session.supabaseUserId = supabaseUserId;
+      // Store cloudId, orgId and user info in session
+      req.session.jiraCloudId = cloudId;
+      req.session.jiraUserId = storeKey;
+      req.session.jiraStoreKey = storeKey;
+      if (orgId) req.session.orgId = orgId;
+      if (supabaseUserId) req.session.supabaseUserId = supabaseUserId;
 
-    // Save session before redirecting
-    await new Promise<void>((resolve, reject) => {
-      req.session.save((err) => {
-        if (err) { console.error('[Jira OAuth] Session save failed:', err); reject(err); }
-        else { console.log('[Jira OAuth] ✓ Session saved (orgId:', orgId, ')'); resolve(); }
+      // Save session before redirecting
+      await new Promise<void>((resolve, reject) => {
+        req.session.save((err) => {
+          if (err) { console.error('[Jira OAuth] Session save failed:', err); reject(err); }
+          else { console.log('[Jira OAuth] ✓ Session saved (orgId:', orgId, ')'); resolve(); }
+        });
       });
-    });
-    
-    // Fetch and save Jira user info if we didn't already
-    if (!supabaseUserId) {
-      try {
-        const jiraUser = await getJiraUserInfo(tokenResp.access_token, tokenResp);
-        await saveJiraUserToSupabase(jiraUser, tokenResp);
-      } catch (error) {
-        console.warn('[Jira OAuth Callback] Warning - could not save user to Supabase:', error);
-      }
-    }
 
-    console.log('[Jira OAuth Callback] ✓ Authentication complete! orgId:', orgId);
-    
-    // Determine redirect URL based on environment and request origin
-    let redirectUrl = 'http://localhost:5173/velocity-ai';
-    
-    const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1' || req.hostname === 'www.joinvelocity.co' || req.hostname === 'joinvelocity.co';
-    
-    if (isProduction) {
-      redirectUrl = (process.env.FRONTEND_URL_PROD || 'https://www.joinvelocity.co') + '/velocity-ai';
-    } else if (process.env.FRONTEND_URL) {
-      redirectUrl = process.env.FRONTEND_URL + '/velocity-ai';
+      console.log('[Jira OAuth Callback] ✓ Authentication complete! orgId:', orgId);
+      
+      // Determine redirect URL based on environment and request origin
+      let redirectUrl = 'http://localhost:5173/velocity-ai';
+      
+      const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1' || req.hostname === 'www.joinvelocity.co' || req.hostname === 'joinvelocity.co';
+      
+      if (isProduction) {
+        redirectUrl = (process.env.FRONTEND_URL_PROD || 'https://www.joinvelocity.co') + '/velocity-ai';
+      } else if (process.env.FRONTEND_URL) {
+        redirectUrl = process.env.FRONTEND_URL + '/velocity-ai';
+      }
+      
+      console.log('[Jira OAuth Callback] Determining redirect URL:', {
+        isProduction,
+        nodeEnv: process.env.NODE_ENV,
+        vercelEnv: process.env.VERCEL,
+        hostname: req.hostname,
+        redirectUrl
+      });
+      
+      res.redirect(redirectUrl);
+    } catch (tokenErr) {
+      console.error('[Jira OAuth Callback] Token exchange or resource fetch failed:', tokenErr instanceof Error ? tokenErr.message : String(tokenErr));
+      res.status(400).json({
+        error: 'Token exchange failed',
+        details: tokenErr instanceof Error ? tokenErr.message : 'Unknown error during token exchange',
+        debug: process.env.NODE_ENV === 'development' ? { stack: tokenErr instanceof Error ? tokenErr.stack : undefined } : undefined
+      });
+      return;
     }
-    
-    console.log('[Jira OAuth Callback] Determining redirect URL:', {
-      isProduction,
-      nodeEnv: process.env.NODE_ENV,
-      vercelEnv: process.env.VERCEL,
-      hostname: req.hostname,
-      redirectUrl
-    });
-    
-    res.redirect(redirectUrl);
     
   } catch (err) {
     console.error('[Jira OAuth Callback] ✗ Error:', err instanceof Error ? err.message : String(err));

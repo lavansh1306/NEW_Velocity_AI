@@ -383,7 +383,7 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
                       <div
                         key={p.id}
                         onClick={() => {
-                          localStorage.setItem('returnPage', '/projects');
+                          localStorage.setItem('returnPage', '/velocity-ai');
                           navigate(`/project-analytics/${encodeURIComponent(p.id)}`);
                         }}
                         className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer p-8 border border-gray-100"
