@@ -29,6 +29,7 @@ export function LandingHeader() {
             <Link
               to="/signup"
               className="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 transition-all shadow-sm ring-1 ring-slate-900/10"
+              style={{ borderRadius: '10px' }}
             >
               Get Started
             </Link>

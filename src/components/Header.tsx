@@ -42,7 +42,7 @@ export const Header = () => {
               </Button>
             </Link>
             <Link to="/signup">
-              <Button className="bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-500 hover:to-pink-400 text-white font-bold rounded-xl h-11 px-4 shadow-lg shadow-pink-500/20 transition-all duration-300 hover:scale-105 hover:shadow-pink-500/40 border-0">
+              <Button className="bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-500 hover:to-pink-400 text-white font-bold rounded-xl h-11 px-4 shadow-lg shadow-pink-500/20 transition-all duration-300 hover:scale-105 hover:shadow-pink-500/40 border-0" style={{ borderRadius: '10px' }}>
                 Get Started
               </Button>
             </Link>
@@ -94,7 +94,7 @@ export const Header = () => {
                 </Button>
               </Link>
               <Link to="/signup" className="w-full">
-                <Button className="w-full bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-500 hover:to-pink-400 text-white font-bold rounded-xl h-12 border-0 shadow-lg shadow-pink-500/20">
+                <Button className="w-full bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-500 hover:to-pink-400 text-white font-bold rounded-xl h-12 border-0 shadow-lg shadow-pink-500/20" style={{ borderRadius: '10px' }}>
                   Get Started
                 </Button>
               </Link>

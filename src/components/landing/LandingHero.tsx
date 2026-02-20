@@ -141,7 +141,7 @@ export function LandingHero() {
             </div>
           ) : (
             <>
-              <div className="relative w-full shadow-sm rounded-lg">
+              <div className="relative w-full shadow-sm rounded-lg" style={{ borderRadius: '10px' }}>
                 <input
                   type="email"
                   placeholder="Enter your work email"
@@ -149,12 +149,14 @@ export function LandingHero() {
                   onChange={(e) => setEmail(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleGetEarlyAccess()}
                   className="w-full rounded-lg border border-slate-200 bg-white px-5 py-3.5 text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 sm:text-sm outline-none shadow-sm transition-all"
+                  style={{ borderRadius: '10px' }}
                 />
               </div>
               <button
                 onClick={handleGetEarlyAccess}
                 disabled={submitting}
                 className="w-full sm:w-auto inline-flex items-center justify-center whitespace-nowrap rounded-lg bg-slate-900 px-7 py-3.5 text-sm font-medium text-white shadow-lg shadow-slate-900/20 hover:bg-slate-800 hover:shadow-xl hover:shadow-slate-900/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 transition-all group disabled:opacity-60 disabled:cursor-not-allowed"
+                style={{ borderRadius: '10px' }}
               >
                 {submitting ? 'Joining...' : 'Get Early Access'}
                 {!submitting && <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1 opacity-70" />}
