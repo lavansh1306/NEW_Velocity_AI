@@ -181,7 +181,7 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
   const [csvLoading, setCsvLoading] = useState(true);
   const { issues: jiraIssues, loading: jiraLoading } = useJiraData();
   const [capacityBreakdown, setCapacityBreakdown] = useState<any>(null);
-  const [selectedProject, setSelectedProject] = useState<string>('all');
+  const [selectedProject, setSelectedProject] = useState<string>('');
   const [selectedEmployee, setSelectedEmployee] = useState<string>('all');
   const [fromDate, setFromDate] = useState({ month: '01', year: '2025' });
   const [toDate, setToDate] = useState({ month: '03', year: '2025' });
@@ -545,7 +545,7 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
 
       // Filter by project
       projects.forEach((proj: any) => {
-        if (selectedProject !== 'all' && proj.projectKey !== selectedProject) return;
+        if (selectedProject !== '' && proj.projectKey !== selectedProject) return;
         totalIdleHours += proj.idleHours;
         totalIdleDays += proj.idleDays;
       });
@@ -569,6 +569,13 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
     if (!capacityBreakdown || !capacityBreakdown.assigneeData) return [];
     return Object.keys(capacityBreakdown.assigneeData).sort();
   }, [capacityBreakdown]);
+
+  // Set default project to first available project
+  useEffect(() => {
+    if (availableProjects.length > 0 && !selectedProject) {
+      setSelectedProject(availableProjects[0]);
+    }
+  }, [availableProjects, selectedProject]);
 
   // Get upcoming deadlines (next 2 weeks)
   const upcomingDeadlines = useMemo(() => {
@@ -691,7 +698,6 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
               onChange={(e) => setSelectedProject(e.target.value)}
               className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm font-light focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
             >
-              <option value="all">All Projects</option>
               {availableProjects.map((project) => (
                 <option key={project} value={project}>{project}</option>
               ))}
@@ -731,9 +737,9 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
           </div>
         </div>
         <p className="text-xs text-gray-500 mt-4 font-light">
-          {selectedProject !== 'all' || selectedEmployee !== 'all' 
-            ? `Filtered: ${selectedProject !== 'all' ? selectedProject : 'All Projects'} ${selectedEmployee !== 'all' ? `- ${selectedEmployee}` : ''}` 
-            : 'All projects and employees'}
+          {selectedEmployee !== 'all' 
+            ? `Filtered: ${selectedProject}${selectedEmployee !== 'all' ? ` - ${selectedEmployee}` : ''}` 
+            : 'Showing capacity data'}
         </p>
       </div>
 
@@ -885,9 +891,13 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
                 i.status?.toLowerCase?.()?.includes('closed')
               ).length;
               
-              const healthScore = projectIssues.length > 0 
-                ? Math.round((completedCount / projectIssues.length) * 100)
-                : 0;
+              // Get project start and end dates
+              const startDates = projectIssues
+                .filter((i: any) => i.start)
+                .map((i: any) => new Date(i.start).getTime());
+              const endDates = projectIssues
+                .filter((i: any) => i.due)
+                .map((i: any) => new Date(i.due).getTime());
               
               // Get team members
               const team = Array.from(new Set(
@@ -903,12 +913,6 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
                 ? new Date(Math.max(...dueDates))
                 : undefined;
 
-              // Determine health color
-              let healthColor = '#3b82f6'; // default blue
-              if (healthScore >= 80) healthColor = '#10b981'; // green
-              else if (healthScore >= 50) healthColor = '#f59e0b'; // amber
-              else healthColor = '#ef4444'; // red
-
               return (
                 <div key={project.key} className="bg-white rounded-lg p-4 border border-gray-200 hover:border-gray-300 transition-all">
                   <div className="flex items-center justify-between gap-4">
@@ -923,20 +927,6 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
                       <div className="text-right min-w-fit">
                         <p className="text-xs text-gray-600">Progress</p>
                         <p className="text-sm font-light text-gray-900">{completedCount}/{projectIssues.length}</p>
-                      </div>
-                      
-                      <div className="w-16 bg-gray-200 rounded-full h-2">
-                        <div
-                          className="h-2 rounded-full transition-all"
-                          style={{ width: `${healthScore}%`, backgroundColor: healthColor }}
-                        ></div>
-                      </div>
-                      
-                      <div className="text-right min-w-fit">
-                        <p className="text-xs text-gray-600">Health</p>
-                        <p className="text-sm font-medium" style={{ color: healthColor }}>
-                          {healthScore}%
-                        </p>
                       </div>
                       
                       <div className="text-right min-w-fit">

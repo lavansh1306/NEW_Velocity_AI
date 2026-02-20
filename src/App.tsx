@@ -25,6 +25,7 @@ import SignUp from "./pages/SignUp";
 import AuthCallback from "./pages/AuthCallback";
 import NotFound from "./pages/NotFound";
 import Dashboard from "./pages/Dashboard";
+import AuditPage from "./pages/Audit";
 
 const queryClient = new QueryClient();
 
@@ -59,6 +60,7 @@ const App = () => (
               <Route path="/projects/jira-dashboard" element={<JiraDashboard />} />
               <Route path="/projects/:id" element={<ProjectDetailNew />} />
               <Route path="/debug-normalization" element={<DebugNormalization />} />
+              <Route path="/audit" element={<AuditPage />} />
               
               {/* Catch-all - 404 */}
               <Route path="*" element={<NotFound />} />

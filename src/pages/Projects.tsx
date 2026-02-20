@@ -10,6 +10,7 @@ import { loadProjects as fetchProjects, loadMetrics, type ProjectItem } from '@/
 import { useToast } from '@/contexts/ToastContext';
 import { AlertCircle, TrendingUp, Calendar, Zap, BarChart3 } from 'lucide-react';
 import { fetchIssuesHybrid } from '@/lib/jiraDbClient';
+import { calculateProjectHealthScore } from '@/lib/metrics';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface ProjectsProps {
@@ -54,13 +55,29 @@ const fetchProjectMetrics = async (projectId: string): Promise<ProjectMetrics> =
       };
     }
 
-    // Calculate health score based on status
+    // Calculate health score using comprehensive formula
     const completedStatuses = ['Done', 'DONE', 'Closed', 'CLOSED', 'Resolved', 'RESOLVED'];
     const completedCount = issues.filter(i => 
       completedStatuses.some(status => i.status?.toLowerCase().includes(status.toLowerCase()))
     ).length;
 
-    const healthScore = Math.round((completedCount / issues.length) * 100);
+    // Get project dates for health calculation
+    const startDates = issues
+      .filter(i => i.created)
+      .map(i => new Date(i.created!).getTime());
+    const endDates = issues
+      .filter(i => i.due)
+      .map(i => new Date(i.due!).getTime());
+    
+    const projectStartDate = startDates.length > 0 ? new Date(Math.min(...startDates)) : undefined;
+    const projectEndDate = endDates.length > 0 ? new Date(Math.max(...endDates)) : undefined;
+
+    // Use new comprehensive health score calculation
+    const healthScore = calculateProjectHealthScore({
+      issues,
+      startDate: projectStartDate,
+      endDate: projectEndDate,
+    });
 
     // Extract unique team members
     const team = Array.from(new Set(
@@ -429,21 +446,7 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
           </>
         )}
 
-        {/* Leave Management Section */}
-        {jiraProjects.length > 0 && (
-          <div className="mt-12 pt-12 border-t border-gray-200">
-            <h2 className="text-xl font-semibold mb-6">Team Leave Management</h2>
-            <div className="space-y-6">
-              {jiraProjects.map((project) => (
-                <ProjectLeaveManagement
-                  key={project.id}
-                  projectId={project.id}
-                  projectName={project.title}
-                />
-              ))}
-            </div>
-          </div>
-        )}
+
       </div>
     </div>
   );
