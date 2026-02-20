@@ -8,12 +8,12 @@ Your Velocity AI dashboard now displays **real Jira backend data** in a beautifu
 
 ## 📊 New Component: JiraPoweredDashboard
 
-**Location**: `src/components/dashboard/JiraPoweredDashboard.tsx`
+**Location**: `src/components/dashbord/JiraPoweredDashboard.tsx`
 
 ### Features
 
 ✅ **KPI Cards** - Shows real metrics from Jira:
-- Active Projects (count of Jira projects)
+- Active Projects (count of Jirrojects)
 - Team Utilization % (calculated from issue durations)
 - Available Capacity (in hours)
 - Projects at Risk (overdue issues)
