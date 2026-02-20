@@ -12,8 +12,35 @@ import {
 
 import { fetchRawCSV } from '../ml-model/RecommendationEngine'; 
 import csvPath from '../ml-model/datasets/master_employee_task_report.csv?url';
+<<<<<<< HEAD
+import { CapacityReport } from '../../lib/types'; // Import the CapacityReport type
+=======
 import { fetchProjectsHybrid, fetchIssuesHybrid } from '@/lib/jiraDbClient';
+>>>>>>> c5ce8ffec616cbcb8837c7327cdb35a999716df2
 
+import { mlService } from '../../services/mlService'; // adjust path if needed
+
+const [capacityReports, setCapacityReports] = useState<CapacityReport[]>([]);
+
+// 2. Add this inside the initSystem() function, right AFTER setEmployees(loadedEmployees);
+try {
+  // Map UnifiedEmployee to MLCandidate format
+  const mlCandidates = loadedEmployees.map(emp => ({
+    id: emp.id.toString(),
+    name: emp.name,
+    current_load: emp.currentLoad,
+    skills: emp.skills,
+    role_level: 'mid' as const, // default fallback
+    base_productive_hours: emp.base_productive_hours,
+    pto_hours_this_week: emp.pto_hours_this_week,
+    holiday_hours_this_week: emp.holiday_hours_this_week
+  }));
+  
+  const capacity = await mlService.analyzeCapacity(mlCandidates);
+  setCapacityReports(capacity);
+} catch (error) {
+  console.error("Failed to load capacity reports", error);
+}
 // --- HELPER ICONS ---
 const getCategoryIcon = (cat: string) => {
   switch(cat) {
