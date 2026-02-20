@@ -3,18 +3,18 @@ import { Zap, Twitter, Linkedin, Github } from "lucide-react";
 
 export const Footer = () => {
   return (
-    <footer className="border-t border-slate-200 bg-white py-12">
-      <div className="max-w-[1200px] mx-auto px-6 lg:px-8">
-        <div className="flex flex-col items-center justify-between gap-8 md:flex-row md:items-start">
+    <footer className="border-t border-slate-200 bg-white py-6">
+      <div className="w-full px-0 mx-0">
+        <div className="flex flex-col items-start justify-between gap-8 md:flex-row md:items-start">
           
           {/* Brand Identity */}
-          <div className="flex flex-col items-center md:items-start gap-4">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col items-start gap-4">
+            <div className="flex items-center gap-0">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-fuchsia-500 to-cyan-500 shadow-md shadow-fuchsia-500/20">
                 <Zap className="h-4 w-4 text-white fill-white" />
               </div>
               <span className="text-xl font-black tracking-tight text-slate-900">
-                Velocity <span className="text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-500 to-cyan-500">AI</span>
+                Velocity<span className="text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-500 to-cyan-500">AI</span>
               </span>
             </div>
             <p className="text-sm font-medium text-slate-500 max-w-xs text-center md:text-left">
@@ -23,7 +23,7 @@ export const Footer = () => {
           </div>
 
           {/* Core Links */}
-          <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-4 text-sm font-bold text-slate-500">
+          <div className="flex-1 flex flex-wrap items-center justify-center gap-x-8 gap-y-4 text-sm font-bold text-slate-500">
             <Link to="#" className="transition-all hover:text-transparent hover:bg-clip-text hover:bg-gradient-to-r hover:from-fuchsia-500 hover:to-cyan-500">
               Privacy Policy
             </Link>

@@ -8,16 +8,16 @@ export const Header = () => {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slate-200/60 bg-white/80 backdrop-blur-md transition-all">
-      <div className="max-w-[1200px] mx-auto px-6 lg:px-8">
+      <div className="w-full px-0 mx-0">
         <div className="flex items-center justify-between h-20">
           
           {/* Brand Logo (Matches Footer) */}
-          <Link to="/" className="flex items-center gap-2 group">
+          <Link to="/" className="flex items-center gap-0 group">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-500 to-cyan-500 shadow-md shadow-fuchsia-500/20 transition-transform group-hover:scale-105">
               <Zap className="h-5 w-5 text-white fill-white" />
             </div>
             <span className="text-2xl font-black tracking-tight text-slate-900">
-              Velocity <span className="text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-500 to-cyan-500">AI</span>
+              Velocity<span className="text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-500 to-cyan-500">AI</span>
             </span>
           </Link>
 
@@ -42,7 +42,7 @@ export const Header = () => {
               </Button>
             </Link>
             <Link to="/signup">
-              <Button className="bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-500 hover:to-pink-400 text-white font-bold rounded-xl h-11 px-6 shadow-lg shadow-pink-500/20 transition-all duration-300 hover:scale-105 hover:shadow-pink-500/40 border-0">
+              <Button className="bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-500 hover:to-pink-400 text-white font-bold rounded-xl h-11 px-4 shadow-lg shadow-pink-500/20 transition-all duration-300 hover:scale-105 hover:shadow-pink-500/40 border-0">
                 Get Started
               </Button>
             </Link>
@@ -62,8 +62,8 @@ export const Header = () => {
         </div>
 
         {/* Mobile Navigation Dropdown */}
-        {isOpen && (
-          <div className="md:hidden absolute top-20 left-0 w-full bg-white border-b border-slate-200 shadow-xl px-6 py-6 animate-in slide-in-from-top-2">
+          {isOpen && (
+          <div className="md:hidden absolute top-20 left-0 w-full bg-white border-b border-slate-200 shadow-xl px-0 py-4 animate-in slide-in-from-top-2">
             <nav className="flex flex-col space-y-4 mb-6">
               <Link
                 to="#features"
