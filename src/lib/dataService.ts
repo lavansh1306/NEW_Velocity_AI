@@ -23,6 +23,7 @@ import {
 import { estimatedTimeSavedHoursByApp, estimatedReturnsByApp, estimatedTotalReturnsUSD } from './metrics';
 import { estimatedCostSavedUSD, automationCoveragePrevious } from './metrics';
 import { apiUrl } from './api';
+import { fetchAllIssuesFromDB, fetchProjectsHybrid, type JiraIssueFromDB } from './jiraDbClient';
 
 // ========================================
 // CSV Parser (browser-compatible)
@@ -82,15 +83,39 @@ async function fetchCSV(path: string): Promise<string> {
   return response.text();
 }
 
-// Fetch Jira issues via the backend proxy (/api/issues) and map to RawJiraRow[]
+// Fetch Jira issues (DB-first) and map to RawJiraRow[]
 async function fetchJiraRowsFromApi(projectKey?: string): Promise<RawJiraRow[]> {
   try {
+    // Try DB first
+    let dbIssues: JiraIssueFromDB[] = [];
+    if (projectKey) {
+      const { fetchIssuesFromDB } = await import('./jiraDbClient');
+      dbIssues = await fetchIssuesFromDB(projectKey);
+    } else {
+      dbIssues = await fetchAllIssuesFromDB();
+    }
+
+    if (dbIssues.length > 0) {
+      console.log(`[dataService] Loaded ${dbIssues.length} issues from DB for normalizers`);
+      return dbIssues.map((iss) => ({
+        issue_id: iss.key || '',
+        issue_key: iss.key || '',
+        created_at: iss.created || '',
+        event_type: 'issue_created',
+        actor: iss.assignee || 'unknown',
+        from_status: '',
+        to_status: iss.status || '',
+        project_id: iss.project_key || '',
+        fields: JSON.stringify({}),
+      }));
+    }
+
+    // Fallback to API
     const url = projectKey ? apiUrl(`/api/jira/issues?projectKey=${encodeURIComponent(projectKey)}`) : apiUrl('/api/jira/issues')
     const resp = await fetch(url)
     if (!resp.ok) return []
     const data = await resp.json()
     const issues = data.issues || []
-    // Map to RawJiraRow shape expected by normalizers
     return issues.map((iss: any) => ({
       issue_id: iss.key || iss.id || '',
       issue_key: iss.key || iss.id || '',
@@ -166,34 +191,20 @@ const projectImages: Record<string, string> = {
 
 /**
  * Load list of projects from Jira only.
- * Fetches projects from `/api/jira/projects`.
+ * Reads from Supabase DB first, falls back to live API.
  */
 export async function loadProjects(): Promise<ProjectItem[]> {
-  console.log('[loadProjects] Starting to fetch projects...');
+  console.log('[loadProjects] Starting to fetch projects (DB-first)...');
   
-  // Fetch Jira project list
-  const jiraRes = await fetch(apiUrl('/api/jira/projects'), { credentials: 'include' }).catch((err) => {
-    console.error('[loadProjects] Jira fetch failed:', err);
-    return null;
-  });
-
-  console.log('[loadProjects] Jira response:', jiraRes?.status, jiraRes?.ok);
-
+  // Use hybrid fetch: DB first, API fallback
   let jiraList: any[] = [];
-
-  if (jiraRes && jiraRes.ok) {
-    try {
-      const data = await jiraRes.json();
-      jiraList = data.projects || [];
-      console.log('[loadProjects] Jira projects:', jiraList.length, jiraList);
-    } catch (e) {
-      console.error('[loadProjects] Error parsing Jira response:', e);
-      jiraList = [];
-    }
-  } else if (jiraRes) {
-    console.error('[loadProjects] Jira request failed with status:', jiraRes.status);
-    const text = await jiraRes.text();
-    console.error('[loadProjects] Jira error response:', text.substring(0, 200));
+  try {
+    const { projects, source } = await fetchProjectsHybrid();
+    jiraList = projects;
+    console.log(`[loadProjects] Got ${jiraList.length} projects from ${source}`);
+  } catch (err) {
+    console.error('[loadProjects] Hybrid fetch failed:', err);
+    jiraList = [];
   }
 
   const normalized: ProjectItem[] = [];
@@ -323,18 +334,30 @@ export async function computeAllBlockedHours(): Promise<number | null> {
 
     let totalBlocked = 0;
 
-    // Fetch Jira projects
+    // Fetch Jira projects from DB first
     try {
-      const pjRes = await fetch('/api/jira/projects', { credentials: 'include' });
-      if (pjRes.ok) {
-        const pjData = await pjRes.json();
-        const projects = pjData.projects || [];
-        for (const p of projects) {
+      const { projects: jiraProjects } = await fetchProjectsHybrid();
+      if (jiraProjects.length > 0) {
+        for (const p of jiraProjects) {
           try {
-            const issuesRes = await fetch(`/api/jira/issues?projectKey=${encodeURIComponent(p.key)}`, { credentials: 'include' });
-            if (!issuesRes.ok) continue;
-            const issuesJson = await issuesRes.json();
-            const issues = issuesJson.issues || [];
+            const { fetchIssuesFromDB: fetchDbIssues } = await import('./jiraDbClient');
+            let issues: any[] = [];
+            const dbIssues = await fetchDbIssues(p.key);
+            if (dbIssues.length > 0) {
+              issues = dbIssues.map((i: any) => ({
+                key: i.key,
+                assignee: i.assignee || 'Unassigned',
+                created: i.created || null,
+                start: i.start || null,
+                due: i.due || null,
+              }));
+            } else {
+              // Fallback to API
+              const issuesRes = await fetch(`/api/jira/issues?projectKey=${encodeURIComponent(p.key)}`, { credentials: 'include' });
+              if (!issuesRes.ok) continue;
+              const issuesJson = await issuesRes.json();
+              issues = issuesJson.issues || [];
+            }
 
             const byAssigneeProj: Record<string, Array<{ s: number; e: number }>> = {};
             const startOfDayUTC = (d: any) => {

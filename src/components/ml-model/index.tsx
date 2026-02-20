@@ -8,6 +8,7 @@ import { Bot, Sparkles, Loader2, FileX, AlertCircle } from 'lucide-react';
 import { JsonOutputDialog } from './JsonOutputDialog';
 // IMPORT ML SERVICE
 import { mlService, transformJiraToML, MLCandidate, MLTask } from '@/services/mlService';
+import { fetchProjectsHybrid } from '@/lib/jiraDbClient';
 
 export default function ProjectCheckView() {
   const [dataset, setDataset] = useState<EmployeeRecord[]>([]);
@@ -41,9 +42,8 @@ export default function ProjectCheckView() {
         if (jiraStatus.connected) {
           // Load projects from Jira
           try {
-            const projectsResponse = await fetch('/api/jira/projects', { credentials: 'include' });
-            if (projectsResponse.ok) {
-              const projectsData = await projectsResponse.json();
+            const { projects: projectsData } = await fetchProjectsHybrid();
+            if (projectsData.length > 0) {
               console.log('[ProjectCheckView] Loaded from Jira projects:', projectsData);
               
               // For now, we'll use the projects as-is

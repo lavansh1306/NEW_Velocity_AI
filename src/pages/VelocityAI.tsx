@@ -41,6 +41,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 
 import { JiraCapacityMap } from '../components/leave-management/JiraCapacityMap';
 import { useJiraData } from '../hooks/useJiraData';
+import { fetchProjectsHybrid, fetchAllIssuesHybrid } from '../lib/jiraDbClient';
+import { setCurrentOrgId } from '../lib/orgContext';
 import { parseCSV } from '../components/ml-model/RecommendationEngine';
 import { Task, EmployeeProfile } from '../components/leave-management/types';
 
@@ -61,6 +63,10 @@ async function fetchJiraStatus() {
     }
 
     const data = await response.json();
+    // Store orgId in localStorage so jiraDbClient can use it
+    if (data.orgId) {
+      setCurrentOrgId(data.orgId);
+    }
     return data.connected ? data : null;
   } catch (error) {
     console.error('Error fetching Jira status:', error instanceof Error ? error.message : error);
@@ -68,42 +74,25 @@ async function fetchJiraStatus() {
   }
 }
 
-// Fetch Jira resources using OAuth token
+// Fetch Jira resources — DB-first with API fallback
 async function fetchJiraData() {
   const status = await fetchJiraStatus();
-  
-  if (!status || !status.connected) {
-    console.warn('No Jira connection found');
-    return null;
-  }
 
   try {
-    const cloudId = status.site?.cloudId;
-    
-    if (!cloudId) {
-      console.warn('No Jira cloudId found');
+    // Fetch projects from DB (hybrid)
+    const { projects: dbProjects, source: projSource } = await fetchProjectsHybrid();
+    const projects = dbProjects;
+    console.log(`[VelocityAI] Got ${projects.length} projects from ${projSource}`);
+
+    if (projects.length === 0) {
+      console.warn('No Jira projects found');
       return null;
     }
-    
-    // Fetch projects from Jira API through our backend with timeout
-    const projectsController = new AbortController();
-    const projectsTimeout = setTimeout(() => projectsController.abort(), 10000);
-    
-    const projectsRes = await fetch(apiUrl('/api/jira/projects'), {
-      credentials: 'include',
-      signal: projectsController.signal
-    });
-    clearTimeout(projectsTimeout);
 
-    if (!projectsRes.ok) {
-      throw new Error(`Failed to fetch projects: ${projectsRes.statusText}`);
-    }
+    // Fetch all issues from DB (hybrid)
+    const { issues: allIssues, source: issSource } = await fetchAllIssuesHybrid();
+    console.log(`[VelocityAI] Got ${allIssues.length} issues from ${issSource}`);
 
-    const projectsData = await projectsRes.json();
-    const projects = projectsData.projects || [];
-    
-    // Fetch all issues from all projects to calculate stats
-    let allIssues = [];
     let totalHours = 0;
     const assigneesSet = new Set<string>();
     
@@ -111,56 +100,45 @@ async function fetchJiraData() {
     console.log(`Total Projects: ${projects.length}`);
     console.log('');
     
+    // Group issues by project_key for logging
+    const byProject = new Map<string, any[]>();
+    for (const issue of allIssues) {
+      const pk = issue.project_key || issue.team || 'unknown';
+      if (!byProject.has(pk)) byProject.set(pk, []);
+      byProject.get(pk)!.push(issue);
+    }
+
     for (const project of projects) {
-      try {
-        const issuesController = new AbortController();
-        const issuesTimeout = setTimeout(() => issuesController.abort(), 8000);
-        
-        const issuesRes = await fetch(apiUrl(`/api/jira/issues?projectKey=${encodeURIComponent(project.key)}`), {
-          credentials: 'include',
-          signal: issuesController.signal
-        });
-        clearTimeout(issuesTimeout);
-        
-        if (issuesRes.ok) {
-          const issuesData = await issuesRes.json();
-          const issues = issuesData.issues || [];
-          allIssues.push(...issues);
-          
-          // Log first 5 tasks from this project
-          console.log(`%c📋 PROJECT: ${project.title} (${project.key})`, 'color: #2196F3; font-weight: bold; font-size: 13px;');
-          console.log(`   Total Tasks: ${issues.length}`);
-          console.log('%c   First 5 Tasks:', 'color: #666; font-style: italic;');
-          
-          const firstFive = issues.slice(0, 5);
-          firstFive.forEach((issue: any, index: number) => {
-            console.log(`   ${index + 1}. [${issue.key}] ${issue.summary}`);
-            console.log(`      Status: ${issue.status} | Priority: ${issue.priority} | Assignee: ${issue.assignee || 'Unassigned'}`);
-            if (issue.description) {
-              const desc = issue.description.substring(0, 80);
-              console.log(`      Description: ${desc}${issue.description.length > 80 ? '...' : ''}`);
-            }
-          });
-          console.log('');
-          
-          // Sum up hours and collect assignees
-          issues.forEach((issue: any) => {
-            let hours = 8; // default
-            if (issue.duration) {
-              const parsed = parseInt(String(issue.duration), 10);
-              if (!isNaN(parsed) && parsed > 0 && parsed < 10000) {
-                hours = parsed;
-              }
-            }
-            totalHours += hours;
-            if (issue.assignee) {
-              assigneesSet.add(issue.assignee);
-            }
-          });
+      const issues = byProject.get(project.key) || [];
+      
+      console.log(`%c📋 PROJECT: ${project.title} (${project.key})`, 'color: #2196F3; font-weight: bold; font-size: 13px;');
+      console.log(`   Total Tasks: ${issues.length}`);
+      console.log('%c   First 5 Tasks:', 'color: #666; font-style: italic;');
+      
+      const firstFive = issues.slice(0, 5);
+      firstFive.forEach((issue: any, index: number) => {
+        console.log(`   ${index + 1}. [${issue.key}] ${issue.summary}`);
+        console.log(`      Status: ${issue.status} | Priority: ${issue.priority} | Assignee: ${issue.assignee || 'Unassigned'}`);
+        if (issue.description) {
+          const desc = issue.description.substring(0, 80);
+          console.log(`      Description: ${desc}${issue.description.length > 80 ? '...' : ''}`);
         }
-      } catch (e) {
-        console.warn(`Failed to fetch issues for project ${project.key}:`, e);
-      }
+      });
+      console.log('');
+      
+      issues.forEach((issue: any) => {
+        let hours = 8;
+        if (issue.duration) {
+          const parsed = parseInt(String(issue.duration), 10);
+          if (!isNaN(parsed) && parsed > 0 && parsed < 10000) {
+            hours = parsed;
+          }
+        }
+        totalHours += hours;
+        if (issue.assignee) {
+          assigneesSet.add(issue.assignee);
+        }
+      });
     }
     
     const stats = {
@@ -179,17 +157,15 @@ async function fetchJiraData() {
     console.log('');
     
     console.log('Jira data fetched successfully:', { 
-      site: status.site,
-      availableSites: status.availableSites,
       projects: projects.length,
       stats
     });
     
     return { 
-      resources: status.availableSites,
+      resources: status?.availableSites || [],
       projects, 
-      cloudId,
-      site: status.site,
+      cloudId: status?.site?.cloudId || null,
+      site: status?.site || null,
       stats
     };
   } catch (error) {

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { loadAllMetrics, computeAllBlockedHours } from '@/lib/dataService';
 import { apiUrl } from '@/lib/api';
 import { ManagerGantt } from '@/components/jira';
+import { fetchAllIssuesHybrid } from '@/lib/jiraDbClient';
 import type { Issue } from '@/components/jira/types';
 
 export default function DashboardTab() {
@@ -100,65 +101,10 @@ export default function DashboardTab() {
     
     const fetchAllJiraIssues = async () => {
       try {
-        // First, fetch all available projects
-        const projectsResponse = await fetch(apiUrl('/api/jira/projects'), { credentials: 'include' });
-        
-        if (!projectsResponse.ok) {
-          throw new Error('Failed to fetch projects list');
-        }
-        
-        const projectsData = await projectsResponse.json();
-        const projects = Array.isArray(projectsData) ? projectsData : (projectsData.projects || projectsData || []);
-        
-        console.log('[DashboardTab] Found projects:', projects);
-        
-        // If no projects, try default fetch
-        if (!projects || projects.length === 0) {
-          console.warn('[DashboardTab] No projects found, attempting default fetch');
-          const defaultResponse = await fetch(apiUrl(`/api/jira/issues?_t=${Date.now()}`), { credentials: 'include' });
-          if (defaultResponse.ok) {
-            const defaultData = await defaultResponse.json();
-            const issues = defaultData.issues || [];
-            if (mounted && issues.length > 0) {
-              setJiraIssues(issues);
-            }
-          } else {
-            const txt = await defaultResponse.text().catch(() => '')
-            console.warn('[DashboardTab] Default fetch failed with status', defaultResponse.status, txt)
-          }
-          return;
-        }
-
-        // Extract project keys
-        const projectKeys = projects.map((p: any) => {
-          if (typeof p === 'string') return p;
-          return p.key || p.id || p.name;
-        }).filter((k: string) => !!k);
-
-        console.log('[DashboardTab] Project keys to fetch:', projectKeys);
-
-        // Fetch issues from each project
-        const allIssues: any[] = [];
-        for (const projectKey of projectKeys) {
-          try {
-            const encodedKey = encodeURIComponent(String(projectKey))
-            const issuesResponse = await fetch(apiUrl(`/api/jira/issues?projectKey=${encodedKey}&_t=${Date.now()}`), { credentials: 'include' });
-            if (issuesResponse.ok) {
-              const issuesData = await issuesResponse.json();
-              const issues = issuesData.issues || [];
-              console.log(`[DashboardTab] Fetched ${issues.length} issues from ${projectKey}`);
-              allIssues.push(...issues);
-            } else {
-              const txt = await issuesResponse.text().catch(() => '')
-              console.warn(`[DashboardTab] Failed to fetch issues from ${projectKey}:`, issuesResponse.status, txt);
-            }
-          } catch (err) {
-            console.warn(`[DashboardTab] Error fetching issues from ${projectKey}:`, err);
-          }
-        }
+        const { issues: allIssues, source } = await fetchAllIssuesHybrid();
+        console.log(`[DashboardTab] Loaded ${allIssues.length} issues from ${source}`);
 
         if (mounted) {
-          console.log('[DashboardTab] Total issues collected:', allIssues.length);
           setJiraIssues(allIssues);
         }
       } catch (err) {

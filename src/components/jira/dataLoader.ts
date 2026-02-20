@@ -1,4 +1,5 @@
 import type { Issue } from './types'
+import { fetchAllIssuesFromDB, fetchIssuesFromDB } from '@/lib/jiraDbClient'
 
 interface CSVRow {
   [key: string]: string
@@ -71,7 +72,34 @@ function parseJSONField(jsonStr: string): Record<string, any> {
 
 export async function loadJiraIssuesFromCSV(): Promise<Issue[]> {
   try {
-    // Use live Jira via backend proxy
+    // DB-first: read from Supabase
+    const dbIssues = await fetchAllIssuesFromDB()
+
+    if (dbIssues.length > 0) {
+      console.log('[dataLoader] Loaded', dbIssues.length, 'issues from DB')
+      const issueMap = new Map<string, Issue>()
+      dbIssues.forEach((iss) => {
+        if (!issueMap.has(iss.key)) {
+          issueMap.set(iss.key, {
+            key: iss.key,
+            issueType: iss.issueType || 'Task',
+            summary: iss.summary || `Issue ${iss.key}`,
+            description: iss.description || '',
+            priority: iss.priority || 'Medium',
+            status: iss.status || 'Open',
+            assignee: iss.assignee || 'Unassigned',
+            team: iss.team || iss.project_key || '',
+            start: iss.start || null,
+            due: iss.due || null,
+            duration: calculateDuration(iss.created),
+          })
+        }
+      })
+      return Array.from(issueMap.values())
+    }
+
+    // Fallback to API
+    console.log('[dataLoader] No issues in DB, falling back to API')
     const resp = await fetch('/api/jira/issues', { credentials: 'include' })
     if (!resp.ok) throw new Error(`Failed to load Jira issues: ${resp.status}`)
     const data = await resp.json()
@@ -95,7 +123,7 @@ export async function loadJiraIssuesFromCSV(): Promise<Issue[]> {
           status: fields.status?.name || iss.status || 'Open',
           assignee: fields.assignee?.displayName || iss.assignee || 'Unassigned',
           team: `Project ${projectId}`,
-          created,
+          start: null,
           due,
           duration: calculateDuration(created),
         })
@@ -108,12 +136,36 @@ export async function loadJiraIssuesFromCSV(): Promise<Issue[]> {
 
     return Array.from(issueMap.values())
   } catch (error) {
-    console.error('Error loading Jira issues from API:', error)
+    console.error('Error loading Jira issues:', error)
     throw error
   }
 }
 
 export async function loadJiraIssuesByProject(projectId: string): Promise<Issue[]> {
+  // DB-first for a specific project
+  try {
+    const dbIssues = await fetchIssuesFromDB(projectId)
+    if (dbIssues.length > 0) {
+      console.log(`[dataLoader] Loaded ${dbIssues.length} issues for ${projectId} from DB`)
+      return dbIssues.map((iss) => ({
+        key: iss.key,
+        issueType: iss.issueType || 'Task',
+        summary: iss.summary || '',
+        description: iss.description || '',
+        priority: iss.priority || 'Medium',
+        status: iss.status || 'Open',
+        assignee: iss.assignee || 'Unassigned',
+        team: iss.team || iss.project_key || '',
+        start: iss.start || null,
+        due: iss.due || null,
+        duration: calculateDuration(iss.created),
+      }))
+    }
+  } catch (err) {
+    console.warn('[dataLoader] DB fetch failed for project, trying fallback:', err)
+  }
+
+  // Fallback
   const allIssues = await loadJiraIssuesFromCSV()
   return allIssues.filter(issue => 
     issue.team === `Project ${projectId}` || 

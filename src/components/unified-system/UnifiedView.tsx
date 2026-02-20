@@ -12,7 +12,11 @@ import {
 
 import { fetchRawCSV } from '../ml-model/RecommendationEngine'; 
 import csvPath from '../ml-model/datasets/master_employee_task_report.csv?url';
+<<<<<<< HEAD
 import { CapacityReport } from '../../lib/types'; // Import the CapacityReport type
+=======
+import { fetchProjectsHybrid, fetchIssuesHybrid } from '@/lib/jiraDbClient';
+>>>>>>> c5ce8ffec616cbcb8837c7327cdb35a999716df2
 
 import { mlService } from '../../services/mlService'; // adjust path if needed
 
@@ -92,13 +96,8 @@ const checkJiraConnection = async (): Promise<JiraConnectionStatus> => {
 
 const fetchJiraProjects = async (): Promise<any[]> => {
   try {
-    const response = await fetch('/api/jira/projects', { credentials: 'include' });
-    if (response.ok) {
-      const data = await response.json();
-      return data.projects || [];
-    }
-    console.warn('[Jira] Failed to fetch projects:', response.status);
-    return [];
+    const { projects } = await fetchProjectsHybrid();
+    return projects;
   } catch (error) {
     console.error('[Jira] Error fetching projects:', error);
     return [];
@@ -107,13 +106,8 @@ const fetchJiraProjects = async (): Promise<any[]> => {
 
 const fetchJiraIssuesForProject = async (projectKey: string): Promise<JiraIssue[]> => {
   try {
-    const response = await fetch(`/api/jira/issues?projectKey=${encodeURIComponent(projectKey)}`);
-    if (response.ok) {
-      const data = await response.json();
-      return data.issues || [];
-    }
-    console.warn(`[Jira] Failed to fetch issues for ${projectKey}:`, response.status);
-    return [];
+    const { issues } = await fetchIssuesHybrid(projectKey);
+    return issues as unknown as JiraIssue[];
   } catch (error) {
     console.error(`[Jira] Error fetching issues for ${projectKey}:`, error);
     return [];

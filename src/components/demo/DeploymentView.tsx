@@ -25,6 +25,7 @@ import {
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { apiUrl } from "@/lib/api";
+import { fetchProjectsHybrid } from '@/lib/jiraDbClient';
 
 interface Employee {
   id: string;
@@ -173,13 +174,8 @@ export const DeploymentView = () => {
 
   const loadJiraProjects = async () => {
     try {
-      const response = await fetch(apiUrl('/api/jira/projects'), {
-        credentials: 'include'
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setJiraProjects(data.projects || []);
-      }
+      const { projects } = await fetchProjectsHybrid();
+      setJiraProjects(projects);
     } catch (error) {
       console.error('Error loading Jira projects:', error);
     }

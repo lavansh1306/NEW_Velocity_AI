@@ -2,6 +2,7 @@
 
 <div align="center">
 
+<<<<<<< HEAD
 ![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
 ![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
 ![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)
@@ -17,6 +18,47 @@
 [Features](#-features) • [Tech Stack](#-tech-stack) • [Getting Started](#-getting-started) • [Architecture](#-architecture)
 
 </div>
+=======
+**Stc:** React + TypeScript + Express +OAuthh
+## Arhitcture
+``
+┌────────────────────────────────────────────────────────────────┐
+│                         FRONEND (React)                         │
+│  ┌──────────┐  ┌──────────┐  ┌───────┐  ┌──────────┐       
+│  │   Jira   │  │  HubSpot │  │  Asana   │  │  M365    │       │
+│  │Dashboard │ │Dahboard │  │Dahboard │  │\ │       │
+│  └────┬─────┘  └────┬─────┘  └───┬─────┘  └────┬─────┘       │
+│       │             │                        │           
+│       └─────────────┴──────────────┴──────────────┘              │
+│                         │                                        
+│                  React Query (API Calls)                         │
+└───────────────────────────┬─────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    EXPRESS SERVER (Node.js)                      │
+│                                                                   │
+│  ┌────────────────┐  ┌────────────────┐  ┌──────────────────┐  │
+│  │  Jira OAuth    │  │ HubSpot OAuth  │  │   M365 OAuth     │  │
+│  │  /api/jira/*   │  │ /api/hubspot/* │  │ /api/microsoft*  │  │
+│  └───────┬────────┘  └───────┬────────┘  └────────┬─────────┘  │
+│          │                   │                     │             │
+│          └───────────────────┴─────────────────────┘             │
+│                              │                                   │
+│                   Session Management                             │
+│                   (express-session)                              │
+└───────────────────────────────┬─────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      EXTERNAL APIs                               │
+│  ┌─────────────┐  ┌─────────────┐  ┌──────────────┐            │
+│  │ Jira Cloud  │  │  HubSpot    │  │ Microsoft    │            │
+│  │ REST API    │  │  CRM API    │  │ Graph API    │            │
+│  └─────────────┘  └─────────────┘  └──────────────┘            │
+└─────────────────────────────────────────────────────────────────┘
+```
+>>>>>>> c5ce8ffec616cbcb8837c7327cdb35a999716df2
 
 ---
 

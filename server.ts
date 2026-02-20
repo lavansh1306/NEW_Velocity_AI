@@ -130,6 +130,29 @@ if (!isJiraConfigReady) {
   console.warn("[Jira] Configuration incomplete:", { domain: !!DOMAIN, email: !!EMAIL, token: !!API_TOKEN, projectKey: !!PROJECT_KEY })
 }
 
+// ============ Supabase DB Test ============
+async function testSupabaseConnection() {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseKey) {
+    console.warn('[DB] Missing SUPABASE_URL or SUPABASE_ANON_KEY - DB persistence disabled');
+    return;
+  }
+  try {
+    const client = createClient(supabaseUrl, supabaseKey);
+    // Test with a simple count query to verify connection
+    const { count, error } = await client.from('organizations').select('*', { count: 'exact', head: true });
+    if (error) {
+      console.error('[DB] Supabase connection test FAILED:', error.message, error.details);
+    } else {
+      console.log('[DB] ✓ Supabase connected. Organizations count:', count);
+    }
+  } catch (e) {
+    console.error('[DB] Supabase connection error:', e);
+  }
+}
+testSupabaseConnection();
+
 const extractDescription = (desc: any): string => {
   if (!desc) return ""
   if (typeof desc === "string") return desc

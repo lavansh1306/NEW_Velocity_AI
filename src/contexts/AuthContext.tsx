@@ -1,11 +1,23 @@
 import { createContext, useContext, useEffect, useState, useMemo } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
+import {
+  setCurrentOrgId,
+  setCurrentOrgRole,
+  setCurrentOrgName,
+  clearCurrentOrg,
+  getCurrentOrgId,
+  getCurrentOrgRole,
+  getCurrentOrgName,
+} from '@/lib/orgContext';
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  orgId: string | null;
+  orgRole: string | null;
+  orgName: string | null;
   signUp: (email: string, password: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
@@ -13,6 +25,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updatePassword: (newPassword: string) => Promise<void>;
+  refreshOrg: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -21,6 +34,42 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [orgId, setOrgIdState] = useState<string | null>(getCurrentOrgId());
+  const [orgRole, setOrgRoleState] = useState<string | null>(getCurrentOrgRole());
+  const [orgName, setOrgNameState] = useState<string | null>(getCurrentOrgName());
+
+  // Look up the user's org membership from Supabase
+  const lookupOrg = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('organization_members')
+        .select('org_id, role, organizations(name)')
+        .eq('user_id', userId)
+        .limit(1)
+        .single();
+
+      if (error || !data) {
+        console.log('[Auth] No org membership found for user', userId);
+        return;
+      }
+
+      const name = (data as any).organizations?.name || '';
+      setCurrentOrgId(data.org_id);
+      setCurrentOrgRole(data.role);
+      setCurrentOrgName(name);
+      setOrgIdState(data.org_id);
+      setOrgRoleState(data.role);
+      setOrgNameState(name);
+      console.log(`[Auth] Org resolved: ${name} (${data.org_id}), role=${data.role}`);
+    } catch (err) {
+      console.warn('[Auth] lookupOrg error:', err);
+    }
+  };
+
+  /** Re-fetch org membership (e.g. after Jira connect completes) */
+  const refreshOrg = async () => {
+    if (user?.id) await lookupOrg(user.id);
+  };
 
   // Save Google user email to database
   const saveGoogleUserEmail = async (userEmail: string) => {
@@ -67,6 +116,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
         console.log('[Auth] Session check:', session ? 'User authenticated' : 'No session');
+        // Hydrate org context if we have a session and orgId isn't already set
+        if (session?.user?.id && !getCurrentOrgId()) {
+          await lookupOrg(session.user.id);
+        }
       } catch (error) {
         console.error('[Auth] Error checking session:', error instanceof Error ? error.message : error);
         // Even if auth check fails, allow access (user might be Jira-authenticated)
@@ -94,6 +147,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             console.log('[Auth] Saving Google user email:', session.user.email);
             await saveGoogleUserEmail(session.user.email);
           }
+          // Look up org membership
+          await lookupOrg(session.user.id);
         }
         
         // Ensure loading is false after auth state change
@@ -163,12 +218,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signInWithJira = () => {
     // Jira OAuth flow - redirects to backend which handles Atlassian OAuth
-    // Backend will manage token storage and session
+    // Pass supabaseUserId so the backend can create/link the org
     console.log('[OAuth] Signing in with Jira');
-    window.location.href = `${window.location.origin}/api/jira/auth/connect`;
+    const userId = user?.id;
+    const qs = userId ? `?supabaseUserId=${encodeURIComponent(userId)}` : '';
+    window.location.href = `${window.location.origin}/api/jira/auth/connect${qs}`;
   };
 
   const signOut = async () => {
+    clearCurrentOrg();
+    setOrgIdState(null);
+    setOrgRoleState(null);
+    setOrgNameState(null);
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
   };
@@ -190,6 +251,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     user,
     session,
     loading,
+    orgId,
+    orgRole,
+    orgName,
     signUp,
     signIn,
     signInWithGoogle,
@@ -197,7 +261,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     signOut,
     resetPassword,
     updatePassword,
-  }), [user, session, loading]);
+    refreshOrg,
+  }), [user, session, loading, orgId, orgRole, orgName]);
 
   return (
     <AuthContext.Provider value={value}>
