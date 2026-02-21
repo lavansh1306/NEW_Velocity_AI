@@ -23,7 +23,7 @@ export interface Task {
 }
 
 export interface LeaveRequest {
-  id: number;
+  id: number | string;
   name: string;
   startDate: string;
   endDate: string;
