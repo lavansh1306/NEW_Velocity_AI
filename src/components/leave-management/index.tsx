@@ -680,6 +680,12 @@ export default function LeaveManagementTab() {
                               <Button size="sm" variant="outline" className="text-red-600 border-red-600" onClick={() => handleRejectLeave(leave)}>Reject</Button>
                             </div>
                           )}
+                          {(leave.status === 'Pending' || leave.status === 'Approved') && (
+                            <div className="flex gap-2 ml-2">
+                              <Button size="sm" onClick={() => handleShiftTasks(leave)} className="bg-indigo-600">Approve & Shift Tasks</Button>
+                              <Button size="sm" variant="outline" onClick={() => { setSelectedLeave(leave); setRedeployOpen(true); }}>Approve & Redeploy</Button>
+                            </div>
+                          )}
                         </div>
                       </div>
 
@@ -716,15 +722,8 @@ export default function LeaveManagementTab() {
 
                           {leave.status === 'Approved' && (
                             <div className="text-xs mb-2 p-2 bg-green-50 rounded border border-green-200">
-                              <strong className="text-green-700">✅ Approved & Shifted</strong>
-                              <p className="text-green-600 text-[10px] mt-1">(Database entries created in leave_history table)</p>
-                            </div>
-                          )}
-
-                          {leave.status === 'Pending' && (
-                            <div className="flex gap-2 mt-2">
-                              <Button size="sm" onClick={() => handleShiftTasks(leave)} className="bg-indigo-600">Approve & Shift Tasks</Button>
-                              <Button size="sm" variant="outline" onClick={() => { setSelectedLeave(leave); setRedeployOpen(true); }}>Approve & Redeploy</Button>
+                              <strong className="text-green-700">✅ Approved</strong>
+                              <p className="text-green-600 text-[10px] mt-1">(Click "Approve & Shift Tasks" above to shift task dates)</p>
                             </div>
                           )}
                         </div>
