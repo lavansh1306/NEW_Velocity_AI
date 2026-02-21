@@ -143,25 +143,34 @@ if (!isJiraConfigReady) {
 
 // ============ Supabase DB Test ============
 async function testSupabaseConnection() {
+  // For backend operations, use SERVICE_ROLE_KEY (bypasses RLS)
+  // For frontend/client, use ANON_KEY (respects RLS)
   const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_ANON_KEY;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY; // Use service key for backend
+  
   if (!supabaseUrl || !supabaseKey) {
-    console.warn('[DB] Missing SUPABASE_URL or SUPABASE_ANON_KEY - DB persistence disabled');
+    console.warn('[DB] ⚠️  Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY - DB persistence disabled');
     return;
   }
+  
   try {
     const client = createClient(supabaseUrl, supabaseKey);
-    // Test with a simple count query to verify connection
-    const { count, error } = await client.from('organizations').select('*', { count: 'exact', head: true });
+    
+    // Try a simple heartbeat query to organizations
+    const { count, error } = await client
+      .from('organizations')
+      .select('id', { count: 'exact', head: true });
+    
     if (error) {
-      console.error('[DB] Supabase connection test FAILED:', error.message, error.details);
+      console.error('[DB] ❌ Query failed:', error.code, '-', error.message);
     } else {
-      console.log('[DB] ✓ Supabase connected. Organizations count:', count);
+      console.log('[DB] ✅ Supabase CONNECTED! Organizations found:', count);
     }
-  } catch (e) {
-    console.error('[DB] Supabase connection error:', e);
+  } catch (e: any) {
+    console.error('[DB] 💥 Connection error:', e?.message || String(e));
   }
 }
+
 testSupabaseConnection();
 
 const extractDescription = (desc: any): string => {

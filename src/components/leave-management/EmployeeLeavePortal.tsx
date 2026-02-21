@@ -47,7 +47,9 @@ export function EmployeeLeavePortal({
   const [endLeaveDate, setEndLeaveDate] = useState<string>('');
   const [leaveReason, setLeaveReason] = useState<string>('');
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [pendingLeaveRanges, setPendingLeaveRanges] = useState<Array<{start: string, end: string}>>([]);
+  
+  // Update: Store reason along with the range so each request can have a specific reason
+  const [pendingLeaveRanges, setPendingLeaveRanges] = useState<Array<{start: string, end: string, reason: string}>>([]);
 
   // Get all tasks by employee
   const activeTasks = useMemo(() => {
@@ -101,7 +103,7 @@ export function EmployeeLeavePortal({
     cellDate.setHours(0, 0, 0, 0);
 
     const tasksOnDay: Task[] = [];
-    const selectedEmpColor = employeeColors[employees.findIndex(e => e.name === selectedEmployee) % employeeColors.length];
+    const selectedEmpColor = employeeColors[employees.findIndex(e => e.name === selectedEmployee) % employeeColors.length] || employeeColors[0];
 
     userTasks.forEach(task => {
       let taskStart: Date;
@@ -175,13 +177,11 @@ export function EmployeeLeavePortal({
     });
   }, [startLeaveDate, endLeaveDate, userTasks, currentMonth]);
 
-  // Get selected employee's tasks on leave date (for backward compatibility)
   const tasksOnLeaveDate = useMemo(() => {
     if (!startLeaveDate) return [];
     return tasksInLeaveRange;
   }, [startLeaveDate, tasksInLeaveRange]);
 
-  // Check if a date is in the selected range
   const isDateInRange = (day: number) => {
     if (!startLeaveDate || !endLeaveDate) return false;
     const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
@@ -190,10 +190,10 @@ export function EmployeeLeavePortal({
     return date >= start && date <= end;
   };
 
-  // Handle date range selection
   const handleDateClick = (day: number) => {
     const clickedDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-    const dateStr = clickedDate.toISOString().split('T')[0];
+    // Properly format ISO date without time zone shift issues
+    const dateStr = new Date(clickedDate.getTime() - (clickedDate.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
     
     if (!startLeaveDate) {
       setStartLeaveDate(dateStr);
@@ -215,7 +215,7 @@ export function EmployeeLeavePortal({
       return;
     }
 
-    setPendingLeaveRanges(prev => [...prev, {start: startLeaveDate, end: endLeaveDate}]);
+    setPendingLeaveRanges(prev => [...prev, {start: startLeaveDate, end: endLeaveDate, reason: leaveReason}]);
     setStartLeaveDate('');
     setEndLeaveDate('');
     setLeaveReason('');
@@ -236,7 +236,7 @@ export function EmployeeLeavePortal({
         employeeName: selectedEmployee,
         startDate: range.start,
         endDate: range.end,
-        reason: leaveReason,
+        reason: range.reason, // Pass specific reason for this range
         affectedTasks: tasksOnLeaveDate,
         project: 'All',
       });
@@ -246,29 +246,7 @@ export function EmployeeLeavePortal({
     setLeaveReason('');
   };
 
-  // Legacy single date submit
   const totalHoursAffected = tasksOnLeaveDate.reduce((sum, task) => sum + task.hours, 0);
-
-  const handleSubmitLeave = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!startLeaveDate || !leaveReason) {
-      alert('Please select a date and provide a reason');
-      return;
-    }
-
-    onLeaveRequest({
-      employeeName: selectedEmployee,
-      startDate: startLeaveDate,
-      endDate: endLeaveDate || startLeaveDate,
-      reason: leaveReason,
-      affectedTasks: tasksOnLeaveDate,
-      project: 'All',
-    });
-
-    setLeaveReason('');
-    setStartLeaveDate('');
-    setEndLeaveDate('');
-  };
 
   const handlePrevMonth = () => {
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1));
@@ -452,13 +430,13 @@ export function EmployeeLeavePortal({
               <div>
                 <label className="text-xs font-light text-gray-600 uppercase">Start Date</label>
                 <p className="font-light text-gray-900">
-                  {startLeaveDate ? new Date(startLeaveDate).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : 'Not set'}
+                  {startLeaveDate ? new Date(startLeaveDate).toLocaleDateString('en-US', {month: 'short', day: 'numeric', timeZone: 'UTC'}) : 'Not set'}
                 </p>
               </div>
               <div>
                 <label className="text-xs font-light text-gray-600 uppercase">End Date</label>
                 <p className="font-light text-gray-900">
-                  {endLeaveDate ? new Date(endLeaveDate).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : 'Not set'}
+                  {endLeaveDate ? new Date(endLeaveDate).toLocaleDateString('en-US', {month: 'short', day: 'numeric', timeZone: 'UTC'}) : 'Not set'}
                 </p>
               </div>
             </div>
@@ -513,7 +491,7 @@ export function EmployeeLeavePortal({
                       <div>
                         <p className="text-xs font-light text-gray-600 uppercase">Leave {idx + 1}</p>
                         <p className="text-sm font-light text-gray-900">
-                          {new Date(range.start).toLocaleDateString('en-US', {month: 'short', day: 'numeric'})} → {new Date(range.end).toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}
+                          {new Date(range.start).toLocaleDateString('en-US', {month: 'short', day: 'numeric', timeZone: 'UTC'})} → {new Date(range.end).toLocaleDateString('en-US', {month: 'short', day: 'numeric', timeZone: 'UTC'})}
                         </p>
                       </div>
                       <Button
@@ -525,7 +503,7 @@ export function EmployeeLeavePortal({
                         <Trash2 className="w-3 h-3" />
                       </Button>
                     </div>
-                    <p className="text-xs text-gray-600 line-clamp-2">{leaveReason}</p>
+                    <p className="text-xs text-gray-600 line-clamp-2">{range.reason}</p>
                   </div>
                 ))}
               </>
