@@ -63,12 +63,23 @@ app.use((req: Request, res: Response, next) => {
 })
 
 // CORS configuration for cross-origin requests
-const corsOrigin = process.env.NODE_ENV === 'production' 
-  ? (process.env.FRONTEND_URL_PROD || 'https://www.joinvelocity.co')
-  : ['http://localhost:5173', 'http://localhost:3000'];
+// Build an allow-list from env and sensible defaults. Add the two requested hosts here.
+const localDefaults = ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173']
+const prodDefaults = [process.env.FRONTEND_URL_PROD || 'https://www.joinvelocity.co', 'https://velocitydevelopment.vercel.app']
+// Allow additional origins via comma-separated env var ALLOWED_ORIGINS
+const extraOrigins = (process.env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean)
+const allowedOrigins = new Set<string>([
+  ...(process.env.NODE_ENV === 'production' ? prodDefaults : localDefaults),
+  ...extraOrigins,
+])
 
 app.use(cors({
-  origin: corsOrigin,
+  origin: (origin, callback) => {
+    // Allow non-browser tools or same-origin requests with no Origin header
+    if (!origin) return callback(null, true)
+    if (allowedOrigins.has(origin)) return callback(null, true)
+    return callback(new Error('CORS origin denied: ' + origin))
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
@@ -89,8 +100,8 @@ const sessionConfig: any = {
     httpOnly: true, // Prevent XSS attacks
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' allows cross-site (OAuth), 'lax' for localhost
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    // Set proper domain for production
-    domain: process.env.NODE_ENV === 'production' ? '.joinvelocity.co' : undefined
+    // Allow overriding cookie domain via SESSION_COOKIE_DOMAIN; otherwise keep existing behavior
+    domain: process.env.SESSION_COOKIE_DOMAIN || (process.env.NODE_ENV === 'production' ? '.joinvelocity.co' : undefined)
   }
 };
 
