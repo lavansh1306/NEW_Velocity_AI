@@ -239,11 +239,15 @@ export async function approveLeaveRequest(
       if (tasksErr) console.error('[LeaveApprovalAgent] ❌ Failed to fetch tasks:', tasksErr)
 
       const affected = Array.isArray(tasks) ? tasks.filter((t: any) => {
-        const tStart = t.created_date ? new Date(t.created_date) : null
-        const tEnd = t.due_date ? new Date(t.due_date) : null
-        if (!tStart || !tEnd) return false
-        tStart.setHours(0,0,0,0); tEnd.setHours(23,59,59,999)
-        return tStart <= eDate && tEnd >= sDate
+        // Use due_date as the key date (created_date is sync timestamp)
+        // A task is affected if its due_date falls within the leave period
+        const dueDate = t.due_date ? new Date(t.due_date) : null
+        if (!dueDate) return false
+        
+        dueDate.setHours(12,0,0,0) // noon to avoid timezone issues
+        
+        // Task affected if due date is within leave period
+        return dueDate >= sDate && dueDate <= eDate
       }) : []
 
       console.log('[LeaveApprovalAgent] Affected tasks in leave period:', affected.length, affected.map((t:any) => ({ issue_key: t.issue_key, due_date: t.due_date })))
@@ -306,15 +310,17 @@ export async function approveLeaveRequest(
             })
             if (isOnLeave) continue
 
-            const { data: candTasks } = await sb.from('jira_issues').select('id, original_estimate_seconds, created_date, due_date').eq('assignee', cand).limit(1000)
+            const { data: candTasks } = await sb.from('jira_issues').select('id, original_estimate_seconds, due_date').eq('assignee', cand).limit(1000)
             let load = 0
             if (Array.isArray(candTasks)) {
               for (const ct of candTasks) {
-                const tS = ct.created_date ? new Date(ct.created_date) : null
-                const tE = ct.due_date ? new Date(ct.due_date) : null
-                if (!tS || !tE) continue
-                tS.setHours(0,0,0,0); tE.setHours(23,59,59,999)
-                if (tS <= eDate && tE >= sDate) load += (ct.original_estimate_seconds || 0) / 3600
+                const ctDue = ct.due_date ? new Date(ct.due_date) : null
+                if (!ctDue) continue
+                ctDue.setHours(12,0,0,0)
+                // Count load for tasks with due dates in the leave period
+                if (ctDue >= sDate && ctDue <= eDate) {
+                  load += (ct.original_estimate_seconds || 0) / 3600
+                }
               }
             }
             scored.push({ name: cand, load })
