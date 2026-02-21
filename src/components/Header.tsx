@@ -23,7 +23,7 @@ export const Header = () => {
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-8">
-            <Link to="/Features" className="text-sm font-bold text-slate-600 transition-all hover:text-transparent hover:bg-clip-text hover:bg-gradient-to-r hover:from-fuchsia-500 hover:to-cyan-500">
+            <Link to="#features" className="text-sm font-bold text-slate-600 transition-all hover:text-transparent hover:bg-clip-text hover:bg-gradient-to-r hover:from-fuchsia-500 hover:to-cyan-500">
               How it works
             </Link>
             <Link to="#" className="text-sm font-bold text-slate-600 transition-all hover:text-transparent hover:bg-clip-text hover:bg-gradient-to-r hover:from-fuchsia-500 hover:to-cyan-500">
@@ -66,7 +66,7 @@ export const Header = () => {
           <div className="md:hidden absolute top-20 left-0 w-full bg-white border-b border-slate-200 shadow-xl px-0 py-4 animate-in slide-in-from-top-2">
             <nav className="flex flex-col space-y-4 mb-6">
               <Link
-                to="#features"
+                to="eatures"
                 className="text-base font-bold text-slate-600 hover:text-fuchsia-500 transition-colors"
                 onClick={() => setIsOpen(false)}
               >
