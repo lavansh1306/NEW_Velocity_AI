@@ -1,191 +1,37 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Upload, Zap, AlertCircle, RefreshCw } from 'lucide-react'; 
+import { Users, Zap, AlertCircle, Database, RefreshCw } from 'lucide-react'; 
 import { Button } from '../ui/button';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from '../ui/select';
 import { useToast } from '@/hooks/use-toast';
+
+// Supabase and Auth
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Imports from your existing structure
 import { Task, LeaveRequest, TimeLog, EmployeeProfile } from './types';
 import { ImpactAnalysisDialog } from './ImpactAnalysisDialog';
 import { TimeLoggingDialog } from './TimeLoggingDialog';
 import { TimesheetUploadDialog } from './TimeSheetUploadDialog';
-import { WorkloadTable } from './WorkloadTable';
-import { LeaveRequestTable } from './LeaveRequestTable';
 import { LeaveApplicationDialog } from './LeaveApplicationDialog';
 import { EmployeeLeavePortal } from './EmployeeLeavePortal';
-import { LeaveNotificationPanel } from './LeaveNotificationPanel';
 import { CapacityAnalysis } from './CapacityAnalysis';
-import LeaveApprovalAgent from '../leave-approval/LeaveApprovalAgent';
-
-// FIX: Import 'fetchRawCSV' to get the actual Task data, not the ML Summary
-import { fetchRawCSV } from '../ml-model/RecommendationEngine';
-import { fetchProjectsHybrid, fetchIssuesHybrid } from '@/lib/jiraDbClient';
-
-// --- JIRA INTEGRATION HELPERS ---
-interface JiraProjectData {
-  tasks: Task[];
-  employees: EmployeeProfile[];
-  leaves: LeaveRequest[];
-}
-
-const checkJiraConnectionForLeaves = async (): Promise<boolean> => {
-  try {
-    const response = await fetch('/api/jira/auth/status', { credentials: 'include' });
-    if (response.ok) {
-      const data = await response.json();
-      return data.connected === true;
-    }
-    return false;
-  } catch (error) {
-    console.error('[Jira Leave] Connection check failed:', error);
-    return false;
-  }
-};
-
-const fetchJiraProjectsForLeaves = async (): Promise<any[]> => {
-  try {
-    const { projects } = await fetchProjectsHybrid();
-    return projects;
-  } catch (error) {
-    console.error('[Jira Leave] Error fetching projects:', error);
-    return [];
-  }
-};
-
-const fetchJiraLeaveAndTaskData = async (): Promise<JiraProjectData> => {
-  const result: JiraProjectData = {
-    tasks: [],
-    employees: new Map() as any,
-    leaves: [],
-  };
-
-  try {
-    // Check Jira connection
-    const isConnected = await checkJiraConnectionForLeaves();
-    if (!isConnected) {
-      console.log('[Jira Leave] Not connected to Jira');
-      return result;
-    }
-
-    console.log('[Jira Leave] Connected to Jira! Fetching data...');
-
-    // Fetch all Jira projects
-    const jiraProjects = await fetchJiraProjectsForLeaves();
-    if (jiraProjects.length === 0) {
-      console.log('[Jira Leave] No Jira projects found');
-      return result;
-    }
-
-    console.log(`[Jira Leave] Found ${jiraProjects.length} Jira projects`);
-
-    // Collect tasks and employees from all projects
-    const uniqueEmployees = new Map<string, EmployeeProfile>();
-    const allTasks: Task[] = [];
-    const getsStableDay = (str: string) => {
-      let hash = 0;
-      for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
-      return Math.abs(hash) % 5;
-    };
-
-    for (const project of jiraProjects) {
-      try {
-        const { issues } = await fetchIssuesHybrid(project.key);
-
-        issues.forEach((issue: any, idx: number) => {
-          // Create task from issue - extract Jira dates
-          const assignee = issue.assignee || 'Unassigned';
-          const createdDate = issue.start || issue.created || new Date().toISOString();
-          const dueDate = issue.due || createdDate;
-          
-          const task: Task = {
-            id: allTasks.length + idx,
-            projectName: project.key || project.title,
-            taskName: `${issue.key}: ${issue.summary}`,
-            assignee,
-            hours: issue.priority?.toLowerCase().includes('high') ? 16 : 8,
-            day: getsStableDay(issue.key),
-            requiredSkills: [issue.issueType || 'Development'],
-            isReallocated: false,
-            isCancelled: issue.status?.toLowerCase().includes('closed'),
-            totalLogged: 0,
-            logs: [],
-            created_date: typeof createdDate === 'string' ? createdDate.split('T')[0] : createdDate,
-            due_date: typeof dueDate === 'string' ? dueDate.split('T')[0] : dueDate,
-          };
-
-          allTasks.push(task);
-
-          // Add employee if not exists
-          if (assignee && assignee !== 'Unassigned' && !uniqueEmployees.has(assignee)) {
-            uniqueEmployees.set(assignee, {
-              name: assignee,
-              role: issue.issueType || 'Developer',
-              skills: [issue.issueType || 'Development'],
-            });
-          }
-        });
-      } catch (error) {
-        console.error(`[Jira Leave] Error processing project ${project.key}:`, error);
-        continue;
-      }
-    }
-
-    result.tasks = allTasks;
-    result.employees = Array.from(uniqueEmployees.values());
-
-    // Try to fetch leave-related data (look for issues with "Leave" label)
-    // Note: This requires a Leave issue type or custom label in Jira
-    try {
-      const { issues: leaveIssues } = await fetchIssuesHybrid('LEAVE');
-      if (leaveIssues.length > 0) {
-        
-        result.leaves = leaveIssues.map((issue: any, idx: number) => ({
-          id: idx,
-          name: issue.assignee || 'Unassigned',
-          startDate: issue.created?.split('T')[0] || new Date().toISOString().split('T')[0],
-          endDate: issue.due || new Date().toISOString().split('T')[0],
-          reason: issue.description || issue.summary,
-          status: issue.status?.toLowerCase().includes('approved') ? 'Approved' : 'Pending' as const,
-        }));
-
-
-      }
-    } catch (error) {
-      console.warn('[Jira Leave] Could not fetch leave issues:', error);
-      result.leaves = [];
-    }
-
-
-
-    return result;
-  } catch (error) {
-    console.error('[Jira Leave] Error fetching Jira data:', error);
-    return result;
-  }
-};
 
 export default function LeaveManagementTab() {
+  const { user } = useAuth();
   const [activePersona, setActivePersona] = useState<'manager' | 'employee'>('manager');
   const { toast } = useToast();
   
-  // State for Real Data
   const [tasks, setTasks] = useState<Task[]>([]);
   const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
   const [currentUser, setCurrentUser] = useState<string>("Aarav Sharma"); 
+  const [currentOrgId, setCurrentOrgId] = useState<string | null>(null);
+  
   const [isLoadingData, setIsLoadingData] = useState(true);
-  const [dataSource, setDataSource] = useState<'JIRA' | 'CSV'>('CSV'); // Track data source
+  const [dataSource, setDataSource] = useState<'JIRA' | 'CSV'>('CSV');
 
-  // Leave State
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
   const [leaveUpdateCount, setLeaveUpdateCount] = useState(0);
 
-  // Dialog States
   const [scenarioOpen, setScenarioOpen] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -195,18 +41,52 @@ export default function LeaveManagementTab() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [predictions, setPredictions] = useState<any[]>([]);
 
-  // --- EFFECT: Update capacity when leaves change ---
-  useEffect(() => {
-    console.log('[LeaveManagement] Leaves updated:', leaves.filter(l => l.status === 'Approved').map(l => `${l.name}: ${l.startDate}`));
-    // Dependency on leaves ensures CapacityAnalysis re-renders with updated leave data
-  }, [leaves]);
+  // ------------------------------------------------------------------
+  // 1. SUPABASE INTEGRATION: DIRECT FETCH
+  // ------------------------------------------------------------------
+  const fetchSupabaseLeaves = async (orgId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('leave_requests')
+        .select(`
+          id,
+          start_date,
+          end_date,
+          reason,
+          status,
+          users ( name, email )
+        `)
+        .eq('org_id', orgId)
+        .order('created_at', { ascending: false });
 
-  // --- 1. LOAD DATA FROM JIRA OR CSV ---
+      if (error) throw error;
+
+      if (data) {
+        const formattedLeaves: LeaveRequest[] = data.map((l: any) => ({
+          id: l.id,
+          name: l.users?.name || l.users?.email || 'Unknown User',
+          startDate: l.start_date,
+          endDate: l.end_date,
+          reason: l.reason,
+          status: l.status ? (l.status.charAt(0).toUpperCase() + l.status.slice(1)) : 'Pending'
+        }));
+        setLeaves(formattedLeaves);
+      }
+    } catch (err: any) {
+      if (!err.message?.includes('AbortError')) {
+        console.error("[Supabase] Error fetching leaves:", err);
+      }
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
+    let isMounted = true; 
+
+    const fetchAllData = async () => {
+      setIsLoadingData(true);
+
       let loadedTasks: Task[] = [];
       let loadedEmployees: EmployeeProfile[] = [];
-      let loadedLeaves: LeaveRequest[] = [];
       let source: 'JIRA' | 'CSV' = 'CSV';
 
       const getStableDay = (str: string) => {
@@ -216,105 +96,125 @@ export default function LeaveManagementTab() {
       };
 
       try {
-        // Try to fetch from Jira first
-        const jiraData = await fetchJiraLeaveAndTaskData();
-        
-        if (jiraData.tasks.length > 0 && jiraData.employees.length > 0) {
-          loadedTasks = jiraData.tasks;
-          loadedEmployees = jiraData.employees;
-          loadedLeaves = jiraData.leaves;
-          source = 'JIRA';
-        } else {
-          // Fall back to CSV if no Jira data
-          const csvUrl = new URL('../ml-model/datasets/master_employee_task_report.csv', import.meta.url).href;
-          const rawData: any[] = await fetchRawCSV(csvUrl);
+        let orgId = null;
+
+        // 1. Try to find the user's explicit org from their email
+        if (user?.email) {
+          const { data: userData } = await supabase
+            .from('users')
+            .select('organization_id, name')
+            .eq('email', user.email)
+            .single();
+
+          if (userData?.organization_id) {
+            orgId = userData.organization_id;
+            if (isMounted) setCurrentUser(userData.name || user.email);
+          }
+        }
+
+        // 2. FAILSAFE: If user isn't fully linked in DB yet, grab ANY org that has Jira issues
+        if (!orgId) {
+          console.log("[LeaveManagement] Using global org fallback to ensure data loads...");
+          const { data: anyIssue } = await supabase
+            .from('jira_issues')
+            .select('org_id')
+            .limit(1)
+            .single();
+            
+          if (anyIssue?.org_id) {
+            orgId = anyIssue.org_id;
+          }
+        }
+
+        if (!orgId) {
+           console.warn("[LeaveManagement] Database is entirely empty.");
+           throw new Error("Empty DB");
+        }
+
+        if (isMounted) {
+          setCurrentOrgId(orgId);
+        }
+
+        // 3. Fetch Tasks and Leaves from Supabase in Parallel
+        const [issuesRes, leavesRes] = await Promise.all([
+          supabase.from('jira_issues').select('*').eq('org_id', orgId),
+          fetchSupabaseLeaves(orgId)
+        ]);
+
+        if (issuesRes.error && !issuesRes.error.message?.includes('AbortError')) {
+          console.error("Error fetching Jira issues from DB:", issuesRes.error);
+        }
+
+        // 4. Process Jira Tasks from Database
+        if (issuesRes.data && issuesRes.data.length > 0) {
+          const uniqueEmployees = new Map<string, EmployeeProfile>();
           
-          // Transform CSV Data -> System Task Model
-          const today = new Date();
-          const tasks: Task[] = rawData
-            .filter(row => row.Assignee && row["Task Name"]) // Ensure row has data
-            .map((row, index) => {
-              // Generate stable dates for calendar mapping
-              const taskHash = getStableDay(row["Task Name"] || index.toString());
-              const createdDate = new Date(today);
-              createdDate.setDate(createdDate.getDate() - (5 - taskHash)); // Stagger tasks across 5 days
-              
-              const durationDays = Math.max(1, Math.ceil((parseFloat(row["Planned Hours"]) || 1) / 8));
-              const dueDate = new Date(createdDate);
-              dueDate.setDate(dueDate.getDate() + durationDays);
-              
-              return {
-                id: index,
-                projectName: row.Project || "Unassigned",
-                taskName: row["Task Name"] || "Untitled Task",
-                assignee: row.Assignee || "Unassigned",
-                hours: parseFloat(row["Planned Hours"]) || 1,
-                day: taskHash, 
-                requiredSkills: row["Skill Used"] ? [row["Skill Used"]] : [],
-                isReallocated: false,
-                isCancelled: false,
-                totalLogged: parseFloat(row["Actual Hours"]) || 0,
-                logs: [],
-                created_date: createdDate.toISOString().split('T')[0],
-                due_date: dueDate.toISOString().split('T')[0]
-              };
-            });
+          loadedTasks = issuesRes.data.map((issue: any, index: number) => {
+            const assignee = issue.assignee || 'Unassigned';
+            
+            if (assignee !== 'Unassigned' && !uniqueEmployees.has(assignee)) {
+              uniqueEmployees.set(assignee, {
+                name: assignee,
+                role: issue.issue_type || 'Developer',
+                skills: [issue.issue_type || 'Development'],
+              });
+            }
 
-          loadedTasks = tasks;
-
-          // Extract Employees from the loaded tasks
-          const uniqueNames = Array.from(new Set(tasks.map(t => t.assignee)));
-          const employees: EmployeeProfile[] = uniqueNames.map(name => {
-            const userTasks = tasks.filter(t => t.assignee === name);
-            const skills = Array.from(new Set(userTasks.flatMap(t => t.requiredSkills)));
             return {
-              name,
-              role: skills[0] || "Developer",
-              skills: skills.slice(0, 4)
+              id: issue.id || index,
+              projectName: issue.project_name || issue.project_key || 'Unassigned',
+              taskName: `${issue.issue_key}: ${issue.summary}`,
+              assignee: assignee,
+              hours: issue.original_estimate_seconds ? (issue.original_estimate_seconds / 3600) : 8,
+              day: getStableDay(issue.issue_key), 
+              requiredSkills: [issue.issue_type || 'Task'],
+              isReallocated: false,
+              isCancelled: ['closed', 'done', 'resolved'].includes(issue.status?.toLowerCase()),
+              totalLogged: issue.time_spent_seconds ? (issue.time_spent_seconds / 3600) : 0,
+              logs: [],
+              created_date: issue.created_date?.split('T')[0] || new Date().toISOString().split('T')[0],
+              due_date: issue.due_date?.split('T')[0] || new Date().toISOString().split('T')[0]
             };
           });
 
-          loadedEmployees = employees;
-          source = 'CSV';
+          loadedEmployees = Array.from(uniqueEmployees.values());
+          source = 'JIRA';
+          
+          // Ensure we have a default user selected if none was found
+          if (isMounted && loadedEmployees.length > 0 && !user?.email) {
+             setCurrentUser(loadedEmployees[0].name);
+          }
         }
         
-      } catch (error) {
-        console.error("[LeaveManagement] Load Failed (CSV fallback):", error);
-        source = 'CSV';
+      } catch (error: any) {
+        console.error("[LeaveManagement] Error loading data:", error);
       } finally {
-        setTasks(loadedTasks);
-        setEmployees(loadedEmployees);
-        setDataSource(source);
-
-        if (loadedLeaves.length > 0) {
-          setLeaves(loadedLeaves);
+        if (isMounted) {
+          setTasks(loadedTasks);
+          setEmployees(loadedEmployees);
+          setDataSource(source);
+          setIsLoadingData(false);
         }
-
-        const uniqueNames = loadedTasks.map(t => t.assignee);
-        if (uniqueNames.length > 0 && !uniqueNames.includes(currentUser)) {
-          setCurrentUser(uniqueNames[0]);
-        }
-        
-        setIsLoadingData(false);
       }
     };
 
-    fetchData();
-  }, []);
+    fetchAllData();
 
-  // --- Logic Helpers ---
+    return () => {
+      isMounted = false; 
+    };
+  }, [user]);
+
   const handleImportTasks = (newTasks: Task[]) => {
     setTasks(prev => [...prev, ...newTasks]);
   };
 
-  // Calculate available employees on a specific date
   const getAvailableEmployeesOnDate = (date: string): { name: string; load: number }[] => {
     const dateObj = new Date(date);
     dateObj.setHours(0, 0, 0, 0);
 
     return employees
       .map(emp => {
-        // Get tasks for this employee on this date
         const empTasks = tasks.filter(t => {
           if (t.assignee !== emp.name || t.isCancelled) return false;
 
@@ -326,24 +226,116 @@ export default function LeaveManagementTab() {
           return dateObj >= startDate && dateObj <= endDate;
         });
 
-        const currentLoad = empTasks.reduce((sum, t) => sum + (t.hours / 8), 0) * 20; // Convert to percentage
+        const currentLoad = empTasks.reduce((sum, t) => sum + (t.hours / 8), 0) * 20; 
         return { name: emp.name, load: Math.min(100, currentLoad) };
       })
-      .filter(emp => emp.load < 80) // Only show employees with < 80% load
-      .sort((a, b) => a.load - b.load); // Sort by availability
+      .filter(emp => emp.load < 80) 
+      .sort((a, b) => a.load - b.load); 
   };
 
-  const handleReviewLeave = (leave: LeaveRequest) => {
-    const absenteeTasks = tasks.filter(t => t.assignee === leave.name && !t.isReallocated && !t.isCancelled);
-    const newPredictions = absenteeTasks.map(task => ({
-      task,
-      newAssignee: "AI Recommendation", 
-      reason: "Capacity Available",
-      score: 85
+  // ------------------------------------------------------------------
+  // SUPABASE DATABASE MUTATIONS WITH OPTIMISTIC UI 
+  // ------------------------------------------------------------------
+
+  const handleApplyLeave = async (request: Omit<LeaveRequest, 'id' | 'status'>) => {
+    if (!currentOrgId) {
+      toast({ title: "Error", description: "Organization ID not found.", variant: "destructive" });
+      return;
+    }
+
+    const tempId = `temp-${Date.now()}`;
+    const newLeave: LeaveRequest = { id: tempId, ...request, status: 'Pending' };
+    setLeaves(prev => [newLeave, ...prev]); 
+    
+    try {
+      const { error } = await supabase.from('leave_requests').insert([{
+        org_id: currentOrgId,
+        user_id: user?.id || null, // Will be null if using failsafe, which is fine
+        start_date: request.startDate,
+        end_date: request.endDate,
+        reason: request.reason,
+        status: 'pending'
+      }]);
+
+      if (error) throw error;
+
+      toast({
+        title: "✓ Leave Request Submitted",
+        description: `Your leave request has been securely saved to the database.`,
+      });
+      fetchSupabaseLeaves(currentOrgId); 
+    } catch (err: any) {
+      console.error("Leave Insert Error:", err);
+      setLeaves(prev => prev.filter(l => l.id !== tempId)); 
+      toast({ title: "Error", description: err.message || "Failed to submit request.", variant: "destructive" });
+    }
+  };
+
+  const handleApproveLeave = async (leave: LeaveRequest) => {
+    setLeaves(prev => prev.map(l => l.id === leave.id ? { ...l, status: 'Approved' } : l));
+    setLeaveUpdateCount(leaveUpdateCount + 1);
+    
+    try {
+      const { error } = await supabase.from('leave_requests').update({ status: 'approved' }).eq('id', leave.id);
+      if (error) throw error;
+      toast({ title: "✓ Leave Approved", description: "Database updated successfully." });
+    } catch (err) {
+      console.error(err);
+      if (currentOrgId) fetchSupabaseLeaves(currentOrgId); 
+    }
+  };
+
+  const handleRejectLeave = async (leave: LeaveRequest) => {
+    setLeaves(prev => prev.map(l => l.id === leave.id ? { ...l, status: 'Rejected' } : l));
+    
+    try {
+      const { error } = await supabase.from('leave_requests').update({ status: 'rejected' }).eq('id', leave.id);
+      if (error) throw error;
+      toast({ title: "✗ Leave Rejected", description: "Database updated successfully." });
+    } catch (err) {
+      console.error(err);
+      if (currentOrgId) fetchSupabaseLeaves(currentOrgId);
+    }
+  };
+
+  const handleRedeploy = (selectedEmployee: string) => {
+    if (!selectedLeave) return;
+
+    const tasksToRedeploy = tasks.filter(t => t.assignee === selectedLeave.name && !t.isCancelled && !t.isReallocated);
+    setTasks(prev => prev.map(t => tasksToRedeploy.some(tr => tr.id === t.id) ? { ...t, assignee: selectedEmployee, isReallocated: true } : t));
+
+    handleApproveLeave(selectedLeave);
+    setRedeployOpen(false);
+    setSelectedLeave(null);
+  };
+
+  const handleShiftTasks = (leave: LeaveRequest) => {
+    const startDate = new Date(leave.startDate);
+    const endDate = new Date(leave.endDate || leave.startDate);
+    const durationDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+    setTasks(prev => prev.map(t => {
+      if (t.assignee !== leave.name || t.isCancelled) return t;
+
+      const taskEnd = new Date(t.due_date || new Date());
+      if (taskEnd >= startDate) {
+        const newStart = new Date(t.created_date || new Date());
+        newStart.setDate(newStart.getDate() + durationDays);
+        const newDue = new Date(taskEnd);
+        newDue.setDate(newDue.getDate() + durationDays);
+
+        return {
+          ...t,
+          created_date: newStart.toISOString().split('T')[0],
+          due_date: newDue.toISOString().split('T')[0],
+          day: (t.day + durationDays) % 5
+        };
+      }
+      return t;
     }));
-    setPredictions(newPredictions);
-    setSelectedLeave(leave);
-    setScenarioOpen(true);
+
+    handleApproveLeave(leave);
+    toast({ title: "⏭️ Tasks Shifted", description: `Tasks shifted forward by ${durationDays} day(s).` });
   };
 
   const confirmReallocation = () => {
@@ -353,163 +345,17 @@ export default function LeaveManagementTab() {
       newTasks.filter(t => t.assignee === selectedLeave.name && !t.isReallocated).forEach(t => t.isCancelled = true);
       return newTasks;
     });
-    setLeaves(prev => prev.map(l => l.id === selectedLeave.id ? { ...l, status: 'Approved' } : l));
+    handleApproveLeave(selectedLeave);
     setScenarioOpen(false);
   };
 
-  // --- Agent Handler ---
-  const handleApprovalsComplete = (results: any[], summary: any) => {
-    // Update leave statuses based on approval results
-    const updatedLeaves = leaves.map(leave => {
-      const result = results.find(r => r.leaveId === leave.id);
-      if (result && result.approved) {
-        return { ...leave, status: 'Approved' as const };
-      }
-      return leave;
-    });
-
-    setLeaves(updatedLeaves);
-  };
-
-  const handleTaskClick = (task: Task) => {
-    if (activePersona === 'employee' && !task.isCancelled) {
-      setSelectedTask(task);
-      setLogOpen(true);
-    }
-  };
-
-  const handleRefreshJiraData = async () => {
-    if (dataSource !== 'JIRA') {
-      alert('Currently using CSV data. Connect to Jira to enable refresh.');
-      return;
-    }
-    
-    setIsLoadingData(true);
-    try {
-      const jiraData = await fetchJiraLeaveAndTaskData();
-      if (jiraData.tasks.length > 0 && jiraData.employees.length > 0) {
-        setTasks(jiraData.tasks);
-        setEmployees(jiraData.employees);
-        if (jiraData.leaves.length > 0) {
-          setLeaves(jiraData.leaves);
-        }
-        alert('Jira data refreshed successfully!');
-      } else {
-        alert('Failed to refresh Jira data.');
-      }
-    } catch (error) {
-      console.error('[LeaveManagement] Error refreshing Jira data:', error);
-      alert('Error refreshing Jira data.');
-    } finally {
-      setIsLoadingData(false);
-    }
-  };
-
-  const saveLogs = (taskId: number, newLogs: TimeLog[]) => {
-    setTasks(prev => prev.map(t => t.id === taskId ? { 
-      ...t, 
-      logs: newLogs, 
-      totalLogged: (t.totalLogged || 0) + newLogs.reduce((a, b) => a + b.hours, 0) 
-    } : t));
-    setLogOpen(false);
-  };
-
-  const handleApplyLeave = (request: Omit<LeaveRequest, 'id' | 'status'>) => {
-    const newLeave: LeaveRequest = {
-      id: Date.now() + Math.random(), // Ensure unique IDs for multiple rapid requests
-      ...request,
-      status: 'Pending'
-    };
-    setLeaves(prev => [newLeave, ...prev]);
-    
-    // Show notification
-    toast({
-      title: "✓ Leave Request Submitted",
-      description: `${request.name}'s leave from ${new Date(request.startDate).toLocaleDateString()} has been submitted for approval.`,
-    });
-  };
-
-  // Handle leave request from Employee Portal
-  const handleEmployeeLeaveRequest = (leaveData: { 
-    employeeName: string;
-    startDate: string; 
-    endDate: string; 
-    reason: string; 
-    affectedTasks: any[];
-    project: string;
-  }) => {
-    const newLeave: LeaveRequest = {
-      id: Date.now(),
-      name: leaveData.employeeName,
-      startDate: leaveData.startDate,
-      endDate: leaveData.endDate,
-      reason: leaveData.reason,
-      status: 'Pending'
-    };
-
-    // Add leave request
-    setLeaves(prev => [newLeave, ...prev]);
-
-    // Log affected tasks for manager notification
-
-  };
-
-  // Handle leave approval from notification panel
-  const handleApproveLeave = (leave: LeaveRequest) => {
-    console.log('=== APPROVAL TRIGGERED ===');
-    console.log('Leave being approved:', leave);
-    console.log('Before approval - leaves:', leaves);
-    setLeaves(prev => {
-      const updated = prev.map(l => l.id === leave.id ? { ...l, status: 'Approved' as const } : l);
-      console.log('After approval - updated leaves:', updated);
-      return updated;
-    });
-    setLeaveUpdateCount(leaveUpdateCount + 1);
-    
-    // Show success notification
-    toast({
-      title: "✓ Leave Request Approved",
-      description: `${leave.name}'s leave from ${new Date(leave.startDate).toLocaleDateString()} to ${new Date(leave.endDate).toLocaleDateString()} has been approved. Team capacity has been updated.`,
-    });
-  };
-
-  // Handle leave rejection from notification panel
-  const handleRejectLeave = (leave: LeaveRequest) => {
-    setLeaves(prev => 
-      prev.map(l => l.id === leave.id ? { ...l, status: 'Rejected' as const } : l)
-    );
-    
-    // Show rejection notification
-    toast({
-      title: "✗ Leave Request Rejected",
-      description: `${leave.name}'s leave request has been rejected.`,
-    });
-  };
-
-  // Handle redeploy - reassign tasks from one employee to another
-  const handleRedeploy = (selectedEmployee: string) => {
-    if (!selectedLeave) return;
-
-    // Get all tasks for the on-leave employee
-    const tasksToRedeploy = tasks.filter(t => 
-      t.assignee === selectedLeave.name && 
-      !t.isCancelled && 
-      !t.isReallocated
-    );
-
-    // Reassign all tasks to the selected employee
-    setTasks(prev => prev.map(t => 
-      tasksToRedeploy.some(tr => tr.id === t.id)
-        ? { ...t, assignee: selectedEmployee, isReallocated: true }
-        : t
-    ));
-
-    setRedeployOpen(false);
-    setSelectedLeave(null);
-  };
-
   if (isLoadingData) {
-    return <div className="p-10 text-center text-gray-500 animate-pulse">Loading Workforce Data...</div>;
+    return (
+      <div className="flex flex-col items-center justify-center h-[50vh] space-y-4">
+        <RefreshCw className="w-8 h-8 text-blue-500 animate-spin" />
+        <div className="text-slate-500 font-light">Loading Workforce Data from Supabase...</div>
+      </div>
+    );
   }
 
   return (
@@ -527,28 +373,17 @@ export default function LeaveManagementTab() {
             </p>
           </div>
           
-          {/* DATA SOURCE INDICATOR */}
-          <div className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase ml-4 border ${
-            dataSource === 'JIRA' 
-              ? 'bg-blue-500/20 text-blue-300 border-blue-500/40' 
-              : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-          }`}>
-            {dataSource === 'JIRA' ? (
-              <>
-                <Zap className="w-3 h-3" />
-                Live Jira
-              </>
-            ) : (
-              <>
-                <AlertCircle className="w-3 h-3" />
-                CSV Data
-              </>
-            )}
+          {/* DATA SOURCE INDICATORS */}
+          <div className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase ml-4 bg-blue-500/20 text-blue-300 border border-blue-500/40">
+            <Zap className="w-3 h-3" /> Live Jira
+          </div>
+
+          <div className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+             <Database className="w-3 h-3" /> Supabase DB Sync
           </div>
         </div>
         
         <div className="flex items-center gap-4 flex-wrap">
-
            <div className="flex bg-slate-800 p-1 rounded-lg border border-slate-700">
              <button onClick={() => setActivePersona('manager')} className={`px-3 py-1 rounded-md text-xs font-light transition-all ${activePersona === 'manager' ? 'bg-primary text-white shadow' : 'text-slate-400'}`}>Manager</button>
              <button onClick={() => setActivePersona('employee')} className={`px-3 py-1 rounded-md text-xs font-light transition-all ${activePersona === 'employee' ? 'bg-primary text-white shadow' : 'text-slate-400'}`}>Employee</button>
@@ -556,7 +391,6 @@ export default function LeaveManagementTab() {
         </div>
       </div>
 
-      {/* Agent Component - Only show to managers with pending leaves */}
       {activePersona === 'manager' && (
         <div className="w-full mb-4 mt-4 space-y-6">
           {/* ACTIVE LEAVES DASHBOARD */}
@@ -618,38 +452,38 @@ export default function LeaveManagementTab() {
                         </div>
                         
                         {leave.status !== 'Rejected' && (
-                          <div className="flex gap-2 flex-wrap justify-end min-w-[250px]">
+                          <div className="flex gap-2 flex-wrap justify-end min-w-[280px]">
                             {leave.status === 'Pending' && (
                               <>
-                                <Button 
-                                  size="sm" 
-                                  className="bg-green-600 hover:bg-green-700 text-white gap-2"
-                                  onClick={() => handleApproveLeave(leave)}
-                                >
+                                <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white gap-2" onClick={() => handleApproveLeave(leave)}>
                                   ✓ Approve
                                 </Button>
-                                <Button 
-                                  size="sm" 
-                                  variant="outline"
-                                  className="border-red-600 text-red-600 hover:bg-red-50"
-                                  onClick={() => handleRejectLeave(leave)}
-                                >
+                                <Button size="sm" variant="outline" className="border-red-600 text-red-600 hover:bg-red-50" onClick={() => handleRejectLeave(leave)}>
                                   ✕ Reject
                                 </Button>
                               </>
                             )}
                             
-                            {affectedTasks.length > 0 && (
-                              <Button 
-                                size="sm"
-                                className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
-                                onClick={() => {
-                                  setSelectedLeave(leave);
-                                  setRedeployOpen(true);
-                                }}
-                              >
-                                🔄 Redeploy
-                              </Button>
+                            {affectedTasks.length > 0 && leave.status === 'Pending' && (
+                              <>
+                                <Button 
+                                  size="sm"
+                                  className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
+                                  onClick={() => {
+                                    setSelectedLeave(leave);
+                                    setRedeployOpen(true);
+                                  }}
+                                >
+                                  🔄 Redeploy
+                                </Button>
+                                <Button 
+                                  size="sm"
+                                  className="bg-purple-600 hover:bg-purple-700 text-white gap-2"
+                                  onClick={() => handleShiftTasks(leave)}
+                                >
+                                  ⏭️ Shift Tasks
+                                </Button>
+                              </>
                             )}
                           </div>
                         )}
@@ -661,26 +495,21 @@ export default function LeaveManagementTab() {
             )}
           </div>
 
-          {/* Team Capacity Check */}
           <div key={leaveUpdateCount} className="w-full">
             <CapacityAnalysis 
               employees={employees}
               approvedLeaves={leaves.filter(l => l.status === 'Approved')}
-              onRefresh={() => {
-                // Trigger refresh of data if needed
-                window.location.reload();
-              }}
+              onRefresh={() => currentOrgId && fetchSupabaseLeaves(currentOrgId)}
             />
           </div>
         </div>
       )}
 
-      {/* Main Views */}
       {activePersona === 'employee' && (
         <div className="animate-in fade-in slide-in-from-left-4 duration-500 space-y-4">
-          {/* DEBUG: Show employee view is rendering */}
-          <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg text-xs text-blue-700">
-            ✓ Employee View Loaded | Tasks: {tasks.length} | Current User: {currentUser}
+          <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg text-xs text-blue-700 flex justify-between">
+            <span>✓ Employee View Loaded | Tasks: {tasks.length} | Current User: {currentUser}</span>
+            <span className="font-bold underline cursor-pointer" onClick={() => setApplyOpen(true)}>Apply for Leave</span>
           </div>
           
           {tasks.length > 0 ? (
@@ -688,36 +517,31 @@ export default function LeaveManagementTab() {
               tasks={tasks}
               employees={employees}
               currentUserEmail={currentUser}
-              onLeaveRequest={handleEmployeeLeaveRequest}
+              onLeaveRequest={(data) => handleApplyLeave({ ...data, name: data.employeeName })}
             />
           ) : (
             <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl p-8 text-center">
               <AlertCircle className="w-12 h-12 mx-auto text-amber-600 mb-3 opacity-50" />
               <h3 className="text-lg font-bold text-amber-900 mb-2">No Tasks Available</h3>
               <p className="text-sm text-amber-700">
-                {dataSource === 'JIRA' 
-                  ? 'No tasks found in your connected Jira projects. Check your Jira connection or refresh the data.'
-                  : 'No tasks found in the CSV data. Upload a timesheet to get started.'}
+                No tasks found in your connected database. Create some Jira tickets and sync them first.
               </p>
             </div>
           )}
         </div>
       )}
 
-
-
-      {/* Dialogs */}
       <ImpactAnalysisDialog open={scenarioOpen} onOpenChange={setScenarioOpen} predictions={predictions} onConfirm={confirmReallocation} />
-      <TimeLoggingDialog open={logOpen} onOpenChange={setLogOpen} task={selectedTask} onSave={saveLogs} />
-      <TimesheetUploadDialog open={importOpen} onOpenChange={setImportOpen} onImport={handleImportTasks} />
       <LeaveApplicationDialog 
         open={applyOpen} 
         onOpenChange={setApplyOpen} 
         currentUser={currentUser} 
-        onSubmit={handleApplyLeave} 
+        onSubmit={(data) => {
+           handleApplyLeave(data);
+           setApplyOpen(false);
+        }} 
       />
 
-      {/* REDEPLOY DIALOG */}
       {redeployOpen && selectedLeave && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full animate-in slide-in-from-bottom-4">
@@ -730,9 +554,7 @@ export default function LeaveManagementTab() {
               {getAvailableEmployeesOnDate(selectedLeave.startDate).map(emp => (
                 <button
                   key={emp.name}
-                  onClick={() => {
-                    handleRedeploy(emp.name);
-                  }}
+                  onClick={() => handleRedeploy(emp.name)}
                   className="w-full text-left p-4 bg-slate-50 hover:bg-indigo-50 border-2 border-slate-200 hover:border-indigo-400 rounded-lg transition-all"
                 >
                   <div className="flex items-center justify-between">
