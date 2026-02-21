@@ -23,7 +23,7 @@ export const Header = () => {
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-8">
-            <Link to="#" className="text-sm font-bold text-slate-600 transition-all hover:text-transparent hover:bg-clip-text hover:bg-gradient-to-r hover:from-fuchsia-500 hover:to-cyan-500">
+            <Link to="/Features" className="text-sm font-bold text-slate-600 transition-all hover:text-transparent hover:bg-clip-text hover:bg-gradient-to-r hover:from-fuchsia-500 hover:to-cyan-500">
               How it works
             </Link>
             <Link to="#" className="text-sm font-bold text-slate-600 transition-all hover:text-transparent hover:bg-clip-text hover:bg-gradient-to-r hover:from-fuchsia-500 hover:to-cyan-500">
