@@ -14,17 +14,24 @@ gsap.registerPlugin(useGSAP);
 
 const Index = () => {
   return (
-    <div
-      className="min-h-screen text-slate-900 selection:bg-indigo-100 selection:text-indigo-900"
-      style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-    >
+    <div className="min-h-screen text-slate-900 selection:bg-indigo-100 selection:text-indigo-900" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
       <Background />
       <LandingHeader />
       <main>
         <LandingHero />
-        <LandingFeatures />
-        <LandingBenefits />
-        <LandingImpact />
+        
+        <div id="how-it-works" />
+        <div id="features">
+          <LandingFeatures />
+        </div>
+        
+        <div id="benefits">
+          <LandingBenefits />
+        </div>
+        <div id="results">
+          <LandingImpact />
+        </div>
+        
         <LandingTestimonials />
         <LandingCTA />
       </main>
