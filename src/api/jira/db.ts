@@ -299,6 +299,17 @@ export async function deleteJiraConnection(orgId: string, cloudId?: string): Pro
 export async function upsertProjects(orgId: string, cloudId: string, projects: DBJiraProject[]): Promise<void> {
   const client = getClient();
   if (!client || projects.length === 0) return;
+  
+  // Validate that org_id and cloudId are provided (to prevent data duplication)
+  if (!orgId || !cloudId) {
+    console.error('[JiraDB] upsertProjects FAILED: Missing required parameters!', {
+      orgIdProvided: !!orgId,
+      cloudIdProvided: !!cloudId,
+      projectCount: projects.length
+    });
+    throw new Error(`upsertProjects requires both orgId and cloudId. Got: orgId="${orgId}", cloudId="${cloudId}"`);
+  }
+
   const rows = projects.map((p) => ({
     org_id: orgId, jira_project_id: p.jira_project_id, cloud_id: cloudId,
     key: p.key, title: p.title, description: p.description,
@@ -331,6 +342,18 @@ export async function getProjects(orgId: string, cloudId?: string): Promise<DBJi
 export async function upsertIssues(orgId: string, cloudId: string, projectKey: string, issues: DBJiraIssue[]): Promise<void> {
   const client = getClient();
   if (!client || issues.length === 0) return;
+  
+  // Validate that org_id and cloudId are provided (to prevent data duplication)
+  if (!orgId || !cloudId) {
+    console.error('[JiraDB] upsertIssues FAILED: Missing required parameters!', {
+      orgIdProvided: !!orgId,
+      cloudIdProvided: !!cloudId,
+      projectKey,
+      issueCount: issues.length
+    });
+    throw new Error(`upsertIssues requires both orgId and cloudId. Got: orgId="${orgId}", cloudId="${cloudId}"`);
+  }
+
   const rows = issues.map((i) => ({
     org_id: orgId,
     cloud_id: cloudId,
@@ -398,6 +421,122 @@ export async function getIssues(orgId: string, projectKey?: string, cloudId?: st
 
 export async function getAllIssues(orgId: string): Promise<DBJiraIssue[]> {
   return getIssues(orgId);
+}
+
+/**
+ * Deduplicate issues for an org+cloudId combination.
+ * Called after reconnecting to deduplicate any issues that were created in other orgs
+ * with the same cloud_id + issue_key.
+ */
+export async function deduplicateIssuesForOrgCloud(orgId: string, cloudId: string): Promise<number> {
+  const client = getClient();
+  if (!client) return 0;
+
+  try {
+    console.log('[JiraDB] Deduplicating issues for org:', orgId, 'cloud:', cloudId);
+    
+    const { data, error } = await client
+      .rpc('dedup_jira_issues_for_org', {
+        p_org_id: orgId,
+        p_cloud_id: cloudId
+      });
+
+    if (error) {
+      console.warn('[JiraDB] Deduplication RPC error:', error.message);
+      // Fall back to manual deduplication if RPC fails
+      return await manualDeduplicateIssues(client, orgId, cloudId);
+    }
+
+    const deletedCount = data?.[0]?.deleted_count || 0;
+    const keptIds = data?.[0]?.kept_issue_ids || [];
+    
+    console.log('[JiraDB] Deduplication complete:', {
+      deleted: deletedCount,
+      kept: Array.isArray(keptIds) ? keptIds.length : 0
+    });
+
+    return deletedCount;
+  } catch (err) {
+    console.error('[JiraDB] deduplicateIssuesForOrgCloud exception:', err);
+    return 0;
+  }
+}
+
+/**
+ * Manual deduplication fallback (in case RPC doesn't work)
+ * Finds and deletes older duplicate issues, keeping the most recent update
+ */
+async function manualDeduplicateIssues(client: any, orgId: string, cloudId: string): Promise<number> {
+  try {
+    console.log('[JiraDB] Running manual deduplication for org:', orgId, 'cloud:', cloudId);
+    
+    // Get all issues for this org+cloud
+    const { data: allIssues, error: fetchError } = await client
+      .from('jira_issues')
+      .select('id, cloud_id, issue_key, updated_at')
+      .eq('org_id', orgId)
+      .eq('cloud_id', cloudId);
+
+    if (fetchError || !allIssues) {
+      console.warn('[JiraDB] Failed to fetch issues for dedup:', fetchError?.message);
+      return 0;
+    }
+
+    // Group by (cloud_id, issue_key) and find duplicates
+    const issueMap: Map<string, any[]> = new Map();
+    for (const issue of allIssues) {
+      const key = `${issue.cloud_id}:${issue.issue_key}`;
+      if (!issueMap.has(key)) {
+        issueMap.set(key, []);
+      }
+      issueMap.get(key)!.push(issue);
+    }
+
+    // Find issues to delete (keep the most recent one)
+    const idsToDelete: string[] = [];
+    for (const [key, issues] of issueMap.entries()) {
+      if (issues.length > 1) {
+        // Sort by updated_at descending, keep the first one
+        issues.sort((a: any, b: any) => {
+          const dateA = new Date(a.updated_at).getTime();
+          const dateB = new Date(b.updated_at).getTime();
+          return dateB - dateA;
+        });
+        
+        // Mark all but the most recent for deletion
+        for (let i = 1; i < issues.length; i++) {
+          idsToDelete.push(issues[i].id);
+        }
+        
+        console.log(`[JiraDB] Found ${issues.length - 1} duplicate(s) for ${key}, keeping most recent`);
+      }
+    }
+
+    // Delete the duplicate issues in batches
+    let deletedCount = 0;
+    if (idsToDelete.length > 0) {
+      const BATCH_SIZE = 100;
+      for (let i = 0; i < idsToDelete.length; i += BATCH_SIZE) {
+        const batch = idsToDelete.slice(i, i + BATCH_SIZE);
+        const { error: deleteError } = await client
+          .from('jira_issues')
+          .delete()
+          .in('id', batch);
+        
+        if (deleteError) {
+          console.warn('[JiraDB] Batch delete error:', deleteError.message);
+        } else {
+          deletedCount += batch.length;
+        }
+      }
+    }
+
+    console.log('[JiraDB] Manual deduplication deleted:', deletedCount, 'issues');
+    return deletedCount;
+  } catch (err) {
+    console.error('[JiraDB] manualDeduplicateIssues exception:', err);
+    return 0;
+  }
 }
 
 function mapIssueRow(row: any): DBJiraIssue {
