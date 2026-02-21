@@ -1,12 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { AlertCircle, Send, ChevronLeft, ChevronRight, CalendarDays, Plus, Trash2 } from 'lucide-react';
 import { Button } from '../ui/button';
-import { Task, EmployeeProfile } from './types';
+import { Task, EmployeeProfile, LeaveRequest } from './types';
 
 interface EmployeeLeavePortalProps {
   tasks: Task[];
   employees: EmployeeProfile[];
   currentUserEmail: string;
+  existingLeaves?: LeaveRequest[];
   onLeaveRequest: (leaveData: {
     employeeName: string;
     startDate: string;
@@ -34,6 +35,7 @@ export function EmployeeLeavePortal({
   employees,
   currentUserEmail,
   onLeaveRequest,
+  existingLeaves,
 }: EmployeeLeavePortalProps) {
   // Initialize selected employee - use current user if available, otherwise first employee
   const [selectedEmployee, setSelectedEmployee] = useState<string>(() => {
@@ -50,6 +52,35 @@ export function EmployeeLeavePortal({
   
   // Update: Store reason along with the range so each request can have a specific reason
   const [pendingLeaveRanges, setPendingLeaveRanges] = useState<Array<{start: string, end: string, reason: string}>>([]);
+
+  // Helper: generate deterministic user_id from name (keeps in sync with parent logic)
+  const generateUserIdFromName = (name: string): string => {
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      const char = name.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    const hashStr = Math.abs(hash).toString(16).padStart(8, '0');
+    return `00000000-0000-4000-a000-${hashStr}00000000`.substring(0, 36);
+  };
+
+  // Check whether a specific date (yyyy-mm-dd) is blocked for the selected employee
+  const isDateBlockedByExistingLeave = (dateStr: string) => {
+    if (!existingLeaves || existingLeaves.length === 0) return false;
+    const userId = generateUserIdFromName(selectedEmployee);
+    const d = new Date(dateStr);
+    d.setHours(0,0,0,0);
+
+    return existingLeaves.some(l => {
+      if (!l.user_id) return false;
+      if (l.user_id !== userId) return false;
+      const s = new Date(l.startDate);
+      const e = new Date(l.endDate);
+      s.setHours(0,0,0,0); e.setHours(23,59,59,999);
+      return d >= s && d <= e;
+    });
+  };
 
   // Get all tasks by employee
   const activeTasks = useMemo(() => {
@@ -194,6 +225,11 @@ export function EmployeeLeavePortal({
     const clickedDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
     // Properly format ISO date without time zone shift issues
     const dateStr = new Date(clickedDate.getTime() - (clickedDate.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+    // If this date is blocked by an existing leave for this employee, ignore selection
+    if (isDateBlockedByExistingLeave(dateStr)) {
+      alert('These dates are already on leave for the selected employee and cannot be selected.');
+      return;
+    }
     
     if (!startLeaveDate) {
       setStartLeaveDate(dateStr);
@@ -212,6 +248,23 @@ export function EmployeeLeavePortal({
   const handleAddLeaveToQueue = () => {
     if (!startLeaveDate || !endLeaveDate || !leaveReason) {
       alert('Please select dates and provide a reason');
+      return;
+    }
+    // Prevent adding ranges that overlap existing leaves for this employee
+    const rangeStart = new Date(startLeaveDate);
+    const rangeEnd = new Date(endLeaveDate);
+    rangeStart.setHours(0,0,0,0); rangeEnd.setHours(23,59,59,999);
+
+    const userId = generateUserIdFromName(selectedEmployee);
+    const overlaps = (existingLeaves || []).some(l => {
+      if (l.user_id !== userId) return false;
+      const s = new Date(l.startDate); s.setHours(0,0,0,0);
+      const e = new Date(l.endDate); e.setHours(23,59,59,999);
+      return s <= rangeEnd && e >= rangeStart;
+    });
+
+    if (overlaps) {
+      alert('Selected range overlaps an existing leave for this employee and cannot be queued.');
       return;
     }
 
@@ -321,6 +374,7 @@ export function EmployeeLeavePortal({
               const isInRange = isDateInRange(day);
               const isRangeStart = dateStr === startLeaveDate;
               const isRangeEnd = dateStr === endLeaveDate;
+              const isBlocked = isDateBlockedByExistingLeave(dateStr);
               const dayTasksData = getTasksForDay(day);
               const dayTasks = dayTasksData.tasks;
               const isToday = new Date().toDateString() === new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day).toDateString();
@@ -331,7 +385,8 @@ export function EmployeeLeavePortal({
                 <button
                   key={day}
                   onClick={() => handleDateClick(day)}
-                  className={`h-24 rounded-lg transition-all relative group flex flex-col items-center justify-start p-2 border hover:scale-105 transform cursor-pointer ${
+                  disabled={isBlocked}
+                  className={`h-24 rounded-lg transition-all relative group flex flex-col items-center justify-start p-2 border hover:scale-105 transform ${isBlocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${
                     isRangeStart || isRangeEnd
                       ? 'bg-blue-600 text-white border-blue-700 shadow-md'
                       : isInRange
@@ -358,6 +413,12 @@ export function EmployeeLeavePortal({
                           title={selectedEmployee}
                         />
                       </>
+                    )}
+
+                    {isBlocked && (
+                      <div className="absolute inset-0 bg-red-50/60 flex items-center justify-center rounded-lg pointer-events-none">
+                        <span className="text-xs text-red-700 font-semibold">Blocked</span>
+                      </div>
                     )}
                   </div>
 
@@ -524,6 +585,40 @@ export function EmployeeLeavePortal({
               Submit All ({pendingLeaveRanges.length})
             </Button>
           )}
+        </div>
+
+        {/* My Submitted Requests (brief) */}
+        <div className="space-y-3">
+          <h3 className="text-lg font-light text-gray-900">My Requests</h3>
+          <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm space-y-2 text-xs">
+            {existingLeaves ? (
+              (() => {
+                const myId = generateUserIdFromName(selectedEmployee);
+                const myLeaves = existingLeaves.filter(l => l.user_id === myId).slice(0,5);
+                if (myLeaves.length === 0) return <p className="text-gray-500">No submitted requests</p>;
+                return (
+                  <ul className="space-y-2">
+                    {myLeaves.map(l => (
+                      <li key={l.id} className="p-2 rounded border border-gray-100">
+                        <div className="flex justify-between">
+                          <div>
+                            <div className="font-medium">{l.startDate} → {l.endDate}</div>
+                            <div className="text-gray-500">{l.reason}</div>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-semibold">{l.status}</div>
+                            <div className="text-gray-400 text-[11px]">{l.history && l.history.length ? new Date(l.history[l.history.length-1].ts).toLocaleDateString() : ''}</div>
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                );
+              })()
+            ) : (
+              <p className="text-gray-500">No submitted requests</p>
+            )}
+          </div>
         </div>
       </div>
     </div>

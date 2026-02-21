@@ -31,6 +31,7 @@ export interface LeaveRequest {
   endDate: string;
   reason: string;
   status: 'Pending' | 'Approved' | 'Rejected' | 'Shifted'; // Added 'Shifted' status
+  history?: { ts: string; actor: string; action: string; details?: string }[];
 }
 
 export interface EmployeeProfile {
