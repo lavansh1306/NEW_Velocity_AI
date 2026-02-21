@@ -89,7 +89,17 @@ export function EmployeeLeavePortal({
 
   // Filter tasks for selected employee first
   const userTasks = useMemo(() => {
-    return activeTasks.filter(t => t.assignee === selectedEmployee);
+    const emailLower = currentUserEmail ? currentUserEmail.toLowerCase() : '';
+    return activeTasks.filter(t => {
+      if (!t) return false
+      const assigneeName = t.assignee || ''
+      const assigneeEmail = (t.assignee_email || '').toLowerCase()
+      if (assigneeName === selectedEmployee) return true
+      if (assigneeEmail && emailLower && assigneeEmail === emailLower) return true
+      // allow partial match fallback (case-insensitive)
+      if (assigneeName && selectedEmployee && assigneeName.toLowerCase().includes(selectedEmployee.toLowerCase())) return true
+      return false
+    })
   }, [activeTasks, selectedEmployee]);
 
   // Update calendar month when selected employee changes
@@ -402,30 +412,23 @@ export function EmployeeLeavePortal({
                     {day}
                   </span>
                   
-                  {/* Task color indicator */}
-                  <div className="flex flex-wrap gap-1 w-full justify-center">
-                    {dayTasks.length > 0 && (
-                      <>
-                        <div 
-                          className={`w-3 h-3 rounded-full ${
-                            (isRangeStart || isRangeEnd) ? 'bg-yellow-300' : isInRange ? 'bg-yellow-400' : dayTasksData.color.badge
-                          }`}
-                          title={selectedEmployee}
-                        />
-                      </>
-                    )}
-
-                    {isBlocked && (
-                      <div className="absolute inset-0 bg-red-50/60 flex items-center justify-center rounded-lg pointer-events-none">
-                        <span className="text-xs text-red-700 font-semibold">Blocked</span>
-                      </div>
-                    )}
-                  </div>
-
+                  {/* Task count - PROMINENT DISPLAY */}
                   {dayTasks.length > 0 && (
-                    <span className={`text-[10px] font-light mt-auto ${(isRangeStart || isRangeEnd || isInRange) ? 'text-blue-200' : 'text-gray-600'}`}>
-                      {dayTasks.length} task{dayTasks.length !== 1 ? 's' : ''}
-                    </span>
+                    <div className={`w-full text-center mb-1 px-1 py-0.5 rounded text-xs font-bold ${
+                      (isRangeStart || isRangeEnd) ? 'bg-yellow-300 text-yellow-900' : 
+                      isInRange ? 'bg-blue-300 text-blue-900' : 
+                      'bg-indigo-200 text-indigo-800'
+                    }`}>
+                      📍 {dayTasks.length} task{dayTasks.length > 1 ? 's' : ''}
+                    </div>
+                  )}
+                  
+                  {/* Blocked indicator */}
+                  {isBlocked && (
+                    <div className="absolute inset-0 bg-green-50/60 flex items-center justify-center rounded-lg pointer-events-none flex-col">
+                      <span className="text-xs text-green-700 font-semibold">Leave</span>
+                      <span className="text-[9px] text-green-600">Approved</span>
+                    </div>
                   )}
 
                   {isToday && !(isRangeStart || isRangeEnd || isInRange) && (
@@ -526,6 +529,33 @@ export function EmployeeLeavePortal({
               </div>
             </div>
 
+            {/* Shift Preview - Show before/after dates */}
+            {startLeaveDate && tasksOnLeaveDate.length > 0 && (
+              <div className="border border-amber-200 bg-amber-50 rounded-lg p-3 text-xs">
+                <div className="font-bold text-amber-900 mb-2">📋 Shift Preview (If Approved):</div>
+                <div className="space-y-1 max-h-32 overflow-y-auto">
+                  {tasksOnLeaveDate.slice(0, 5).map(task => {
+                    const durationDays = Math.ceil((new Date(endLeaveDate).getTime() - new Date(startLeaveDate).getTime()) / (86400000)) + 1;
+                    const oldDue = new Date(task.due_date);
+                    const newDue = new Date(oldDue.getTime() + durationDays * 86400000);
+                    const oldDueStr = oldDue.toISOString().split('T')[0];
+                    const newDueStr = newDue.toISOString().split('T')[0];
+                    return (
+                      <div key={task.id} className="bg-white p-2 rounded border-l-2 border-amber-400">
+                        <div className="font-medium text-gray-700 truncate">{task.taskName.substring(0, 40)}</div>
+                        <div className="text-gray-600 text-[11px] mt-0.5">
+                          {oldDueStr} <span className="text-amber-600 font-bold">→</span> {newDueStr}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {tasksOnLeaveDate.length > 5 && (
+                    <div className="text-gray-500 text-center py-1">+{tasksOnLeaveDate.length - 5} more shifts</div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Add to Queue Button */}
             <Button
               type="button"
@@ -534,7 +564,7 @@ export function EmployeeLeavePortal({
               className="w-full bg-blue-600 hover:bg-blue-700 text-white border-0 gap-2 disabled:opacity-50 disabled:cursor-not-allowed font-light"
             >
               <Plus className="w-4 h-4" />
-              Add to Queue
+              Apply for Leave
             </Button>
           </div>
         </div>
