@@ -460,7 +460,7 @@ export default function LeaveManagementTab() {
     console.log('Leave being approved:', leave);
     console.log('Before approval - leaves:', leaves);
     setLeaves(prev => {
-      const updated = prev.map(l => l.id === leave.id ? { ...l, status: 'Approved' } : l);
+      const updated = prev.map(l => l.id === leave.id ? { ...l, status: 'Approved' as const } : l);
       console.log('After approval - updated leaves:', updated);
       return updated;
     });
@@ -476,7 +476,7 @@ export default function LeaveManagementTab() {
   // Handle leave rejection from notification panel
   const handleRejectLeave = (leave: LeaveRequest) => {
     setLeaves(prev => 
-      prev.map(l => l.id === leave.id ? { ...l, status: 'Rejected' } : l)
+      prev.map(l => l.id === leave.id ? { ...l, status: 'Rejected' as const } : l)
     );
     
     // Show rejection notification
