@@ -35,6 +35,7 @@ export default function LeaveManagementTab() {
   const [redeployOpen, setRedeployOpen] = useState(false);
   const [selectedLeave, setSelectedLeave] = useState<LeaveRequest | null>(null);
   const [predictions, setPredictions] = useState<any[]>([]);
+  const [expandedLeaves, setExpandedLeaves] = useState<Record<string, boolean>>({});
 
   // ------------------------------------------------------------------
   // 1. SUPABASE INTEGRATION: DIRECT FETCH WITH ROBUST ERROR HANDLING
@@ -44,9 +45,10 @@ export default function LeaveManagementTab() {
       console.log('[LeaveManagement] Fetching leaves for org:', orgId);
       
       // Don't try to join with users table - just get the leave_requests data
+      // IMPORTANT: Select 'name' field which is used for matching tasks
       const { data, error } = await supabase
         .from('leave_requests')
-        .select('id, user_id, start_date, end_date, reason, status, created_at')
+        .select('id, user_id, name, start_date, end_date, reason, status, created_at')
         .eq('org_id', orgId)
         .order('created_at', { ascending: false });
 
@@ -57,6 +59,7 @@ export default function LeaveManagementTab() {
 
       if (data) {
         console.log('[LeaveManagement] Fetched leaves:', data.length);
+        console.log('[LeaveManagement] Sample leave:', data[0] ? { id: data[0].id, name: data[0].name, status: data[0].status } : 'none');
         
         const formattedLeaves: LeaveRequest[] = data.map((l: any) => {
           // Normalize status to proper case
@@ -69,7 +72,7 @@ export default function LeaveManagementTab() {
             id: l.id,
             org_id: orgId,
             user_id: l.user_id,
-            name: 'Employee', // We don't have user names anymore since we removed the relationship
+            name: l.name || 'Unknown Employee', // USE the name from DB
             startDate: l.start_date,
             endDate: l.end_date,
             reason: l.reason || '',
@@ -124,17 +127,63 @@ export default function LeaveManagementTab() {
         // Fallback: Get org from any JIRA issue if user not found
         if (!orgId) {
           console.log('[LeaveManagement] Attempting fallback - fetching from jira_issues');
+          // try to get a single jira issue org_id
           const { data: anyIssue, error: issueError } = await supabase
             .from('jira_issues')
             .select('org_id')
             .limit(1)
             .single();
-          
+
           if (issueError) {
-            console.warn('[LeaveManagement] Fallback failed:', issueError.message);
+            console.warn('[LeaveManagement] Fallback failed to get org_id:', issueError.message);
           } else {
             orgId = anyIssue?.org_id;
             console.log('[LeaveManagement] Got orgId from jira_issues:', orgId);
+          }
+
+          // If still no orgId, attempt a permissive fetch of some jira_issues so UI can show tasks (best-effort)
+          if (!orgId) {
+            console.warn('[LeaveManagement] orgId not found - attempting permissive jira_issues fetch for UI (best-effort)');
+            try {
+              const issuesUnfiltered = await supabase.from('jira_issues').select('*').limit(50);
+              if (issuesUnfiltered.error) {
+                console.warn('[LeaveManagement] permissive jira_issues fetch failed:', issuesUnfiltered.error.message);
+              } else {
+                // Use these issues to populate tasks and set orgId to null (no filtering)
+                const issuesData = issuesUnfiltered.data || [];
+                const uniqueEmployees = new Map<string, EmployeeProfile>();
+                const loadedTasks = issuesData.map((issue: any, index: number) => {
+                  const assignee = issue.assignee || 'Unassigned';
+                  const cleanCreated = issue.created_date?.split('T')[0] || new Date().toISOString().split('T')[0];
+                  const cleanDue = issue.due_date?.split('T')[0] || cleanCreated;
+                  if (assignee !== 'Unassigned' && !uniqueEmployees.has(assignee)) {
+                    uniqueEmployees.set(assignee, { name: assignee, role: issue.issue_type || 'Developer', skills: [issue.issue_type || 'Development'] });
+                  }
+                  return {
+                    id: issue.id || index,
+                    projectName: issue.project_name || issue.project_key || 'Unassigned',
+                    taskName: `${issue.issue_key}: ${issue.summary}`,
+                    assignee: assignee,
+                    hours: issue.original_estimate_seconds ? (issue.original_estimate_seconds / 3600) : 8,
+                    day: 0,
+                    requiredSkills: [issue.issue_type || 'Task'],
+                    isReallocated: false,
+                    isCancelled: ['closed', 'done', 'resolved'].includes(issue.status?.toLowerCase()),
+                    totalLogged: issue.time_spent_seconds ? (issue.time_spent_seconds / 3600) : 0,
+                    logs: [],
+                    created_date: cleanCreated,
+                    due_date: cleanDue
+                  };
+                });
+                if (isMounted) {
+                  setTasks(loadedTasks);
+                  setEmployees(Array.from(uniqueEmployees.values()));
+                  setDataSource('JIRA');
+                }
+              }
+            } catch (permErr) {
+              console.warn('[LeaveManagement] permissive fallback failed:', permErr);
+            }
           }
         }
 
@@ -273,6 +322,7 @@ export default function LeaveManagementTab() {
       const payload = {
         org_id: currentOrgId,
         user_id: userIdFromName,
+        name: employeeName,
         start_date: normalizedStartDate,
         end_date: normalizedEndDate,
         reason: request.reason || 'Not specified',
@@ -282,17 +332,16 @@ export default function LeaveManagementTab() {
       console.log('[LeaveManagement] Inserting leave request:', payload);
 
       // Step 5: Insert leave request (no RLS issues since user_id is just a UUID value)
-      const { data: insertedData, error: insertError } = await supabase
+      const { error: insertError } = await supabase
         .from('leave_requests')
-        .insert([payload])
-        .select();
+        .insert([payload]);
 
       if (insertError) {
         console.error('[LeaveManagement] Insert error:', insertError);
         throw new Error(insertError.message || 'Failed to insert leave request');
       }
 
-      console.log('[LeaveManagement] Leave request created successfully:', insertedData);
+      console.log('[LeaveManagement] Leave request created successfully');
 
       toast({ 
         title: "✅ Success", 
@@ -316,8 +365,11 @@ export default function LeaveManagementTab() {
     try {
       console.log('[LeaveManagement] Approving leave:', leave.id);
       
+      const actor = currentUser || 'Manager';
+      const entry = { ts: new Date().toISOString(), actor, action: 'Approved', details: '' };
+
       setLeaves(prev => prev.map(l => 
-        l.id === leave.id ? { ...l, status: 'Approved' } : l
+        l.id === leave.id ? { ...l, status: 'Approved', history: [...(l.history||[]), entry] } : l
       ));
       setLeaveUpdateCount(prev => prev + 1);
       
@@ -344,9 +396,11 @@ export default function LeaveManagementTab() {
   const handleRejectLeave = async (leave: LeaveRequest) => {
     try {
       console.log('[LeaveManagement] Rejecting leave:', leave.id);
-      
+      const actor = currentUser || 'Manager';
+      const entry = { ts: new Date().toISOString(), actor, action: 'Rejected', details: '' };
+
       setLeaves(prev => prev.map(l => 
-        l.id === leave.id ? { ...l, status: 'Rejected' } : l
+        l.id === leave.id ? { ...l, status: 'Rejected', history: [...(l.history||[]), entry] } : l
       ));
       
       const { error } = await supabase
@@ -398,15 +452,133 @@ export default function LeaveManagementTab() {
   };
 
   const handleShiftTasks = (leave: LeaveRequest) => {
-    const durationDays = Math.ceil((new Date(leave.endDate).getTime() - new Date(leave.startDate).getTime()) / (86400000)) + 1;
-    setTasks(prev => prev.map(t => {
-      if (t.assignee !== leave.name || t.isCancelled) return t;
-      const newDue = new Date(t.due_date);
-      newDue.setDate(newDue.getDate() + durationDays);
-      return { ...t, due_date: newDue.toISOString().split('T')[0] };
-    }));
-    handleApproveLeave(leave);
-    toast({ title: "⏭️ Shifted", description: "Affected tasks pushed forward." });
+    const handleShiftTasksFromBackend = async () => {
+      try {
+        const durationDays = Math.ceil((new Date(leave.endDate).getTime() - new Date(leave.startDate).getTime()) / (86400000)) + 1;
+        
+        // Pre-calculate which tasks will be affected for visibility
+        const lStart = new Date(leave.startDate); lStart.setHours(0,0,0,0);
+        const lEnd = new Date(leave.endDate); lEnd.setHours(23,59,59,999);
+        const affectedForShift = tasks.filter(t => {
+          if (t.assignee !== leave.name || t.isCancelled) return false;
+          const tStart = new Date(t.created_date);
+          const tEnd = new Date(t.due_date);
+          return tStart <= lEnd && tEnd >= lStart;
+        });
+        
+        console.log('[LeaveManagement] Calling /api/leave-approval/approve-and-shift for leave:', leave.id);
+        console.log('[LeaveManagement] Affected tasks for shift:', affectedForShift.map(t => ({ 
+          name: t.taskName, 
+          oldDue: t.due_date,
+          newDue: new Date(new Date(t.due_date).getTime() + durationDays * 86400000).toISOString().split('T')[0]
+        })));
+        
+        // Call backend auto-shift endpoint
+        const response = await fetch('/api/leave-approval/approve-and-shift', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+        id: leave.id,
+        org_id: currentOrgId, // <-- ADD THIS LINE
+        name: leave.name,
+        startDate: leave.startDate,
+        endDate: leave.endDate,
+        reason: leave.reason,
+        status: leave.status
+  })
+});
+
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(errData.error || `Backend error: ${response.status}`);
+        }
+
+        const result = await response.json();
+        console.log('[LeaveManagement] Backend response:', result);
+        
+        const shiftsCount = result.data?.actions?.shifted || affectedForShift.length;
+        // Build message with task details
+        const taskDetails = affectedForShift.slice(0, 3).map(t => {
+          const newDue = new Date(new Date(t.due_date).getTime() + durationDays * 86400000).toISOString().split('T')[0];
+          return `${t.taskName.substring(0, 30)}: ${t.due_date}→${newDue}`;
+        }).join('\n');
+        
+        const actor = currentUser || 'Manager';
+        const detail = `Auto-shifted ${shiftsCount} task(s) by ${durationDays} day${durationDays>1?'s':''} (${affectedForShift.length} tasks affected)`;
+        
+        setLeaves(prev => prev.map(l => l.id === leave.id ? { 
+          ...l, 
+          status: 'Approved', 
+          history: [...(l.history||[]), { ts: new Date().toISOString(), actor, action: 'Shifted', details: detail }] 
+        } : l));
+        
+        setLeaveUpdateCount(prev => prev + 1);
+
+        // Refresh leaves and tasks from DB to ensure consistency
+        if (currentOrgId) {
+          console.log('[LeaveManagement] Refreshing data after shift...');
+          await fetchSupabaseLeaves(currentOrgId);
+          // Also refresh jira_issues tasks to show updated due dates
+          const { data: updatedTasks } = await supabase
+            .from('jira_issues')
+            .select('*')
+            .eq('org_id', currentOrgId)
+            .limit(500);
+          if (updatedTasks) {
+            const formatted = updatedTasks.map((t: any) => ({
+              id: t.id,
+              taskName: t.summary || t.issue_key || 'Task',
+              assignee: t.assignee || 'Unassigned',
+              assignee_email: t.assignee_email || '',
+              projectName: t.project_name || 'Unknown',
+              hours: Math.ceil((t.original_estimate_seconds || 0) / 3600),
+              created_date: t.created_date || new Date().toISOString(),
+              due_date: t.due_date || new Date().toISOString(),
+              isCancelled: false,
+              isReallocated: false,
+              day: 0
+            }));
+            setTasks(formatted);
+          }
+        }
+
+        // Show detailed shift confirmation
+        const shiftMsg = `✅ Shifted ${shiftsCount} task(s) forward by ${durationDays} day(s)\n\n${taskDetails}${affectedForShift.length > 3 ? `\n+${affectedForShift.length - 3} more tasks` : ''}`;
+        toast({ 
+          title: "⏭️ Tasks Shifted & Saved to DB", 
+          description: shiftMsg
+        });
+      } catch (err: any) {
+        console.error('[LeaveManagement] Shift error:', err);
+        toast({ 
+          title: "❌ Shift Failed", 
+          description: err.message || 'Failed to auto-shift tasks', 
+          variant: "destructive" 
+        });
+      }
+    };
+    
+    handleShiftTasksFromBackend();
+  };
+
+  // Mini calendar helper: next 30 days with markers for leaves and shifts
+  const getNext30Days = () => {
+    const arr: { date: string; leaves: LeaveRequest[] }[] = [];
+    const today = new Date();
+    for (let i = 0; i < 30; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      const dateStr = d.toISOString().split('T')[0];
+      const dayLeaves = leaves.filter(l => {
+        const s = new Date(l.startDate); s.setHours(0,0,0,0);
+        const e = new Date(l.endDate); e.setHours(23,59,59,999);
+        const dd = new Date(dateStr);
+        dd.setHours(0,0,0,0);
+        return dd >= s && dd <= e;
+      });
+      arr.push({ date: dateStr, leaves: dayLeaves });
+    }
+    return arr;
   };
 
   if (isLoadingData) {
@@ -450,15 +622,26 @@ export default function LeaveManagementTab() {
       {activePersona === 'manager' && (
         <div className="w-full mb-4 mt-4 space-y-6">
           <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border-2 border-indigo-300 rounded-2xl p-6 shadow-lg">
-            <h3 className="text-xl font-light text-primary mb-6 flex items-center gap-2">📋 Active Leave Requests</h3>
-            {leaves.filter(l => l.status === 'Pending' || l.status === 'Approved').length === 0 ? (
+            <h3 className="text-xl font-light text-primary mb-6 flex items-center gap-2">📋 All Leave Requests</h3>
+            {leaves.length === 0 ? (
               <div className="text-center p-8 text-slate-500 bg-white/50 rounded-xl border border-indigo-100">
                 <AlertCircle className="w-12 h-12 mx-auto opacity-30 mb-2" />
-                <p>No active leave requests for your organization.</p>
+                <p>No leave requests for your organization.</p>
               </div>
             ) : (
               <div className="space-y-4">
-                {leaves.filter(l => l.status === 'Pending' || l.status === 'Approved').map(leave => {
+                  {/* Mini 30-day calendar showing absences/shifts */}
+                  <div className="mb-4 p-3 bg-white border rounded-lg">
+                    <h4 className="text-sm font-semibold mb-2">30-day Absence Overview</h4>
+                    <div className="grid grid-cols-10 gap-1 text-[10px]">
+                      {getNext30Days().map(day => (
+                        <div key={day.date} title={`${day.date} — ${day.leaves.length} leave(s)`} className={`h-6 rounded flex items-center justify-center ${day.leaves.length > 0 ? 'bg-red-100 border border-red-200 text-red-700' : 'bg-gray-50 border border-gray-100 text-gray-400'}`}>
+                          {new Date(day.date).getDate()}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                {leaves.map(leave => {
                   const affectedTasks = tasks.filter(t => {
                     if (t.assignee !== leave.name || t.isCancelled) return false;
                     const lStart = new Date(leave.startDate);
@@ -467,13 +650,15 @@ export default function LeaveManagementTab() {
                     return lStart >= tStart && lStart <= tEnd;
                   });
 
+                  const isExpanded = !!expandedLeaves[leave.id];
+
                   return (
-                    <div key={leave.id} className={`p-5 rounded-xl border-2 ${leave.status === 'Approved' ? 'bg-green-50 border-green-300' : 'bg-yellow-50 border-yellow-300'}`}>
-                      <div className="flex items-start justify-between gap-4">
+                    <div key={leave.id} className={`p-4 rounded-xl border-2 ${leave.status === 'Approved' ? 'bg-green-50 border-green-300' : leave.status === 'Rejected' ? 'bg-red-50 border-red-300' : 'bg-yellow-50 border-yellow-300'}`}>
+                      <div className="flex items-center justify-between gap-4">
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
                             <h4 className="font-light text-lg text-slate-900">{leave.name}</h4>
-                            <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${leave.status === 'Approved' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>
+                            <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${leave.status === 'Approved' ? 'bg-green-200 text-green-800' : leave.status === 'Rejected' ? 'bg-red-200 text-red-800' : 'bg-yellow-200 text-yellow-800'}`}>
                               {leave.status}
                             </span>
                           </div>
@@ -485,15 +670,65 @@ export default function LeaveManagementTab() {
                             <p className="text-xs font-bold text-slate-700">Affected Tasks: {affectedTasks.length}</p>
                           )}
                         </div>
-                        <div className="flex gap-2">
+
+                        <div className="flex gap-2 items-start">
+                          <Button size="sm" variant="ghost" onClick={() => setExpandedLeaves(prev => ({ ...prev, [leave.id]: !prev[leave.id] }))}>
+                            {isExpanded ? 'Collapse' : 'Details'}
+                          </Button>
                           {leave.status === 'Pending' && (
-                            <>
+                            <div className="flex gap-2">
                               <Button size="sm" className="bg-green-600" onClick={() => handleApproveLeave(leave)}>Approve</Button>
                               <Button size="sm" variant="outline" className="text-red-600 border-red-600" onClick={() => handleRejectLeave(leave)}>Reject</Button>
-                            </>
+                            </div>
+                          )}
+                          {(leave.status === 'Pending' || leave.status === 'Approved') && (
+                            <div className="flex gap-2 ml-2">
+                              <Button size="sm" onClick={() => handleShiftTasks(leave)} className="bg-indigo-600">Approve & Shift Tasks</Button>
+                              <Button size="sm" variant="outline" onClick={() => { setSelectedLeave(leave); setRedeployOpen(true); }}>Approve & Redeploy</Button>
+                            </div>
                           )}
                         </div>
                       </div>
+
+                      {isExpanded && (
+                        <div className="mt-3 p-3 bg-white rounded-lg border border-gray-100">
+                          <h5 className="text-sm font-semibold mb-2">Affected Tasks</h5>
+                          {affectedTasks.length > 0 ? (
+                            <ul className="text-xs space-y-1 mb-3">
+                              {affectedTasks.map(t => (
+                                <li key={t.id} className="flex justify-between">
+                                  <span>{t.taskName}</span>
+                                  <span className="text-gray-500">{t.hours}h</span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="text-xs text-gray-500">No tasks impacted.</p>
+                          )}
+
+                          <div className="text-xs text-gray-600 mb-3 p-2 bg-slate-50 rounded border border-gray-200">
+                            <strong className="block mb-1">📋 Activity & DB Shifts:</strong>
+                            <ul className="mt-1 space-y-1">
+                              {(leave.history || []).slice().reverse().map((h, i) => (
+                                <li key={i} className="text-[11px] p-1 bg-white rounded border-l-2 border-indigo-400">
+                                  <div>{new Date(h.ts).toLocaleString()} — {h.actor}: <strong>{h.action}</strong></div>
+                                  {h.details && <div className="text-gray-600">{h.details}</div>}
+                                </li>
+                              ))}
+                              {!(leave.history && leave.history.length) && (
+                                <li className="text-gray-500">No activity yet</li>
+                              )}
+                            </ul>
+                          </div>
+
+                          {leave.status === 'Approved' && (
+                            <div className="text-xs mb-2 p-2 bg-green-50 rounded border border-green-200">
+                              <strong className="text-green-700">✅ Approved</strong>
+                              <p className="text-green-600 text-[10px] mt-1">(Click "Approve & Shift Tasks" above to shift task dates)</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -519,6 +754,7 @@ export default function LeaveManagementTab() {
               employees={employees}
               currentUserEmail={currentUser}
               onLeaveRequest={(data) => handleApplyLeave({ ...data, name: data.employeeName })}
+              existingLeaves={leaves}
             />
           ) : (
             <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-8 text-center text-amber-900 font-light italic">

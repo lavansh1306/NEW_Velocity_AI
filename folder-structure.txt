@@ -18,20 +18,25 @@ NEW_Velocity_AI
 ├── archives
 │   └── VelocityAI.tsx
 ├── asana
+├── CAPACITY_ENDPOINT_DOCUMENTATION.md
 ├── components.json
 ├── DASHBOARD_IMPLEMENTATION_SUMMARY.md
 ├── DASHBOARD_INTEGRATION_GUIDE.md
+├── DEBUG_AUTH_ERROR.md
 ├── demo
 │   ├── LiveFeed.tsx
 │   ├── ROIMetrics.tsx
 │   └── TimeTracking.tsx
 ├── eslint.config.js
 ├── googleba79ddad728eb1f3.html
+├── IMPLEMENTATION_SUMMARY.md
 ├── index.html
 ├── JIRA_DASHBOARD_COMPLETE.md
 ├── JIRA_DASHBOARD_INTEGRATION.md
 ├── JIRA_DASHBOARD_QUICK_REFERENCE.md
+├── JIRA_DEDUPLICATION_FIX.md
 ├── krish.txt
+├── LEAVE_MANAGEMENT_FIX.md
 ├── LICENSE
 ├── node_modules/
 ├── package-lock.json
@@ -57,6 +62,7 @@ NEW_Velocity_AI
 │   │   │   └── routes.ts
 │   │   ├── jira
 │   │   │   ├── auth.ts
+│   │   │   ├── db.ts
 │   │   │   └── routes.ts
 │   │   ├── leave-approval
 │   │   │   └── routes.ts
@@ -127,9 +133,20 @@ NEW_Velocity_AI
 │   │   │   ├── ManagerGantt.tsx
 │   │   │   ├── ManagerSummary.tsx
 │   │   │   └── types.ts
+│   │   ├── landing
+│   │   │   ├── Background.tsx
+│   │   │   ├── LandingBenefits.tsx
+│   │   │   ├── LandingCTA.tsx
+│   │   │   ├── LandingFeatures.tsx
+│   │   │   ├── LandingFooter.tsx
+│   │   │   ├── LandingHeader.tsx
+│   │   │   ├── LandingHero.tsx
+│   │   │   ├── LandingImpact.tsx
+│   │   │   └── LandingTestimonials.tsx
 │   │   ├── leave-approval
 │   │   │   └── LeaveApprovalAgent.tsx
 │   │   ├── leave-management
+│   │   │   ├── CapacityAnalysis.tsx
 │   │   │   ├── data.ts
 │   │   │   ├── EmployeeLeavePortal.tsx
 │   │   │   ├── ImpactAnalysisDialog.tsx
@@ -155,6 +172,7 @@ NEW_Velocity_AI
 │   │   │   └── types.ts
 │   │   ├── NavLink.tsx
 │   │   ├── projects
+│   │   │   ├── ProjectLeaveManagement.tsx
 │   │   │   └── ProjectManagementDashboard.tsx
 │   │   ├── ProtectedRoute.tsx
 │   │   ├── Results.tsx
@@ -251,17 +269,20 @@ NEW_Velocity_AI
 │   │   ├── api.ts
 │   │   ├── csvLoader.ts
 │   │   ├── dataService.ts
+│   │   ├── jiraDbClient.ts
 │   │   ├── leaveApprovalAgent.ts
 │   │   ├── metrics.ts
 │   │   ├── normalizers
 │   │   │   ├── index.ts
 │   │   │   └── jira.ts
+│   │   ├── orgContext.ts
 │   │   ├── storage.ts
 │   │   ├── supabase.ts
 │   │   ├── types.ts
 │   │   └── utils.ts
 │   ├── main.tsx
 │   ├── pages
+│   │   ├── Audit.tsx
 │   │   ├── AuthCallback.tsx
 │   │   ├── Dashboard.tsx
 │   │   ├── DebugNormalization.tsx
@@ -274,6 +295,7 @@ NEW_Velocity_AI
 │   │   ├── Login.tsx
 │   │   ├── NotFound.tsx
 │   │   ├── PlanMyProject.tsx
+│   │   ├── ProjectAnalytics.tsx
 │   │   ├── ProjectDetail.tsx
 │   │   ├── ProjectDetailNew.tsx
 │   │   ├── Projects.tsx
@@ -286,9 +308,16 @@ NEW_Velocity_AI
 │   │   └── mlService.ts
 │   └── vite-env.d.ts
 ├── supabase-migrations
-│   └── create_jira_oauth_pkce_table.sql
+│   ├── 2026-02-22_ensure_leave_history_and_name.sql
+│   ├── add_complete_jira_fields.sql
+│   ├── create_jira_data_tables.sql
+│   ├── create_jira_oauth_pkce_table.sql
+│   ├── create_leave_management_tables.sql
+│   ├── create_multi_tenant_tables.sql
+│   └── dedup_jira_issues.sql
 ├── tailwind.config.ts
 ├── TECHNICAL_REPORT.md
+├── test-capacity-endpoint.ps1
 ├── test-server.ts
 ├── tsconfig.app.json
 ├── tsconfig.json
@@ -296,4 +325,5 @@ NEW_Velocity_AI
 ├── tsconfig.server.json
 ├── velo.html
 ├── vercel.json
+├── verify-leave-fix.sh
 └── vite.config.ts

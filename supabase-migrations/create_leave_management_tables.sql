@@ -36,6 +36,8 @@ CREATE TABLE leave_requests (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   org_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   user_id UUID NOT NULL,
+  -- Store a human-readable name at insert time to avoid joining the auth.users table
+  name TEXT,
   start_date DATE NOT NULL,
   end_date DATE NOT NULL,
   reason TEXT,
@@ -48,6 +50,7 @@ CREATE INDEX idx_leave_requests_org ON leave_requests(org_id);
 CREATE INDEX idx_leave_requests_user ON leave_requests(user_id);
 CREATE INDEX idx_leave_requests_status ON leave_requests(status);
 CREATE INDEX idx_leave_requests_dates ON leave_requests(start_date, end_date);
+CREATE INDEX idx_leave_requests_name ON leave_requests(name);
 
 -- 3. Leave Approvers (Manager configuration)
 CREATE TABLE leave_approvers (

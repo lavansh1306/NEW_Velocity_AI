@@ -1,12 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { AlertCircle, Send, ChevronLeft, ChevronRight, CalendarDays, Plus, Trash2 } from 'lucide-react';
 import { Button } from '../ui/button';
-import { Task, EmployeeProfile } from './types';
+import { Task, EmployeeProfile, LeaveRequest } from './types';
 
 interface EmployeeLeavePortalProps {
   tasks: Task[];
   employees: EmployeeProfile[];
   currentUserEmail: string;
+  existingLeaves?: LeaveRequest[];
   onLeaveRequest: (leaveData: {
     employeeName: string;
     startDate: string;
@@ -34,6 +35,7 @@ export function EmployeeLeavePortal({
   employees,
   currentUserEmail,
   onLeaveRequest,
+  existingLeaves,
 }: EmployeeLeavePortalProps) {
   // Initialize selected employee - use current user if available, otherwise first employee
   const [selectedEmployee, setSelectedEmployee] = useState<string>(() => {
@@ -51,6 +53,41 @@ export function EmployeeLeavePortal({
   // Update: Store reason along with the range so each request can have a specific reason
   const [pendingLeaveRanges, setPendingLeaveRanges] = useState<Array<{start: string, end: string, reason: string}>>([]);
 
+  // Helper: generate deterministic user_id from name (keeps in sync with parent logic)
+  const generateUserIdFromName = (name: string): string => {
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      const char = name.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    const hashStr = Math.abs(hash).toString(16).padStart(8, '0');
+    return `00000000-0000-4000-a000-${hashStr}00000000`.substring(0, 36);
+  };
+
+  // Safe date parser to prevent UTC timezone shifts
+  const parseLocalMidnight = (dateStr: string) => {
+    if (!dateStr) return new Date();
+    const [y, m, d] = dateStr.split('T')[0].split('-').map(Number);
+    return new Date(y, m - 1, d);
+  };
+
+  // Check whether a specific date (yyyy-mm-dd) is blocked for the selected employee
+  const isDateBlockedByExistingLeave = (dateStr: string) => {
+    if (!existingLeaves || existingLeaves.length === 0) return false;
+    const userId = generateUserIdFromName(selectedEmployee);
+    const d = parseLocalMidnight(dateStr);
+
+    return existingLeaves.some(l => {
+      if (!l.user_id) return false;
+      if (l.user_id !== userId) return false;
+      const s = parseLocalMidnight(l.startDate);
+      const e = parseLocalMidnight(l.endDate);
+      e.setHours(23,59,59,999);
+      return d >= s && d <= e;
+    });
+  };
+
   // Get all tasks by employee
   const activeTasks = useMemo(() => {
     return tasks.filter(t => !t.isCancelled);
@@ -58,7 +95,17 @@ export function EmployeeLeavePortal({
 
   // Filter tasks for selected employee first
   const userTasks = useMemo(() => {
-    return activeTasks.filter(t => t.assignee === selectedEmployee);
+    const emailLower = currentUserEmail ? currentUserEmail.toLowerCase() : '';
+    return activeTasks.filter(t => {
+      if (!t) return false
+      const assigneeName = t.assignee || ''
+      const assigneeEmail = (t.assignee_email || '').toLowerCase()
+      if (assigneeName === selectedEmployee) return true
+      if (assigneeEmail && emailLower && assigneeEmail === emailLower) return true
+      // allow partial match fallback (case-insensitive)
+      if (assigneeName && selectedEmployee && assigneeName.toLowerCase().includes(selectedEmployee.toLowerCase())) return true
+      return false
+    })
   }, [activeTasks, selectedEmployee]);
 
   // Update calendar month when selected employee changes
@@ -69,7 +116,7 @@ export function EmployeeLeavePortal({
     }
     
     const taskDates = userTasks
-      .map(t => new Date(t.due_date || t.created_date || new Date()))
+      .map(t => parseLocalMidnight(t.due_date || t.created_date || new Date().toISOString()))
       .sort((a, b) => b.getTime() - a.getTime());
     
     const lastDate = taskDates[0];
@@ -110,9 +157,8 @@ export function EmployeeLeavePortal({
       let taskEnd: Date;
 
       if (task.created_date && task.due_date) {
-        taskStart = new Date(task.created_date);
-        taskStart.setHours(0, 0, 0, 0);
-        taskEnd = new Date(task.due_date);
+        taskStart = parseLocalMidnight(task.created_date);
+        taskEnd = parseLocalMidnight(task.due_date);
         taskEnd.setHours(23, 59, 59, 999);
       } else {
         const firstOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
@@ -142,9 +188,8 @@ export function EmployeeLeavePortal({
   const tasksInLeaveRange = useMemo(() => {
     if (!startLeaveDate || !endLeaveDate) return [];
 
-    const rangeStart = new Date(startLeaveDate);
-    const rangeEnd = new Date(endLeaveDate);
-    rangeStart.setHours(0, 0, 0, 0);
+    const rangeStart = parseLocalMidnight(startLeaveDate);
+    const rangeEnd = parseLocalMidnight(endLeaveDate);
     rangeEnd.setHours(23, 59, 59, 999);
 
     return userTasks.filter(task => {
@@ -152,9 +197,8 @@ export function EmployeeLeavePortal({
       let taskEnd: Date;
 
       if (task.created_date && task.due_date) {
-        taskStart = new Date(task.created_date);
-        taskStart.setHours(0, 0, 0, 0);
-        taskEnd = new Date(task.due_date);
+        taskStart = parseLocalMidnight(task.created_date);
+        taskEnd = parseLocalMidnight(task.due_date);
         taskEnd.setHours(23, 59, 59, 999);
       } else {
         const firstOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
@@ -185,8 +229,8 @@ export function EmployeeLeavePortal({
   const isDateInRange = (day: number) => {
     if (!startLeaveDate || !endLeaveDate) return false;
     const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-    const start = new Date(startLeaveDate);
-    const end = new Date(endLeaveDate);
+    const start = parseLocalMidnight(startLeaveDate);
+    const end = parseLocalMidnight(endLeaveDate);
     return date >= start && date <= end;
   };
 
@@ -194,6 +238,11 @@ export function EmployeeLeavePortal({
     const clickedDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
     // Properly format ISO date without time zone shift issues
     const dateStr = new Date(clickedDate.getTime() - (clickedDate.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+    // If this date is blocked by an existing leave for this employee, ignore selection
+    if (isDateBlockedByExistingLeave(dateStr)) {
+      alert('These dates are already on leave for the selected employee and cannot be selected.');
+      return;
+    }
     
     if (!startLeaveDate) {
       setStartLeaveDate(dateStr);
@@ -212,6 +261,24 @@ export function EmployeeLeavePortal({
   const handleAddLeaveToQueue = () => {
     if (!startLeaveDate || !endLeaveDate || !leaveReason) {
       alert('Please select dates and provide a reason');
+      return;
+    }
+    // Prevent adding ranges that overlap existing leaves for this employee
+    const rangeStart = parseLocalMidnight(startLeaveDate);
+    const rangeEnd = parseLocalMidnight(endLeaveDate);
+    rangeEnd.setHours(23,59,59,999);
+
+    const userId = generateUserIdFromName(selectedEmployee);
+    const overlaps = (existingLeaves || []).some(l => {
+      if (l.user_id !== userId) return false;
+      const s = parseLocalMidnight(l.startDate);
+      const e = parseLocalMidnight(l.endDate);
+      e.setHours(23,59,59,999);
+      return s <= rangeEnd && e >= rangeStart;
+    });
+
+    if (overlaps) {
+      alert('Selected range overlaps an existing leave for this employee and cannot be queued.');
       return;
     }
 
@@ -321,6 +388,7 @@ export function EmployeeLeavePortal({
               const isInRange = isDateInRange(day);
               const isRangeStart = dateStr === startLeaveDate;
               const isRangeEnd = dateStr === endLeaveDate;
+              const isBlocked = isDateBlockedByExistingLeave(dateStr);
               const dayTasksData = getTasksForDay(day);
               const dayTasks = dayTasksData.tasks;
               const isToday = new Date().toDateString() === new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day).toDateString();
@@ -331,7 +399,8 @@ export function EmployeeLeavePortal({
                 <button
                   key={day}
                   onClick={() => handleDateClick(day)}
-                  className={`h-24 rounded-lg transition-all relative group flex flex-col items-center justify-start p-2 border hover:scale-105 transform cursor-pointer ${
+                  disabled={isBlocked}
+                  className={`h-24 rounded-lg transition-all relative group flex flex-col items-center justify-start p-2 border hover:scale-105 transform ${isBlocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${
                     isRangeStart || isRangeEnd
                       ? 'bg-blue-600 text-white border-blue-700 shadow-md'
                       : isInRange
@@ -347,24 +416,23 @@ export function EmployeeLeavePortal({
                     {day}
                   </span>
                   
-                  {/* Task color indicator */}
-                  <div className="flex flex-wrap gap-1 w-full justify-center">
-                    {dayTasks.length > 0 && (
-                      <>
-                        <div 
-                          className={`w-3 h-3 rounded-full ${
-                            (isRangeStart || isRangeEnd) ? 'bg-yellow-300' : isInRange ? 'bg-yellow-400' : dayTasksData.color.badge
-                          }`}
-                          title={selectedEmployee}
-                        />
-                      </>
-                    )}
-                  </div>
-
+                  {/* Task count - PROMINENT DISPLAY */}
                   {dayTasks.length > 0 && (
-                    <span className={`text-[10px] font-light mt-auto ${(isRangeStart || isRangeEnd || isInRange) ? 'text-blue-200' : 'text-gray-600'}`}>
-                      {dayTasks.length} task{dayTasks.length !== 1 ? 's' : ''}
-                    </span>
+                    <div className={`w-full text-center mb-1 px-1 py-0.5 rounded text-xs font-bold ${
+                      (isRangeStart || isRangeEnd) ? 'bg-yellow-300 text-yellow-900' : 
+                      isInRange ? 'bg-blue-300 text-blue-900' : 
+                      'bg-indigo-200 text-indigo-800'
+                    }`}>
+                      📍 {dayTasks.length} task{dayTasks.length > 1 ? 's' : ''}
+                    </div>
+                  )}
+                  
+                  {/* Blocked indicator */}
+                  {isBlocked && (
+                    <div className="absolute inset-0 bg-green-50/60 flex items-center justify-center rounded-lg pointer-events-none flex-col">
+                      <span className="text-xs text-green-700 font-semibold">Leave</span>
+                      <span className="text-[9px] text-green-600">Approved</span>
+                    </div>
                   )}
 
                   {isToday && !(isRangeStart || isRangeEnd || isInRange) && (
@@ -465,6 +533,33 @@ export function EmployeeLeavePortal({
               </div>
             </div>
 
+            {/* Shift Preview - Show before/after dates */}
+            {startLeaveDate && tasksOnLeaveDate.length > 0 && (
+              <div className="border border-amber-200 bg-amber-50 rounded-lg p-3 text-xs">
+                <div className="font-bold text-amber-900 mb-2">📋 Shift Preview (If Approved):</div>
+                <div className="space-y-1 max-h-32 overflow-y-auto">
+                  {tasksOnLeaveDate.slice(0, 5).map(task => {
+                    const durationDays = Math.ceil((new Date(endLeaveDate).getTime() - new Date(startLeaveDate).getTime()) / (86400000)) + 1;
+                    const oldDue = new Date(task.due_date);
+                    const newDue = new Date(oldDue.getTime() + durationDays * 86400000);
+                    const oldDueStr = oldDue.toISOString().split('T')[0];
+                    const newDueStr = newDue.toISOString().split('T')[0];
+                    return (
+                      <div key={task.id} className="bg-white p-2 rounded border-l-2 border-amber-400">
+                        <div className="font-medium text-gray-700 truncate">{task.taskName.substring(0, 40)}</div>
+                        <div className="text-gray-600 text-[11px] mt-0.5">
+                          {oldDueStr} <span className="text-amber-600 font-bold">→</span> {newDueStr}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {tasksOnLeaveDate.length > 5 && (
+                    <div className="text-gray-500 text-center py-1">+{tasksOnLeaveDate.length - 5} more shifts</div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Add to Queue Button */}
             <Button
               type="button"
@@ -473,7 +568,7 @@ export function EmployeeLeavePortal({
               className="w-full bg-blue-600 hover:bg-blue-700 text-white border-0 gap-2 disabled:opacity-50 disabled:cursor-not-allowed font-light"
             >
               <Plus className="w-4 h-4" />
-              Add to Queue
+              Apply for Leave
             </Button>
           </div>
         </div>
@@ -524,6 +619,40 @@ export function EmployeeLeavePortal({
               Submit All ({pendingLeaveRanges.length})
             </Button>
           )}
+        </div>
+
+        {/* My Submitted Requests (brief) */}
+        <div className="space-y-3">
+          <h3 className="text-lg font-light text-gray-900">My Requests</h3>
+          <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm space-y-2 text-xs">
+            {existingLeaves ? (
+              (() => {
+                const myId = generateUserIdFromName(selectedEmployee);
+                const myLeaves = existingLeaves.filter(l => l.user_id === myId).slice(0,5);
+                if (myLeaves.length === 0) return <p className="text-gray-500">No submitted requests</p>;
+                return (
+                  <ul className="space-y-2">
+                    {myLeaves.map(l => (
+                      <li key={l.id} className="p-2 rounded border border-gray-100">
+                        <div className="flex justify-between">
+                          <div>
+                            <div className="font-medium">{l.startDate} → {l.endDate}</div>
+                            <div className="text-gray-500">{l.reason}</div>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-semibold">{l.status}</div>
+                            <div className="text-gray-400 text-[11px]">{l.history && l.history.length ? new Date(l.history[l.history.length-1].ts).toLocaleDateString() : ''}</div>
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                );
+              })()
+            ) : (
+              <p className="text-gray-500">No submitted requests</p>
+            )}
+          </div>
         </div>
       </div>
     </div>
