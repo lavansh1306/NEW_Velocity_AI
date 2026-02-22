@@ -124,67 +124,11 @@ export default function LeaveManagementTab() {
           }
         }
 
-        // Fallback: Get org from any JIRA issue if user not found
+        // Fallback: REMOVED - Do NOT load unfiltered data for ANY user
+        // Every org must have proper records in the users table or the jira_issues table with org_id
         if (!orgId) {
-          console.log('[LeaveManagement] Attempting fallback - fetching from jira_issues');
-          // try to get a single jira issue org_id
-          const { data: anyIssue, error: issueError } = await supabase
-            .from('jira_issues')
-            .select('org_id')
-            .limit(1)
-            .single();
-
-          if (issueError) {
-            console.warn('[LeaveManagement] Fallback failed to get org_id:', issueError.message);
-          } else {
-            orgId = anyIssue?.org_id;
-            console.log('[LeaveManagement] Got orgId from jira_issues:', orgId);
-          }
-
-          // If still no orgId, attempt a permissive fetch of some jira_issues so UI can show tasks (best-effort)
-          if (!orgId) {
-            console.warn('[LeaveManagement] orgId not found - attempting permissive jira_issues fetch for UI (best-effort)');
-            try {
-              const issuesUnfiltered = await supabase.from('jira_issues').select('*').limit(50);
-              if (issuesUnfiltered.error) {
-                console.warn('[LeaveManagement] permissive jira_issues fetch failed:', issuesUnfiltered.error.message);
-              } else {
-                // Use these issues to populate tasks and set orgId to null (no filtering)
-                const issuesData = issuesUnfiltered.data || [];
-                const uniqueEmployees = new Map<string, EmployeeProfile>();
-                const loadedTasks = issuesData.map((issue: any, index: number) => {
-                  const assignee = issue.assignee || 'Unassigned';
-                  const cleanCreated = issue.created_date?.split('T')[0] || new Date().toISOString().split('T')[0];
-                  const cleanDue = issue.due_date?.split('T')[0] || cleanCreated;
-                  if (assignee !== 'Unassigned' && !uniqueEmployees.has(assignee)) {
-                    uniqueEmployees.set(assignee, { name: assignee, role: issue.issue_type || 'Developer', skills: [issue.issue_type || 'Development'] });
-                  }
-                  return {
-                    id: issue.id || index,
-                    projectName: issue.project_name || issue.project_key || 'Unassigned',
-                    taskName: `${issue.issue_key}: ${issue.summary}`,
-                    assignee: assignee,
-                    hours: issue.original_estimate_seconds ? (issue.original_estimate_seconds / 3600) : 8,
-                    day: 0,
-                    requiredSkills: [issue.issue_type || 'Task'],
-                    isReallocated: false,
-                    isCancelled: ['closed', 'done', 'resolved'].includes(issue.status?.toLowerCase()),
-                    totalLogged: issue.time_spent_seconds ? (issue.time_spent_seconds / 3600) : 0,
-                    logs: [],
-                    created_date: cleanCreated,
-                    due_date: cleanDue
-                  };
-                });
-                if (isMounted) {
-                  setTasks(loadedTasks);
-                  setEmployees(Array.from(uniqueEmployees.values()));
-                  setDataSource('JIRA');
-                }
-              }
-            } catch (permErr) {
-              console.warn('[LeaveManagement] permissive fallback failed:', permErr);
-            }
-          }
+          console.warn('[LeaveManagement] orgId not found and no fallback available');
+          // Do NOT load random data - force user to have proper org setup
         }
 
         if (!orgId) {
@@ -195,8 +139,21 @@ export default function LeaveManagementTab() {
         console.log('[LeaveManagement] Setting currentOrgId to:', orgId);
         if (isMounted) setCurrentOrgId(orgId);
 
+        // Fetch JIRA issues filtered by org_id (ALWAYS filtered)
+        const { data: issuesData, error: issuesError } = await supabase
+          .from('jira_issues')
+          .select('*')
+          .eq('org_id', orgId);
+        
+        console.log('[LeaveManagement] Org-filtered JIRA issues query:', {
+          orgId,
+          count: issuesData?.length || 0,
+          error: issuesError?.message,
+          sample: issuesData?.[0] ? { id: issuesData[0].id, assignee: issuesData[0].assignee, summary: issuesData[0].summary } : 'none'
+        });
+
         const [issuesRes] = await Promise.all([
-          supabase.from('jira_issues').select('*').eq('org_id', orgId),
+          Promise.resolve({ data: issuesData, error: issuesError }),
           fetchSupabaseLeaves(orgId)
         ]);
 
@@ -238,6 +195,14 @@ export default function LeaveManagementTab() {
             setTasks(loadedTasks);
             setEmployees(Array.from(uniqueEmployees.values()));
             setDataSource('JIRA');
+            console.log('[LeaveManagement] Tasks loaded:', { count: loadedTasks.length, employees: uniqueEmployees.size });
+          }
+        } else {
+          console.warn('[LeaveManagement] No JIRA issues found for org:', { orgId, error: issuesRes.error?.message });
+          if (isMounted) {
+            setTasks([]);
+            setEmployees([]);
+            setDataSource('CSV');
           }
         }
       } catch (error) {
