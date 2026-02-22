@@ -8,7 +8,6 @@ import { LandingBenefits } from "@/components/landing/LandingBenefits";
 import { LandingImpact } from "@/components/landing/LandingImpact";
 import { LandingCTA } from "@/components/landing/LandingCTA";
 import { LandingFooter } from "@/components/landing/LandingFooter";
-import { Settings } from "@/components/Settings";
 
 gsap.registerPlugin(useGSAP);
 
@@ -32,7 +31,6 @@ const Index = () => {
           <LandingImpact />
         </div>
         
-        <Settings />
         <LandingCTA />
       </main>
       <LandingFooter />
