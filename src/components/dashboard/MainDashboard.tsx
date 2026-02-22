@@ -77,11 +77,16 @@ export const MainDashboard = () => {
   const weekDates = getWeekDates(currentMonth);
   const monthName = currentMonth.toLocaleString('default', { month: 'short', year: 'numeric' });
 
-  const MetricCard = ({ label, value, sublabel, trend, color }: any) => (
-    <div className="bg-white rounded-2xl p-8 shadow-sm border border-[#E7E5E4] hover:shadow-md transition-shadow">
+  const MetricCard = ({ label, value, sublabel, trend, color, index }: any) => (
+    <div 
+      className={`bg-white rounded-2xl p-8 shadow-sm border border-[#E7E5E4] hover:shadow-md hover:scale-105 transition-all duration-300 cursor-pointer animate-scale-in`}
+      style={{
+        animationDelay: `${index * 80}ms`
+      }}
+    >
       <div className="flex items-start justify-between mb-6">
         <div className="text-xs font-medium text-[#A8A29E] uppercase tracking-wide">{label}</div>
-        <div className={`${color} transition-transform`}>
+        <div className={`${color} transition-transform hover:scale-110`}>
           {trend === 'up' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
         </div>
       </div>
@@ -107,7 +112,7 @@ export const MainDashboard = () => {
               <Button
                 variant="outline"
                 size="sm"
-                className="gap-2 border-[#E7E5E4] text-[#78716C] hover:text-[#1C1917]"
+                className="gap-2 border-[#E7E5E4] text-[#78716C] hover:text-[#1C1917] transition-smooth"
               >
                 <Calendar className="w-4 h-4" />
                 <span>Last 30 Days</span>
@@ -123,7 +128,7 @@ export const MainDashboard = () => {
         {/* Metrics Grid */}
         <div className="grid grid-cols-4 gap-6 mb-12">
           {metrics.map((metric, idx) => (
-            <MetricCard key={idx} {...metric} />
+            <MetricCard key={idx} {...metric} index={idx} />
           ))}
         </div>
 
@@ -136,7 +141,7 @@ export const MainDashboard = () => {
               <Button
                 variant="outline"
                 size="sm"
-                className="gap-2 border-[#E7E5E4] text-[#78716C] hover:text-[#1C1917]"
+                className="gap-2 border-[#E7E5E4] text-[#78716C] hover:text-[#1C1917] transition-smooth"
               >
                 <Filter className="w-4 h-4" />
                 Filter
@@ -144,7 +149,7 @@ export const MainDashboard = () => {
               <Button
                 variant="outline"
                 size="sm"
-                className="gap-2 border-[#E7E5E4] text-[#78716C] hover:text-[#1C1917]"
+                className="gap-2 border-[#E7E5E4] text-[#78716C] hover:text-[#1C1917] transition-smooth"
               >
                 Sort
               </Button>
@@ -215,15 +220,15 @@ export const MainDashboard = () => {
 
             {/* Team rows */}
             {teamCapacity.map((member, idx) => (
-              <div key={idx} className="flex gap-1 py-6 border-b border-[#E7E5E4] last:border-b-0">
+              <div key={idx} className="flex gap-1 py-6 border-b border-[#E7E5E4] last:border-b-0 hover-lift rounded-lg px-4 -mx-4 group transition-smooth">
                 <div className="w-40 flex-shrink-0">
                   <div>
-                    <div className="text-sm font-light text-[#1C1917] mb-1">{member.name}</div>
+                    <div className="text-sm font-light text-[#1C1917] mb-1 group-hover:text-[#2DD4BF] transition-colors">{member.name}</div>
                     <div className="text-xs text-[#78716C] font-light">{member.role}</div>
                   </div>
                 </div>
                 <div className="w-14 flex-shrink-0">
-                  <div className="w-8 h-8 rounded-lg bg-[#F5F5F4] flex items-center justify-center text-xs font-light text-[#1C1917]">
+                  <div className="w-8 h-8 rounded-lg bg-[#F5F5F4] flex items-center justify-center text-xs font-light text-[#1C1917] group-hover:bg-[#2DD4BF]/10 transition-colors">
                     {member.initials}
                   </div>
                 </div>
@@ -233,7 +238,7 @@ export const MainDashboard = () => {
                   {member.assignments.map((assignment, aIdx) => (
                     <div key={aIdx} className="flex-shrink-0 relative" style={{ width: `${assignment.duration * 20 + 4}px` }}>
                       <div
-                        className={`${assignment.color} rounded-lg px-2 py-1.5 text-xs font-light text-white cursor-pointer hover:opacity-90 transition-opacity whitespace-nowrap overflow-hidden text-ellipsis`}
+                        className={`${assignment.color} rounded-lg px-2 py-1.5 text-xs font-light text-white cursor-pointer hover:opacity-90 transition-all hover:scale-105 whitespace-nowrap overflow-hidden text-ellipsis shadow-sm hover:shadow-md`}
                         title={assignment.name}
                       >
                         {assignment.name}

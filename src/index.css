@@ -188,3 +188,88 @@
     line-height: 1.5;
   }
 }
+
+/* ==================== PROFESSIONAL ANIMATIONS ==================== */
+/* Animations disabled for cleaner UI */
+
+
+/* Staggered animation delays */
+@layer utilities {
+  .animate-fade-in {
+    opacity: 1;
+  }
+
+  .animate-fade-out {
+    opacity: 1;
+  }
+
+  .animate-scale-in {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  .animate-pulse-subtle {
+    opacity: 1;
+  }
+
+  .animate-float {
+    transform: translateY(0px);
+  }
+
+  .animate-glow {
+    box-shadow: none;
+  }
+
+  /* Stagger delays */
+  .delay-100 {
+    animation-delay: 0s;
+  }
+
+  .delay-200 {
+    animation-delay: 0s;
+  }
+
+  .delay-300 {
+    animation-delay: 0s;
+  }
+
+  .delay-400 {
+    animation-delay: 0s;
+  }
+
+  .delay-500 {
+    animation-delay: 0s;
+  }
+
+  /* Smooth transitions for all interactive elements */
+  .transition-smooth {
+    transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+  }
+
+  .transition-smooth-fast {
+    transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+  }
+
+  .transition-smooth-slow {
+    transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+  }
+
+  /* Scale on hover */
+  .hover-scale {
+    transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+  }
+
+  .hover-scale:hover {
+    transform: scale(1.02);
+  }
+
+  /* Shadow lift on hover */
+  .hover-lift {
+    transition: box-shadow 0.3s cubic-bezier(0.25, 1, 0.5, 1), transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+  }
+}

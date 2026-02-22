@@ -25,8 +25,8 @@ export const DASHBOARD_STYLES = {
   healthScore: 'text-xl font-light text-[#0F766E]',
 
   // ===== BUTTONS =====
-  buttonPrimary: 'bg-[#1C1917] hover:bg-[#292524] h-11 px-6 rounded-xl font-light transition-all duration-300 text-white shadow-md',
-  buttonSecondary: 'border-[#E7E5E4] text-[#57534E] hover:text-[#1C1917]',
+  buttonPrimary: 'bg-[#1C1917] hover:bg-[#292524] h-11 px-6 rounded-xl font-light transition-smooth text-white shadow-md hover:shadow-lg hover:scale-105',
+  buttonSecondary: 'border-[#E7E5E4] text-[#57534E] hover:text-[#1C1917] transition-smooth hover:bg-[#F5F5F4]',
 
   // ===== LAYOUT =====
   gridMain: 'grid grid-cols-12 gap-10',
@@ -66,8 +66,8 @@ export const DASHBOARD_STYLES = {
   // ===== TABLE & ROWS =====
   tableHeader: 'flex items-center pb-4 border-b border-[#E7E5E4] mb-2 px-2',
   tableHeaderCell: 'text-xs text-[#A8A29E] uppercase tracking-wider font-light',
-  tableRow: 'flex items-center py-3 hover:bg-white/40 transition-colors px-2 -mx-2 rounded-lg group cursor-pointer',
-  allocationRow: 'py-5 px-6 hover:bg-white/60 rounded-2xl cursor-pointer transition-all duration-300',
+  tableRow: 'flex items-center py-3 hover:bg-white/60 hover:rounded-lg transition-all duration-200 px-2 -mx-2 group cursor-pointer',
+  allocationRow: 'py-5 px-6 hover:bg-white/80 rounded-2xl cursor-pointer transition-all duration-300 hover:shadow-md hover:scale-[1.02] group',
 
   // ===== COLORS =====
   colors: {

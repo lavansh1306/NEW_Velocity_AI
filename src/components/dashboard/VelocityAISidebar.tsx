@@ -96,7 +96,7 @@ export const VelocityAISidebar = ({ children }: VelocityAISidebarProps) => {
       >
         {/* Logo Section */}
         <div className={`mb-8 px-6 flex items-center ${sidebarOpen ? 'gap-3' : 'justify-center'}`}>
-          <div className="bg-[#2DD4BF] rounded-lg p-1.5 flex-shrink-0 shadow-[0_0_15px_rgba(45,212,191,0.2)]">
+          <div className="bg-[#2DD4BF] rounded-lg p-1.5 flex-shrink-0 shadow-[0_0_15px_rgba(45,212,191,0.2)] hover:animate-glow hover:shadow-[0_0_25px_rgba(45,212,191,0.4)] transition-all">
             <Zap className="w-5 h-5 text-[#1C1917]" fill="currentColor" />
           </div>
           {sidebarOpen && (
@@ -108,18 +108,21 @@ export const VelocityAISidebar = ({ children }: VelocityAISidebarProps) => {
 
         {/* Navigation Items */}
         <div className="flex-1 w-full flex flex-col gap-1 px-4">
-          {navItems.map((item) => {
+          {navItems.map((item, idx) => {
             const isActive = activeSection === item.id;
             return (
               <button
                 key={item.id}
                 onClick={() => handleNavClick(item)}
-                className={`w-full relative px-3 py-3 flex items-center ${sidebarOpen ? 'gap-3' : 'justify-center'} rounded-xl group transition-all duration-200 outline-none ${
-                  isActive ? 'bg-[#292524] text-white' : 'text-[#A8A29E] hover:text-[#E7E5E4] hover:bg-[#292524]/50'
+                className={`w-full relative px-3 py-3 flex items-center ${sidebarOpen ? 'gap-3' : 'justify-center'} rounded-xl group transition-all duration-200 outline-none hover-scale ${
+                  isActive ? 'bg-[#292524] text-white shadow-md' : 'text-[#A8A29E] hover:text-[#E7E5E4] hover:bg-[#292524]/50'
                 }`}
                 title={item.label}
+                style={{
+                  animationDelay: `${(idx + 1) * 50}ms`
+                }}
               >
-                <div className={`${isActive ? 'text-[#2DD4BF]' : 'text-[#78716C] group-hover:text-[#D6D3D1]'} transition-colors flex-shrink-0`}>
+                <div className={`${isActive ? 'text-[#2DD4BF]' : 'text-[#78716C] group-hover:text-[#D6D3D1]'} transition-all flex-shrink-0 duration-200`}>
                   {item.icon}
                 </div>
                 {sidebarOpen && (
@@ -128,7 +131,7 @@ export const VelocityAISidebar = ({ children }: VelocityAISidebarProps) => {
                   </span>
                 )}
                 {isActive && (
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-[#2DD4BF] rounded-r-sm shadow-[0_0_10px_rgba(45,212,191,0.4)]" />
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-[#2DD4BF] rounded-r-sm shadow-[0_0_10px_rgba(45,212,191,0.4)] animate-fade-in" />
                 )}
               </button>
             );
@@ -142,29 +145,29 @@ export const VelocityAISidebar = ({ children }: VelocityAISidebarProps) => {
               setActiveSection('settings');
               navigate('/settings');
             }}
-            className={`w-full relative px-3 py-3 flex items-center ${sidebarOpen ? 'gap-3' : 'justify-center'} rounded-xl group transition-all duration-200 outline-none ${
-              activeSection === 'settings' ? 'bg-[#292524] text-white' : 'text-[#A8A29E] hover:text-[#E7E5E4] hover:bg-[#292524]/50'
+            className={`w-full relative px-3 py-3 flex items-center ${sidebarOpen ? 'gap-3' : 'justify-center'} rounded-xl group transition-all duration-200 outline-none hover-scale ${
+              activeSection === 'settings' ? 'bg-[#292524] text-white shadow-md' : 'text-[#A8A29E] hover:text-[#E7E5E4] hover:bg-[#292524]/50'
             }`}
             title="Settings"
           >
-            <Settings className={`w-5 h-5 flex-shrink-0 transition-colors ${activeSection === 'settings' ? 'text-[#2DD4BF]' : 'text-[#78716C] group-hover:text-[#D6D3D1]'}`} />
+            <Settings className={`w-5 h-5 flex-shrink-0 transition-all duration-200 group-hover:rotate-90 ${activeSection === 'settings' ? 'text-[#2DD4BF]' : 'text-[#78716C] group-hover:text-[#D6D3D1]'}`} />
             {sidebarOpen && (
               <span className={`text-sm whitespace-nowrap overflow-hidden animate-in fade-in duration-300 ${activeSection === 'settings' ? 'font-medium' : 'font-normal'}`}>
                 Settings
               </span>
             )}
             {activeSection === 'settings' && (
-              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-[#2DD4BF] rounded-r-sm shadow-[0_0_10px_rgba(45,212,191,0.4)]" />
+              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-[#2DD4BF] rounded-r-sm shadow-[0_0_10px_rgba(45,212,191,0.4)] animate-fade-in" />
             )}
           </button>
 
           <button
             onClick={handleLogout}
             disabled={loggingOut}
-            className={`w-full relative px-3 py-3 flex items-center ${sidebarOpen ? 'gap-3' : 'justify-center'} rounded-xl transition-all duration-200 outline-none text-[#F43F5E] hover:bg-[#F43F5E]/10 disabled:opacity-50 disabled:cursor-not-allowed`}
+            className={`w-full relative px-3 py-3 flex items-center ${sidebarOpen ? 'gap-3' : 'justify-center'} rounded-xl transition-all duration-200 outline-none text-[#F43F5E] hover:bg-[#F43F5E]/10 hover-scale disabled:opacity-50 disabled:cursor-not-allowed`}
             title="Log Out"
           >
-            <LogOut className="w-5 h-5 flex-shrink-0" />
+            <LogOut className="w-5 h-5 flex-shrink-0 transition-transform" />
             {sidebarOpen && (
               <span className={`text-sm whitespace-nowrap overflow-hidden animate-in fade-in duration-300 font-normal`}>
                 {loggingOut ? 'Logging Out...' : 'Log Out'}
@@ -173,8 +176,8 @@ export const VelocityAISidebar = ({ children }: VelocityAISidebarProps) => {
           </button>
 
           {/* User Profile */}
-          <div className={`flex items-center ${sidebarOpen ? 'gap-3' : 'justify-center'} px-2 py-4 mt-2 border-t border-[#292524]`}>
-            <div className="w-9 h-9 rounded-lg bg-[#292524] flex items-center justify-center text-xs font-medium text-[#D6D3D1] flex-shrink-0">
+          <div className={`flex items-center ${sidebarOpen ? 'gap-3' : 'justify-center'} px-2 py-4 mt-2 border-t border-[#292524] hover-scale transition-all`}>
+            <div className="w-9 h-9 rounded-lg bg-[#292524] flex items-center justify-center text-xs font-medium text-[#D6D3D1] flex-shrink-0 group-hover:bg-[#2DD4BF]/20 transition-colors">
               JD
             </div>
             {sidebarOpen && (
@@ -192,10 +195,10 @@ export const VelocityAISidebar = ({ children }: VelocityAISidebarProps) => {
             variant="ghost"
             size="icon"
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="w-full h-10 text-[#A8A29E] hover:text-[#E7E5E4] hover:bg-[#292524]"
+            className="w-full h-10 text-[#A8A29E] hover:text-[#E7E5E4] hover:bg-[#292524] transition-all duration-200 group hover-scale"
             title={sidebarOpen ? 'Collapse' : 'Expand'}
           >
-            <Menu className="w-5 h-5" />
+            <Menu className="w-5 h-5 group-hover:rotate-90 transition-transform" />
           </Button>
         </div>
       </div>

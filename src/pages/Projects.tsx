@@ -130,20 +130,20 @@ const fetchProjectMetrics = async (projectId: string): Promise<ProjectMetrics> =
 };
 
 // Health badge color based on score
-const getHealthColor = (score: number): { bg: string; text: string; dot: string } => {
-  if (score >= 80) return { bg: 'bg-green-50', text: 'text-green-700', dot: 'bg-green-500' };
-  if (score >= 60) return { bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-500' };
-  if (score >= 40) return { bg: 'bg-yellow-50', text: 'text-yellow-700', dot: 'bg-yellow-500' };
-  return { bg: 'bg-red-50', text: 'text-red-700', dot: 'bg-red-500' };
+const getHealthColor = (score: number): { bg: string; text: string; dot: string; value: string } => {
+  if (score >= 80) return { bg: 'bg-[#F0FDFA]', text: 'text-[#0F766E]', dot: 'bg-[#0F766E]', value: 'text-[#0F766E]' };
+  if (score >= 60) return { bg: 'bg-[#F0FDFA]', text: 'text-[#0F766E]', dot: 'bg-[#0F766E]', value: 'text-[#0F766E]' };
+  if (score >= 40) return { bg: 'bg-[#FFF7ED]', text: 'text-[#C2410C]', dot: 'bg-[#C2410C]', value: 'text-[#C2410C]' };
+  return { bg: 'bg-[#FFF1F2]', text: 'text-[#BE123C]', dot: 'bg-[#BE123C]', value: 'text-[#BE123C]' };
 };
 
 // Progress bar component
 const ProgressBar = ({ percentage }: { percentage: number }) => {
-  const color = percentage >= 80 ? 'bg-green-500' : 
-                percentage >= 60 ? 'bg-blue-500' : 
-                percentage >= 40 ? 'bg-yellow-500' : 'bg-red-500';
+  const color = percentage >= 80 ? 'bg-[#0F766E]' : 
+                percentage >= 60 ? 'bg-[#0F766E]' : 
+                percentage >= 40 ? 'bg-[#C2410C]' : 'bg-[#BE123C]';
   return (
-    <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+    <div className="w-full h-1.5 bg-[#E7E5E4] rounded-full overflow-hidden">
       <div 
         className={`h-full ${color} transition-all duration-300`}
         style={{ width: `${percentage}%` }}
@@ -158,18 +158,18 @@ const TeamAvatars = ({ team, maxShow = 4 }: { team: string[]; maxShow?: number }
   const remaining = team.length - maxShow;
 
   return (
-    <div className="flex items-center -space-x-2">
+    <div className="flex items-center -space-x-1">
       {displayed.map((member) => (
         <div
           key={member}
-          className="w-8 h-8 rounded-full bg-blue-600 text-white text-xs font-light flex items-center justify-center border-2 border-white"
+          className="w-7 h-7 rounded-md bg-[#F5F5F4] text-[#1C1917] text-[10px] font-medium flex items-center justify-center border border-[#E7E5E4] hover:scale-110 transition-transform"
           title={member}
         >
-          {member.charAt(0).toUpperCase()}
+          {member.substring(0, 2).toUpperCase()}
         </div>
       ))}
       {remaining > 0 && (
-        <div className="w-8 h-8 rounded-full bg-gray-300 text-gray-700 text-xs font-light flex items-center justify-center border-2 border-white">
+        <div className="w-7 h-7 rounded-md bg-[#E7E5E4] text-[#78716C] text-[10px] font-medium flex items-center justify-center border border-[#D6D3D1]">
           +{remaining}
         </div>
       )}
@@ -341,42 +341,56 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
   // Delete project controls removed
 
   const mainContent = (
-    <div className="bg-[#F5F5F4] min-h-full p-12 font-['Inter',sans-serif]">
+    <div className="bg-[#FAFAF9] min-h-full p-12 font-['Inter',sans-serif]">
       <div className="max-w-[1600px] mx-auto">
         <div className="mb-12 flex items-center justify-between">
           <div>
-            <h1 className="text-4xl font-light text-gray-900 mb-3 tracking-tight">Projects</h1>
-            <p className="text-gray-600 text-base font-light leading-relaxed">Selected case studies and platform projects demonstrating impact and outcomes.</p>
+            <h1 className="text-4xl font-light text-[#1C1917] mb-3 tracking-tight">Projects</h1>
+            <p className="text-[#78716C] text-base font-light leading-relaxed">Selected case studies and platform projects demonstrating impact and outcomes.</p>
           </div>
           <div className="flex gap-2">
             <Link to="/velocity-ai?tab=deployment">
-              <Button className="gap-2 bg-blue-600 hover:bg-blue-700 h-11 px-6 rounded-xl font-light">
-                <span>➕</span> Add Project
+              <Button className="gap-2 bg-[#1C1917] hover:bg-[#292524] h-11 px-6 rounded-xl font-light text-white shadow-md transition-all duration-200 hover:scale-105">
+                <span className="text-lg">+</span> New Project
               </Button>
             </Link>
           </div>
         </div>
 
-        {/* Capacity Overview Graph */}
-
         {loading ? (
           <div className="text-center py-12">
-            <p className="text-gray-500 font-light">Loading projects...</p>
+            <p className="text-[#A8A29E] font-light">Loading projects...</p>
           </div>
         ) : (
           <>
-            {/* Jira (and other) projects - Row-based layout */}
+            {/* Jira (and other) projects - Grid-based layout */}
             {jiraProjects.length > 0 && (
               <div className="mb-8">
-                <h2 className="text-xl font-semibold mb-6">Active Projects</h2>
-                <div className="space-y-3">
-                  {jiraProjects.map((p) => {
+                <div className="bg-white rounded-2xl shadow-sm border border-[#E7E5E4] overflow-hidden">
+                  {/* Table Header */}
+                  <div className="grid grid-cols-12 gap-6 px-8 py-6 border-b border-[#E7E5E4] bg-[#FAFAF9]">
+                    <div className="col-span-4">
+                      <p className="text-xs font-medium text-[#A8A29E] uppercase tracking-wide">Project</p>
+                    </div>
+                    <div className="col-span-2">
+                      <p className="text-xs font-medium text-[#A8A29E] uppercase tracking-wide">Health</p>
+                    </div>
+                    <div className="col-span-3">
+                      <p className="text-xs font-medium text-[#A8A29E] uppercase tracking-wide">Progress</p>
+                    </div>
+                    <div className="col-span-3">
+                      <p className="text-xs font-medium text-[#A8A29E] uppercase tracking-wide">Team</p>
+                    </div>
+                  </div>
+
+                  {/* Project Rows */}
+                  {jiraProjects.map((p, idx) => {
                     const metrics = projectMetrics[p.id];
                     if (!metrics) return null;
                     
                     const healthColor = getHealthColor(metrics.healthScore);
                     const timelineText = metrics.endDate 
-                      ? `Ends ${metrics.endDate} · ${metrics.weeksRemaining || 0} weeks remaining`
+                      ? `${metrics.endDate}`
                       : 'Timeline unknown';
 
                     return (
@@ -386,56 +400,41 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
                           localStorage.setItem('returnPage', '/velocity-ai');
                           navigate(`/project-analytics/${encodeURIComponent(p.id)}`);
                         }}
-                        className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer p-8 border border-gray-100"
+                        className="grid grid-cols-12 gap-6 px-8 py-6 border-b border-[#E7E5E4] hover:bg-[#FAFAF9] transition-all duration-200 cursor-pointer group last:border-b-0"
                       >
-                        <div className="flex items-center justify-between gap-6">
-                          {/* Left: Project Name & Timeline */}
-                          <div className="flex-1 min-w-0">
-                            <h3 className="text-lg font-light text-gray-900 hover:text-blue-600 transition-colors">
-                              {p.title}
-                            </h3>
-                            <p className="text-sm text-gray-500 mt-2 flex items-center gap-2 font-light">
-                              <Calendar className="w-4 h-4" />
-                              {timelineText}
-                            </p>
+                        {/* Project Name & Date */}
+                        <div className="col-span-4 min-w-0">
+                          <h3 className="text-sm font-light text-[#1C1917] mb-2 group-hover:text-[#2DD4BF] transition-colors truncate">
+                            {p.title}
+                          </h3>
+                          <p className="text-xs text-[#A8A29E] font-light">
+                            {timelineText}
+                          </p>
+                        </div>
+
+                        {/* Health Score */}
+                        <div className="col-span-2 flex items-center">
+                          <div className={`text-lg font-light ${healthColor.value}`}>
+                            {metrics.healthScore}
                           </div>
+                        </div>
 
-                          {/* Right Side Content */}
-                          <div className="flex items-center gap-4 flex-wrap justify-end">
-                            {/* Progress Data */}
-                            <div className="w-40">
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="text-xs font-light text-gray-600">Progress</span>
-                                <span className="text-xs font-light text-gray-700">
-                                  {metrics.completedCount}/{metrics.totalCount}
-                                </span>
-                              </div>
-                              <ProgressBar percentage={metrics.healthScore} />
-                            </div>
-
-                            {/* Health Badge */}
-                            <div className={`px-4 py-2 rounded-xl border font-light transition-colors ${healthColor.bg}`}>
-                              <div className="flex items-center gap-2">
-                                <div className={`w-2 h-2 rounded-full ${healthColor.dot}`} />
-                                <span className={`text-xs ${healthColor.text}`}>
-                                  {metrics.healthScore}% Health
-                                </span>
-                              </div>
-                            </div>
-
-                            {/* AI Alert Indicator */}
-                            {metrics.hasAlert && (
-                              <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg font-light">
-                                <AlertCircle className="w-4 h-4 text-amber-600" />
-                                <span className="text-xs text-amber-700">Alert</span>
-                              </div>
-                            )}
-
-                            {/* Team Avatars */}
-                            <div className="flex-shrink-0">
-                              <TeamAvatars team={metrics.team} />
-                            </div>
+                        {/* Progress Bar & Percentage */}
+                        <div className="col-span-3 flex items-center gap-3">
+                          <div className="flex-1">
+                            <ProgressBar percentage={metrics.healthScore} />
                           </div>
+                          <div className="text-xs font-light text-[#78716C] min-w-fit">
+                            {metrics.healthScore}%
+                          </div>
+                        </div>
+
+                        {/* Team Avatars & Alert */}
+                        <div className="col-span-3 flex items-center justify-end gap-4">
+                          <TeamAvatars team={metrics.team} maxShow={4} />
+                          {metrics.hasAlert && (
+                            <div className="flex-shrink-0 w-2 h-2 rounded-full bg-[#BE123C]" title="Alert" />
+                          )}
                         </div>
                       </div>
                     );
@@ -445,8 +444,6 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
             )}
           </>
         )}
-
-
       </div>
     </div>
   );

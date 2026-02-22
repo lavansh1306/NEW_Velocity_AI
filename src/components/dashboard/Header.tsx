@@ -42,19 +42,19 @@ export const Header = () => {
               value={searchValue}
               onChange={(e) => setSearchValue(e.target.value)}
               placeholder="Search dashboard..."
-              className="w-full h-10 pl-10 pr-4 bg-[#F5F5F4] border border-[#E7E5E4] rounded-full text-sm font-light text-[#1C1917] placeholder-[#A8A39E] focus:outline-none focus:border-[#1C1917] focus:ring-1 focus:ring-[#1C1917]/10 transition-all"
+              className="w-full h-10 pl-10 pr-4 bg-[#F5F5F4] border border-[#E7E5E4] rounded-full text-sm font-light text-[#1C1917] placeholder-[#A8A39E] focus:outline-none focus:border-[#2DD4BF] focus:ring-2 focus:ring-[#2DD4BF]/20 transition-all duration-200 hover:bg-white"
             />
           </div>
         </div>
 
         {/* Right: Status & Notifications */}
         <div className="flex items-center gap-4 ml-auto">
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-[#F5F5F4] rounded-lg">
-            <div className="w-2 h-2 rounded-full bg-[#16A34A]"></div>
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-[#F5F5F4] rounded-lg hover:bg-[#E7E5E4]/50 transition-all duration-200">
+            <div className="w-2 h-2 rounded-full bg-[#16A34A] animate-pulse-subtle"></div>
             <span className="text-xs font-light text-[#78716C]">System Operational</span>
           </div>
-          <button className="p-2 hover:bg-[#F5F5F4] rounded-lg transition-colors">
-            <Bell className="w-5 h-5 text-[#78716C] hover:text-[#1C1917]" />
+          <button className="p-2 hover:bg-[#F5F5F4] rounded-lg transition-all duration-200 group hover-scale">
+            <Bell className="w-5 h-5 text-[#78716C] group-hover:text-[#2DD4BF] transition-colors" />
           </button>
         </div>
       </div>
