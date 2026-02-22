@@ -20,6 +20,7 @@ export interface Issue {
   projectId?: string
   project_key?: string
   projectKey?: string
+  projectName?: string
 }
 
 interface ColorGradient {
@@ -72,6 +73,9 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
   const [selectedTask, setSelectedTask] = useState<TaskWithDates | null>(null)
   const [tasks, setTasks] = useState<Issue[]>(externalTasks)
   const [loading, setLoading] = useState(false)
+  const [selectedProject, setSelectedProject] = useState<string | null>(null)
+  const [projectNameMap, setProjectNameMap] = useState<{ [key: string]: string }>({})
+  const containerRef = React.useRef<HTMLDivElement>(null)
 
   // Use the useJiraData hook if we're fetching data and no Jira issues provided
   const jiraHookData = useJiraData()
@@ -85,6 +89,16 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
         ...issue,
       }))
       setTasks(convertedTasks)
+      
+      // Build project name map from the tasks
+      const nameMap: { [key: string]: string } = {}
+      convertedTasks.forEach(task => {
+        const projectKey = task.project_key || task.projectKey || task.project || ''
+        if (projectKey && !nameMap[projectKey]) {
+          nameMap[projectKey] = task.projectName || projectKey
+        }
+      })
+      setProjectNameMap(nameMap)
       setLoading(false)
     }
   }, [externalJiraIssues])
@@ -97,6 +111,16 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
       setLoading(true)
     } else if (jiraHookData.issues.length > 0) {
       setTasks(jiraHookData.issues)
+      
+      // Build project name map from the tasks
+      const nameMap: { [key: string]: string } = {}
+      jiraHookData.issues.forEach(task => {
+        const projectKey = task.project_key || task.projectKey || task.project || ''
+        if (projectKey && !nameMap[projectKey]) {
+          nameMap[projectKey] = task.projectName || projectKey
+        }
+      })
+      setProjectNameMap(nameMap)
       setLoading(false)
     }
   }, [jiraHookData.issues, jiraHookData.loading, shouldUseFallbackFetch])
@@ -309,6 +333,24 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
 
   const cellWidth = getCellWidth()
 
+  // Function to scroll to first task of a project
+  const scrollToProject = (projectKey: string, rows: AssigneeRow[]) => {
+    setSelectedProject(projectKey)
+    const firstTaskInProject = rows.flatMap(row => row.tasks).find(t => t._projectKey === projectKey)
+    if (firstTaskInProject && containerRef.current) {
+      // Find the row this task belongs to
+      const assigneeIdx = rows.findIndex(row => row.tasks.some(t => t.key === firstTaskInProject.key))
+      if (assigneeIdx >= 0) {
+        setTimeout(() => {
+          const rowElement = containerRef.current?.querySelector(`[data-assignee-idx="${assigneeIdx}"]`)
+          if (rowElement) {
+            rowElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          }
+        }, 100)
+      }
+    }
+  }
+
   if (loading) {
     return <div className="p-6 bg-white rounded shadow">Loading tasks...</div>
   }
@@ -364,11 +406,20 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
           <div className="flex flex-wrap gap-3">
             {allProjects.map((projectKey) => {
               const colors = colorMap[projectKey]
+              const projectName = projectNameMap[projectKey] || projectKey
               const projectTickets = assigneeRows.flatMap(row => row.tasks).filter(t => t._projectKey === projectKey).length
               return (
-                <div key={projectKey} className={`px-3 py-2 rounded-xl bg-gradient-to-r ${colors.from} ${colors.to} text-[#1C1917] text-xs font-medium border border-[#E7E5E4]`}>
-                  {projectKey} ({projectTickets})
-                </div>
+                <button
+                  key={projectKey}
+                  type="button"
+                  onClick={() => {
+                    console.log('Clicked project:', projectKey)
+                    scrollToProject(projectKey, assigneeRows)
+                  }}
+                  className={`px-3 py-2 rounded-xl bg-gradient-to-r ${colors.from} ${colors.to} text-[#1C1917] text-xs font-medium border border-[#E7E5E4] transition-all hover:shadow-md cursor-pointer ${selectedProject === projectKey ? 'ring-2 ring-blue-500 ring-offset-2' : ''}`}
+                >
+                  {projectName} ({projectTickets})
+                </button>
               )
             })}
           </div>
@@ -376,7 +427,7 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
       </div>
 
       <div className="overflow-x-auto border border-[#E7E5E4] rounded-xl bg-white">
-        <div className="min-w-max">
+        <div className="min-w-max" ref={containerRef}>
           {/* Header with date markers */}
           <div className="flex border-b border-[#E7E5E4] bg-[#F5F5F4] sticky top-0">
             <div className="w-56 p-3 font-medium bg-[#F5F5F4] border-r border-[#E7E5E4] flex-shrink-0"></div>
@@ -421,8 +472,8 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
           </div>
 
           {/* Employee rows with tasks */}
-          {assigneeRows.map((assignee) => (
-            <div key={assignee.assignee} className="flex border-b border-[#E7E5E4] last:border-b-0">
+          {assigneeRows.map((assignee, assigneeIdx) => (
+            <div key={assignee.assignee} className="flex border-b border-[#E7E5E4] last:border-b-0" data-assignee-idx={assigneeIdx}>
               {/* Employee name column */}
               <div className="w-56 p-3 font-medium bg-white border-r border-[#E7E5E4] flex-shrink-0 text-sm text-[#1C1917]">{assignee.assignee}</div>
 
@@ -484,6 +535,11 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
                     spanCols = Math.max(1, endMonthDiff + 1)
                   }
 
+                  // Calculate task index within the project
+                  const projectTasks = assigneeRows.flatMap(row => row.tasks).filter(t => t._projectKey === task._projectKey)
+                  const taskIndexInProject = projectTasks.findIndex(t => t.key === task.key)
+                  const taskDisplay = `Task ${taskIndexInProject}`
+
                   const leftPx = startCol * cellWidth
                   const widthPx = spanCols * cellWidth
                   const colors = colorMap[task._projectKey]
@@ -502,7 +558,7 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
                       onClick={() => setSelectedTask(task)}
                     >
                       <div className="px-2 py-1 truncate h-full flex items-center">
-                        <span className="truncate">{task.key}</span>
+                        <span className="truncate">{taskDisplay}</span>
                       </div>
                     </div>
                   )

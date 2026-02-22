@@ -19,6 +19,7 @@ export interface JiraIssue {
   projectId?: string
   project_key?: string
   projectKey?: string
+  projectName?: string
 }
 
 interface UseJiraDataReturn {
@@ -67,6 +68,7 @@ export function useJiraData(): UseJiraDataReturn {
           duration: iss.duration || 8,
           created: iss.created || null,
           projectKey: iss.project_key || '',
+          projectName: iss.projectName || iss.project_key || '',
         }
       })
 
