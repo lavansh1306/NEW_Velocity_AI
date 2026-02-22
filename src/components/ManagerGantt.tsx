@@ -328,12 +328,38 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
         setTimeout(() => {
           const rowElement = containerRef.current?.querySelector(`[data-assignee-idx="${assigneeIdx}"]`)
           if (rowElement) {
+            // Scroll row into view vertically
             rowElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            
+            // Scroll horizontally to show the task
+            const parentContainer = containerRef.current?.parentElement
+            if (parentContainer) {
+              const startCol = Math.round((firstTaskInProject._start.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24))
+              const scrollPos = startCol * cellWidth - 200 // Offset by 200px for better visibility
+              parentContainer.scrollLeft = Math.max(0, scrollPos)
+            }
           }
         }, 100)
       }
     }
   }
+
+  // Scroll to today's date on mount
+  useEffect(() => {
+    setTimeout(() => {
+      if (containerRef.current?.parentElement) {
+        const today = new Date()
+        const normalizeDate = (d: Date): Date => {
+          const dd = new Date(d)
+          return new Date(Date.UTC(dd.getFullYear(), dd.getMonth(), dd.getDate()))
+        }
+        const normalizedToday = normalizeDate(today)
+        const todayCol = Math.round((normalizedToday.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24))
+        const scrollPos = todayCol * cellWidth - 200
+        containerRef.current.parentElement.scrollLeft = Math.max(0, scrollPos)
+      }
+    }, 200)
+  }, [minDate, cellWidth])
 
   if (loading) {
     return <div className="p-6 bg-white rounded shadow">Loading tasks...</div>
