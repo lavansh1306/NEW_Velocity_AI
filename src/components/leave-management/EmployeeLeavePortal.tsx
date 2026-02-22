@@ -65,19 +65,25 @@ export function EmployeeLeavePortal({
     return `00000000-0000-4000-a000-${hashStr}00000000`.substring(0, 36);
   };
 
+  // Safe date parser to prevent UTC timezone shifts
+  const parseLocalMidnight = (dateStr: string) => {
+    if (!dateStr) return new Date();
+    const [y, m, d] = dateStr.split('T')[0].split('-').map(Number);
+    return new Date(y, m - 1, d);
+  };
+
   // Check whether a specific date (yyyy-mm-dd) is blocked for the selected employee
   const isDateBlockedByExistingLeave = (dateStr: string) => {
     if (!existingLeaves || existingLeaves.length === 0) return false;
     const userId = generateUserIdFromName(selectedEmployee);
-    const d = new Date(dateStr);
-    d.setHours(0,0,0,0);
+    const d = parseLocalMidnight(dateStr);
 
     return existingLeaves.some(l => {
       if (!l.user_id) return false;
       if (l.user_id !== userId) return false;
-      const s = new Date(l.startDate);
-      const e = new Date(l.endDate);
-      s.setHours(0,0,0,0); e.setHours(23,59,59,999);
+      const s = parseLocalMidnight(l.startDate);
+      const e = parseLocalMidnight(l.endDate);
+      e.setHours(23,59,59,999);
       return d >= s && d <= e;
     });
   };
@@ -110,7 +116,7 @@ export function EmployeeLeavePortal({
     }
     
     const taskDates = userTasks
-      .map(t => new Date(t.due_date || t.created_date || new Date()))
+      .map(t => parseLocalMidnight(t.due_date || t.created_date || new Date().toISOString()))
       .sort((a, b) => b.getTime() - a.getTime());
     
     const lastDate = taskDates[0];
@@ -151,9 +157,8 @@ export function EmployeeLeavePortal({
       let taskEnd: Date;
 
       if (task.created_date && task.due_date) {
-        taskStart = new Date(task.created_date);
-        taskStart.setHours(0, 0, 0, 0);
-        taskEnd = new Date(task.due_date);
+        taskStart = parseLocalMidnight(task.created_date);
+        taskEnd = parseLocalMidnight(task.due_date);
         taskEnd.setHours(23, 59, 59, 999);
       } else {
         const firstOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
@@ -183,9 +188,8 @@ export function EmployeeLeavePortal({
   const tasksInLeaveRange = useMemo(() => {
     if (!startLeaveDate || !endLeaveDate) return [];
 
-    const rangeStart = new Date(startLeaveDate);
-    const rangeEnd = new Date(endLeaveDate);
-    rangeStart.setHours(0, 0, 0, 0);
+    const rangeStart = parseLocalMidnight(startLeaveDate);
+    const rangeEnd = parseLocalMidnight(endLeaveDate);
     rangeEnd.setHours(23, 59, 59, 999);
 
     return userTasks.filter(task => {
@@ -193,9 +197,8 @@ export function EmployeeLeavePortal({
       let taskEnd: Date;
 
       if (task.created_date && task.due_date) {
-        taskStart = new Date(task.created_date);
-        taskStart.setHours(0, 0, 0, 0);
-        taskEnd = new Date(task.due_date);
+        taskStart = parseLocalMidnight(task.created_date);
+        taskEnd = parseLocalMidnight(task.due_date);
         taskEnd.setHours(23, 59, 59, 999);
       } else {
         const firstOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
@@ -226,8 +229,8 @@ export function EmployeeLeavePortal({
   const isDateInRange = (day: number) => {
     if (!startLeaveDate || !endLeaveDate) return false;
     const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-    const start = new Date(startLeaveDate);
-    const end = new Date(endLeaveDate);
+    const start = parseLocalMidnight(startLeaveDate);
+    const end = parseLocalMidnight(endLeaveDate);
     return date >= start && date <= end;
   };
 
@@ -261,15 +264,16 @@ export function EmployeeLeavePortal({
       return;
     }
     // Prevent adding ranges that overlap existing leaves for this employee
-    const rangeStart = new Date(startLeaveDate);
-    const rangeEnd = new Date(endLeaveDate);
-    rangeStart.setHours(0,0,0,0); rangeEnd.setHours(23,59,59,999);
+    const rangeStart = parseLocalMidnight(startLeaveDate);
+    const rangeEnd = parseLocalMidnight(endLeaveDate);
+    rangeEnd.setHours(23,59,59,999);
 
     const userId = generateUserIdFromName(selectedEmployee);
     const overlaps = (existingLeaves || []).some(l => {
       if (l.user_id !== userId) return false;
-      const s = new Date(l.startDate); s.setHours(0,0,0,0);
-      const e = new Date(l.endDate); e.setHours(23,59,59,999);
+      const s = parseLocalMidnight(l.startDate);
+      const e = parseLocalMidnight(l.endDate);
+      e.setHours(23,59,59,999);
       return s <= rangeEnd && e >= rangeStart;
     });
 

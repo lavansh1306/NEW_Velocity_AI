@@ -475,17 +475,18 @@ export default function LeaveManagementTab() {
         
         // Call backend auto-shift endpoint
         const response = await fetch('/api/leave-approval/approve-and-shift', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: leave.id,
-            name: leave.name,
-            startDate: leave.startDate,
-            endDate: leave.endDate,
-            reason: leave.reason,
-            status: leave.status
-          })
-        });
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+        id: leave.id,
+        org_id: currentOrgId, // <-- ADD THIS LINE
+        name: leave.name,
+        startDate: leave.startDate,
+        endDate: leave.endDate,
+        reason: leave.reason,
+        status: leave.status
+  })
+});
 
         if (!response.ok) {
           const errData = await response.json();

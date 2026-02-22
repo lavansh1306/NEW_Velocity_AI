@@ -11,7 +11,8 @@
  */
 
 export interface LeaveRequest {
-  id: number;
+  id: string | number; 
+  org_id?: string
   name: string;
   startDate: string;
   endDate: string;
@@ -286,7 +287,10 @@ export async function approveLeaveRequest(
             if (!upd2) {
               actionsSummary.shifted++
               actionsSummary.details.push({ task: task.id, shiftedBy: durationDays, oldDue: task.due_date, newDue: newDueStr })
-              await sb.from('leave_history').insert({ org_id: null, leave_request_id: (leave as any).id, event_type: 'shifted', actor_id: null, old_values: JSON.stringify({ task: task.id, oldDue: task.due_date }), new_values: JSON.stringify({ task: task.id, newDue: newDueStr }), notes: `Auto-shifted task ${task.issue_key} by ${durationDays} days (shift-only mode)` })
+              await sb.from('leave_history').insert({ org_id: leave.org_id, leave_request_id: leave.id, event_type: 'redeployed', actor_id: null, old_values: JSON.stringify({ task: task.id, from: task.assignee }), new_values: JSON.stringify({ task: task.id, to: chosen }), notes: `Auto-redeployed task ${task.issue_key} to ${chosen}` })
+
+              // For final summary insertion at the end of the try block:
+              const histSummary = await sb.from('leave_history').insert({ org_id: leave.org_id, leave_request_id: leave.id, event_type: 'approved_auto', actor_id: null, old_values: null, new_values: JSON.stringify(actionsSummary), notes: 'Auto-approved and handled by LeaveApprovalAgent' })
             }
           }
           continue
@@ -354,7 +358,7 @@ export async function approveLeaveRequest(
               console.log(`[LeaveApprovalAgent] ✅ Task ${task.issue_key} shifted successfully`)
               actionsSummary.shifted++
               actionsSummary.details.push({ task: task.id, shiftedBy: durationDays, oldDue: task.due_date, newDue: newDueStr })
-              const histInsert = await sb.from('leave_history').insert({ org_id: null, leave_request_id: (leave as any).id, event_type: 'shifted', actor_id: null, old_values: JSON.stringify({ task: task.id, oldDue: task.due_date }), new_values: JSON.stringify({ task: task.id, newDue: newDueStr }), notes: `Auto-shifted task ${task.issue_key} by ${durationDays} days` })
+              const histInsert = await sb.from('leave_history').insert({ org_id: leave.org_id, leave_request_id: leave.id, event_type: 'shifted', actor_id: null, old_values: JSON.stringify({ task: task.id, oldDue: task.due_date }), new_values: JSON.stringify({ task: task.id, newDue: newDueStr }), notes: `Auto-shifted task ${task.issue_key} by ${durationDays} days` })
               console.log(`[LeaveApprovalAgent] History insert result:`, histInsert.error?.message || '✅ ok')
             } else {
               console.error(`[LeaveApprovalAgent] ❌ Failed to shift task ${task.issue_key}:`, upd2)
