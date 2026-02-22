@@ -31,7 +31,7 @@ export const VelocityAISidebar = ({ children }: VelocityAISidebarProps) => {
     { id: 'dashboard', path: '/velocity-ai', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
     { id: 'projects', path: '/projects', label: 'Projects', icon: <Briefcase className="w-5 h-5" /> },
     { id: 'plan', path: '/velocity-ai?tab=deployment', label: 'Plan', icon: <Sparkles className="w-5 h-5" /> },
-    { id: 'people', path: '/velocity-ai', label: 'People', icon: <Users className="w-5 h-5" /> },
+    { id: 'people', path: '/velocity-ai?tab=people', label: 'People', icon: <Users className="w-5 h-5" /> },
     { id: 'leave', path: '/velocity-ai?tab=leave', label: 'Leave', icon: <Calendar className="w-5 h-5" /> },
   ];
 
@@ -52,6 +52,10 @@ export const VelocityAISidebar = ({ children }: VelocityAISidebarProps) => {
     }
     if (tabParam === 'deployment') {
       setActiveSection('plan');
+      return;
+    }
+    if (tabParam === 'people') {
+      setActiveSection('people');
       return;
     }
 
