@@ -45,18 +45,18 @@ function formatDate(d: Date): string {
 }
 
 const projectColors: ColorGradient[] = [
-  { from: 'from-blue-500', to: 'to-blue-600' },
-  { from: 'from-red-500', to: 'to-red-600' },
-  { from: 'from-green-500', to: 'to-green-600' },
-  { from: 'from-purple-500', to: 'to-purple-600' },
-  { from: 'from-yellow-500', to: 'to-yellow-600' },
-  { from: 'from-pink-500', to: 'to-pink-600' },
-  { from: 'from-indigo-500', to: 'to-indigo-600' },
-  { from: 'from-cyan-500', to: 'to-cyan-600' },
-  { from: 'from-orange-500', to: 'to-orange-600' },
-  { from: 'from-amber-500', to: 'to-amber-600' },
-  { from: 'from-lime-500', to: 'to-lime-600' },
-  { from: 'from-emerald-500', to: 'to-emerald-600' },
+  { from: 'from-blue-100', to: 'to-blue-200' },
+  { from: 'from-rose-100', to: 'to-rose-200' },
+  { from: 'from-emerald-100', to: 'to-emerald-200' },
+  { from: 'from-violet-100', to: 'to-violet-200' },
+  { from: 'from-amber-100', to: 'to-amber-200' },
+  { from: 'from-pink-100', to: 'to-pink-200' },
+  { from: 'from-indigo-100', to: 'to-indigo-200' },
+  { from: 'from-cyan-100', to: 'to-cyan-200' },
+  { from: 'from-orange-100', to: 'to-orange-200' },
+  { from: 'from-yellow-100', to: 'to-yellow-200' },
+  { from: 'from-lime-100', to: 'to-lime-200' },
+  { from: 'from-teal-100', to: 'to-teal-200' },
 ]
 
 interface ManagerGanttProps {
@@ -366,7 +366,7 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
               const colors = colorMap[projectKey]
               const projectTickets = assigneeRows.flatMap(row => row.tasks).filter(t => t._projectKey === projectKey).length
               return (
-                <div key={projectKey} className={`px-3 py-2 rounded-lg bg-gradient-to-r ${colors.from} ${colors.to} text-white text-xs font-medium`}>
+                <div key={projectKey} className={`px-3 py-2 rounded-xl bg-gradient-to-r ${colors.from} ${colors.to} text-[#1C1917] text-xs font-medium border border-[#E7E5E4]`}>
                   {projectKey} ({projectTickets})
                 </div>
               )
@@ -375,11 +375,11 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
         </div>
       </div>
 
-      <div className="overflow-x-auto border rounded">
+      <div className="overflow-x-auto border border-[#E7E5E4] rounded-xl bg-white">
         <div className="min-w-max">
           {/* Header with date markers */}
-          <div className="flex border-b bg-gray-100 sticky top-0">
-            <div className="w-56 p-3 font-medium bg-gray-50 border-r flex-shrink-0"></div>
+          <div className="flex border-b border-[#E7E5E4] bg-[#F5F5F4] sticky top-0">
+            <div className="w-56 p-3 font-medium bg-[#F5F5F4] border-r border-[#E7E5E4] flex-shrink-0"></div>
             {/* Header columns */}
             <div className="flex flex-shrink-0" style={{ width: `${totalUnits * cellWidth}px` }}>
               {dateMarkers.map((date, idx) => {
@@ -409,10 +409,10 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
                 return (
                   <div
                     key={idx}
-                    className={`border-r text-xs text-gray-600 flex flex-col items-center justify-center font-medium h-12 ${isWeekend ? 'bg-gray-200' : 'bg-gray-100'}`}
+                    className={`border-r border-[#E7E5E4] text-xs text-[#78716C] flex flex-col items-center justify-center font-medium h-12 ${isWeekend ? 'bg-[#F5F5F4]' : 'bg-white'}`}
                     style={{ width: `${cellWidth}px` }}
                   >
-                    <div className="font-bold text-gray-800">{dayName}</div>
+                    <div className="font-bold text-[#1C1917]">{dayName}</div>
                     <div className="opacity-60 text-xs">{displayText}</div>
                   </div>
                 )
@@ -422,9 +422,9 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
 
           {/* Employee rows with tasks */}
           {assigneeRows.map((assignee) => (
-            <div key={assignee.assignee} className="flex border-b last:border-b-0">
+            <div key={assignee.assignee} className="flex border-b border-[#E7E5E4] last:border-b-0">
               {/* Employee name column */}
-              <div className="w-56 p-3 font-medium bg-white border-r flex-shrink-0 text-sm">{assignee.assignee}</div>
+              <div className="w-56 p-3 font-medium bg-white border-r border-[#E7E5E4] flex-shrink-0 text-sm text-[#1C1917]">{assignee.assignee}</div>
 
               {/* Timeline area */}
               <div
@@ -447,7 +447,7 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
                     return (
                       <div
                         key={idx}
-                        className={`border-r border-gray-200 h-full ${isWeekend ? 'bg-gray-100' : ''}`}
+                        className={`border-r border-[#E7E5E4] h-full ${isWeekend ? 'bg-[#F5F5F4]' : ''}`}
                         style={{ width: `${cellWidth}px` }}
                       />
                     )
@@ -491,7 +491,7 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
                   return (
                     <div
                       key={tIdx}
-                      className={`absolute rounded shadow-sm bg-gradient-to-r ${colors.from} ${colors.to} text-white text-xs font-medium hover:opacity-100 overflow-hidden cursor-pointer hover:ring-2 hover:ring-white hover:ring-offset-1 transition-all`}
+                      className={`absolute rounded-xl shadow-sm bg-gradient-to-r ${colors.from} ${colors.to} text-[#1C1917] text-xs font-medium hover:opacity-80 overflow-hidden cursor-pointer hover:ring-2 hover:ring-[#2DD4BF] hover:ring-offset-1 transition-all border border-[#E7E5E4]/50`}
                       style={{
                         left: `${leftPx}px`,
                         width: `${widthPx}px`,
@@ -520,14 +520,14 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
           onClick={() => setSelectedTask(null)}
         >
           <div
-            className="bg-white rounded-lg shadow-2xl p-6 max-w-md w-full mx-4 transform transition-all"
+            className="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full mx-4 transform transition-all border border-[#E7E5E4]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-start mb-4">
-              <h3 className="text-xl font-bold text-gray-800">Task Details</h3>
+              <h3 className="text-xl font-bold text-[#1C1917]">Task Details</h3>
               <button
                 onClick={() => setSelectedTask(null)}
-                className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+                className="text-[#78716C] hover:text-[#1C1917] text-2xl leading-none"
               >
                 ×
               </button>
@@ -535,18 +535,18 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
 
             <div className="space-y-3">
               <div>
-                <label className="text-sm font-semibold text-gray-500">Task Name</label>
-                <p className="text-gray-800 font-medium">{selectedTask.summary}</p>
+                <label className="text-sm font-semibold text-[#78716C]">Task Name</label>
+                <p className="text-[#1C1917] font-medium">{selectedTask.summary}</p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-semibold text-gray-500">Task ID</label>
-                  <p className="text-gray-800">{selectedTask.key}</p>
+                  <label className="text-sm font-semibold text-[#78716C]">Task ID</label>
+                  <p className="text-[#1C1917]">{selectedTask.key}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-semibold text-gray-500">Status</label>
-                  <p className={`font-medium ${selectedTask.status === 'Done' ? 'text-green-600' : 'text-orange-600'}`}>
+                  <label className="text-sm font-semibold text-[#78716C]">Status</label>
+                  <p className={`font-medium ${selectedTask.status === 'Done' ? 'text-emerald-600' : 'text-amber-600'}`}>
                     {selectedTask.status}
                   </p>
                 </div>
@@ -554,45 +554,45 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-semibold text-gray-500">Assignee</label>
-                  <p className="text-gray-800">{selectedTask.assignee || 'Unassigned'}</p>
+                  <label className="text-sm font-semibold text-[#78716C]">Assignee</label>
+                  <p className="text-[#1C1917]">{selectedTask.assignee || 'Unassigned'}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-semibold text-gray-500">Priority</label>
-                  <p className="text-gray-800">{selectedTask.priority || '-'}</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-semibold text-gray-500">Start Date</label>
-                  <p className="text-gray-800">{formatDate(selectedTask._start)}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-semibold text-gray-500">Due Date</label>
-                  <p className="text-gray-800">{formatDate(selectedTask._end)}</p>
+                  <label className="text-sm font-semibold text-[#78716C]">Priority</label>
+                  <p className="text-[#1C1917]">{selectedTask.priority || '-'}</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-semibold text-gray-500">Duration</label>
-                  <p className="text-gray-800 font-medium">
+                  <label className="text-sm font-semibold text-[#78716C]">Start Date</label>
+                  <p className="text-[#1C1917]">{formatDate(selectedTask._start)}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-semibold text-[#78716C]">Due Date</label>
+                  <p className="text-[#1C1917]">{formatDate(selectedTask._end)}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-semibold text-[#78716C]">Duration</label>
+                  <p className="text-[#1C1917] font-medium">
                     {selectedTask._start && selectedTask._end
                       ? `${Math.ceil((selectedTask._end.getTime() - selectedTask._start.getTime()) / (1000 * 60 * 60 * 24)) + 1} days`
                       : '-'}
                   </p>
                 </div>
                 <div>
-                  <label className="text-sm font-semibold text-gray-500">Type</label>
-                  <p className="text-gray-800">{selectedTask.issueType || '-'}</p>
+                  <label className="text-sm font-semibold text-[#78716C]">Type</label>
+                  <p className="text-[#1C1917]">{selectedTask.issueType || '-'}</p>
                 </div>
               </div>
 
               {selectedTask.description && (
                 <div>
-                  <label className="text-sm font-semibold text-gray-500">Description</label>
-                  <p className="text-gray-700 text-sm mt-1">{selectedTask.description}</p>
+                  <label className="text-sm font-semibold text-[#78716C]">Description</label>
+                  <p className="text-[#1C1917] text-sm mt-1">{selectedTask.description}</p>
                 </div>
               )}
             </div>
@@ -600,7 +600,7 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
             <div className="mt-6 flex justify-end">
               <button
                 onClick={() => setSelectedTask(null)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                className="px-4 py-2 bg-[#2DD4BF] text-[#1C1917] rounded-xl hover:bg-[#15c9af] transition font-medium"
               >
                 Close
               </button>

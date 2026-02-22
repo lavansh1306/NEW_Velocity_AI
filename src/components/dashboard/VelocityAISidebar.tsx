@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
+import { Header } from './Header';
 
 interface VelocityAISidebarProps {
   children: React.ReactNode;
@@ -113,7 +114,7 @@ export const VelocityAISidebar = ({ children }: VelocityAISidebarProps) => {
               <button
                 key={item.id}
                 onClick={() => handleNavClick(item)}
-                className={`w-full relative px-3 py-3 flex items-center ${sidebarOpen ? 'gap-3' : 'justify-center'} rounded-lg group transition-all duration-200 outline-none ${
+                className={`w-full relative px-3 py-3 flex items-center ${sidebarOpen ? 'gap-3' : 'justify-center'} rounded-xl group transition-all duration-200 outline-none ${
                   isActive ? 'bg-[#292524] text-white' : 'text-[#A8A29E] hover:text-[#E7E5E4] hover:bg-[#292524]/50'
                 }`}
                 title={item.label}
@@ -141,7 +142,7 @@ export const VelocityAISidebar = ({ children }: VelocityAISidebarProps) => {
               setActiveSection('settings');
               navigate('/settings');
             }}
-            className={`w-full relative px-3 py-3 flex items-center ${sidebarOpen ? 'gap-3' : 'justify-center'} rounded-lg group transition-all duration-200 outline-none ${
+            className={`w-full relative px-3 py-3 flex items-center ${sidebarOpen ? 'gap-3' : 'justify-center'} rounded-xl group transition-all duration-200 outline-none ${
               activeSection === 'settings' ? 'bg-[#292524] text-white' : 'text-[#A8A29E] hover:text-[#E7E5E4] hover:bg-[#292524]/50'
             }`}
             title="Settings"
@@ -160,7 +161,7 @@ export const VelocityAISidebar = ({ children }: VelocityAISidebarProps) => {
           <button
             onClick={handleLogout}
             disabled={loggingOut}
-            className={`w-full relative px-3 py-3 flex items-center ${sidebarOpen ? 'gap-3' : 'justify-center'} rounded-lg transition-all duration-200 outline-none text-[#F43F5E] hover:bg-[#F43F5E]/10 disabled:opacity-50 disabled:cursor-not-allowed`}
+            className={`w-full relative px-3 py-3 flex items-center ${sidebarOpen ? 'gap-3' : 'justify-center'} rounded-xl transition-all duration-200 outline-none text-[#F43F5E] hover:bg-[#F43F5E]/10 disabled:opacity-50 disabled:cursor-not-allowed`}
             title="Log Out"
           >
             <LogOut className="w-5 h-5 flex-shrink-0" />
@@ -200,20 +201,26 @@ export const VelocityAISidebar = ({ children }: VelocityAISidebarProps) => {
       </div>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col min-w-0 bg-[#F5F5F4] relative overflow-auto">
-        {/* Texture Overlay */}
-        <div 
-          className="absolute inset-0 pointer-events-none z-0 opacity-[0.03]"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
-          }}
-        />
-        
+      <div className="flex-1 flex flex-col min-w-0 bg-[#F5F5F4]">
+        {/* Header */}
+        <Header />
+
         {/* Content */}
-        <div className="flex-1 relative z-10 overflow-auto">
-          {children}
-        </div>
-      </main>
+        <main className="flex-1 flex flex-col min-w-0 bg-[#F5F5F4] relative overflow-auto">
+          {/* Texture Overlay */}
+          <div 
+            className="absolute inset-0 pointer-events-none z-0 opacity-[0.03]"
+            style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+            }}
+          />
+          
+          {/* Children Content */}
+          <div className="flex-1 relative z-10 overflow-auto">
+            {children}
+          </div>
+        </main>
+      </div>
     </div>
   );
 };

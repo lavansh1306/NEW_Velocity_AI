@@ -48,9 +48,7 @@ export default function SettingsPage() {
 
   return (
     <VelocityAISidebar>
-      <div className="w-full h-full flex flex-col bg-[#F5F5F4] overflow-auto">
-        <div className="flex-1 overflow-auto">
-          <div className="px-8 py-6 max-w-6xl mx-auto animate-in fade-in duration-300">
+      <div className="px-8 py-6 max-w-6xl mx-auto animate-in fade-in duration-300">
             {/* Header */}
             <div className="mb-8">
               <h1 className="text-4xl font-light text-[#1C1917] tracking-tight mb-2">Settings</h1>
@@ -323,8 +321,6 @@ export default function SettingsPage() {
               </TabsContent>
             </Tabs>
           </div>
-        </div>
-      </div>
     </VelocityAISidebar>
   );
 }
