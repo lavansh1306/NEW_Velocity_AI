@@ -2,17 +2,23 @@
 
 <div align="center">
 
-<img src="https://img.shields.io/badge/Frontend-React-blue">
-<img src="https://img.shields.io/badge/Language-TypeScript-blue">
-<img src="https://img.shields.io/badge/Backend-Node.js-green">
-<img src="https://img.shields.io/badge/Backend-Express-black">
-<img src="https://img.shields.io/badge/Database-Supabase-3ECF8E">
-<img src="https://img.shields.io/badge/UI-TailwindCSS-38B2AC">
-<img src="https://img.shields.io/badge/AI-Gemini-orange">
-<img src="https://img.shields.io/badge/ML-Python_FastAPI-yellow">
-<img src="https://img.shields.io/badge/Build-Vite-purple">
-<img src="https://img.shields.io/badge/Deploy-Vercel-black">
-<img src="https://img.shields.io/badge/Session-Redis-DC382D">
+## Tech Stack
+
+![React](https://img.shields.io/badge/Frontend-React-61DAFB?logo=react&logoColor=white)
+![TypeScript](https://img.shields.io/badge/Language-TypeScript-3178C6?logo=typescript&logoColor=white)
+![Vite](https://img.shields.io/badge/Build-Vite-646CFF?logo=vite&logoColor=white)
+![TailwindCSS](https://img.shields.io/badge/UI-TailwindCSS-06B6D4?logo=tailwindcss&logoColor=white)
+![NodeJS](https://img.shields.io/badge/Backend-Node.js-339933?logo=node.js&logoColor=white)
+![Express](https://img.shields.io/badge/API-Express-000000?logo=express&logoColor=white)
+![Python](https://img.shields.io/badge/ML-Python-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/ML-FastAPI-009688?logo=fastapi&logoColor=white)
+![Supabase](https://img.shields.io/badge/Database-Supabase-3ECF8E?logo=supabase&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/DB-PostgreSQL-4169E1?logo=postgresql&logoColor=white)
+![Redis](https://img.shields.io/badge/Cache-Redis-DC382D?logo=redis&logoColor=white)
+![Gemini](https://img.shields.io/badge/AI-Google%20Gemini-4285F4?logo=google&logoColor=white)
+![Jira](https://img.shields.io/badge/Integration-Jira-0052CC?logo=jira&logoColor=white)
+![Vercel](https://img.shields.io/badge/Deploy-Vercel-000000?logo=vercel&logoColor=white)
+![Render](https://img.shields.io/badge/ML%20Hosting-Render-46E3B7?logo=render&logoColor=black)
 
 </div>
 
