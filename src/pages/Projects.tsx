@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import VeloNavTabs from '@/components/demo2/VeloNavTabs';
+import { VelocityAISidebar } from '@/components/dashboard/VelocityAISidebar';
 import { Button } from '@/components/ui/button';
 // Removed Add Project dialog and delete controls per request
 import AnalyticsPanel from '@/components/analytics/AnalyticsPanel';
@@ -341,7 +341,7 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
   // Delete project controls removed
 
   const mainContent = (
-    <div className="bg-gray-50 min-h-screen p-12 font-['Inter',sans-serif]">
+    <div className="bg-[#F5F5F4] min-h-full p-12 font-['Inter',sans-serif]">
       <div className="max-w-[1600px] mx-auto">
         <div className="mb-12 flex items-center justify-between">
           <div>
@@ -452,25 +452,9 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
   );
 
   return (
-    <div>
-      {withNav ? (
-        <VeloNavTabs
-          activeTab="projects"
-          onTabChange={(tab) => {
-            // Basic navigation mapping for top-level tabs
-            if (tab === 'dashboard') navigate('/');
-            else if (tab === 'projects') navigate('/projects');
-            else if (tab === 'activity') navigate('/projects');
-            else if (tab === 'ledger') navigate('/projects');
-            else navigate('/projects');
-          }}
-        >
-          {mainContent}
-        </VeloNavTabs>
-      ) : (
-        mainContent
-      )}
-    </div>
+    <VelocityAISidebar>
+      {mainContent}
+    </VelocityAISidebar>
   );
 }
 

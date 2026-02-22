@@ -11,33 +11,25 @@ const features = [
     name: 'AI-Driven Scheduling',
     description: 'Automatically builds and optimizes schedules based on real demand, availability, and business priorities—reducing manual effort and costly inefficiencies.',
     icon: Calendar,
-    color: 'bg-pink-50 text-pink-600',
-    borderColor: 'hover:border-pink-200',
-    shadowColor: 'hover:shadow-pink-500/10'
+    color: 'bg-[#FFF1F2] text-[#BE123C]',
   },
   {
     name: 'Intelligent Redeployment',
     description: 'Identifies unused or freed capacity and recommends where employees can be redeployed for maximum impact across your organization.',
     icon: Users,
-    color: 'bg-purple-50 text-purple-600',
-    borderColor: 'hover:border-purple-200',
-    shadowColor: 'hover:shadow-purple-500/10'
+    color: 'bg-[#F0FDFA] text-[#0F766E]',
   },
   {
     name: 'Workforce Intelligence',
     description: 'Turns operational data into clear, actionable insights so leaders understand how work is performed and where productivity can be improved.',
     icon: BarChart3,
-    color: 'bg-cyan-50 text-cyan-600',
-    borderColor: 'hover:border-cyan-200',
-    shadowColor: 'hover:shadow-cyan-500/10'
+    color: 'bg-[#FFF7ED] text-[#C2410C]',
   },
   {
     name: 'Operational Automation',
     description: 'Replaces repetitive workforce planning tasks with AI, removing friction from day-to-day operations and freeing up valuable time.',
     icon: Zap,
-    color: 'bg-orange-50 text-orange-600',
-    borderColor: 'hover:border-orange-200',
-    shadowColor: 'hover:shadow-orange-500/10'
+    color: 'bg-[#F5F5F4] text-[#57534E]',
   },
 ];
 
@@ -83,16 +75,16 @@ export function LandingFeatures() {
   }, { scope: containerRef });
 
   return (
-    <div ref={containerRef} className="py-24 sm:py-32 relative overflow-hidden">
+    <div ref={containerRef} className="py-24 sm:py-32 relative overflow-hidden bg-white">
       <div className="mx-auto max-w-7xl px-6 lg:px-8 relative">
-        <div ref={headerRef} className="mx-auto max-w-2xl text-center">
-          <div className="inline-flex items-center rounded-full px-3 py-1 text-sm font-medium text-indigo-600 ring-1 ring-inset ring-indigo-200 mb-6 bg-white/50 backdrop-blur-sm">
+        <div ref={headerRef} className="mx-auto max-w-3xl text-center mb-16">
+          <div className="inline-flex items-center rounded-full px-4 py-2 text-xs font-medium text-[#78716C] ring-1 ring-[#E7E5E4] mb-6 bg-white/70 backdrop-blur-sm">
             CAPABILITIES
           </div>
-          <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-            What Velocity AI <span className="text-indigo-600 italic" style={{ fontFamily: "'Source Serif 4', serif" }}>Actually Does</span>
+          <h2 className="text-4xl font-light tracking-tight text-[#1C1917] sm:text-5xl">
+            What Velocity AI Actually Does
           </h2>
-          <p className="mt-6 text-lg leading-8 text-slate-600">
+          <p className="mt-6 text-lg leading-8 text-[#78716C]">
             Powerful AI capabilities that transform how you manage your workforce, eliminating guesswork and driving real ROI.
           </p>
         </div>
@@ -101,16 +93,16 @@ export function LandingFeatures() {
           {features.map((feature) => (
             <div
               key={feature.name}
-              className={`relative flex flex-col gap-6 rounded-2xl bg-white p-8 ring-1 ring-slate-200 shadow-sm transition-all duration-300 hover:-translate-y-1 ${feature.borderColor} ${feature.shadowColor} hover:shadow-lg`}
+              className={`relative flex flex-col gap-6 rounded-2xl bg-white p-8 border border-[#E7E5E4] shadow-sm hover:shadow-md transition-all duration-300`}
             >
-              <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${feature.color}`}>
+              <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${feature.color}`}>
                 <feature.icon className="h-6 w-6" aria-hidden="true" />
               </div>
               <div className="flex flex-col gap-2">
-                <h3 className="text-xl font-semibold leading-7 text-slate-900">
+                <h3 className="text-lg font-semibold leading-7 text-[#1C1917]">
                   {feature.name}
                 </h3>
-                <p className="text-base leading-7 text-slate-600">
+                <p className="text-sm leading-6 text-[#78716C]">
                   {feature.description}
                 </p>
               </div>
