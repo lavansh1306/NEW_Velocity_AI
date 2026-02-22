@@ -39,8 +39,6 @@ interface TaskWithDates extends Issue {
   _projectKey: string
 }
 
-type ViewType = 'day' | 'week' | 'month'
-
 function formatDate(d: Date): string {
   return d.toLocaleDateString()
 }
@@ -68,7 +66,6 @@ interface ManagerGanttProps {
 
 export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = true, jiraIssues: externalJiraIssues }: ManagerGanttProps) {
   const { addToast } = useToast()
-  const [viewType, setViewType] = useState<ViewType>('day')
   const [zoom, setZoom] = useState(1.6)
   const [selectedTask, setSelectedTask] = useState<TaskWithDates | null>(null)
   const [tasks, setTasks] = useState<Issue[]>(externalTasks)
@@ -291,23 +288,11 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
     // Extend max to 6 months after last task
     max = normalizeDate(new Date(max.getFullYear(), max.getMonth() + 6, max.getDate()))
 
-    let totalUnits = 0
-    let markers: Date[] = []
-
-    if (viewType === 'day') {
-      totalUnits = Math.ceil((max.getTime() - min.getTime()) / (1000 * 60 * 60 * 24)) + 1
-      for (let i = 0; i < totalUnits; i++) markers.push(new Date(min.getTime() + i * 24 * 60 * 60 * 1000))
-    } else if (viewType === 'week') {
-      totalUnits = Math.ceil((max.getTime() - min.getTime()) / (1000 * 60 * 60 * 24 * 7)) + 1
-      for (let i = 0; i < totalUnits; i++) markers.push(new Date(min.getTime() + i * 7 * 24 * 60 * 60 * 1000))
-    } else if (viewType === 'month') {
-      let current = new Date(min)
-      current.setDate(1)
-      while (current <= max) {
-        markers.push(new Date(current))
-        current.setMonth(current.getMonth() + 1)
-      }
-      totalUnits = markers.length
+    // Day view only
+    const totalUnits = Math.ceil((max.getTime() - min.getTime()) / (1000 * 60 * 60 * 24)) + 1
+    const markers: Date[] = []
+    for (let i = 0; i < totalUnits; i++) {
+      markers.push(new Date(min.getTime() + i * 24 * 60 * 60 * 1000))
     }
 
     const projectKeys = Array.from(projectSet).sort()
@@ -324,11 +309,10 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
     }))
 
     return { assigneeRows, minDate: min, maxDate: max, totalUnits, dateMarkers: markers, colorMap, allProjects: projectKeys }
-  }, [tasks, viewType])
+  }, [tasks])
 
   const getCellWidth = (): number => {
-    const baseWidths: { [key in ViewType]: number } = { day: 50, week: 280, month: 200 }
-    return baseWidths[viewType] * zoom
+    return 50 * zoom
   }
 
   const cellWidth = getCellWidth()
@@ -344,12 +328,38 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
         setTimeout(() => {
           const rowElement = containerRef.current?.querySelector(`[data-assignee-idx="${assigneeIdx}"]`)
           if (rowElement) {
+            // Scroll row into view vertically
             rowElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            
+            // Scroll horizontally to show the task
+            const parentContainer = containerRef.current?.parentElement
+            if (parentContainer) {
+              const startCol = Math.round((firstTaskInProject._start.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24))
+              const scrollPos = startCol * cellWidth - 200 // Offset by 200px for better visibility
+              parentContainer.scrollLeft = Math.max(0, scrollPos)
+            }
           }
         }, 100)
       }
     }
   }
+
+  // Scroll to today's date on mount
+  useEffect(() => {
+    setTimeout(() => {
+      if (containerRef.current?.parentElement) {
+        const today = new Date()
+        const normalizeDate = (d: Date): Date => {
+          const dd = new Date(d)
+          return new Date(Date.UTC(dd.getFullYear(), dd.getMonth(), dd.getDate()))
+        }
+        const normalizedToday = normalizeDate(today)
+        const todayCol = Math.round((normalizedToday.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24))
+        const scrollPos = todayCol * cellWidth - 200
+        containerRef.current.parentElement.scrollLeft = Math.max(0, scrollPos)
+      }
+    }, 200)
+  }, [minDate, cellWidth])
 
   if (loading) {
     return <div className="p-6 bg-white rounded shadow">Loading tasks...</div>
@@ -367,26 +377,6 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
           <div className="flex items-center gap-4 text-sm text-gray-600 flex-wrap">
             <div>
               Timeline: <strong>{minDate.toLocaleString(undefined, { month: 'short', year: 'numeric' })}</strong> — <strong>{maxDate.toLocaleString(undefined, { month: 'short', year: 'numeric' })}</strong>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setViewType('day')}
-                className={`px-3 py-1 rounded text-xs font-medium transition ${viewType === 'day' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
-              >
-                Day
-              </button>
-              <button
-                onClick={() => setViewType('week')}
-                className={`px-3 py-1 rounded text-xs font-medium transition ${viewType === 'week' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
-              >
-                Week
-              </button>
-              <button
-                onClick={() => setViewType('month')}
-                className={`px-3 py-1 rounded text-xs font-medium transition ${viewType === 'month' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
-              >
-                Month
-              </button>
             </div>
             <div className="flex items-center gap-2">
               <label className="text-xs font-medium">Zoom:</label>
@@ -445,18 +435,7 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
                 const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
                 dayName = dayNames[dayOfWeek]
 
-                if (viewType === 'day') {
-                  displayText = formatDate(date)
-                } else if (viewType === 'week') {
-                  const weekEnd = new Date(date)
-                  weekEnd.setDate(weekEnd.getDate() + 6)
-                  // Show the actual day of the week at start of week
-                  displayText = `${formatDate(date)} - ${formatDate(weekEnd)}`
-                  dayName = dayNames[date.getDay()] // Ensure we use actual day of week
-                } else if (viewType === 'month') {
-                  displayText = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-                  dayName = dayNames[date.getDay()]
-                }
+                displayText = formatDate(date)
                 return (
                   <div
                     key={idx}
@@ -485,55 +464,25 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
                 {/* Grid columns */}
                 <div className="absolute inset-0 flex">
                   {Array.from({ length: totalUnits }).map((_, idx) => {
-                    let isWeekend = false
+                  const cellDate = new Date(minDate.getTime() + idx * 24 * 60 * 60 * 1000)
+                  const dayOfWeek = cellDate.getDay()
+                  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
 
-                    if (viewType === 'day') {
-                      const cellDate = new Date(minDate.getTime() + idx * 24 * 60 * 60 * 1000)
-                      const dayOfWeek = cellDate.getDay()
-                      isWeekend = dayOfWeek === 0 || dayOfWeek === 6
-                    }
-                    // In week and month view, don't highlight weekends on the grid
-                    // since each cell represents a longer period
-
-                    return (
-                      <div
-                        key={idx}
-                        className={`border-r border-[#E7E5E4] h-full ${isWeekend ? 'bg-[#F5F5F4]' : ''}`}
-                        style={{ width: `${cellWidth}px` }}
-                      />
-                    )
-                  })}
+                  return (
+                    <div
+                      key={idx}
+                      className={`border-r border-[#E7E5E4] h-full ${isWeekend ? 'bg-[#F5F5F4]' : ''}`}
+                      style={{ width: `${cellWidth}px` }}
+                    />
+                  )
+                })}
                 </div>
 
                 {/* Task bars */}
                 {assignee.tasks.map((task, tIdx) => {
-                  let startCol = 0
-                  let spanCols = 1
-
-                  if (viewType === 'day') {
-                    startCol = Math.round((task._start.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24))
-                    spanCols = Math.round((task._end.getTime() - task._start.getTime()) / (1000 * 60 * 60 * 24)) + 1
-                  } else if (viewType === 'week') {
-                    startCol = Math.round((task._start.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24 * 7))
-                    spanCols = Math.max(1, Math.round((task._end.getTime() - task._start.getTime()) / (1000 * 60 * 60 * 24 * 7)) + 1)
-                  } else if (viewType === 'month') {
-                    const minDateMonthStart = new Date(minDate)
-                    minDateMonthStart.setDate(1)
-
-                    const taskStartMonth = new Date(task._start)
-                    taskStartMonth.setDate(1)
-
-                    const taskEndMonth = new Date(task._end)
-                    taskEndMonth.setDate(1)
-
-                    startCol = (taskStartMonth.getFullYear() - minDateMonthStart.getFullYear()) * 12 +
-                      (taskStartMonth.getMonth() - minDateMonthStart.getMonth())
-
-                    const endMonthDiff = (taskEndMonth.getFullYear() - taskStartMonth.getFullYear()) * 12 +
-                      (taskEndMonth.getMonth() - taskStartMonth.getMonth())
-
-                    spanCols = Math.max(1, endMonthDiff + 1)
-                  }
+                  // Day view only
+                  const startCol = Math.round((task._start.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24))
+                  const spanCols = Math.max(1, Math.round((task._end.getTime() - task._start.getTime()) / (1000 * 60 * 60 * 24)) + 1)
 
                   // Calculate task index within the project
                   const projectTasks = assigneeRows.flatMap(row => row.tasks).filter(t => t._projectKey === task._projectKey)

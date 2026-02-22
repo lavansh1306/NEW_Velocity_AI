@@ -44,7 +44,7 @@ export default function PlanMyProject() {
           </div>
           <h1 className="text-2xl font-semibold text-[#1C1917]">Project Check AI</h1>
         </div>
-        <p className="text-[#78716C] font-light text-sm mb-8 ml-11">Upload SRS documents to predict delivery risks and resource gaps.</p>
+        
 
         {/* Upload Card */}
         <div className="bg-white rounded-xl border border-[#E7E5E4] p-8 shadow-sm max-w-2xl">
