@@ -784,73 +784,88 @@ export const LeaveManagementScreen = () => {
         </div>
       </div>
       
-      {/* Approval Modal */}
+      {/* Approval Modal - Solid White Centered */}
       <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent aria-describedby={undefined} className="font-['Inter',sans-serif] rounded-2xl bg-white/90 backdrop-blur-xl border border-white/20 shadow-2xl max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-light text-[#262626]">
-              {isProcessing ? 'Analyzing Impact...' : 'Leave Impact Analysis'}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="py-6">
-            {isProcessing ? (
-              <div className="flex items-center gap-4 py-4">
-                <Loader2 className="w-5 h-5 animate-spin text-[#121212]" />
-                <span className="text-sm text-[#737373] font-light">Evaluating team capacity and project timelines…</span>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                <div className="p-5 bg-amber-50/50 rounded-2xl border-l-2 border-l-amber-300">
-                  <div className="flex items-start gap-3">
-                    <div className="text-amber-500 mt-0.5">⚠️</div>
-                    <div>
-                      <div className="text-sm text-amber-900 mb-1 font-medium">Capacity Alert</div>
-                      <div className="text-sm text-amber-800 font-light leading-relaxed">
-                        Approving this leave will create a <span className="font-medium">24h capacity gap</span> in the "Velocity AI Platform" project.
-                      </div>
-                    </div>
-                  </div>
-                </div>
+        <DialogContent aria-describedby={undefined} className="font-['Inter',sans-serif] rounded-3xl bg-white border border-gray-100 shadow-2xl max-w-2xl overflow-hidden p-0 fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%]">
+          <div className="p-8">
+            {/* Header */}
+            <div className="mb-8">
+              <DialogTitle className="text-2xl font-semibold text-[#121212]">
+                {isProcessing ? 'Analyzing Impact...' : 'Leave Impact Analysis'}
+              </DialogTitle>
+            </div>
 
-                <div>
-                  <h3 className="text-sm font-medium text-[#121212] mb-3">AI Recommendations</h3>
-                  <div className="space-y-3">
-                    <div className="p-4 bg-white/60 border border-white/20 rounded-xl flex items-start gap-3 hover:bg-white/80 transition-colors cursor-pointer">
-                      <div className="w-5 h-5 rounded-full bg-[#121212]/5 flex items-center justify-center text-[#121212] text-xs mt-0.5">1</div>
+            {/* Content */}
+            <div className="mb-8">
+              {isProcessing ? (
+                <div className="flex items-center gap-4 py-6">
+                  <Loader2 className="w-5 h-5 animate-spin text-[#121212]" />
+                  <span className="text-sm text-[#737373] font-light">Evaluating team capacity and project timelines…</span>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Capacity Alert */}
+                  <div className="p-6 bg-yellow-50 rounded-2xl border-l-4 border-l-yellow-400">
+                    <div className="flex items-start gap-4">
+                      <div className="text-yellow-600 mt-1 text-lg">⚠️</div>
                       <div>
-                        <div className="text-sm text-[#262626] font-light mb-1">Reassign API tasks to Marcus</div>
-                        <div className="text-xs text-[#737373] font-light">Marcus has 15h available capacity this week.</div>
+                        <div className="text-sm text-yellow-900 mb-2 font-semibold">Capacity Alert</div>
+                        <div className="text-sm text-yellow-800 font-light leading-relaxed">
+                          Approving this leave will create a <span className="font-medium">24h capacity gap</span> in the "Velocity AI Platform" project.
+                        </div>
                       </div>
                     </div>
-                    <div className="p-4 bg-white/60 border border-white/20 rounded-xl flex items-start gap-3 hover:bg-white/80 transition-colors cursor-pointer">
-                      <div className="w-5 h-5 rounded-full bg-[#121212]/5 flex items-center justify-center text-[#121212] text-xs mt-0.5">2</div>
-                      <div>
-                        <div className="text-sm text-[#262626] font-light mb-1">Shift "UI Polish" milestone by 2 days</div>
-                        <div className="text-xs text-[#737373] font-light">Low impact on overall project delivery.</div>
+                  </div>
+
+                  {/* AI Recommendations */}
+                  <div>
+                    <h3 className="text-sm font-semibold text-[#121212] mb-4">AI Recommendations</h3>
+                    <div className="space-y-3">
+                      <div className="p-5 bg-gray-50 border border-gray-200 rounded-xl flex items-start gap-4 hover:bg-gray-100 transition-all duration-300 cursor-pointer group">
+                        <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-xs font-semibold flex-shrink-0 mt-0.5">1</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm text-[#262626] font-medium mb-1">Reassign API tasks to Marcus</div>
+                          <div className="text-xs text-[#737373] font-light">Marcus has 15h available capacity this week.</div>
+                        </div>
+                      </div>
+                      <div className="p-5 bg-gray-50 border border-gray-200 rounded-xl flex items-start gap-4 hover:bg-gray-100 transition-all duration-300 cursor-pointer group">
+                        <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center text-green-600 text-xs font-semibold flex-shrink-0 mt-0.5">2</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm text-[#262626] font-medium mb-1">Shift "UI Polish" milestone by 2 days</div>
+                          <div className="text-xs text-[#737373] font-light">Low impact on overall project delivery.</div>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
+              )}
+            </div>
+
+            {/* Footer Actions */}
+            {!isProcessing && (
+              <div className="grid grid-cols-3 gap-3 pt-6 border-t border-gray-200">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowModal(false)}
+                  className="h-11 border border-gray-300 bg-white text-[#262626] hover:bg-gray-50 rounded-xl font-light transition-all duration-300"
+                >
+                  Ignore
+                </Button>
+                <Button 
+                  onClick={handleConfirmAction}
+                  className="h-11 bg-gray-100 hover:bg-gray-200 text-[#121212] rounded-xl font-light transition-all duration-300 border border-gray-300"
+                >
+                  Review Details
+                </Button>
+                <Button 
+                  onClick={handleConfirmAction}
+                  className="h-11 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-light transition-all duration-300 shadow-md"
+                >
+                  Commit
+                </Button>
               </div>
             )}
           </div>
-          {!isProcessing && (
-            <DialogFooter className="gap-4 w-full flex flex-row sm:justify-between">
-              <Button 
-                variant="outline" 
-                onClick={handleConfirmAction} 
-                className="flex-1 h-11 border-white/20 text-[#737373] hover:text-[#262626] hover:bg-white/50 rounded-xl font-light transition-all duration-300"
-              >
-                Ignore
-              </Button>
-              <Button 
-                onClick={handleConfirmAction} 
-                className="flex-1 bg-[#121212] hover:bg-[#262626] h-11 rounded-xl font-light transition-all duration-300 text-white shadow-md"
-              >
-                Commit Changes
-              </Button>
-            </DialogFooter>
-          )}
         </DialogContent>
       </Dialog>
       

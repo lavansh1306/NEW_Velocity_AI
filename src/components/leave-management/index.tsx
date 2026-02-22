@@ -15,7 +15,7 @@ import { EmployeeLeavePortal } from './EmployeeLeavePortal';
 import { CapacityAnalysis } from './CapacityAnalysis';
 
 export default function LeaveManagementTab() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [activePersona, setActivePersona] = useState<'manager' | 'employee'>('manager');
   const { toast } = useToast();
   
@@ -33,7 +33,9 @@ export default function LeaveManagementTab() {
   const [scenarioOpen, setScenarioOpen] = useState(false);
   const [applyOpen, setApplyOpen] = useState(false);
   const [redeployOpen, setRedeployOpen] = useState(false);
+  const [shiftOpen, setShiftOpen] = useState(false);
   const [selectedLeave, setSelectedLeave] = useState<LeaveRequest | null>(null);
+  const [affectedTasksForShift, setAffectedTasksForShift] = useState<Task[]>([]);
   const [predictions, setPredictions] = useState<any[]>([]);
   const [expandedLeaves, setExpandedLeaves] = useState<Record<string, boolean>>({});
 
@@ -94,49 +96,52 @@ export default function LeaveManagementTab() {
     let isMounted = true; 
     const fetchAllData = async () => {
       setIsLoadingData(true);
+      
+      // Wait for authentication to be ready
+      if (authLoading) {
+        console.log('[LeaveManagement] Waiting for auth to load...');
+        return;
+      }
+      
       try {
         let orgId = null;
+        let userEmail = 'velocityai588@gmail.com'; // Use directly from organization
 
-        // Get user directly from Supabase auth (don't rely on context)
-        const { data: { user: authUser } } = await supabase.auth.getUser();
-        const userEmail = authUser?.email;
-        
-        console.log('[LeaveManagement] Starting fetchAllData');
-        console.log('[LeaveManagement] Got user from auth:', { authUser, userEmail });
+        console.log('[LeaveManagement] Starting with org-based approach, using email:', userEmail);
 
-        // CRITICAL: Fetch the specific User and Org details via Email
-        if (userEmail) {
-          console.log('[LeaveManagement] Fetching user record for:', userEmail);
-          const { data: userData, error: userError } = await supabase
-            .from('users')
-            .select('id, organization_id, name')
-            .eq('email', userEmail)
-            .single();
+        // For development: Use the hardcoded velocityai588 org
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[LeaveManagement] DEV MODE: Using hardcoded org_id');
+          orgId = '3fa59970-ddfa-4ab4-ad00-008c36d32113'; // Your velocityai588 org_id
+          if (isMounted) setCurrentUser('VelocityAI User');
+        } else {
+          // Production: Try to get org from user lookup
+          let userFromContext = user?.email;
+          if (!userFromContext) {
+            const { data: { user: authUser } } = await supabase.auth.getUser();
+            userFromContext = authUser?.email;
+          }
 
-          console.log('[LeaveManagement] User fetch result:', { userData, userError });
+          if (userFromContext) {
+            const { data: userData } = await supabase
+              .from('users')
+              .select('organization_id')
+              .eq('email', userFromContext)
+              .single();
 
-          if (userData) {
-            orgId = userData.organization_id;
-            console.log('[LeaveManagement] Got orgId from user table:', orgId);
-            if (isMounted) setCurrentUser(userData.name || userEmail);
-          } else if (userError) {
-            console.warn('[LeaveManagement] User not found, will fallback:', userError.message);
+            if (userData) {
+              orgId = userData.organization_id;
+              if (isMounted) setCurrentUser(userFromContext);
+            }
           }
         }
 
-        // Fallback: REMOVED - Do NOT load unfiltered data for ANY user
-        // Every org must have proper records in the users table or the jira_issues table with org_id
         if (!orgId) {
-          console.warn('[LeaveManagement] orgId not found and no fallback available');
-          // Do NOT load random data - force user to have proper org setup
-        }
-
-        if (!orgId) {
-          console.error('[LeaveManagement] CRITICAL: Could not determine orgId from any source');
-          throw new Error("Unable to determine your organization. Please contact support.");
+          console.error('[LeaveManagement] CRITICAL: Could not determine orgId');
+          throw new Error("Unable to determine organization. Please check your configuration.");
         }
         
-        console.log('[LeaveManagement] Setting currentOrgId to:', orgId);
+        console.log('[LeaveManagement] Using orgId:', orgId);
         if (isMounted) setCurrentOrgId(orgId);
 
         // Fetch JIRA issues filtered by org_id (ALWAYS filtered)
@@ -213,7 +218,7 @@ export default function LeaveManagementTab() {
     };
     fetchAllData();
     return () => { isMounted = false; };
-  }, []);
+  }, [user, authLoading]);
 
   // ------------------------------------------------------------------
   // HARDENED SUBMISSION - with comprehensive error handling
@@ -417,113 +422,115 @@ export default function LeaveManagementTab() {
   };
 
   const handleShiftTasks = (leave: LeaveRequest) => {
-    const handleShiftTasksFromBackend = async () => {
-      try {
-        const durationDays = Math.ceil((new Date(leave.endDate).getTime() - new Date(leave.startDate).getTime()) / (86400000)) + 1;
+    // Calculate affected tasks
+    const durationDays = Math.ceil((new Date(leave.endDate).getTime() - new Date(leave.startDate).getTime()) / (86400000)) + 1;
+    const lStart = new Date(leave.startDate); lStart.setHours(0,0,0,0);
+    const lEnd = new Date(leave.endDate); lEnd.setHours(23,59,59,999);
+    const affectedForShift = tasks.filter(t => {
+      if (t.assignee !== leave.name || t.isCancelled) return false;
+      const tStart = new Date(t.created_date);
+      const tEnd = new Date(t.due_date);
+      return tStart <= lEnd && tEnd >= lStart;
+    });
+    
+    console.log('[LeaveManagement] Affected tasks for shift:', affectedForShift);
+    setAffectedTasksForShift(affectedForShift);
+    setSelectedLeave(leave);
+    setShiftOpen(true);
+  };
+
+  const performShiftTasks = async (leave: LeaveRequest) => {
+    try {
+      const durationDays = Math.ceil((new Date(leave.endDate).getTime() - new Date(leave.startDate).getTime()) / (86400000)) + 1;
+      const affectedForShift = affectedTasksForShift;
         
-        // Pre-calculate which tasks will be affected for visibility
-        const lStart = new Date(leave.startDate); lStart.setHours(0,0,0,0);
-        const lEnd = new Date(leave.endDate); lEnd.setHours(23,59,59,999);
-        const affectedForShift = tasks.filter(t => {
-          if (t.assignee !== leave.name || t.isCancelled) return false;
-          const tStart = new Date(t.created_date);
-          const tEnd = new Date(t.due_date);
-          return tStart <= lEnd && tEnd >= lStart;
-        });
-        
-        console.log('[LeaveManagement] Calling /api/leave-approval/approve-and-shift for leave:', leave.id);
-        console.log('[LeaveManagement] Affected tasks for shift:', affectedForShift.map(t => ({ 
-          name: t.taskName, 
-          oldDue: t.due_date,
-          newDue: new Date(new Date(t.due_date).getTime() + durationDays * 86400000).toISOString().split('T')[0]
-        })));
-        
-        // Call backend auto-shift endpoint
-        const response = await fetch('/api/leave-approval/approve-and-shift', {
+      console.log('[LeaveManagement] Calling /api/leave-approval/approve-and-shift for leave:', leave.id);
+      console.log('[LeaveManagement] Affected tasks for shift:', affectedForShift.map(t => ({ 
+        name: t.taskName, 
+        oldDue: t.due_date,
+        newDue: new Date(new Date(t.due_date).getTime() + durationDays * 86400000).toISOString().split('T')[0]
+      })));
+      
+      // Call backend auto-shift endpoint
+      const response = await fetch('/api/leave-approval/approve-and-shift', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-        id: leave.id,
-        org_id: currentOrgId, // <-- ADD THIS LINE
-        name: leave.name,
-        startDate: leave.startDate,
-        endDate: leave.endDate,
-        reason: leave.reason,
-        status: leave.status
-  })
-});
+          id: leave.id,
+          org_id: currentOrgId,
+          name: leave.name,
+          startDate: leave.startDate,
+          endDate: leave.endDate,
+          reason: leave.reason,
+          status: leave.status
+        })
+      });
 
-        if (!response.ok) {
-          const errData = await response.json();
-          throw new Error(errData.error || `Backend error: ${response.status}`);
-        }
-
-        const result = await response.json();
-        console.log('[LeaveManagement] Backend response:', result);
-        
-        const shiftsCount = result.data?.actions?.shifted || affectedForShift.length;
-        // Build message with task details
-        const taskDetails = affectedForShift.slice(0, 3).map(t => {
-          const newDue = new Date(new Date(t.due_date).getTime() + durationDays * 86400000).toISOString().split('T')[0];
-          return `${t.taskName.substring(0, 30)}: ${t.due_date}→${newDue}`;
-        }).join('\n');
-        
-        const actor = currentUser || 'Manager';
-        const detail = `Auto-shifted ${shiftsCount} task(s) by ${durationDays} day${durationDays>1?'s':''} (${affectedForShift.length} tasks affected)`;
-        
-        setLeaves(prev => prev.map(l => l.id === leave.id ? { 
-          ...l, 
-          status: 'Approved', 
-          history: [...(l.history||[]), { ts: new Date().toISOString(), actor, action: 'Shifted', details: detail }] 
-        } : l));
-        
-        setLeaveUpdateCount(prev => prev + 1);
-
-        // Refresh leaves and tasks from DB to ensure consistency
-        if (currentOrgId) {
-          console.log('[LeaveManagement] Refreshing data after shift...');
-          await fetchSupabaseLeaves(currentOrgId);
-          // Also refresh jira_issues tasks to show updated due dates
-          const { data: updatedTasks } = await supabase
-            .from('jira_issues')
-            .select('*')
-            .eq('org_id', currentOrgId)
-            .limit(500);
-          if (updatedTasks) {
-            const formatted = updatedTasks.map((t: any) => ({
-              id: t.id,
-              taskName: t.summary || t.issue_key || 'Task',
-              assignee: t.assignee || 'Unassigned',
-              assignee_email: t.assignee_email || '',
-              projectName: t.project_name || 'Unknown',
-              hours: Math.ceil((t.original_estimate_seconds || 0) / 3600),
-              created_date: t.created_date || new Date().toISOString(),
-              due_date: t.due_date || new Date().toISOString(),
-              isCancelled: false,
-              isReallocated: false,
-              day: 0
-            }));
-            setTasks(formatted);
-          }
-        }
-
-        // Show detailed shift confirmation
-        const shiftMsg = `✅ Shifted ${shiftsCount} task(s) forward by ${durationDays} day(s)\n\n${taskDetails}${affectedForShift.length > 3 ? `\n+${affectedForShift.length - 3} more tasks` : ''}`;
-        toast({ 
-          title: "⏭️ Tasks Shifted & Saved to DB", 
-          description: shiftMsg
-        });
-      } catch (err: any) {
-        console.error('[LeaveManagement] Shift error:', err);
-        toast({ 
-          title: "❌ Shift Failed", 
-          description: err.message || 'Failed to auto-shift tasks', 
-          variant: "destructive" 
-        });
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || `Backend error: ${response.status}`);
       }
-    };
-    
-    handleShiftTasksFromBackend();
+
+      const result = await response.json();
+      console.log('[LeaveManagement] Backend response:', result);
+      
+      const shiftsCount = result.data?.actions?.shifted || affectedForShift.length;
+      // Build message with task details
+      const taskDetails = affectedForShift.slice(0, 3).map(t => {
+        const newDue = new Date(new Date(t.due_date).getTime() + durationDays * 86400000).toISOString().split('T')[0];
+        return `${t.taskName.substring(0, 30)}: ${t.due_date}→${newDue}`;
+      }).join('\n');
+      
+      const actor = currentUser || 'Manager';
+      const detail = `Auto-shifted ${shiftsCount} task(s) by ${durationDays} day${durationDays>1?'s':''} (${affectedForShift.length} tasks affected)`;
+      
+      setLeaves(prev => prev.map(l => l.id === leave.id ? { 
+        ...l, 
+        status: 'Approved', 
+        history: [...(l.history||[]), { ts: new Date().toISOString(), actor, action: 'Shifted', details: detail }] 
+      } : l));
+      
+      setLeaveUpdateCount(prev => prev + 1);
+
+      // Refresh leaves and tasks from DB to ensure consistency
+      if (currentOrgId) {
+        console.log('[LeaveManagement] Refreshing data after shift...');
+        await fetchSupabaseLeaves(currentOrgId);
+        // Also refresh jira_issues tasks to show updated due dates
+        const { data: updatedTasks } = await supabase
+          .from('jira_issues')
+          .select('*')
+          .eq('org_id', currentOrgId)
+          .limit(500);
+        if (updatedTasks) {
+          const formatted = updatedTasks.map((t: any) => ({
+            id: t.id,
+            taskName: t.summary || t.issue_key || 'Task',
+            assignee: t.assignee || 'Unassigned',
+            assignee_email: t.assignee_email || '',
+            projectName: t.project_name || 'Unknown',
+            hours: Math.ceil((t.original_estimate_seconds || 0) / 3600),
+            created_date: t.created_date || new Date().toISOString(),
+            due_date: t.due_date || new Date().toISOString(),
+            isCancelled: false,
+            isReallocated: false,
+            day: 0
+          }));
+          setTasks(formatted);
+        }
+      }
+
+      setShiftOpen(false);
+      setSelectedLeave(null);
+      setAffectedTasksForShift([]);
+    } catch (err: any) {
+      console.error('[LeaveManagement] Shift error:', err);
+      toast({ 
+        title: "❌ Shift Failed", 
+        description: err.message || 'Failed to auto-shift tasks', 
+        variant: "destructive" 
+      });
+    }
   };
 
   // Mini calendar helper: next 30 days with markers for leaves and shifts
@@ -545,6 +552,30 @@ export default function LeaveManagementTab() {
     }
     return arr;
   };
+
+  if (authLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[50vh] space-y-4">
+        <RefreshCw className="w-8 h-8 text-blue-500 animate-spin" />
+        <div className="text-slate-500 font-light">Logging in...</div>
+      </div>
+    );
+  }
+
+  // In development, allow access without auth for testing
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  
+  if (!user && !isDevelopment) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[50vh] space-y-4">
+        <AlertCircle className="w-8 h-8 text-red-500" />
+        <div className="text-slate-700 font-light text-center">
+          <p className="font-semibold">Not authenticated</p>
+          <p className="text-sm text-slate-500">Please log in to access Leave Management</p>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoadingData) {
     return (
@@ -737,19 +768,161 @@ export default function LeaveManagementTab() {
       />
 
       {redeployOpen && selectedLeave && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full">
-            <h3 className="text-xl mb-4">🔄 Redeploy Tasks</h3>
-            <div className="space-y-3">
-              {getAvailableEmployeesOnDate(selectedLeave.startDate).map(emp => (
-                <Button key={emp.name} variant="outline" className="w-full justify-between" onClick={() => handleRedeploy(emp.name)}>
-                  {emp.name} <span>{Math.round(emp.load)}% load</span>
-                </Button>
-              ))}
+        <>
+          {/* Background Overlay */}
+          <div 
+            className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm"
+            onClick={() => setRedeployOpen(false)}
+          />
+          
+          {/* Centered Modal */}
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto">
+              
+              <div className="p-8">
+                {/* Header */}
+                <div className="flex items-start justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-purple-100 rounded-lg">
+                      <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-semibold text-[#121212]">Redeploy Tasks</h2>
+                      <p className="text-sm text-gray-600 mt-1">Select an employee to redeploy tasks to.</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setRedeployOpen(false)}
+                    className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+                  >
+                    ×
+                  </button>
+                </div>
+                
+                {/* Employee List */}
+                <div className="mb-6 space-y-2 max-h-[50vh] overflow-y-auto">
+                  {getAvailableEmployeesOnDate(selectedLeave.startDate).map(emp => (
+                    <button
+                      key={emp.name}
+                      onClick={() => handleRedeploy(emp.name)}
+                      className="w-full p-4 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg flex items-center justify-between transition-all duration-200 cursor-pointer group"
+                    >
+                      <div className="text-left">
+                        <div className="font-semibold text-[#121212]">{emp.name}</div>
+                        <div className="text-xs text-gray-600 mt-0.5">Available capacity</div>
+                      </div>
+                      <div className="text-right">
+                        <div className={`text-sm font-bold px-3 py-1 rounded-full ${emp.load < 50 ? 'bg-green-100 text-green-700' : emp.load < 80 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
+                          {Math.round(emp.load)}% load
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Footer Actions */}
+                <div className="border-t border-gray-200 pt-6 flex gap-3 justify-end">
+                  <button
+                    onClick={() => setRedeployOpen(false)}
+                    className="px-6 h-11 border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 rounded-lg font-light transition-all"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
             </div>
-            <Button variant="ghost" className="w-full mt-4" onClick={() => setRedeployOpen(false)}>Cancel</Button>
           </div>
-        </div>
+        </>
+      )}
+
+      {/* Shift Tasks Modal */}
+      {shiftOpen && selectedLeave && (
+        <>
+          {/* Background Overlay */}
+          <div 
+            className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm"
+            onClick={() => setShiftOpen(false)}
+          />
+          
+          {/* Centered Modal */}
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto">
+              
+              <div className="p-8">
+                {/* Header */}
+                <div className="flex items-start justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-semibold text-[#121212]">Approve & Shift Tasks</h2>
+                      <p className="text-sm text-gray-600 mt-1">Review tasks that will be shifted by {Math.ceil((new Date(selectedLeave.endDate).getTime() - new Date(selectedLeave.startDate).getTime()) / (86400000)) + 1} day(s).</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setShiftOpen(false)}
+                    className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+                  >
+                    ×
+                  </button>
+                </div>
+                
+                {/* Tasks List */}
+                <div className="mb-6 space-y-2 max-h-[50vh] overflow-y-auto">
+                  {affectedTasksForShift.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <p className="text-sm">No tasks to shift for this leave period.</p>
+                    </div>
+                  ) : (
+                    affectedTasksForShift.map((task, idx) => {
+                      const durationDays = Math.ceil((new Date(selectedLeave.endDate).getTime() - new Date(selectedLeave.startDate).getTime()) / (86400000)) + 1;
+                      const newDueDate = new Date(new Date(task.due_date).getTime() + durationDays * 86400000).toISOString().split('T')[0];
+                      return (
+                        <div key={idx} className="p-4 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-all">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="font-semibold text-[#121212]">{task.taskName}</div>
+                              <div className="text-xs text-gray-600 mt-1">{task.projectName} • {task.hours}h</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-xs text-gray-600 mb-1">Due Date</div>
+                              <div className="flex items-center gap-2 text-sm">
+                                <span className="text-gray-700">{task.due_date}</span>
+                                <span className="text-blue-600 font-semibold">→</span>
+                                <span className="text-blue-600 font-semibold">{newDueDate}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Footer Actions */}
+                <div className="border-t border-gray-200 pt-6 flex gap-3 justify-end">
+                  <button
+                    onClick={() => setShiftOpen(false)}
+                    className="px-6 h-11 border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 rounded-lg font-light transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => performShiftTasks(selectedLeave)}
+                    className="px-6 h-11 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-light transition-all shadow-md"
+                  >
+                    Commit
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
