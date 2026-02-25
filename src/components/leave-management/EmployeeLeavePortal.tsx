@@ -1,6 +1,21 @@
 import React, { useState, useMemo } from 'react';
-import { AlertCircle, Send, ChevronLeft, ChevronRight, CalendarDays, Plus, Trash2 } from 'lucide-react';
+import { 
+  AlertCircle, 
+  Send, 
+  ChevronLeft, 
+  ChevronRight, 
+  CalendarDays, 
+  Plus, 
+  Trash2, 
+  Info, 
+  Clock, 
+  Briefcase, 
+  Coffee, 
+  Calendar 
+} from 'lucide-react';
 import { Button } from '../ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
+import { Badge } from '../ui/badge';
 import { Task, EmployeeProfile, LeaveRequest } from './types';
 
 interface EmployeeLeavePortalProps {
@@ -37,23 +52,25 @@ export function EmployeeLeavePortal({
   onLeaveRequest,
   existingLeaves,
 }: EmployeeLeavePortalProps) {
-  // Initialize selected employee - use current user if available, otherwise first employee
+  // Initialize selected employee
   const [selectedEmployee, setSelectedEmployee] = useState<string>(() => {
-    // Check if currentUserEmail matches any employee name
     const matchingEmployee = employees.find(emp => 
       emp.name.toLowerCase() === currentUserEmail.toLowerCase()
     );
     return matchingEmployee?.name || employees[0]?.name || currentUserEmail;
   });
+  
   const [startLeaveDate, setStartLeaveDate] = useState<string>('');
   const [endLeaveDate, setEndLeaveDate] = useState<string>('');
   const [leaveReason, setLeaveReason] = useState<string>('');
   const [currentMonth, setCurrentMonth] = useState(new Date());
   
-  // Update: Store reason along with the range so each request can have a specific reason
   const [pendingLeaveRanges, setPendingLeaveRanges] = useState<Array<{start: string, end: string, reason: string}>>([]);
 
-  // Helper: generate deterministic user_id from name (keeps in sync with parent logic)
+  // Modal State
+  const [isDayModalOpen, setIsDayModalOpen] = useState(false);
+  const [selectedDayDetails, setSelectedDayDetails] = useState<{ date: string, tasks: Task[] } | null>(null);
+
   const generateUserIdFromName = (name: string): string => {
     let hash = 0;
     for (let i = 0; i < name.length; i++) {
@@ -65,65 +82,63 @@ export function EmployeeLeavePortal({
     return `00000000-0000-4000-a000-${hashStr}00000000`.substring(0, 36);
   };
 
-  // Safe date parser to prevent UTC timezone shifts
   const parseLocalMidnight = (dateStr: string) => {
     if (!dateStr) return new Date();
     const [y, m, d] = dateStr.split('T')[0].split('-').map(Number);
     return new Date(y, m - 1, d);
   };
 
-  // Check whether a specific date (yyyy-mm-dd) is blocked for the selected employee
-  const isDateBlockedByExistingLeave = (dateStr: string) => {
-    if (!existingLeaves || existingLeaves.length === 0) return false;
+  // NEW: Returns the leave object so we can check its status, ignoring 'Rejected' ones
+  const getLeaveOnDate = (dateStr: string) => {
+    if (!existingLeaves || existingLeaves.length === 0) return undefined;
     const userId = generateUserIdFromName(selectedEmployee);
     const d = parseLocalMidnight(dateStr);
 
-    return existingLeaves.some(l => {
-      if (!l.user_id) return false;
-      if (l.user_id !== userId) return false;
+    return existingLeaves.find(l => {
+      // Ignore rejected leaves so the user can re-apply for those dates
+      if (l.status === 'Rejected') return false; 
+      if (!l.user_id || l.user_id !== userId) return false;
+      
       const s = parseLocalMidnight(l.startDate);
       const e = parseLocalMidnight(l.endDate);
       e.setHours(23,59,59,999);
+      
       return d >= s && d <= e;
     });
   };
 
-  // Get all tasks by employee
   const activeTasks = useMemo(() => {
     return tasks.filter(t => !t.isCancelled);
   }, [tasks]);
 
-  // Filter tasks for selected employee first
   const userTasks = useMemo(() => {
     const emailLower = currentUserEmail ? currentUserEmail.toLowerCase() : '';
     return activeTasks.filter(t => {
-      if (!t) return false
-      const assigneeName = t.assignee || ''
-      const assigneeEmail = (t.assignee_email || '').toLowerCase()
-      if (assigneeName === selectedEmployee) return true
-      if (assigneeEmail && emailLower && assigneeEmail === emailLower) return true
-      // allow partial match fallback (case-insensitive)
-      if (assigneeName && selectedEmployee && assigneeName.toLowerCase().includes(selectedEmployee.toLowerCase())) return true
-      return false
-    })
-  }, [activeTasks, selectedEmployee]);
+      if (!t) return false;
+      const assigneeName = t.assignee || '';
+      const assigneeEmail = (t.assignee_email || '').toLowerCase();
+      if (assigneeName === selectedEmployee) return true;
+      if (assigneeEmail && emailLower && assigneeEmail === emailLower) return true;
+      if (assigneeName && selectedEmployee && assigneeName.toLowerCase().includes(selectedEmployee.toLowerCase())) return true;
+      return false;
+    });
+  }, [activeTasks, selectedEmployee, currentUserEmail]);
 
-  // Update calendar month when selected employee changes
   React.useEffect(() => {
     if (userTasks.length === 0) {
       setCurrentMonth(new Date());
       return;
     }
-    
     const taskDates = userTasks
       .map(t => parseLocalMidnight(t.due_date || t.created_date || new Date().toISOString()))
       .sort((a, b) => b.getTime() - a.getTime());
     
-    const lastDate = taskDates[0];
-    setCurrentMonth(new Date(lastDate.getFullYear(), lastDate.getMonth(), 1));
+    if (taskDates.length > 0) {
+      const lastDate = taskDates[0];
+      setCurrentMonth(new Date(lastDate.getFullYear(), lastDate.getMonth(), 1));
+    }
   }, [selectedEmployee, userTasks]);
 
-  // Generate calendar grid
   const calendarDays = useMemo(() => {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
@@ -132,19 +147,15 @@ export function EmployeeLeavePortal({
     const startingDayOfWeek = firstDay.getDay();
 
     const days: (number | null)[] = [];
-    
     for (let i = 0; i < startingDayOfWeek; i++) {
       days.push(null);
     }
-    
     for (let i = 1; i <= daysInMonth; i++) {
       days.push(i);
     }
-
     return days;
   }, [currentMonth]);
 
-  // Get tasks for a specific calendar day - only for selected employee
   const getTasksForDay = (day: number) => {
     const cellDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
     cellDate.setHours(0, 0, 0, 0);
@@ -184,7 +195,6 @@ export function EmployeeLeavePortal({
     return { tasks: tasksOnDay, color: selectedEmpColor };
   };
 
-  // Get affecting tasks for date range
   const tasksInLeaveRange = useMemo(() => {
     if (!startLeaveDate || !endLeaveDate) return [];
 
@@ -216,7 +226,6 @@ export function EmployeeLeavePortal({
         taskEnd.setHours(23, 59, 59, 999);
       }
 
-      // Check if task overlaps with leave range
       return taskStart <= rangeEnd && taskEnd >= rangeStart;
     });
   }, [startLeaveDate, endLeaveDate, userTasks, currentMonth]);
@@ -236,11 +245,11 @@ export function EmployeeLeavePortal({
 
   const handleDateClick = (day: number) => {
     const clickedDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-    // Properly format ISO date without time zone shift issues
     const dateStr = new Date(clickedDate.getTime() - (clickedDate.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
-    // If this date is blocked by an existing leave for this employee, ignore selection
-    if (isDateBlockedByExistingLeave(dateStr)) {
-      alert('These dates are already on leave for the selected employee and cannot be selected.');
+    
+    const existingLeave = getLeaveOnDate(dateStr);
+    if (existingLeave) {
+      alert(`These dates are already marked as ${existingLeave.status} and cannot be selected.`);
       return;
     }
     
@@ -258,18 +267,25 @@ export function EmployeeLeavePortal({
     }
   };
 
+  const handleViewDayDetails = (e: React.MouseEvent, day: number, dateStr: string, dayTasks: Task[]) => {
+    e.stopPropagation(); 
+    setSelectedDayDetails({ date: dateStr, tasks: dayTasks });
+    setIsDayModalOpen(true);
+  };
+
   const handleAddLeaveToQueue = () => {
     if (!startLeaveDate || !endLeaveDate || !leaveReason) {
       alert('Please select dates and provide a reason');
       return;
     }
-    // Prevent adding ranges that overlap existing leaves for this employee
     const rangeStart = parseLocalMidnight(startLeaveDate);
     const rangeEnd = parseLocalMidnight(endLeaveDate);
     rangeEnd.setHours(23,59,59,999);
 
     const userId = generateUserIdFromName(selectedEmployee);
     const overlaps = (existingLeaves || []).some(l => {
+      // Allow overlaps if the previous leave was rejected
+      if (l.status === 'Rejected') return false;
       if (l.user_id !== userId) return false;
       const s = parseLocalMidnight(l.startDate);
       const e = parseLocalMidnight(l.endDate);
@@ -278,7 +294,7 @@ export function EmployeeLeavePortal({
     });
 
     if (overlaps) {
-      alert('Selected range overlaps an existing leave for this employee and cannot be queued.');
+      alert('Selected range overlaps an existing pending or approved leave for this employee and cannot be queued.');
       return;
     }
 
@@ -303,7 +319,7 @@ export function EmployeeLeavePortal({
         employeeName: selectedEmployee,
         startDate: range.start,
         endDate: range.end,
-        reason: range.reason, // Pass specific reason for this range
+        reason: range.reason,
         affectedTasks: tasksOnLeaveDate,
         project: 'All',
       });
@@ -325,7 +341,7 @@ export function EmployeeLeavePortal({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 bg-gray-50 min-h-screen p-12 font-['Inter',sans-serif]">
-      {/* Employee Info - Display Current Employee */}
+      {/* Employee Info */}
       <div className="bg-white border border-gray-100 rounded-2xl p-8 shadow-sm hover:shadow-md transition-all">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -349,21 +365,16 @@ export function EmployeeLeavePortal({
           {selectedEmployee}'s Task Calendar
         </h3>
         <div className="bg-white border border-gray-100 rounded-2xl p-8 shadow-sm hover:shadow-md transition-all">
+          
           {/* Month Navigation */}
           <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
-            <button
-              onClick={handlePrevMonth}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors hover:scale-110 transform"
-            >
+            <button onClick={handlePrevMonth} className="p-2 hover:bg-gray-100 rounded-lg transition-colors hover:scale-110 transform">
               <ChevronLeft className="w-6 h-6 text-blue-600 font-light" />
             </button>
             <h3 className="font-light text-xl text-gray-900 min-w-[240px] text-center">
               {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
             </h3>
-            <button
-              onClick={handleNextMonth}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors hover:scale-110 transform"
-            >
+            <button onClick={handleNextMonth} className="p-2 hover:bg-gray-100 rounded-lg transition-colors hover:scale-110 transform">
               <ChevronRight className="w-6 h-6 text-blue-600 font-light" />
             </button>
           </div>
@@ -388,7 +399,12 @@ export function EmployeeLeavePortal({
               const isInRange = isDateInRange(day);
               const isRangeStart = dateStr === startLeaveDate;
               const isRangeEnd = dateStr === endLeaveDate;
-              const isBlocked = isDateBlockedByExistingLeave(dateStr);
+              
+              // NEW: Get the existing leave to determine status
+              const existingLeave = getLeaveOnDate(dateStr);
+              const isBlocked = !!existingLeave;
+              const isPending = existingLeave?.status === 'Pending';
+
               const dayTasksData = getTasksForDay(day);
               const dayTasks = dayTasksData.tasks;
               const isToday = new Date().toDateString() === new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day).toDateString();
@@ -400,7 +416,7 @@ export function EmployeeLeavePortal({
                   key={day}
                   onClick={() => handleDateClick(day)}
                   disabled={isBlocked}
-                  className={`h-24 rounded-lg transition-all relative group flex flex-col items-center justify-start p-2 border hover:scale-105 transform ${isBlocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${
+                  className={`h-24 rounded-lg transition-all relative group flex flex-col items-center justify-start p-2 border hover:scale-105 transform ${isBlocked ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'} ${
                     isRangeStart || isRangeEnd
                       ? 'bg-blue-600 text-white border-blue-700 shadow-md'
                       : isInRange
@@ -416,26 +432,40 @@ export function EmployeeLeavePortal({
                     {day}
                   </span>
                   
-                  {/* Task count - PROMINENT DISPLAY */}
-                  {dayTasks.length > 0 && (
-                    <div className={`w-full text-center mb-1 px-1 py-0.5 rounded text-xs font-bold ${
-                      (isRangeStart || isRangeEnd) ? 'bg-yellow-300 text-yellow-900' : 
-                      isInRange ? 'bg-blue-300 text-blue-900' : 
-                      'bg-indigo-200 text-indigo-800'
-                    }`}>
-                      📍 {dayTasks.length} task{dayTasks.length > 1 ? 's' : ''}
+                  {/* Task count & Info Button */}
+                  {dayTasks.length > 0 && !isBlocked && (
+                    <div className="flex w-full items-center justify-between px-1">
+                      <div className={`text-center px-1 py-0.5 rounded text-[10px] font-bold ${
+                        (isRangeStart || isRangeEnd) ? 'bg-yellow-300 text-yellow-900' : 
+                        isInRange ? 'bg-blue-300 text-blue-900' : 
+                        'bg-indigo-200 text-indigo-800'
+                      }`}>
+                        📍 {dayTasks.length} task{dayTasks.length > 1 ? 's' : ''}
+                      </div>
+                      
+                      <div 
+                        onClick={(e) => handleViewDayDetails(e, day, dateStr, dayTasks)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer p-1 rounded hover:bg-black/10"
+                        title="View Day Tasks"
+                      >
+                        <Info className={`w-4 h-4 ${(isRangeStart || isRangeEnd) ? 'text-white' : 'text-blue-600'}`} />
+                      </div>
                     </div>
                   )}
                   
-                  {/* Blocked indicator */}
-                  {isBlocked && (
-                    <div className="absolute inset-0 bg-green-50/60 flex items-center justify-center rounded-lg pointer-events-none flex-col">
-                      <span className="text-xs text-green-700 font-semibold">Leave</span>
-                      <span className="text-[9px] text-green-600">Approved</span>
+                  {/* DYNAMIC LEAVE INDICATOR */}
+                  {isBlocked && existingLeave && (
+                    <div className={`absolute inset-0 flex items-center justify-center rounded-lg pointer-events-none flex-col backdrop-blur-[1px] ${
+                      isPending ? 'bg-amber-100/80 border border-amber-200' : 'bg-green-50/80 border border-green-200'
+                    }`}>
+                      <span className={`text-xs font-semibold ${isPending ? 'text-amber-800' : 'text-green-700'}`}>Leave</span>
+                      <span className={`text-[10px] font-medium uppercase tracking-wider ${isPending ? 'text-amber-600' : 'text-green-600'}`}>
+                        {existingLeave.status}
+                      </span>
                     </div>
                   )}
 
-                  {isToday && !(isRangeStart || isRangeEnd || isInRange) && (
+                  {isToday && !(isRangeStart || isRangeEnd || isInRange || isBlocked) && (
                     <span className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full"></span>
                   )}
                 </button>
@@ -493,7 +523,6 @@ export function EmployeeLeavePortal({
           <h3 className="text-lg font-light text-gray-900">New Leave Request</h3>
           
           <div className="space-y-3 bg-white border border-gray-100 rounded-2xl p-6">
-            {/* Date Range Display */}
             <div className="space-y-2 text-sm">
               <div>
                 <label className="text-xs font-light text-gray-600 uppercase">Start Date</label>
@@ -521,7 +550,6 @@ export function EmployeeLeavePortal({
               />
             </div>
 
-            {/* Impact Summary */}
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-2 text-xs">
               <div className="flex justify-between">
                 <span className="text-gray-600">Tasks Affected:</span>
@@ -533,10 +561,9 @@ export function EmployeeLeavePortal({
               </div>
             </div>
 
-            {/* Shift Preview - Show before/after dates */}
             {startLeaveDate && tasksOnLeaveDate.length > 0 && (
               <div className="border border-amber-200 bg-amber-50 rounded-lg p-3 text-xs">
-                <div className="font-bold text-amber-900 mb-2">📋 Shift Preview (If Approved):</div>
+                <div className="font-bold text-amber-900 mb-2">📋 Shift Preview:</div>
                 <div className="space-y-1 max-h-32 overflow-y-auto">
                   {tasksOnLeaveDate.slice(0, 5).map(task => {
                     const durationDays = Math.ceil((new Date(endLeaveDate).getTime() - new Date(startLeaveDate).getTime()) / (86400000)) + 1;
@@ -560,7 +587,6 @@ export function EmployeeLeavePortal({
               </div>
             )}
 
-            {/* Add to Queue Button */}
             <Button
               type="button"
               onClick={handleAddLeaveToQueue}
@@ -568,7 +594,7 @@ export function EmployeeLeavePortal({
               className="w-full bg-blue-600 hover:bg-blue-700 text-white border-0 gap-2 disabled:opacity-50 disabled:cursor-not-allowed font-light"
             >
               <Plus className="w-4 h-4" />
-              Apply for Leave
+              Add Request
             </Button>
           </div>
         </div>
@@ -576,7 +602,6 @@ export function EmployeeLeavePortal({
         {/* Queued Leaves */}
         <div className="space-y-3">
           <h3 className="text-lg font-light text-gray-900">Queued Requests ({pendingLeaveRanges.length})</h3>
-          
           <div className="bg-white border border-gray-100 rounded-2xl p-6 h-[300px] overflow-y-auto shadow-sm space-y-3">
             {pendingLeaveRanges.length > 0 ? (
               <>
@@ -589,12 +614,7 @@ export function EmployeeLeavePortal({
                           {new Date(range.start).toLocaleDateString('en-US', {month: 'short', day: 'numeric', timeZone: 'UTC'})} → {new Date(range.end).toLocaleDateString('en-US', {month: 'short', day: 'numeric', timeZone: 'UTC'})}
                         </p>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveLeaveRange(idx)}
-                        className="text-red-500 hover:bg-red-50 p-1"
-                      >
+                      <Button variant="ghost" size="sm" onClick={() => handleRemoveLeaveRange(idx)} className="text-red-500 hover:bg-red-50 p-1">
                         <Trash2 className="w-3 h-3" />
                       </Button>
                     </div>
@@ -609,7 +629,6 @@ export function EmployeeLeavePortal({
             )}
           </div>
 
-          {/* Submit All Button */}
           {pendingLeaveRanges.length > 0 && (
             <Button
               onClick={handleSubmitAllLeaves}
@@ -620,41 +639,103 @@ export function EmployeeLeavePortal({
             </Button>
           )}
         </div>
+      </div>
 
-        {/* My Submitted Requests (brief) */}
-        <div className="space-y-3">
-          <h3 className="text-lg font-light text-gray-900">My Requests</h3>
-          <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm space-y-2 text-xs">
-            {existingLeaves ? (
-              (() => {
-                const myId = generateUserIdFromName(selectedEmployee);
-                const myLeaves = existingLeaves.filter(l => l.user_id === myId).slice(0,5);
-                if (myLeaves.length === 0) return <p className="text-gray-500">No submitted requests</p>;
-                return (
-                  <ul className="space-y-2">
-                    {myLeaves.map(l => (
-                      <li key={l.id} className="p-2 rounded border border-gray-100">
-                        <div className="flex justify-between">
-                          <div>
-                            <div className="font-medium">{l.startDate} → {l.endDate}</div>
-                            <div className="text-gray-500">{l.reason}</div>
-                          </div>
-                          <div className="text-right">
-                            <div className="font-semibold">{l.status}</div>
-                            <div className="text-gray-400 text-[11px]">{l.history && l.history.length ? new Date(l.history[l.history.length-1].ts).toLocaleDateString() : ''}</div>
-                          </div>
+      {/* --- PREMIUM CALENDAR DAY DETAILS MODAL --- */}
+      <Dialog open={isDayModalOpen} onOpenChange={setIsDayModalOpen}>
+        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-0 shadow-2xl rounded-2xl">
+          
+          {/* Custom Edge-to-Edge Header */}
+          <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-6 text-white relative">
+            <DialogHeader className="sr-only">
+              <DialogTitle>Tasks for {selectedDayDetails?.date}</DialogTitle>
+              <DialogDescription>Review your tasks for the selected date.</DialogDescription>
+            </DialogHeader>
+
+            <div className="flex items-center justify-between relative z-10">
+              <h2 className="text-2xl font-light tracking-tight flex items-center gap-2">
+                <Calendar className="w-6 h-6 opacity-80" />
+                {selectedDayDetails?.date ? new Date(selectedDayDetails.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', timeZone: 'UTC' }) : ''}
+              </h2>
+              {selectedDayDetails && selectedDayDetails.tasks.length > 0 && (
+                <div className="bg-white/20 px-3 py-1 rounded-full text-sm font-medium backdrop-blur-md shadow-sm border border-white/10">
+                  {selectedDayDetails.tasks.reduce((sum, t) => sum + t.hours, 0)}h Total
+                </div>
+              )}
+            </div>
+            <p className="text-blue-100 text-sm mt-2 font-light relative z-10">
+              {selectedDayDetails?.tasks.length || 0} active task{(selectedDayDetails?.tasks.length !== 1) ? 's' : ''} scheduled for this day
+            </p>
+            
+            {/* Decorative background element */}
+            <div className="absolute -bottom-12 -right-4 opacity-10 text-white pointer-events-none">
+               <CalendarDays className="w-32 h-32" />
+            </div>
+          </div>
+          
+          {/* Content Body */}
+          <div className="p-6 max-h-[60vh] overflow-y-auto bg-[#FAFAFA]">
+            {selectedDayDetails && selectedDayDetails.tasks.length > 0 ? (
+              <div className="space-y-4">
+                {selectedDayDetails.tasks.map(task => {
+                  const isDueToday = task.due_date === selectedDayDetails.date;
+                  
+                  return (
+                    <div key={task.id} className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm hover:shadow-md hover:border-blue-100 transition-all group relative overflow-hidden">
+                      {/* Left accent border to indicate priority/due state */}
+                      <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${isDueToday ? 'bg-orange-400' : 'bg-blue-400 group-hover:bg-blue-500 transition-colors'}`}></div>
+                      
+                      <div className="flex justify-between items-start mb-3 pl-1">
+                        <Badge variant="secondary" className="bg-slate-100 text-slate-600 text-xs font-medium px-2 py-0.5 rounded flex items-center gap-1.5 border-0">
+                          <Briefcase className="w-3 h-3 opacity-70" />
+                          {task.projectName}
+                        </Badge>
+                        <div className="flex items-center gap-1 text-xs font-medium text-slate-500 bg-slate-50 px-2 py-1 rounded-md border border-slate-100">
+                          <Clock className="w-3.5 h-3.5 text-blue-500" />
+                          {task.hours}h
                         </div>
-                      </li>
-                    ))}
-                  </ul>
-                );
-              })()
+                      </div>
+                      
+                      <h4 className="font-medium text-gray-900 text-[15px] leading-snug mb-4 pl-1 group-hover:text-blue-700 transition-colors">
+                        {task.taskName}
+                      </h4>
+                      
+                      <div className="flex items-center gap-6 text-xs pl-1 border-t border-gray-50 pt-3">
+                        <div className="flex flex-col gap-1">
+                          <span className="text-slate-400 font-light uppercase text-[9px] tracking-wider">Started</span>
+                          <span className="text-slate-700 font-medium">{task.created_date}</span>
+                        </div>
+                        <div className="w-px h-6 bg-slate-200"></div>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-slate-400 font-light uppercase text-[9px] tracking-wider">Deadline</span>
+                          <span className={`font-medium ${isDueToday ? 'text-orange-600' : 'text-slate-700'}`}>
+                            {task.due_date} {isDueToday && '(Today)'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             ) : (
-              <p className="text-gray-500">No submitted requests</p>
+              <div className="text-center py-12 flex flex-col items-center justify-center bg-white rounded-xl border border-dashed border-gray-200">
+                <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4">
+                  <Coffee className="w-8 h-8 text-blue-300" />
+                </div>
+                <h4 className="text-gray-900 font-medium mb-1">Schedule is clear</h4>
+                <p className="text-sm text-gray-500 font-light">No tasks are scheduled for this day.</p>
+              </div>
             )}
           </div>
-        </div>
-      </div>
+          
+          {/* Action Footer */}
+          <div className="p-4 bg-white border-t border-gray-100 flex justify-end">
+            <Button variant="outline" onClick={() => setIsDayModalOpen(false)} className="text-slate-600 hover:bg-slate-50 border-slate-200">
+              Close Preview
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
