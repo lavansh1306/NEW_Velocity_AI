@@ -66,7 +66,7 @@ interface ManagerGanttProps {
 
 export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = true, jiraIssues: externalJiraIssues }: ManagerGanttProps) {
   const { addToast } = useToast()
-  const [zoom, setZoom] = useState(1.6)
+  const zoom = 1 // Fixed zoom level
   const [selectedTask, setSelectedTask] = useState<TaskWithDates | null>(null)
   const [tasks, setTasks] = useState<Issue[]>(externalTasks)
   const [loading, setLoading] = useState(false)
@@ -374,24 +374,6 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-gray-900 mb-4">All Projects — Employee Timeline</h2>
         <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-4 text-sm text-gray-600 flex-wrap">
-            <div>
-              Timeline: <strong>{minDate.toLocaleString(undefined, { month: 'short', year: 'numeric' })}</strong> — <strong>{maxDate.toLocaleString(undefined, { month: 'short', year: 'numeric' })}</strong>
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="text-xs font-medium">Zoom:</label>
-              <input
-                type="range"
-                min="0.5"
-                max="3"
-                step="0.1"
-                value={zoom}
-                onChange={(e) => setZoom(Number(e.target.value))}
-                className="w-32 h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-blue-600"
-              />
-            </div>
-          </div>
-
           {/* Project Color Legend */}
           <div className="flex flex-wrap gap-3">
             {allProjects.map((projectKey) => {
@@ -416,105 +398,94 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
         </div>
       </div>
 
-      <div className="overflow-x-auto border border-[#E7E5E4] rounded-xl bg-white">
-        <div className="min-w-max" ref={containerRef}>
-          {/* Header with date markers */}
-          <div className="flex border-b border-[#E7E5E4] bg-[#F5F5F4] sticky top-0">
-            <div className="w-56 p-3 font-medium bg-[#F5F5F4] border-r border-[#E7E5E4] flex-shrink-0"></div>
-            {/* Header columns */}
-            <div className="flex flex-shrink-0" style={{ width: `${totalUnits * cellWidth}px` }}>
-              {dateMarkers.map((date, idx) => {
-                let displayText = ''
-                let dayName = ''
-                let isWeekend = false
-                
-                // Get actual day of week for this specific date
-                const dayOfWeek = date.getDay()
-                isWeekend = dayOfWeek === 0 || dayOfWeek === 6
-
-                const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-                dayName = dayNames[dayOfWeek]
-
-                displayText = formatDate(date)
-                return (
-                  <div
-                    key={idx}
-                    className={`border-r border-[#E7E5E4] text-xs text-[#78716C] flex flex-col items-center justify-center font-medium h-12 ${isWeekend ? 'bg-[#F5F5F4]' : 'bg-white'}`}
-                    style={{ width: `${cellWidth}px` }}
-                  >
-                    <div className="font-bold text-[#1C1917]">{dayName}</div>
-                    <div className="opacity-60 text-xs">{displayText}</div>
-                  </div>
-                )
-              })}
+      <div className="border border-[#E7E5E4] rounded-xl bg-white overflow-hidden">
+        <div className="flex">
+          {/* Fixed left panel for employee names */}
+          <div className="w-56 flex-shrink-0 border-r border-[#E7E5E4] overflow-hidden">
+            {/* Header - empty space for alignment */}
+            <div className="h-[50px] bg-[#F5F5F4] border-b border-[#E7E5E4] flex items-center justify-center font-medium text-xs text-[#78716C]">
+              Employees
             </div>
+            
+            {/* Employee names - always visible */}
+            {assigneeRows.map((assignee, assigneeIdx) => (
+              <div
+                key={assignee.assignee}
+                className="h-[50px] p-3 font-medium bg-white border-b border-[#E7E5E4] last:border-b-0 text-sm text-[#1C1917] flex items-center"
+                data-assignee-idx={assigneeIdx}
+              >
+                <div className="truncate">{assignee.assignee}</div>
+              </div>
+            ))}
           </div>
 
-          {/* Employee rows with tasks */}
-          {assigneeRows.map((assignee, assigneeIdx) => (
-            <div key={assignee.assignee} className="flex border-b border-[#E7E5E4] last:border-b-0" data-assignee-idx={assigneeIdx}>
-              {/* Employee name column */}
-              <div className="w-56 p-3 font-medium bg-white border-r border-[#E7E5E4] flex-shrink-0 text-sm text-[#1C1917]">{assignee.assignee}</div>
+          {/* Scrollable timeline area */}
+          <div className="flex-1 overflow-x-auto">
+            <div className="min-w-max" ref={containerRef}>
+              {/* Employee rows with tasks */}
+              {assigneeRows.map((assignee, assigneeIdx) => (
+                <div key={assignee.assignee} className="flex border-b border-[#E7E5E4] last:border-b-0 h-[50px]" data-assignee-idx={assigneeIdx}>
+                  {/* Timeline area */}
+                  <div
+                    className="relative flex-shrink-0"
+                    style={{ width: `${totalUnits * cellWidth}px`, height: '50px' }}
+                  >
+                    {/* Grid columns */}
+                    <div className="absolute inset-0 flex">
+                      {Array.from({ length: totalUnits }).map((_, idx) => {
+                        const cellDate = new Date(minDate.getTime() + idx * 24 * 60 * 60 * 1000)
+                        const dayOfWeek = cellDate.getDay()
+                        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
 
-              {/* Timeline area */}
-              <div
-                className="relative flex-shrink-0"
-                style={{ width: `${totalUnits * cellWidth}px`, height: '50px' }}
-              >
-                {/* Grid columns */}
-                <div className="absolute inset-0 flex">
-                  {Array.from({ length: totalUnits }).map((_, idx) => {
-                  const cellDate = new Date(minDate.getTime() + idx * 24 * 60 * 60 * 1000)
-                  const dayOfWeek = cellDate.getDay()
-                  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
-
-                  return (
-                    <div
-                      key={idx}
-                      className={`border-r border-[#E7E5E4] h-full ${isWeekend ? 'bg-[#F5F5F4]' : ''}`}
-                      style={{ width: `${cellWidth}px` }}
-                    />
-                  )
-                })}
-                </div>
-
-                {/* Task bars */}
-                {assignee.tasks.map((task, tIdx) => {
-                  // Day view only
-                  const startCol = Math.round((task._start.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24))
-                  const spanCols = Math.max(1, Math.round((task._end.getTime() - task._start.getTime()) / (1000 * 60 * 60 * 24)) + 1)
-
-                  // Calculate task index within the project
-                  const projectTasks = assigneeRows.flatMap(row => row.tasks).filter(t => t._projectKey === task._projectKey)
-                  const taskIndexInProject = projectTasks.findIndex(t => t.key === task.key)
-                  const taskDisplay = `Task ${taskIndexInProject}`
-
-                  const leftPx = startCol * cellWidth
-                  const widthPx = spanCols * cellWidth
-                  const colors = colorMap[task._projectKey]
-
-                  return (
-                    <div
-                      key={tIdx}
-                      className={`absolute rounded-xl shadow-sm bg-gradient-to-r ${colors.from} ${colors.to} text-[#1C1917] text-xs font-medium hover:opacity-80 overflow-hidden cursor-pointer hover:ring-2 hover:ring-[#2DD4BF] hover:ring-offset-1 transition-all border border-[#E7E5E4]/50`}
-                      style={{
-                        left: `${leftPx}px`,
-                        width: `${widthPx}px`,
-                        top: '9px',
-                        height: '32px'
-                      }}
-                      title={`${task.key}: ${task.summary}`}
-                      onClick={() => setSelectedTask(task)}
-                    >
-                      <div className="px-2 py-1 truncate h-full flex items-center">
-                        <span className="truncate">{taskDisplay}</span>
-                      </div>
+                        return (
+                          <div
+                            key={idx}
+                            className={`border-r border-[#E7E5E4] h-full ${isWeekend ? 'bg-[#F5F5F4]' : ''}`}
+                            style={{ width: `${cellWidth}px` }}
+                          />
+                        )
+                      })}
                     </div>
-                  )
-                })}
-              </div>
+
+                    {/* Task bars */}
+                    {assignee.tasks.map((task, tIdx) => {
+                      // Day view only
+                      const startCol = Math.round((task._start.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24))
+                      const spanCols = Math.max(1, Math.round((task._end.getTime() - task._start.getTime()) / (1000 * 60 * 60 * 24)) + 1)
+
+                      // Calculate task index within the project
+                      const projectTasks = assigneeRows.flatMap(row => row.tasks).filter(t => t._projectKey === task._projectKey)
+                      const taskIndexInProject = projectTasks.findIndex(t => t.key === task.key)
+                      const taskDisplay = `Task ${taskIndexInProject}`
+
+                      const leftPx = startCol * cellWidth
+                      const widthPx = spanCols * cellWidth
+                      const colors = colorMap[task._projectKey]
+
+                      return (
+                        <div
+                          key={tIdx}
+                          className={`absolute rounded-xl shadow-sm bg-gradient-to-r ${colors.from} ${colors.to} text-[#1C1917] text-xs font-medium hover:opacity-80 overflow-hidden cursor-pointer hover:ring-2 hover:ring-[#2DD4BF] hover:ring-offset-1 transition-all border border-[#E7E5E4]/50`}
+                          style={{
+                            left: `${leftPx}px`,
+                            width: `${widthPx}px`,
+                            top: '9px',
+                            height: '32px'
+                          }}
+                          title={`${task.key}: ${task.summary}`}
+                          onClick={() => setSelectedTask(task)}
+                        >
+                          <div className="px-2 py-1 truncate h-full flex items-center">
+                            <span className="truncate">{taskDisplay}</span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
         </div>
       </div>
 
