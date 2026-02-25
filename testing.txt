@@ -1,2 +1,0 @@
-https://www.joinvelocity.co/api/jira/auth/callback
-https://velocitydevelopment.vercel.app/api/jira/auth/callback

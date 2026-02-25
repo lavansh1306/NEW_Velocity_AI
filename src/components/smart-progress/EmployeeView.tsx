@@ -28,36 +28,36 @@ export const EmployeeView: React.FC<EmployeeViewProps> = ({ tasks, currentUser, 
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
       {myTasks.map(task => (
-        <div key={task.id} className="bg-white border border-[#E7E5E4] p-8 rounded-2xl shadow-sm">
+        <div key={task.id} className="bg-white border border-slate-200 p-6 rounded-xl shadow-sm">
           <div className="flex justify-between items-start mb-6">
             <div>
-              <h3 className="font-light text-[#1C1917] text-lg">{task.title}</h3>
-              <div className="flex flex-wrap gap-2 mt-3">
+              <h3 className="font-bold text-gray-900 text-lg">{task.title}</h3>
+              <div className="flex flex-wrap gap-2 mt-2">
                 {task.scope.map((item) => (
-                  <span key={item.id} className={`text-xs px-2 py-1 rounded border font-light ${
+                  <span key={item.id} className={`text-xs px-2 py-1 rounded border ${
                     item.isCompleted 
-                    ? 'bg-[#2DD4BF]/10 border-[#2DD4BF]/30 text-[#0F766E]' 
-                    : 'bg-[#E7E5E4]/50 border-[#E7E5E4] text-[#78716C]'
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-700 font-medium' 
+                    : 'bg-slate-50 border-slate-200 text-slate-500'
                   }`}>
                     {item.name} ({item.weight}%)
                   </span>
                 ))}
               </div>
             </div>
-            <Button onClick={() => setSelectedTask(task)} className="bg-[#2DD4BF] text-[#1C1917] shadow-md hover:bg-[#1CC5B3]">
+            <Button onClick={() => setSelectedTask(task)} className="bg-indigo-600 text-white shadow-lg shadow-indigo-200">
               <Zap className="w-4 h-4 mr-2" /> Upload EOD
             </Button>
           </div>
           
           <div className="relative pt-1">
              <div className="flex mb-2 items-center justify-between">
-               <span className="text-xs font-light inline-block text-[#78716C] uppercase tracking-wide">Current Progress</span>
-               <span className="text-xs font-light inline-block text-[#2DD4BF]">{task.progress}%</span>
+               <span className="text-xs font-semibold inline-block text-indigo-600 uppercase">Current Progress</span>
+               <span className="text-xs font-bold inline-block text-indigo-600">{task.progress}%</span>
              </div>
-             <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-[#E7E5E4]">
-                <div style={{ width: `${task.progress}%` }} className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-[#2DD4BF] transition-all duration-1000"></div>
+             <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-indigo-100">
+                <div style={{ width: `${task.progress}%` }} className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-indigo-600 transition-all duration-1000"></div>
              </div>
           </div>
         </div>
@@ -66,17 +66,17 @@ export const EmployeeView: React.FC<EmployeeViewProps> = ({ tasks, currentUser, 
       <Dialog open={!!selectedTask} onOpenChange={(open) => !open && setSelectedTask(null)}>
         <DialogContent>
             <DialogHeader>
-                <DialogTitle className="text-[#1C1917]">Submit EOD Report</DialogTitle>
-                <DialogDescription className="text-[#78716C]">The AI will check your report against the weighted milestones.</DialogDescription>
+                <DialogTitle>Submit EOD Report</DialogTitle>
+                <DialogDescription>The AI will check your report against the weighted milestones.</DialogDescription>
             </DialogHeader>
             <textarea 
                 value={reportContent} 
                 onChange={e => setReportContent(e.target.value)} 
-                className="w-full h-40 p-3 border border-[#E7E5E4] rounded-lg font-mono text-sm focus:border-[#2DD4BF] focus:ring-1 focus:ring-[#2DD4BF] focus:outline-none"
+                className="w-full h-40 p-3 border rounded-lg font-mono text-sm"
                 placeholder="e.g. I have completed the Backend Integration..."
             />
             <DialogFooter>
-                <Button onClick={handleSubmit} disabled={isAnalyzing} className="bg-[#2DD4BF] text-[#1C1917] hover:bg-[#1CC5B3]">
+                <Button onClick={handleSubmit} disabled={isAnalyzing}>
                     {isAnalyzing ? <Loader2 className="animate-spin w-4 h-4"/> : "Verify"}
                 </Button>
             </DialogFooter>
