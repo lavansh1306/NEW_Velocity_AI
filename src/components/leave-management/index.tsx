@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Zap, AlertCircle, Database, RefreshCw, CalendarDays, Clock, Briefcase } from 'lucide-react'; 
+import { Users, Zap, AlertCircle, Database, RefreshCw, CalendarDays, Clock, Briefcase, ChevronLeft, ChevronRight } from 'lucide-react'; 
 import { Button } from '../ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '../ui/badge';
@@ -40,6 +40,9 @@ export default function LeaveManagementTab() {
   const [affectedTasksForShift, setAffectedTasksForShift] = useState<Task[]>([]);
   const [predictions, setPredictions] = useState<any[]>([]);
   const [expandedLeaves, setExpandedLeaves] = useState<Record<string, boolean>>({});
+
+  // NEW: Movable Calendar State for Manager View
+  const [overviewStartDate, setOverviewStartDate] = useState(new Date());
 
   // ------------------------------------------------------------------
   // 1. SUPABASE INTEGRATION: DIRECT FETCH WITH ROBUST ERROR HANDLING
@@ -400,13 +403,37 @@ export default function LeaveManagementTab() {
     }
   };
 
-  const getNext30Days = () => {
-    const arr: { date: string; leaves: LeaveRequest[] }[] = [];
+  // ------------------------------------------------------------------
+  // MOVABLE MANAGER CALENDAR LOGIC
+  // ------------------------------------------------------------------
+  const handlePrevOverview = () => {
+    const newDate = new Date(overviewStartDate);
+    newDate.setDate(newDate.getDate() - 14); // Move back 2 weeks
+    setOverviewStartDate(newDate);
+  };
+
+  const handleNextOverview = () => {
+    const newDate = new Date(overviewStartDate);
+    newDate.setDate(newDate.getDate() + 14); // Move forward 2 weeks
+    setOverviewStartDate(newDate);
+  };
+
+  const handleResetOverview = () => {
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    setOverviewStartDate(today);
+  };
+
+  const getOverviewDays = () => {
+    const arr: { date: string; leaves: LeaveRequest[] }[] = [];
+    const iteratorDate = new Date(overviewStartDate);
+    iteratorDate.setHours(0, 0, 0, 0);
+
     for (let i = 0; i < 30; i++) {
-      const d = new Date(today);
-      d.setDate(today.getDate() + i);
+      const d = new Date(iteratorDate);
+      d.setDate(iteratorDate.getDate() + i);
       const dateStr = d.toISOString().split('T')[0];
+      
       const dayLeaves = leaves.filter(l => {
         if (l.status !== 'Approved') return false;
         const s = new Date(l.startDate); s.setHours(0,0,0,0);
@@ -475,16 +502,58 @@ export default function LeaveManagementTab() {
           <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-100 rounded-2xl p-6 shadow-sm">
             <h3 className="text-xl font-medium text-slate-800 mb-6 flex items-center gap-2">📋 Team Leave Requests</h3>
             
-            {/* Calendar Overview */}
+            {/* Movable Calendar Overview */}
             <div className="mb-6 p-4 bg-white border border-slate-200 rounded-xl shadow-sm">
-              <h4 className="text-sm font-semibold text-slate-700 mb-3">30-Day Team Absence Overview</h4>
+              <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
+                <div>
+                  <h4 className="text-sm font-semibold text-slate-800">Team Absence Overview</h4>
+                  <p className="text-xs text-slate-500 font-light mt-0.5">
+                    Showing 30 days starting from {overviewStartDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-lg border border-slate-200 shadow-inner">
+                  <Button variant="ghost" size="sm" className="h-7 px-2 hover:bg-white hover:shadow-sm" onClick={handlePrevOverview}>
+                    <ChevronLeft className="w-4 h-4 text-slate-600" />
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-7 px-3 text-xs font-medium text-slate-600 hover:bg-white hover:shadow-sm" onClick={handleResetOverview}>
+                    Today
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-7 px-2 hover:bg-white hover:shadow-sm" onClick={handleNextOverview}>
+                    <ChevronRight className="w-4 h-4 text-slate-600" />
+                  </Button>
+                </div>
+              </div>
+
               <div className="grid grid-cols-10 md:grid-cols-15 gap-1.5 text-[10px]">
-                {getNext30Days().map(day => (
-                  <div key={day.date} title={`${day.date} — ${day.leaves.length} approved leave(s)`} className={`h-8 rounded flex flex-col items-center justify-center transition-colors ${day.leaves.length > 0 ? 'bg-red-50 border border-red-200 text-red-700 cursor-help' : 'bg-slate-50 border border-slate-100 text-slate-400'}`}>
-                    <span className="font-semibold">{new Date(day.date).getDate()}</span>
-                    {day.leaves.length > 0 && <span className="w-1.5 h-1.5 rounded-full bg-red-400 mt-0.5"></span>}
-                  </div>
-                ))}
+                {getOverviewDays().map(day => {
+                  const dateObj = new Date(day.date);
+                  const isToday = new Date().toDateString() === dateObj.toDateString();
+                  
+                  return (
+                    <div 
+                      key={day.date} 
+                      title={`${day.date} — ${day.leaves.length} approved leave(s)`} 
+                      className={`h-9 rounded flex flex-col items-center justify-center transition-colors border ${
+                        day.leaves.length > 0 
+                          ? 'bg-red-50 border-red-200 text-red-700 cursor-help shadow-sm' 
+                          : isToday 
+                            ? 'bg-blue-50 border-blue-300 text-blue-800 ring-1 ring-blue-300 shadow-sm' 
+                            : 'bg-slate-50 border-slate-100 text-slate-500'
+                      }`}
+                    >
+                      <span className="font-semibold">{dateObj.getDate()}</span>
+                      <div className="flex gap-0.5 mt-0.5">
+                        {day.leaves.length > 0 ? (
+                          day.leaves.slice(0,3).map((_, i) => (
+                            <span key={i} className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                          ))
+                        ) : isToday ? (
+                          <span className="text-[8px] font-bold text-blue-600 tracking-tighter">TDY</span>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -528,86 +597,41 @@ export default function LeaveManagementTab() {
                           </div>
                         </div>
 
-                        <div className="flex gap-2 items-center flex-wrap justify-end">
+                        <div className="flex gap-2 items-center">
                           <Button size="sm" variant="ghost" onClick={() => setExpandedLeaves(prev => ({ ...prev, [leave.id]: !prev[leave.id] }))}>
                             {isExpanded ? 'Hide Impact' : `View Impact (${affectedTasks.length} tasks)`}
                           </Button>
                           
-                          {/* THIS CONDITION FIXES ISSUE 1: Buttons ONLY show when Pending */}
                           {leave.status === 'Pending' && (
-                            <div className="flex gap-2 border-l pl-2 border-slate-200 flex-wrap justify-end">
+                            <div className="flex gap-2 border-l pl-2 border-slate-200">
                               <Button size="sm" variant="outline" className="text-red-600 hover:bg-red-50" onClick={() => handleRejectLeave(leave)}>Reject</Button>
                               <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => handleApproveLeave(leave)}>Approve Only</Button>
                               <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm" onClick={() => handleShiftTasks(leave)}>
                                 <Zap className="w-3.5 h-3.5 mr-1.5" /> Approve & Shift
-                              </Button>
-                              <Button size="sm" variant="outline" className="border-purple-200 text-purple-700 hover:bg-purple-50" onClick={() => { setSelectedLeave(leave); setRedeployOpen(true); }}>
-                                Approve & Redeploy
                               </Button>
                             </div>
                           )}
                         </div>
                       </div>
 
-                      {/* THIS FIXES ISSUE 2: Enhanced Preview inside Manager view */}
                       {isExpanded && (
                         <div className="mt-4 pt-4 border-t border-slate-100">
                           <h5 className="text-sm font-semibold text-slate-700 mb-3">Tasks overlapping with this leave:</h5>
                           {affectedTasks.length > 0 ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              {affectedTasks.map(t => {
-                                // Calculate shifted date preview
-                                const durationDays = Math.ceil((new Date(leave.endDate).getTime() - new Date(leave.startDate).getTime()) / (86400000)) + 1;
-                                const newDue = new Date(new Date(t.due_date).getTime() + durationDays * 86400000).toISOString().split('T')[0];
-                                
-                                return (
-                                  <div key={t.id} className="p-3 bg-white border border-slate-200 rounded-lg shadow-sm flex flex-col justify-between items-start group">
-                                    <div className="flex justify-between w-full mb-2">
-                                      <Badge variant="secondary" className="bg-slate-100 text-slate-600 text-[10px] font-medium px-2 py-0.5 rounded border-0">
-                                        {t.projectName}
-                                      </Badge>
-                                      <span className="text-xs text-slate-500 font-medium">{t.hours}h</span>
-                                    </div>
-                                    <p className="text-sm font-medium text-slate-800 line-clamp-1 mb-3">{t.taskName}</p>
-                                    
-                                    {/* Show the preview of the shift ONLY if pending */}
-                                    {leave.status === 'Pending' ? (
-                                      <div className="flex items-center gap-2 text-xs bg-amber-50 px-2 py-1 rounded w-full border border-amber-100/50">
-                                        <Clock className="w-3 h-3 text-amber-500" />
-                                        <span className="text-slate-500 line-through decoration-slate-400">{t.due_date}</span>
-                                        <span className="text-amber-600 font-bold">→ {newDue}</span>
-                                      </div>
-                                    ) : (
-                                      <div className="flex items-center gap-2 text-xs bg-slate-50 px-2 py-1 rounded w-full">
-                                        <Clock className="w-3 h-3 text-slate-400" />
-                                        <span className="text-slate-600 font-medium">Due: {t.due_date}</span>
-                                      </div>
-                                    )}
+                              {affectedTasks.map(t => (
+                                <div key={t.id} className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex justify-between items-start">
+                                  <div>
+                                    <p className="text-sm font-medium text-slate-800 line-clamp-1">{t.taskName}</p>
+                                    <p className="text-xs text-slate-500 mt-1">Due: {t.due_date}</p>
                                   </div>
-                                );
-                              })}
+                                  <Badge variant="outline" className="bg-white">{t.hours}h</Badge>
+                                </div>
+                              ))}
                             </div>
                           ) : (
-                            <div className="p-6 bg-slate-50 rounded-xl text-center text-sm text-slate-500 border border-dashed border-slate-200">
+                            <div className="p-4 bg-slate-50 rounded-lg text-center text-sm text-slate-500">
                               No active tasks found for this employee during these dates.
-                            </div>
-                          )}
-
-                          {/* Activity History Log */}
-                          {leave.history && leave.history.length > 0 && (
-                            <div className="mt-4 p-3 bg-slate-50 rounded-lg border border-slate-100">
-                              <p className="text-xs font-semibold text-slate-600 mb-2">Activity History</p>
-                              <ul className="space-y-1.5">
-                                {leave.history.slice().reverse().map((h, i) => (
-                                  <li key={i} className="text-[11px] text-slate-600 flex items-start gap-2">
-                                    <span className="text-slate-400 min-w-[120px]">{new Date(h.ts).toLocaleString()}</span>
-                                    <span>
-                                      <strong>{h.actor}</strong> {h.action === 'Approved' || h.action === 'Shifted' ? '✅' : '❌'} {h.action}
-                                      {h.details && <span className="text-slate-500 italic ml-1">({h.details})</span>}
-                                    </span>
-                                  </li>
-                                ))}
-                              </ul>
                             </div>
                           )}
                         </div>
@@ -618,7 +642,6 @@ export default function LeaveManagementTab() {
               </div>
             )}
           </div>
-          
           <CapacityAnalysis 
             employees={employees} 
             approvedLeaves={leaves.filter(l => l.status === 'Approved')} 
