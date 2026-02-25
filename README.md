@@ -33,7 +33,7 @@ The platform runs as a React SPA backed by an Express server. An external Python
 
 ---
 
-## Features
+## Featres
 
 ✔ Jira OAuth 2.0 integration with multi-tenant (multiple Atlassian Cloud sites) support  
 ✔ User authentication via email/password, Google OAuth, and Jira OAuth (Supabase Auth)  
