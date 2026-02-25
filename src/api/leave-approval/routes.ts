@@ -43,6 +43,36 @@ router.post("/approve-single", async (req: Request, res: Response) => {
 })
 
 /**
+ * POST /api/leave-approval/approve-and-shift
+ * Approve a single leave request and perform auto-shifting of affected tasks (shift-only mode)
+ */
+router.post("/approve-and-shift", async (req: Request, res: Response) => {
+  try {
+    const leave: LeaveRequest = req.body
+
+    if (!leave || !leave.id || !leave.name) {
+      return res.status(400).json({
+        error: "Invalid leave request. Required fields: id, name, startDate, endDate, reason, status",
+      })
+    }
+
+    console.log(`[LeaveApprovalAgent] Approving+Shifting leave for ${leave.name}`)
+    const result = await approveLeaveRequest(leave, { preferShiftOnly: true })
+
+    res.json({
+      success: true,
+      data: result,
+    })
+  } catch (error) {
+    console.error("[LeaveApprovalAgent] Error approving+shifting leave:", error)
+    res.status(500).json({
+      error: "Failed to approve and shift leave request",
+      details: error instanceof Error ? error.message : String(error),
+    })
+  }
+})
+
+/**
  * POST /api/leave-approval/approve-batch
  * Approves multiple leave requests with weighted scoring
  */

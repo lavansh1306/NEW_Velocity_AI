@@ -20,13 +20,12 @@ export interface Issue {
   projectId?: string
   project_key?: string
   projectKey?: string
+  projectName?: string
 }
 
 interface ColorGradient {
   from: string
   to: string
-  bg: string
-  hex: string
 }
 
 interface AssigneeRow {
@@ -40,25 +39,26 @@ interface TaskWithDates extends Issue {
   _projectKey: string
 }
 
-type ViewType = 'day' | 'week' | 'month'
-
 function formatDate(d: Date): string {
-  return d.toLocaleDateString()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  const year = d.getFullYear()
+  return `${month}/${day}/${year}`
 }
 
 const projectColors: ColorGradient[] = [
-  { from: 'from-blue-500', to: 'to-blue-600', bg: 'bg-blue-500', hex: '#3b82f6' },
-  { from: 'from-red-500', to: 'to-red-600', bg: 'bg-red-500', hex: '#ef4444' },
-  { from: 'from-green-500', to: 'to-green-600', bg: 'bg-green-500', hex: '#10b981' },
-  { from: 'from-purple-500', to: 'to-purple-600', bg: 'bg-purple-500', hex: '#a855f7' },
-  { from: 'from-yellow-500', to: 'to-yellow-600', bg: 'bg-yellow-500', hex: '#eab308' },
-  { from: 'from-pink-500', to: 'to-pink-600', bg: 'bg-pink-500', hex: '#ec4899' },
-  { from: 'from-indigo-500', to: 'to-indigo-600', bg: 'bg-indigo-500', hex: '#6366f1' },
-  { from: 'from-cyan-500', to: 'to-cyan-600', bg: 'bg-cyan-500', hex: '#06b6d4' },
-  { from: 'from-orange-500', to: 'to-orange-600', bg: 'bg-orange-500', hex: '#f97316' },
-  { from: 'from-teal-500', to: 'to-teal-600', bg: 'bg-teal-600', hex: '#14b8a6' },
-  { from: 'from-rose-500', to: 'to-rose-600', bg: 'bg-rose-500', hex: '#f43f5e' },
-  { from: 'from-emerald-500', to: 'to-emerald-600', bg: 'bg-emerald-500', hex: '#50c878' },
+  { from: 'from-blue-100', to: 'to-blue-200' },
+  { from: 'from-rose-100', to: 'to-rose-200' },
+  { from: 'from-emerald-100', to: 'to-emerald-200' },
+  { from: 'from-violet-100', to: 'to-violet-200' },
+  { from: 'from-amber-100', to: 'to-amber-200' },
+  { from: 'from-pink-100', to: 'to-pink-200' },
+  { from: 'from-indigo-100', to: 'to-indigo-200' },
+  { from: 'from-cyan-100', to: 'to-cyan-200' },
+  { from: 'from-orange-100', to: 'to-orange-200' },
+  { from: 'from-yellow-100', to: 'to-yellow-200' },
+  { from: 'from-lime-100', to: 'to-lime-200' },
+  { from: 'from-teal-100', to: 'to-teal-200' },
 ]
 
 interface ManagerGanttProps {
@@ -69,11 +69,13 @@ interface ManagerGanttProps {
 
 export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = true, jiraIssues: externalJiraIssues }: ManagerGanttProps) {
   const { addToast } = useToast()
-  const [viewType, setViewType] = useState<ViewType>('day')
   const [zoom, setZoom] = useState(1.6)
   const [selectedTask, setSelectedTask] = useState<TaskWithDates | null>(null)
   const [tasks, setTasks] = useState<Issue[]>(externalTasks)
   const [loading, setLoading] = useState(false)
+  const [selectedProject, setSelectedProject] = useState<string | null>(null)
+  const [projectNameMap, setProjectNameMap] = useState<{ [key: string]: string }>({})
+  const containerRef = React.useRef<HTMLDivElement>(null)
 
   // Use the useJiraData hook if we're fetching data and no Jira issues provided
   const jiraHookData = useJiraData()
@@ -82,30 +84,21 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
   // When jiraIssues are provided externally, use those
   useEffect(() => {
     if (externalJiraIssues && externalJiraIssues.length > 0) {
-      console.log('[ManagerGantt] Received external jiraIssues:', externalJiraIssues.length, 'issues')
-      if (externalJiraIssues.length > 0) {
-        console.log('[ManagerGantt] ===== RECEIVED ISSUES DETAIL =====')
-        externalJiraIssues.slice(0, 5).forEach((issue, idx) => {
-          console.log(`[ManagerGantt] Issue ${idx} (${issue.key}):`, {
-            summary: issue.summary,
-            start: issue.start,
-            due: issue.due,
-            created: issue.created,
-            assignee: issue.assignee,
-            hasAnyDate: !!(issue.start || issue.due || issue.created)
-          })
-        })
-      }
       // Convert Jira issues to internal Issue format
       const convertedTasks = externalJiraIssues.map(issue => ({
         ...issue,
       }))
-      console.log('[ManagerGantt] Setting tasks state with', convertedTasks.length, 'issues')
       setTasks(convertedTasks)
-      setLoading(false)
-    } else if (externalJiraIssues?.length === 0) {
-      console.log('[ManagerGantt] Received empty jiraIssues array')
-      setTasks([])
+      
+      // Build project name map from the tasks
+      const nameMap: { [key: string]: string } = {}
+      convertedTasks.forEach(task => {
+        const projectKey = task.project_key || task.projectKey || task.project || ''
+        if (projectKey && !nameMap[projectKey]) {
+          nameMap[projectKey] = task.projectName || projectKey
+        }
+      })
+      setProjectNameMap(nameMap)
       setLoading(false)
     }
   }, [externalJiraIssues])
@@ -118,6 +111,16 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
       setLoading(true)
     } else if (jiraHookData.issues.length > 0) {
       setTasks(jiraHookData.issues)
+      
+      // Build project name map from the tasks
+      const nameMap: { [key: string]: string } = {}
+      jiraHookData.issues.forEach(task => {
+        const projectKey = task.project_key || task.projectKey || task.project || ''
+        if (projectKey && !nameMap[projectKey]) {
+          nameMap[projectKey] = task.projectName || projectKey
+        }
+      })
+      setProjectNameMap(nameMap)
       setLoading(false)
     }
   }, [jiraHookData.issues, jiraHookData.loading, shouldUseFallbackFetch])
@@ -238,23 +241,6 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
 
 
   const { assigneeRows, minDate, maxDate, totalUnits, dateMarkers, colorMap, allProjects } = useMemo(() => {
-    console.log('[ManagerGantt] === PROCESSING TASKS ===')
-    console.log('[ManagerGantt] Total tasks input:', tasks.length)
-    if (tasks.length === 0) {
-      console.warn('[ManagerGantt] No tasks to process!')
-      return { assigneeRows: [], minDate: new Date(), maxDate: new Date(), totalUnits: 0, dateMarkers: [], colorMap: {}, allProjects: [] }
-    }
-    
-    // Log all tasks to see the raw data
-    console.log('[ManagerGantt] All tasks:', tasks.map(t => ({
-      key: t.key,
-      summary: t.summary,
-      start: t.start,
-      due: t.due,
-      created: t.created,
-      assignee: t.assignee
-    })))
-    
     // Helper to normalize date to UTC midnight (start of day)
     const normalizeDate = (d: Date): Date => {
       const dd = new Date(d)
@@ -277,98 +263,25 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
     const projectSet = new Set<string>()
     let min: Date | null = null
     let max: Date | null = null
-    let validTaskCount = 0
-    const skippedTasks: any[] = []
 
-    tasks.forEach((t, idx) => {
-      // Log date availability for each task
-      console.log(`[ManagerGantt] Task ${idx} (${t.key}):`, {
-        hasStart: !!t.start,
-        hasDue: !!t.due,
-        hasCreated: !!t.created,
-        start: t.start,
-        due: t.due,
-        created: t.created
-      })
-
-      // Skip tasks without any date information
-      if (!t.start && !t.due && !t.created) {
-        console.warn(`[ManagerGantt] Skipping task ${t.key} - no date fields`)
-        skippedTasks.push({ key: t.key, reason: 'no date fields' })
-        return
-      }
-
+    tasks.forEach(t => {
       const assignee = t.assignee || 'Unassigned'
       const projectKey = deriveProjectKey(t)
 
       if (!byAssignee[assignee]) byAssignee[assignee] = []
       projectSet.add(projectKey)
 
-      try {
-        const sourceStart = t.start || t.created
-        if (!sourceStart) {
-          console.warn(`[ManagerGantt] Task ${t.key} has no valid start date`)
-          skippedTasks.push({ key: t.key, reason: 'no valid start date' })
-          return
-        }
+      const sourceStart = t.start || t.created
+      const start = normalizeDate(new Date(sourceStart!))
+      let end = t.due ? normalizeDate(new Date(t.due)) : normalizeDate(new Date(sourceStart!))
 
-        const startDate = new Date(sourceStart)
-        console.log(`[ManagerGantt] Task ${t.key} start date parsed:`, sourceStart, '→', startDate)
-        
-        const start = normalizeDate(startDate)
-        if (isNaN(start.getTime())) {
-          console.warn(`[ManagerGantt] Task ${t.key} has invalid start date: ${sourceStart}`)
-          skippedTasks.push({ key: t.key, reason: `invalid start date: ${sourceStart}` })
-          return
-        }
+      if (end.getTime() < start.getTime()) end = new Date(start.getTime())
 
-        let end = t.due ? normalizeDate(new Date(t.due)) : new Date(start.getTime())
-        if (isNaN(end.getTime())) {
-          console.warn(`[ManagerGantt] Task ${t.key} has invalid due date: ${t.due}`)
-          end = new Date(start.getTime())
-        }
+      byAssignee[assignee].push({ ...t, _start: start, _end: end, _projectKey: projectKey })
 
-        if (end.getTime() < start.getTime()) {
-          console.warn(`[ManagerGantt] Task ${t.key} end before start, adjusting`)
-          end = new Date(start.getTime())
-        }
-
-        console.log(`[ManagerGantt] Task ${t.key} processed:`, {
-          assignee,
-          projectKey,
-          start: start.toISOString(),
-          end: end.toISOString()
-        })
-
-        byAssignee[assignee].push({ ...t, _start: start, _end: end, _projectKey: projectKey })
-        validTaskCount++
-
-        if (!isNaN(start.getTime())) min = min ? (start < min ? start : min) : start
-        if (!isNaN(end.getTime())) max = max ? (end > max ? end : max) : end
-      } catch (error) {
-        console.error(`[ManagerGantt] Error processing task ${t.key}:`, error)
-        skippedTasks.push({ key: t.key, reason: String(error) })
-      }
+      if (!isNaN(start.getTime())) min = min ? (start < min ? start : min) : start
+      if (!isNaN(end.getTime())) max = max ? (end > max ? end : max) : end
     })
-
-    console.log('[ManagerGantt] ===== PROCESSING SUMMARY =====')
-    console.log('[ManagerGantt] Valid tasks:', validTaskCount, 'of', tasks.length)
-    console.log('[ManagerGantt] Skipped tasks:', skippedTasks)
-    console.log('[ManagerGantt] Assignees found:', Object.keys(byAssignee))
-    console.log('[ManagerGantt] Projects found:', Array.from(projectSet))
-    console.log('[ManagerGantt] ===== DATE FIELD ANALYSIS =====')
-    const dateFieldAnalysis = tasks.map((t, idx) => ({
-      idx,
-      key: t.key,
-      hasStart: !!t.start,
-      hasDue: !!t.due,
-      hasCreated: !!t.created,
-      start: t.start?.substring(0, 10),
-      due: t.due?.substring(0, 10),
-      created: t.created?.substring(0, 10)
-    }))
-    console.table(dateFieldAnalysis)
-    console.log('[ManagerGantt] ===== END ANALYSIS =====')
 
     if (!min) min = normalizeDate(new Date())
     if (!max) max = normalizeDate(new Date())
@@ -378,25 +291,11 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
     // Extend max to 6 months after last task
     max = normalizeDate(new Date(max.getFullYear(), max.getMonth() + 6, max.getDate()))
 
-    console.log('[ManagerGantt] Timeline range:', min.toISOString(), '→', max.toISOString())
-
-    let totalUnits = 0
-    let markers: Date[] = []
-
-    if (viewType === 'day') {
-      totalUnits = Math.ceil((max.getTime() - min.getTime()) / (1000 * 60 * 60 * 24)) + 1
-      for (let i = 0; i < totalUnits; i++) markers.push(new Date(min.getTime() + i * 24 * 60 * 60 * 1000))
-    } else if (viewType === 'week') {
-      totalUnits = Math.ceil((max.getTime() - min.getTime()) / (1000 * 60 * 60 * 24 * 7)) + 1
-      for (let i = 0; i < totalUnits; i++) markers.push(new Date(min.getTime() + i * 7 * 24 * 60 * 60 * 1000))
-    } else if (viewType === 'month') {
-      let current = new Date(min)
-      current.setDate(1)
-      while (current <= max) {
-        markers.push(new Date(current))
-        current.setMonth(current.getMonth() + 1)
-      }
-      totalUnits = markers.length
+    // Day view only
+    const totalUnits = Math.ceil((max.getTime() - min.getTime()) / (1000 * 60 * 60 * 24)) + 1
+    const markers: Date[] = []
+    for (let i = 0; i < totalUnits; i++) {
+      markers.push(new Date(min.getTime() + i * 24 * 60 * 60 * 1000))
     }
 
     const projectKeys = Array.from(projectSet).sort()
@@ -404,7 +303,6 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
 
     projectKeys.forEach((projectKey, idx) => {
       colorMap[projectKey] = projectColors[idx % projectColors.length]
-      console.log(`[ManagerGantt] Project ${projectKey} assigned color:`, projectColors[idx % projectColors.length])
     })
 
     const assigneeNames = Object.keys(byAssignee).sort()
@@ -413,98 +311,73 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
       tasks: byAssignee[name].sort((a, b) => a._start.getTime() - b._start.getTime())
     }))
 
-    console.log('[ManagerGantt] Final assignee rows:', assigneeRows.map(r => ({ 
-      assignee: r.assignee, 
-      taskCount: r.tasks.length 
-    })))
-
     return { assigneeRows, minDate: min, maxDate: max, totalUnits, dateMarkers: markers, colorMap, allProjects: projectKeys }
-  }, [tasks, viewType])
+  }, [tasks])
 
   const getCellWidth = (): number => {
-    const baseWidths: { [key in ViewType]: number } = { day: 50, week: 280, month: 200 }
-    return baseWidths[viewType] * zoom
+    return 50 * zoom
   }
 
   const cellWidth = getCellWidth()
 
+  // Function to scroll to first task of a project
+  const scrollToProject = (projectKey: string, rows: AssigneeRow[]) => {
+    setSelectedProject(projectKey)
+    const firstTaskInProject = rows.flatMap(row => row.tasks).find(t => t._projectKey === projectKey)
+    if (firstTaskInProject && containerRef.current) {
+      // Find the row this task belongs to
+      const assigneeIdx = rows.findIndex(row => row.tasks.some(t => t.key === firstTaskInProject.key))
+      if (assigneeIdx >= 0) {
+        setTimeout(() => {
+          const rowElement = containerRef.current?.querySelector(`[data-assignee-idx="${assigneeIdx}"]`)
+          if (rowElement) {
+            // Scroll row into view vertically
+            rowElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            
+            // Scroll horizontally to show the task
+            const parentContainer = containerRef.current?.parentElement
+            if (parentContainer) {
+              const startCol = Math.round((firstTaskInProject._start.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24))
+              const scrollPos = startCol * cellWidth - 200 // Offset by 200px for better visibility
+              parentContainer.scrollLeft = Math.max(0, scrollPos)
+            }
+          }
+        }, 100)
+      }
+    }
+  }
+
+  // Scroll to today's date on mount
+  useEffect(() => {
+    setTimeout(() => {
+      if (containerRef.current?.parentElement) {
+        const today = new Date()
+        const normalizeDate = (d: Date): Date => {
+          const dd = new Date(d)
+          return new Date(Date.UTC(dd.getFullYear(), dd.getMonth(), dd.getDate()))
+        }
+        const normalizedToday = normalizeDate(today)
+        const todayCol = Math.round((normalizedToday.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24))
+        const scrollPos = todayCol * cellWidth - 200
+        containerRef.current.parentElement.scrollLeft = Math.max(0, scrollPos)
+      }
+    }, 200)
+  }, [minDate, cellWidth])
+
   if (loading) {
-    return (
-      <div className="p-6 bg-white rounded-lg border border-gray-200 shadow-sm">
-        <div className="flex items-center justify-center gap-2">
-          <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent"></div>
-          <p className="text-gray-600">Loading timeline...</p>
-        </div>
-      </div>
-    )
+    return <div className="p-6 bg-white rounded shadow">Loading tasks...</div>
   }
 
-  // Check if we have any valid tasks with dates
-  const validTasksWithDates = tasks.filter(t => t.start || t.due || t.created)
-  console.log('[ManagerGantt RENDER CHECK]', {
-    totalTasks: tasks.length,
-    validTasksWithDates: validTasksWithDates.length,
-    assigneeRows: assigneeRows.length,
-    showGantt: assigneeRows.length > 0 && tasks.length > 0 && validTasksWithDates.length > 0,
-  })
-
-  if (!assigneeRows.length || tasks.length === 0 || validTasksWithDates.length === 0) {
-    console.warn('[ManagerGantt] Empty render conditions:', {
-      noAssigneeRows: !assigneeRows.length,
-      noTasks: tasks.length === 0,
-      noValidTasks: validTasksWithDates.length === 0
-    })
-    return (
-      <div className="p-8 bg-white rounded-lg border border-gray-200 shadow-sm text-center">
-        <p className="text-gray-500 text-sm">
-          {tasks.length === 0 ? 'No tasks available to display' : `No tasks with dates (valid: ${validTasksWithDates.length}/${tasks.length})`}
-        </p>
-        <p className="text-gray-400 text-xs mt-2">
-          {tasks.length === 0 
-            ? 'Connect Jira or upload tasks to get started' 
-            : 'Tasks need start date, due date, or created date to display on timeline'}
-        </p>
-        <details className="mt-4 text-left bg-gray-50 p-3 rounded text-xs">
-          <summary className="cursor-pointer font-mono">Raw task data ({tasks.length} tasks)</summary>
-          <pre className="mt-2 overflow-auto bg-white p-2 rounded border border-gray-200">
-            {JSON.stringify(tasks, null, 2)}
-          </pre>
-        </details>
-      </div>
-    )
+  if (!assigneeRows.length) {
+    return <div className="p-6 bg-white rounded shadow">No tasks to show</div>
   }
-
-  console.log('[ManagerGantt] Rendering Gantt chart with', assigneeRows.length, 'assignees')
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-4 md:p-6">
+    <div className="bg-white rounded-lg shadow-lg p-4 md:p-6">
       <div className="mb-6">
-        <h2 className="text-2xl font-light text-gray-900 mb-4">All Projects — Employee Timeline</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-4">All Projects — Employee Timeline</h2>
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-4 text-sm text-gray-600 flex-wrap">
-            <div>
-              Timeline: <strong>{minDate.toLocaleString(undefined, { month: 'short', year: 'numeric' })}</strong> — <strong>{maxDate.toLocaleString(undefined, { month: 'short', year: 'numeric' })}</strong>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setViewType('day')}
-                className={`px-3 py-1 rounded-lg text-xs font-light transition ${viewType === 'day' ? 'bg-primary text-white' : 'bg-gray-200 text-gray-700'}`}
-              >
-                Day
-              </button>
-              <button
-                onClick={() => setViewType('week')}
-                className={`px-3 py-1 rounded-lg text-xs font-light transition ${viewType === 'week' ? 'bg-primary text-white' : 'bg-gray-200 text-gray-700'}`}
-              >
-                Week
-              </button>
-              <button
-                onClick={() => setViewType('month')}
-                className={`px-3 py-1 rounded-lg text-xs font-light transition ${viewType === 'month' ? 'bg-primary text-white' : 'bg-gray-200 text-gray-700'}`}
-              >
-                Month
-              </button>
-            </div>
             <div className="flex items-center gap-2">
               <label className="text-xs font-medium">Zoom:</label>
               <input
@@ -514,7 +387,7 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
                 step="0.1"
                 value={zoom}
                 onChange={(e) => setZoom(Number(e.target.value))}
-                className="w-32 h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-primary"
+                className="w-32 h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-blue-600"
               />
             </div>
           </div>
@@ -523,167 +396,134 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
           <div className="flex flex-wrap gap-3">
             {allProjects.map((projectKey) => {
               const colors = colorMap[projectKey]
+              const projectName = projectNameMap[projectKey] || projectKey
               const projectTickets = assigneeRows.flatMap(row => row.tasks).filter(t => t._projectKey === projectKey).length
               return (
-                <div 
-                  key={projectKey} 
-                  className="px-3 py-2 rounded-xl text-white text-xs font-light flex items-center gap-2"
-                  style={{
-                    backgroundColor: colors?.hex || '#3b82f6'
+                <button
+                  key={projectKey}
+                  type="button"
+                  onClick={() => {
+                    console.log('Clicked project:', projectKey)
+                    scrollToProject(projectKey, assigneeRows)
                   }}
+                  className={`px-3 py-2 rounded-xl bg-gradient-to-r ${colors.from} ${colors.to} text-[#1C1917] text-xs font-medium border border-[#E7E5E4] transition-all hover:shadow-md cursor-pointer ${selectedProject === projectKey ? 'ring-2 ring-blue-500 ring-offset-2' : ''}`}
                 >
-                  <div className="w-4 h-4 rounded" style={{ backgroundColor: colors?.hex || '#3b82f6' }}></div>
-                  {projectKey} ({projectTickets})
-                </div>
+                  {projectName} ({projectTickets})
+                </button>
               )
             })}
           </div>
         </div>
       </div>
 
-      <div className="overflow-x-auto border rounded">
-        <div className="min-w-max">
-          {/* Header with date markers */}
-          <div className="flex border-b bg-gray-100 sticky top-0">
-            <div className="w-56 p-3 font-medium bg-gray-50 border-r flex-shrink-0"></div>
-            {/* Header columns */}
-            <div className="flex flex-shrink-0" style={{ width: `${totalUnits * cellWidth}px` }}>
-              {dateMarkers.map((date, idx) => {
-                let displayText = ''
-                let dayName = ''
-                let isWeekend = false
-                
-                // Get actual day of week for this specific date
-                const dayOfWeek = date.getDay()
-                isWeekend = dayOfWeek === 0 || dayOfWeek === 6
-
-                const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-                dayName = dayNames[dayOfWeek]
-
-                if (viewType === 'day') {
-                  displayText = formatDate(date)
-                } else if (viewType === 'week') {
-                  const weekEnd = new Date(date)
-                  weekEnd.setDate(weekEnd.getDate() + 6)
-                  // Show the actual day of the week at start of week
-                  displayText = `${formatDate(date)} - ${formatDate(weekEnd)}`
-                  dayName = dayNames[date.getDay()] // Ensure we use actual day of week
-                } else if (viewType === 'month') {
-                  displayText = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-                  dayName = dayNames[date.getDay()]
-                }
-                return (
-                  <div
-                    key={idx}
-                    className={`border-r text-xs text-gray-600 flex flex-col items-center justify-center font-medium h-12 ${isWeekend ? 'bg-gray-200' : 'bg-gray-100'}`}
-                    style={{ width: `${cellWidth}px` }}
-                  >
-                    <div className="font-bold text-gray-800">{dayName}</div>
-                    <div className="opacity-60 text-xs">{displayText}</div>
-                  </div>
-                )
-              })}
+      <div className="border border-[#E7E5E4] rounded-xl bg-white overflow-hidden">
+        <div className="flex">
+          {/* Fixed left panel for employee names */}
+          <div className="w-56 flex-shrink-0 border-r border-[#E7E5E4] overflow-hidden">
+            {/* Header - empty space for alignment */}
+            <div className="h-[50px] bg-[#F5F5F4] border-b border-[#E7E5E4] flex items-center justify-center font-medium text-xs text-[#78716C]">
+              Employees
             </div>
+            
+            {/* Employee names - always visible */}
+            {assigneeRows.map((assignee, assigneeIdx) => (
+              <div
+                key={assignee.assignee}
+                className="h-[50px] p-3 font-medium bg-white border-b border-[#E7E5E4] last:border-b-0 text-sm text-[#1C1917] flex items-center"
+                data-assignee-idx={assigneeIdx}
+              >
+                <div className="truncate">{assignee.assignee}</div>
+              </div>
+            ))}
           </div>
 
-          {/* Employee rows with tasks */}
-          {assigneeRows.map((assignee) => (
-            <div key={assignee.assignee} className="flex border-b last:border-b-0">
-              {/* Employee name column */}
-              <div className="w-56 p-3 font-medium bg-white border-r flex-shrink-0 text-sm">{assignee.assignee}</div>
-
-              {/* Timeline area */}
-              <div
-                className="relative flex-shrink-0"
-                style={{ width: `${totalUnits * cellWidth}px`, height: '50px' }}
-              >
-                {/* Grid columns */}
-                <div className="absolute inset-0 flex">
-                  {Array.from({ length: totalUnits }).map((_, idx) => {
-                    let isWeekend = false
-
-                    if (viewType === 'day') {
-                      const cellDate = new Date(minDate.getTime() + idx * 24 * 60 * 60 * 1000)
-                      const dayOfWeek = cellDate.getDay()
-                      isWeekend = dayOfWeek === 0 || dayOfWeek === 6
-                    }
-                    // In week and month view, don't highlight weekends on the grid
-                    // since each cell represents a longer period
-
-                    return (
+          {/* Scrollable timeline area */}
+          <div className="flex-1 overflow-x-auto">
+            <div className="min-w-max" ref={containerRef}>
+              {/* Date header row */}
+              <div className="flex border-b border-[#E7E5E4] bg-[#F5F5F4] h-[50px]">
+                <div
+                  className="relative flex-shrink-0"
+                  style={{ width: `${totalUnits * cellWidth}px`, height: '50px' }}
+                >
+                  <div className="absolute inset-0 flex">
+                    {dateMarkers.map((date, idx) => (
                       <div
                         key={idx}
-                        className={`border-r border-gray-200 h-full ${isWeekend ? 'bg-gray-100' : ''}`}
+                        className="border-r border-[#E7E5E4] h-full flex items-center justify-center text-xs font-semibold text-[#78716C] bg-[#F5F5F4]"
                         style={{ width: `${cellWidth}px` }}
-                      />
-                    )
-                  })}
-                </div>
-
-                {/* Task bars */}
-                {assignee.tasks.map((task, tIdx) => {
-                  let startCol = 0
-                  let spanCols = 1
-
-                  if (viewType === 'day') {
-                    startCol = Math.round((task._start.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24))
-                    spanCols = Math.round((task._end.getTime() - task._start.getTime()) / (1000 * 60 * 60 * 24)) + 1
-                  } else if (viewType === 'week') {
-                    startCol = Math.round((task._start.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24 * 7))
-                    spanCols = Math.max(1, Math.round((task._end.getTime() - task._start.getTime()) / (1000 * 60 * 60 * 24 * 7)) + 1)
-                  } else if (viewType === 'month') {
-                    const minDateMonthStart = new Date(minDate)
-                    minDateMonthStart.setDate(1)
-
-                    const taskStartMonth = new Date(task._start)
-                    taskStartMonth.setDate(1)
-
-                    const taskEndMonth = new Date(task._end)
-                    taskEndMonth.setDate(1)
-
-                    startCol = (taskStartMonth.getFullYear() - minDateMonthStart.getFullYear()) * 12 +
-                      (taskStartMonth.getMonth() - minDateMonthStart.getMonth())
-
-                    const endMonthDiff = (taskEndMonth.getFullYear() - taskStartMonth.getFullYear()) * 12 +
-                      (taskEndMonth.getMonth() - taskStartMonth.getMonth())
-
-                    spanCols = Math.max(1, endMonthDiff + 1)
-                  }
-
-                  const leftPx = startCol * cellWidth
-                  const widthPx = spanCols * cellWidth
-                  const colors = colorMap[task._projectKey]
-                  
-                  console.log(`[ManagerGantt] Rendering task ${task.key} for project ${task._projectKey}:`, {
-                    colors,
-                    leftPx,
-                    widthPx
-                  })
-
-                  return (
-                    <div
-                      key={tIdx}
-                      className="absolute rounded shadow-sm text-white text-xs font-medium hover:opacity-90 overflow-hidden cursor-pointer hover:ring-2 hover:ring-white hover:ring-offset-1 transition-all"
-                      style={{
-                        left: `${leftPx}px`,
-                        width: `${widthPx}px`,
-                        top: '9px',
-                        height: '32px',
-                        backgroundColor: colors?.hex || '#3b82f6',
-                        backgroundImage: `linear-gradient(135deg, ${colors?.hex || '#3b82f6'} 0%, ${colors?.hex || '#1e40af'} 100%)`
-                      }}
-                      title={`${task.key}: ${task.summary}`}
-                      onClick={() => setSelectedTask(task)}
-                    >
-                      <div className="px-2 py-1 truncate h-full flex items-center">
-                        <span className="truncate">{task.key}</span>
+                      >
+                        <span>{formatDate(date)}</span>
                       </div>
-                    </div>
-                  )
-                })}
+                    ))}
+                  </div>
+                </div>
               </div>
+
+              {/* Employee rows with tasks */}
+              {assigneeRows.map((assignee, assigneeIdx) => (
+                <div key={assignee.assignee} className="flex border-b border-[#E7E5E4] last:border-b-0 h-[50px]" data-assignee-idx={assigneeIdx}>
+                  {/* Timeline area */}
+                  <div
+                    className="relative flex-shrink-0"
+                    style={{ width: `${totalUnits * cellWidth}px`, height: '50px' }}
+                  >
+                    {/* Grid columns */}
+                    <div className="absolute inset-0 flex">
+                      {Array.from({ length: totalUnits }).map((_, idx) => {
+                        const cellDate = new Date(minDate.getTime() + idx * 24 * 60 * 60 * 1000)
+                        const dayOfWeek = cellDate.getDay()
+                        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
+
+                        return (
+                          <div
+                            key={idx}
+                            className={`border-r border-[#E7E5E4] h-full ${isWeekend ? 'bg-[#F5F5F4]' : ''}`}
+                            style={{ width: `${cellWidth}px` }}
+                          />
+                        )
+                      })}
+                    </div>
+
+                    {/* Task bars */}
+                    {assignee.tasks.map((task, tIdx) => {
+                      // Day view only
+                      const startCol = Math.round((task._start.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24))
+                      const spanCols = Math.max(1, Math.round((task._end.getTime() - task._start.getTime()) / (1000 * 60 * 60 * 24)) + 1)
+
+                      // Calculate task index within the project
+                      const projectTasks = assigneeRows.flatMap(row => row.tasks).filter(t => t._projectKey === task._projectKey)
+                      const taskIndexInProject = projectTasks.findIndex(t => t.key === task.key)
+                      const taskDisplay = `Task ${taskIndexInProject}`
+
+                      const leftPx = startCol * cellWidth
+                      const widthPx = spanCols * cellWidth
+                      const colors = colorMap[task._projectKey]
+
+                      return (
+                        <div
+                          key={tIdx}
+                          className={`absolute rounded-xl shadow-sm bg-gradient-to-r ${colors.from} ${colors.to} text-[#1C1917] text-xs font-medium hover:opacity-80 overflow-hidden cursor-pointer hover:ring-2 hover:ring-[#2DD4BF] hover:ring-offset-1 transition-all border border-[#E7E5E4]/50`}
+                          style={{
+                            left: `${leftPx}px`,
+                            width: `${widthPx}px`,
+                            top: '9px',
+                            height: '32px'
+                          }}
+                          title={`${task.key}: ${task.summary}`}
+                          onClick={() => setSelectedTask(task)}
+                        >
+                          <div className="px-2 py-1 truncate h-full flex items-center">
+                            <span className="truncate">{taskDisplay}</span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
         </div>
       </div>
 
@@ -694,14 +534,14 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
           onClick={() => setSelectedTask(null)}
         >
           <div
-            className="bg-white rounded-lg shadow-2xl p-6 max-w-md w-full mx-4 transform transition-all"
+            className="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full mx-4 transform transition-all border border-[#E7E5E4]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-start mb-4">
-              <h3 className="text-xl font-bold text-gray-800">Task Details</h3>
+              <h3 className="text-xl font-bold text-[#1C1917]">Task Details</h3>
               <button
                 onClick={() => setSelectedTask(null)}
-                className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+                className="text-[#78716C] hover:text-[#1C1917] text-2xl leading-none"
               >
                 ×
               </button>
@@ -709,18 +549,18 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
 
             <div className="space-y-3">
               <div>
-                <label className="text-sm font-semibold text-gray-500">Task Name</label>
-                <p className="text-gray-800 font-medium">{selectedTask.summary}</p>
+                <label className="text-sm font-semibold text-[#78716C]">Task Name</label>
+                <p className="text-[#1C1917] font-medium">{selectedTask.summary}</p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-semibold text-gray-500">Task ID</label>
-                  <p className="text-gray-800">{selectedTask.key}</p>
+                  <label className="text-sm font-semibold text-[#78716C]">Task ID</label>
+                  <p className="text-[#1C1917]">{selectedTask.key}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-semibold text-gray-500">Status</label>
-                  <p className={`font-medium ${selectedTask.status === 'Done' ? 'text-green-600' : 'text-orange-600'}`}>
+                  <label className="text-sm font-semibold text-[#78716C]">Status</label>
+                  <p className={`font-medium ${selectedTask.status === 'Done' ? 'text-emerald-600' : 'text-amber-600'}`}>
                     {selectedTask.status}
                   </p>
                 </div>
@@ -728,45 +568,45 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-semibold text-gray-500">Assignee</label>
-                  <p className="text-gray-800">{selectedTask.assignee || 'Unassigned'}</p>
+                  <label className="text-sm font-semibold text-[#78716C]">Assignee</label>
+                  <p className="text-[#1C1917]">{selectedTask.assignee || 'Unassigned'}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-semibold text-gray-500">Priority</label>
-                  <p className="text-gray-800">{selectedTask.priority || '-'}</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-semibold text-gray-500">Start Date</label>
-                  <p className="text-gray-800">{formatDate(selectedTask._start)}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-semibold text-gray-500">Due Date</label>
-                  <p className="text-gray-800">{formatDate(selectedTask._end)}</p>
+                  <label className="text-sm font-semibold text-[#78716C]">Priority</label>
+                  <p className="text-[#1C1917]">{selectedTask.priority || '-'}</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-semibold text-gray-500">Duration</label>
-                  <p className="text-gray-800 font-medium">
+                  <label className="text-sm font-semibold text-[#78716C]">Start Date</label>
+                  <p className="text-[#1C1917]">{formatDate(selectedTask._start)}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-semibold text-[#78716C]">Due Date</label>
+                  <p className="text-[#1C1917]">{formatDate(selectedTask._end)}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-semibold text-[#78716C]">Duration</label>
+                  <p className="text-[#1C1917] font-medium">
                     {selectedTask._start && selectedTask._end
                       ? `${Math.ceil((selectedTask._end.getTime() - selectedTask._start.getTime()) / (1000 * 60 * 60 * 24)) + 1} days`
                       : '-'}
                   </p>
                 </div>
                 <div>
-                  <label className="text-sm font-semibold text-gray-500">Type</label>
-                  <p className="text-gray-800">{selectedTask.issueType || '-'}</p>
+                  <label className="text-sm font-semibold text-[#78716C]">Type</label>
+                  <p className="text-[#1C1917]">{selectedTask.issueType || '-'}</p>
                 </div>
               </div>
 
               {selectedTask.description && (
                 <div>
-                  <label className="text-sm font-semibold text-gray-500">Description</label>
-                  <p className="text-gray-700 text-sm mt-1">{selectedTask.description}</p>
+                  <label className="text-sm font-semibold text-[#78716C]">Description</label>
+                  <p className="text-[#1C1917] text-sm mt-1">{selectedTask.description}</p>
                 </div>
               )}
             </div>
@@ -774,7 +614,7 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
             <div className="mt-6 flex justify-end">
               <button
                 onClick={() => setSelectedTask(null)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                className="px-4 py-2 bg-[#2DD4BF] text-[#1C1917] rounded-xl hover:bg-[#15c9af] transition font-medium"
               >
                 Close
               </button>

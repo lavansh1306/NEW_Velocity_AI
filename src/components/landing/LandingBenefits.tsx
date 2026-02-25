@@ -64,19 +64,19 @@ export function LandingBenefits() {
   }, { scope: containerRef });
 
   return (
-    <div ref={containerRef} className="py-24 sm:py-32 relative overflow-hidden">
+    <div ref={containerRef} className="py-24 sm:py-32 relative overflow-hidden bg-white">
       <div className="mx-auto max-w-7xl px-6 lg:px-8 relative">
         <div className="grid grid-cols-1 gap-16 lg:grid-cols-2 lg:gap-24 items-center">
           
           {/* Left Content */}
           <div ref={leftRef}>
-            <div className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-600 ring-1 ring-inset ring-blue-200 bg-blue-50 mb-6">
+            <div className="inline-flex items-center rounded-full px-4 py-2 text-xs font-medium uppercase tracking-wider text-[#78716C] ring-1 ring-[#E7E5E4] bg-white/70 mb-6">
               Why it matters
             </div>
-            <h2 className="text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl mb-6">
-              Remove the Noise of <span className="text-blue-600 italic" style={{ fontFamily: "'Source Serif 4', serif" }}>Workforce Management</span>
+            <h2 className="text-4xl font-light tracking-tight text-[#1C1917] sm:text-5xl mb-6">
+              Remove the Noise of Workforce Management
             </h2>
-            <p className="mt-6 text-lg leading-8 text-slate-600 mb-8">
+            <p className="mt-6 text-lg leading-8 text-[#78716C] mb-8">
               Velocity AI removes the noise of day-to-day workforce management. Instead of managing logistics, your leaders get clarity, control, and confidence—allowing them to focus on what drives real business value.
             </p>
             

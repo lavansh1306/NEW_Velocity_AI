@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ManagerView } from './ManagerView';
 import { EmployeeView } from './EmployeeView';
 import { SmartTask } from './types';
-import { UserCircle2, ShieldCheck, Zap, AlertCircle } from 'lucide-react';
+import { Upload, Workflow, Loader2 } from 'lucide-react';
 import { 
   Select, 
   SelectContent, 
@@ -171,70 +171,71 @@ export default function SmartProgressTracker() {
     : tasks;
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 pb-20">
-      
-      {/* Persona Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-4 rounded-2xl border border-slate-200 shadow-sm gap-4">
-        <div>
-          <h1 className="text-2xl font-light text-gray-900">Smart Progress Tracker</h1>
-          <p className="text-slate-500 text-sm">Weighted Task Analysis from Jira</p>
+    <div className="space-y-0 pb-20">
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-2">
+        <div className="bg-[#2DD4BF] rounded-lg p-2">
+          <Workflow className="w-5 h-5 text-white" />
         </div>
-
-        <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
-          {/* Employee Selector */}
-          {activeTab === 'employee' && (
-            <div className="w-full md:w-auto">
-              <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
-                <SelectTrigger className="w-full md:w-[200px] h-10 bg-white border border-slate-300">
-                  <SelectValue placeholder="Select employee..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {employees.map(emp => (
-                    <SelectItem key={emp} value={emp}>{emp}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {/* Data Source Indicator */}
-          {dataSource === 'JIRA' && (
-            <div className="px-3 py-1 rounded text-xs font-light uppercase bg-primary/10 text-primary border border-primary/20 flex items-center gap-1">
-              <Zap className="w-3 h-3" />
-              Live Jira Data
-            </div>
-          )}
-
-          {/* Persona Toggle */}
-          <div className="flex bg-slate-100 p-1 rounded-xl">
-            <button 
-              onClick={() => setActiveTab('manager')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-light transition-all ${activeTab === 'manager' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-            >
-              <ShieldCheck className="w-4 h-4" /> Manager
-            </button>
-            <button 
-              onClick={() => setActiveTab('employee')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-light transition-all ${activeTab === 'employee' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-            >
-              <UserCircle2 className="w-4 h-4" /> Employee
-            </button>
-          </div>
-        </div>
+        <h1 className="text-2xl font-semibold text-[#1C1917]">Smart Progress Tracker</h1>
       </div>
+      <p className="text-[#78716C] font-light text-sm mb-8 ml-11">Track weighted tasks and team capacity from Jira integration.</p>
+
+      {/* Tabs Section */}
+      {tasks.length > 0 && (
+        <div className="flex bg-[#E7E5E4] p-1 rounded-lg mb-8 w-fit">
+          <button 
+            onClick={() => setActiveTab('manager')}
+            className={`px-4 py-2 rounded-md text-sm font-light transition-all ${
+              activeTab === 'manager' 
+                ? 'bg-white text-[#1C1917] shadow-sm' 
+                : 'text-[#78716C] hover:text-[#1C1917]'
+            }`}
+          >
+            Manager View
+          </button>
+          <button 
+            onClick={() => setActiveTab('employee')}
+            className={`px-4 py-2 rounded-md text-sm font-light transition-all ${
+              activeTab === 'employee' 
+                ? 'bg-white text-[#1C1917] shadow-sm' 
+                : 'text-[#78716C] hover:text-[#1C1917]'
+            }`}
+          >
+            Employee View
+          </button>
+        </div>
+      )}
+
+      {/* Employee Selector */}
+      {activeTab === 'employee' && employees.length > 0 && (
+        <div className="mb-8 max-w-xs">
+          <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
+            <SelectTrigger className="h-10 bg-white border border-[#E7E5E4] rounded-lg text-[#1C1917]">
+              <SelectValue placeholder="Select employee..." />
+            </SelectTrigger>
+            <SelectContent>
+              {employees.map(emp => (
+                <SelectItem key={emp} value={emp}>{emp}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       {/* Content Area */}
       <div className="min-h-[500px]">
         {isLoading ? (
-          <div className="text-center p-10 text-slate-500 animate-pulse">
-            Loading Jira data...
+          <div className="bg-white rounded-xl border border-[#E7E5E4] p-12 text-center shadow-sm">
+            <Loader2 className="w-8 h-8 animate-spin text-[#2DD4BF] mx-auto mb-3" />
+            <p className="text-[#78716C] font-light">Loading Jira data...</p>
           </div>
         ) : tasks.length === 0 ? (
-          <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-8 text-center">
-            <AlertCircle className="w-12 h-12 mx-auto text-amber-600 mb-3 opacity-50" />
-            <h3 className="text-lg font-light text-amber-900 mb-2">No Tasks Available</h3>
-            <p className="text-sm text-amber-700">
-              Check your Jira connection or ensure your projects have issues assigned to team members.
+          <div className="bg-white border border-[#E7E5E4] rounded-xl p-8 text-center shadow-sm">
+            <Upload className="w-12 h-12 mx-auto text-[#A8A29E] mb-3 opacity-40" />
+            <h3 className="text-lg font-light text-[#1C1917] mb-2">No Tasks Found</h3>
+            <p className="text-sm text-[#78716C] font-light">
+              Connect your Jira workspace to load and manage project tasks.
             </p>
           </div>
         ) : activeTab === 'manager' ? (
@@ -242,12 +243,8 @@ export default function SmartProgressTracker() {
         ) : selectedEmployee ? (
           <EmployeeView tasks={displayTasks} currentUser={selectedEmployee} onUpdateTask={handleTaskUpdate} />
         ) : (
-          <div className="bg-blue-50 border-2 border-blue-300 rounded-xl p-8 text-center">
-            <AlertCircle className="w-12 h-12 mx-auto text-blue-600 mb-3 opacity-50" />
-            <h3 className="text-lg font-bold text-blue-900 mb-2">Select an Employee</h3>
-            <p className="text-sm text-blue-700">
-              Please select an employee to view their tasks
-            </p>
+          <div className="bg-white border border-[#E7E5E4] rounded-xl p-8 text-center shadow-sm">
+            <p className="text-[#78716C] font-light">Select an employee to view their tasks</p>
           </div>
         )}
       </div>

@@ -63,12 +63,23 @@ app.use((req: Request, res: Response, next) => {
 })
 
 // CORS configuration for cross-origin requests
-const corsOrigin = process.env.NODE_ENV === 'production' 
-  ? (process.env.FRONTEND_URL_PROD || 'https://www.joinvelocity.co')
-  : ['http://localhost:5173', 'http://localhost:3000'];
+// Build an allow-list from env and sensible defaults. Add the two requested hosts here.
+const localDefaults = ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173']
+const prodDefaults = [process.env.FRONTEND_URL_PROD || 'https://www.joinvelocity.co', 'https://velocitydevelopment.vercel.app']
+// Allow additional origins via comma-separated env var ALLOWED_ORIGINS
+const extraOrigins = (process.env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean)
+const allowedOrigins = new Set<string>([
+  ...(process.env.NODE_ENV === 'production' ? prodDefaults : localDefaults),
+  ...extraOrigins,
+])
 
 app.use(cors({
-  origin: corsOrigin,
+  origin: (origin, callback) => {
+    // Allow non-browser tools or same-origin requests with no Origin header
+    if (!origin) return callback(null, true)
+    if (allowedOrigins.has(origin)) return callback(null, true)
+    return callback(new Error('CORS origin denied: ' + origin))
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
@@ -89,8 +100,8 @@ const sessionConfig: any = {
     httpOnly: true, // Prevent XSS attacks
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' allows cross-site (OAuth), 'lax' for localhost
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    // Set proper domain for production
-    domain: process.env.NODE_ENV === 'production' ? '.joinvelocity.co' : undefined
+    // Allow overriding cookie domain via SESSION_COOKIE_DOMAIN; otherwise keep existing behavior
+    domain: process.env.SESSION_COOKIE_DOMAIN || (process.env.NODE_ENV === 'production' ? '.joinvelocity.co' : undefined)
   }
 };
 
@@ -132,25 +143,34 @@ if (!isJiraConfigReady) {
 
 // ============ Supabase DB Test ============
 async function testSupabaseConnection() {
+  // For backend operations, use SERVICE_ROLE_KEY (bypasses RLS)
+  // For frontend/client, use ANON_KEY (respects RLS)
   const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_ANON_KEY;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY; // Use service key for backend
+  
   if (!supabaseUrl || !supabaseKey) {
-    console.warn('[DB] Missing SUPABASE_URL or SUPABASE_ANON_KEY - DB persistence disabled');
+    console.warn('[DB] ⚠️  Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY - DB persistence disabled');
     return;
   }
+  
   try {
     const client = createClient(supabaseUrl, supabaseKey);
-    // Test with a simple count query to verify connection
-    const { count, error } = await client.from('organizations').select('*', { count: 'exact', head: true });
+    
+    // Try a simple heartbeat query to organizations
+    const { count, error } = await client
+      .from('organizations')
+      .select('id', { count: 'exact', head: true });
+    
     if (error) {
-      console.error('[DB] Supabase connection test FAILED:', error.message, error.details);
+      console.error('[DB] ❌ Query failed:', error.code, '-', error.message);
     } else {
-      console.log('[DB] ✓ Supabase connected. Organizations count:', count);
+      console.log('[DB] ✅ Supabase CONNECTED! Organizations found:', count);
     }
-  } catch (e) {
-    console.error('[DB] Supabase connection error:', e);
+  } catch (e: any) {
+    console.error('[DB] 💥 Connection error:', e?.message || String(e));
   }
 }
+
 testSupabaseConnection();
 
 const extractDescription = (desc: any): string => {
