@@ -6,7 +6,6 @@ import { LandingHero } from "@/components/landing/LandingHero";
 import { LandingFeatures } from "@/components/landing/LandingFeatures";
 import { LandingBenefits } from "@/components/landing/LandingBenefits";
 import { LandingImpact } from "@/components/landing/LandingImpact";
-import { LandingTestimonials } from "@/components/landing/LandingTestimonials";
 import { LandingCTA } from "@/components/landing/LandingCTA";
 import { LandingFooter } from "@/components/landing/LandingFooter";
 
@@ -32,7 +31,6 @@ const Index = () => {
           <LandingImpact />
         </div>
         
-        <LandingTestimonials />
         <LandingCTA />
       </main>
       <LandingFooter />

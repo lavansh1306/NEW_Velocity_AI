@@ -60,91 +60,76 @@ export const ProjectCheckInput: React.FC<ProjectCheckInputProps> = ({ onAnalyze,
     <div className="w-full space-y-6">
       
       {/* Header Text */}
-      <div className="text-center space-y-2 mb-8">
-        <h2 className="text-3xl font-black text-slate-900 tracking-tight">
-          Describe Your Project
-        </h2>
-        <p className="text-slate-500 max-w-lg mx-auto">
-          Paste your requirements or upload a PDF SRS document. Our AI will match it against 140+ employee profiles to find the perfect team.
-        </p>
+      <div>
+        <h1 className="text-4xl font-light text-[#1C1917] tracking-tight">
+          Plan My Project
+        </h1>
       </div>
 
-      {/* Main Input Area */}
-      <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-xl shadow-slate-200/50">
+      {/* Card Container */}
+      <div className="bg-white rounded-2xl border border-[#E7E5E4] shadow-sm p-10 space-y-6 min-h-[450px] flex flex-col justify-between">
         
+        {/* Project Description Label */}
+        <div>
+          <label className="text-sm font-medium text-[#1C1917] block mb-3">Project Description</label>
+        </div>
+
+        {/* Textarea */}
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="e.g. We need a team of 3 developers to build a Fintech Dashboard using React and Python. The project will start in June..."
-          className="w-full h-48 p-4 text-slate-700 placeholder:text-slate-300 resize-none outline-none text-lg rounded-xl"
+          placeholder="Describe your project in detail... What are the goals? What features do you need? Who is the target audience?"
+          className="w-full flex-1 p-4 text-[#78716C] placeholder:text-[#A8A29E] resize-none outline-none text-base rounded-xl border border-[#E7E5E4] focus:border-[#0F766E] focus:ring-1 focus:ring-[#0F766E] transition-colors bg-white"
         />
 
-        {/* Toolbar */}
-        <div className="flex items-center justify-between px-4 pb-4 mt-2">
-          
+        {/* Button */}
+        <div className="flex items-center gap-3 mt-2">
+          <Button 
+            onClick={handleSubmit} 
+            disabled={isAnalyzing || isParsing || !description.trim()}
+            className="bg-[#1C1917] hover:bg-[#2D2520] text-white px-6 py-2.5 rounded-full font-light transition-all flex items-center gap-2"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>Analyze with AI</span>
+          </Button>
+
           {/* File Upload Trigger */}
-          <div {...getRootProps()} className="cursor-pointer group">
+          <div {...getRootProps()} className="cursor-pointer">
             <input {...getInputProps()} />
-            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all ${fileName ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-indigo-300'}`}>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-full border border-[#E7E5E4] text-[#78716C] hover:border-[#0F766E] hover:text-[#0F766E] transition-all text-sm">
               {isParsing ? (
-                <span className="animate-pulse">Parsing PDF...</span>
+                <span className="animate-pulse font-light">Parsing PDF...</span>
               ) : fileName ? (
                 <>
-                  <FileText className="w-4 h-4" />
-                  <span className="text-xs font-bold truncate max-w-[150px]">{fileName}</span>
+                  <FileText className="w-3.5 h-3.5" />
+                  <span className="font-light truncate max-w-[120px]">{fileName}</span>
                   <button 
                     onClick={(e) => { e.stopPropagation(); setFileName(null); setDescription(''); }}
-                    className="hover:bg-indigo-200 rounded-full p-0.5"
+                    className="hover:bg-red-100 rounded-full p-0.5 ml-1"
                   >
-                    <X className="w-3 h-3" />
+                    <X className="w-3 h-3 text-red-600" />
                   </button>
                 </>
               ) : (
                 <>
-                  <UploadCloud className="w-4 h-4 group-hover:text-indigo-500" />
-                  <span className="text-xs font-bold">Upload SRS (PDF)</span>
+                  <UploadCloud className="w-3.5 h-3.5" />
+                  <span className="font-light">Upload SRS (PDF)</span>
                 </>
               )}
             </div>
           </div>
-
-          {/* Action Button */}
-          <Button 
-            onClick={handleSubmit} 
-            disabled={isAnalyzing || isParsing || !description.trim()}
-            className={`
-              bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-2 rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg shadow-indigo-200
-              ${(isAnalyzing || isParsing) ? 'opacity-70 cursor-not-allowed' : 'hover:translate-y-[-1px]'}
-            `}
-          >
-            {isAnalyzing ? (
-              "Analyzing..."
-            ) : (
-              <>
-                <Sparkles className="w-4 h-4" /> Run AI Analysis
-              </>
-            )}
-          </Button>
         </div>
       </div>
 
       {/* Error Message */}
       {error && (
-        <div className="flex items-center gap-2 text-rose-600 bg-rose-50 px-4 py-3 rounded-lg border border-rose-100 animate-in fade-in slide-in-from-top-2">
-          <AlertCircle className="w-5 h-5" />
-          <span className="text-sm font-medium">{error}</span>
+        <div className="flex items-center gap-2 text-[#BE123C] bg-[#BE123C]/10 px-4 py-2.5 rounded-lg border border-[#BE123C]/20 animate-in fade-in slide-in-from-top-2">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <span className="text-sm font-light">{error}</span>
         </div>
       )}
 
-      {/* Drop Overlay (Visual Only) */}
-      {isDragActive && (
-        <div className="absolute inset-0 bg-indigo-600/10 border-2 border-indigo-600 border-dashed rounded-2xl flex items-center justify-center backdrop-blur-sm z-50 pointer-events-none">
-          <div className="bg-white px-6 py-4 rounded-xl shadow-xl flex items-center gap-3">
-            <UploadCloud className="w-6 h-6 text-indigo-600 animate-bounce" />
-            <span className="font-bold text-indigo-900">Drop PDF to Extract Requirements</span>
-          </div>
-        </div>
-      )}
+
 
     </div>
   );
