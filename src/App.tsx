@@ -14,7 +14,6 @@ import ROIReport from "./pages/ROIReport";
 import UseCases from "./pages/UseCases";
 import VelocityAI from "./pages/VelocityAI";
 import Projects from "./pages/Projects";
-import SettingsPage from "./pages/SettingsPage";
 import ProjectAnalytics from "./pages/ProjectAnalytics";
 import ProjectDetailNew from "./pages/ProjectDetailNew";
 import DebugNormalization from "./pages/DebugNormalization";
@@ -55,7 +54,6 @@ const App = () => (
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/velocity-ai" element={<VelocityAI />} />
               <Route path="/progress" element={<PlanMyProject />} />
-              <Route path="/settings" element={<SettingsPage />} />
               <Route path="/projects" element={<Projects />} />
               <Route path="/project-analytics/:id" element={<ProjectAnalytics />} />
               <Route path="/projects/global-gantt" element={<GlobalGanttDashboard />} />
