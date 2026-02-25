@@ -1,5 +1,18 @@
 import React, { useState, useMemo } from 'react';
-import { AlertCircle, Send, ChevronLeft, ChevronRight, CalendarDays, Plus, Trash2, Info } from 'lucide-react';
+import { 
+  AlertCircle, 
+  Send, 
+  ChevronLeft, 
+  ChevronRight, 
+  CalendarDays, 
+  Plus, 
+  Trash2, 
+  Info, 
+  Clock, 
+  Briefcase, 
+  Coffee, 
+  Calendar 
+} from 'lucide-react';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
 import { Badge } from '../ui/badge';
@@ -39,7 +52,7 @@ export function EmployeeLeavePortal({
   onLeaveRequest,
   existingLeaves,
 }: EmployeeLeavePortalProps) {
-  // Initialize selected employee - use current user if available, otherwise first employee
+  // Initialize selected employee
   const [selectedEmployee, setSelectedEmployee] = useState<string>(() => {
     const matchingEmployee = employees.find(emp => 
       emp.name.toLowerCase() === currentUserEmail.toLowerCase()
@@ -54,11 +67,10 @@ export function EmployeeLeavePortal({
   
   const [pendingLeaveRanges, setPendingLeaveRanges] = useState<Array<{start: string, end: string, reason: string}>>([]);
 
-  // --- NEW STATE FOR MODAL ---
+  // Modal State
   const [isDayModalOpen, setIsDayModalOpen] = useState(false);
   const [selectedDayDetails, setSelectedDayDetails] = useState<{ date: string, tasks: Task[] } | null>(null);
 
-  // Helper: generate deterministic user_id from name
   const generateUserIdFromName = (name: string): string => {
     let hash = 0;
     for (let i = 0; i < name.length; i++) {
@@ -248,9 +260,8 @@ export function EmployeeLeavePortal({
     }
   };
 
-  // --- NEW HANDLER FOR VIEWING TASKS ---
   const handleViewDayDetails = (e: React.MouseEvent, day: number, dateStr: string, dayTasks: Task[]) => {
-    e.stopPropagation(); // Prevent triggering the leave selection
+    e.stopPropagation(); 
     setSelectedDayDetails({ date: dateStr, tasks: dayTasks });
     setIsDayModalOpen(true);
   };
@@ -418,7 +429,6 @@ export function EmployeeLeavePortal({
                         📍 {dayTasks.length} task{dayTasks.length > 1 ? 's' : ''}
                       </div>
                       
-                      {/* NEW: View Details Button (Appears on Hover) */}
                       <div 
                         onClick={(e) => handleViewDayDetails(e, day, dateStr, dayTasks)}
                         className="opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer p-1 rounded hover:bg-black/10"
@@ -612,42 +622,98 @@ export function EmployeeLeavePortal({
         </div>
       </div>
 
-      {/* --- NEW CALENDAR DAY DETAILS MODAL --- */}
+      {/* --- PREMIUM CALENDAR DAY DETAILS MODAL --- */}
       <Dialog open={isDayModalOpen} onOpenChange={setIsDayModalOpen}>
-        <DialogContent className="sm:max-w-[450px]">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-light text-gray-900">
-              Tasks for {selectedDayDetails?.date ? new Date(selectedDayDetails.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' }) : ''}
-            </DialogTitle>
-            <DialogDescription>
-              Review the tasks scheduled for this day.
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-0 shadow-2xl rounded-2xl">
           
-          <div className="mt-4 space-y-3 max-h-[50vh] overflow-y-auto">
-            {selectedDayDetails && selectedDayDetails.tasks.length > 0 ? (
-              selectedDayDetails.tasks.map(task => (
-                <div key={task.id} className="p-4 bg-gray-50 border border-gray-200 rounded-xl">
-                  <div className="flex justify-between items-start mb-2">
-                    <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-xs font-medium">
-                      {task.projectName}
-                    </Badge>
-                    <span className="text-xs text-gray-500 font-medium bg-white px-2 py-1 rounded border">
-                      {task.hours}h allocated
-                    </span>
-                  </div>
-                  <h4 className="font-medium text-gray-900 text-sm leading-snug">{task.taskName}</h4>
-                  <div className="mt-3 flex gap-3 text-xs text-gray-500">
-                    <div>Started: <span className="text-gray-900">{task.created_date}</span></div>
-                    <div>Due: <span className="text-gray-900">{task.due_date}</span></div>
-                  </div>
+          {/* Custom Edge-to-Edge Header */}
+          <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-6 text-white relative">
+            <DialogHeader className="sr-only">
+              <DialogTitle>Tasks for {selectedDayDetails?.date}</DialogTitle>
+              <DialogDescription>Review your tasks for the selected date.</DialogDescription>
+            </DialogHeader>
+
+            <div className="flex items-center justify-between relative z-10">
+              <h2 className="text-2xl font-light tracking-tight flex items-center gap-2">
+                <Calendar className="w-6 h-6 opacity-80" />
+                {selectedDayDetails?.date ? new Date(selectedDayDetails.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', timeZone: 'UTC' }) : ''}
+              </h2>
+              {selectedDayDetails && selectedDayDetails.tasks.length > 0 && (
+                <div className="bg-white/20 px-3 py-1 rounded-full text-sm font-medium backdrop-blur-md shadow-sm border border-white/10">
+                  {selectedDayDetails.tasks.reduce((sum, t) => sum + t.hours, 0)}h Total
                 </div>
-              ))
+              )}
+            </div>
+            <p className="text-blue-100 text-sm mt-2 font-light relative z-10">
+              {selectedDayDetails?.tasks.length || 0} active task{(selectedDayDetails?.tasks.length !== 1) ? 's' : ''} scheduled for this day
+            </p>
+            
+            {/* Decorative background element */}
+            <div className="absolute -bottom-12 -right-4 opacity-10 text-white pointer-events-none">
+               <CalendarDays className="w-32 h-32" />
+            </div>
+          </div>
+          
+          {/* Content Body */}
+          <div className="p-6 max-h-[60vh] overflow-y-auto bg-[#FAFAFA]">
+            {selectedDayDetails && selectedDayDetails.tasks.length > 0 ? (
+              <div className="space-y-4">
+                {selectedDayDetails.tasks.map(task => {
+                  const isDueToday = task.due_date === selectedDayDetails.date;
+                  
+                  return (
+                    <div key={task.id} className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm hover:shadow-md hover:border-blue-100 transition-all group relative overflow-hidden">
+                      {/* Left accent border to indicate priority/due state */}
+                      <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${isDueToday ? 'bg-orange-400' : 'bg-blue-400 group-hover:bg-blue-500 transition-colors'}`}></div>
+                      
+                      <div className="flex justify-between items-start mb-3 pl-1">
+                        <Badge variant="secondary" className="bg-slate-100 text-slate-600 text-xs font-medium px-2 py-0.5 rounded flex items-center gap-1.5 border-0">
+                          <Briefcase className="w-3 h-3 opacity-70" />
+                          {task.projectName}
+                        </Badge>
+                        <div className="flex items-center gap-1 text-xs font-medium text-slate-500 bg-slate-50 px-2 py-1 rounded-md border border-slate-100">
+                          <Clock className="w-3.5 h-3.5 text-blue-500" />
+                          {task.hours}h
+                        </div>
+                      </div>
+                      
+                      <h4 className="font-medium text-gray-900 text-[15px] leading-snug mb-4 pl-1 group-hover:text-blue-700 transition-colors">
+                        {task.taskName}
+                      </h4>
+                      
+                      <div className="flex items-center gap-6 text-xs pl-1 border-t border-gray-50 pt-3">
+                        <div className="flex flex-col gap-1">
+                          <span className="text-slate-400 font-light uppercase text-[9px] tracking-wider">Started</span>
+                          <span className="text-slate-700 font-medium">{task.created_date}</span>
+                        </div>
+                        <div className="w-px h-6 bg-slate-200"></div>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-slate-400 font-light uppercase text-[9px] tracking-wider">Deadline</span>
+                          <span className={`font-medium ${isDueToday ? 'text-orange-600' : 'text-slate-700'}`}>
+                            {task.due_date} {isDueToday && '(Today)'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             ) : (
-              <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border border-dashed">
-                <p>No tasks scheduled for this day.</p>
+              <div className="text-center py-12 flex flex-col items-center justify-center bg-white rounded-xl border border-dashed border-gray-200">
+                <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4">
+                  <Coffee className="w-8 h-8 text-blue-300" />
+                </div>
+                <h4 className="text-gray-900 font-medium mb-1">Schedule is clear</h4>
+                <p className="text-sm text-gray-500 font-light">No tasks are scheduled for this day.</p>
               </div>
             )}
+          </div>
+          
+          {/* Action Footer */}
+          <div className="p-4 bg-white border-t border-gray-100 flex justify-end">
+            <Button variant="outline" onClick={() => setIsDayModalOpen(false)} className="text-slate-600 hover:bg-slate-50 border-slate-200">
+              Close Preview
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
