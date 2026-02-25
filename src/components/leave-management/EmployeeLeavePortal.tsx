@@ -88,17 +88,21 @@ export function EmployeeLeavePortal({
     return new Date(y, m - 1, d);
   };
 
-  const isDateBlockedByExistingLeave = (dateStr: string) => {
-    if (!existingLeaves || existingLeaves.length === 0) return false;
+  // NEW: Returns the leave object so we can check its status, ignoring 'Rejected' ones
+  const getLeaveOnDate = (dateStr: string) => {
+    if (!existingLeaves || existingLeaves.length === 0) return undefined;
     const userId = generateUserIdFromName(selectedEmployee);
     const d = parseLocalMidnight(dateStr);
 
-    return existingLeaves.some(l => {
-      if (!l.user_id) return false;
-      if (l.user_id !== userId) return false;
+    return existingLeaves.find(l => {
+      // Ignore rejected leaves so the user can re-apply for those dates
+      if (l.status === 'Rejected') return false; 
+      if (!l.user_id || l.user_id !== userId) return false;
+      
       const s = parseLocalMidnight(l.startDate);
       const e = parseLocalMidnight(l.endDate);
       e.setHours(23,59,59,999);
+      
       return d >= s && d <= e;
     });
   };
@@ -129,8 +133,10 @@ export function EmployeeLeavePortal({
       .map(t => parseLocalMidnight(t.due_date || t.created_date || new Date().toISOString()))
       .sort((a, b) => b.getTime() - a.getTime());
     
-    const lastDate = taskDates[0];
-    setCurrentMonth(new Date(lastDate.getFullYear(), lastDate.getMonth(), 1));
+    if (taskDates.length > 0) {
+      const lastDate = taskDates[0];
+      setCurrentMonth(new Date(lastDate.getFullYear(), lastDate.getMonth(), 1));
+    }
   }, [selectedEmployee, userTasks]);
 
   const calendarDays = useMemo(() => {
@@ -241,8 +247,9 @@ export function EmployeeLeavePortal({
     const clickedDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
     const dateStr = new Date(clickedDate.getTime() - (clickedDate.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
     
-    if (isDateBlockedByExistingLeave(dateStr)) {
-      alert('These dates are already on leave for the selected employee and cannot be selected.');
+    const existingLeave = getLeaveOnDate(dateStr);
+    if (existingLeave) {
+      alert(`These dates are already marked as ${existingLeave.status} and cannot be selected.`);
       return;
     }
     
@@ -277,6 +284,8 @@ export function EmployeeLeavePortal({
 
     const userId = generateUserIdFromName(selectedEmployee);
     const overlaps = (existingLeaves || []).some(l => {
+      // Allow overlaps if the previous leave was rejected
+      if (l.status === 'Rejected') return false;
       if (l.user_id !== userId) return false;
       const s = parseLocalMidnight(l.startDate);
       const e = parseLocalMidnight(l.endDate);
@@ -285,7 +294,7 @@ export function EmployeeLeavePortal({
     });
 
     if (overlaps) {
-      alert('Selected range overlaps an existing leave for this employee and cannot be queued.');
+      alert('Selected range overlaps an existing pending or approved leave for this employee and cannot be queued.');
       return;
     }
 
@@ -390,7 +399,12 @@ export function EmployeeLeavePortal({
               const isInRange = isDateInRange(day);
               const isRangeStart = dateStr === startLeaveDate;
               const isRangeEnd = dateStr === endLeaveDate;
-              const isBlocked = isDateBlockedByExistingLeave(dateStr);
+              
+              // NEW: Get the existing leave to determine status
+              const existingLeave = getLeaveOnDate(dateStr);
+              const isBlocked = !!existingLeave;
+              const isPending = existingLeave?.status === 'Pending';
+
               const dayTasksData = getTasksForDay(day);
               const dayTasks = dayTasksData.tasks;
               const isToday = new Date().toDateString() === new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day).toDateString();
@@ -402,7 +416,7 @@ export function EmployeeLeavePortal({
                   key={day}
                   onClick={() => handleDateClick(day)}
                   disabled={isBlocked}
-                  className={`h-24 rounded-lg transition-all relative group flex flex-col items-center justify-start p-2 border hover:scale-105 transform ${isBlocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${
+                  className={`h-24 rounded-lg transition-all relative group flex flex-col items-center justify-start p-2 border hover:scale-105 transform ${isBlocked ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'} ${
                     isRangeStart || isRangeEnd
                       ? 'bg-blue-600 text-white border-blue-700 shadow-md'
                       : isInRange
@@ -419,7 +433,7 @@ export function EmployeeLeavePortal({
                   </span>
                   
                   {/* Task count & Info Button */}
-                  {dayTasks.length > 0 && (
+                  {dayTasks.length > 0 && !isBlocked && (
                     <div className="flex w-full items-center justify-between px-1">
                       <div className={`text-center px-1 py-0.5 rounded text-[10px] font-bold ${
                         (isRangeStart || isRangeEnd) ? 'bg-yellow-300 text-yellow-900' : 
@@ -439,14 +453,19 @@ export function EmployeeLeavePortal({
                     </div>
                   )}
                   
-                  {isBlocked && (
-                    <div className="absolute inset-0 bg-green-50/60 flex items-center justify-center rounded-lg pointer-events-none flex-col">
-                      <span className="text-xs text-green-700 font-semibold">Leave</span>
-                      <span className="text-[9px] text-green-600">Approved</span>
+                  {/* DYNAMIC LEAVE INDICATOR */}
+                  {isBlocked && existingLeave && (
+                    <div className={`absolute inset-0 flex items-center justify-center rounded-lg pointer-events-none flex-col backdrop-blur-[1px] ${
+                      isPending ? 'bg-amber-100/80 border border-amber-200' : 'bg-green-50/80 border border-green-200'
+                    }`}>
+                      <span className={`text-xs font-semibold ${isPending ? 'text-amber-800' : 'text-green-700'}`}>Leave</span>
+                      <span className={`text-[10px] font-medium uppercase tracking-wider ${isPending ? 'text-amber-600' : 'text-green-600'}`}>
+                        {existingLeave.status}
+                      </span>
                     </div>
                   )}
 
-                  {isToday && !(isRangeStart || isRangeEnd || isInRange) && (
+                  {isToday && !(isRangeStart || isRangeEnd || isInRange || isBlocked) && (
                     <span className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full"></span>
                   )}
                 </button>
