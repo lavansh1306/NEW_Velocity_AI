@@ -40,7 +40,10 @@ interface TaskWithDates extends Issue {
 }
 
 function formatDate(d: Date): string {
-  return d.toLocaleDateString()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  const year = d.getFullYear()
+  return `${month}/${day}/${year}`
 }
 
 const projectColors: ColorGradient[] = [
@@ -66,7 +69,7 @@ interface ManagerGanttProps {
 
 export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = true, jiraIssues: externalJiraIssues }: ManagerGanttProps) {
   const { addToast } = useToast()
-  const zoom = 1 // Fixed zoom level
+  const [zoom, setZoom] = useState(1.6)
   const [selectedTask, setSelectedTask] = useState<TaskWithDates | null>(null)
   const [tasks, setTasks] = useState<Issue[]>(externalTasks)
   const [loading, setLoading] = useState(false)
@@ -374,6 +377,21 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-gray-900 mb-4">All Projects — Employee Timeline</h2>
         <div className="flex flex-col gap-4">
+          <div className="flex items-center gap-4 text-sm text-gray-600 flex-wrap">
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-medium">Zoom:</label>
+              <input
+                type="range"
+                min="0.5"
+                max="3"
+                step="0.1"
+                value={zoom}
+                onChange={(e) => setZoom(Number(e.target.value))}
+                className="w-32 h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-blue-600"
+              />
+            </div>
+          </div>
+
           {/* Project Color Legend */}
           <div className="flex flex-wrap gap-3">
             {allProjects.map((projectKey) => {
@@ -422,6 +440,26 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
           {/* Scrollable timeline area */}
           <div className="flex-1 overflow-x-auto">
             <div className="min-w-max" ref={containerRef}>
+              {/* Date header row */}
+              <div className="flex border-b border-[#E7E5E4] bg-[#F5F5F4] h-[50px]">
+                <div
+                  className="relative flex-shrink-0"
+                  style={{ width: `${totalUnits * cellWidth}px`, height: '50px' }}
+                >
+                  <div className="absolute inset-0 flex">
+                    {dateMarkers.map((date, idx) => (
+                      <div
+                        key={idx}
+                        className="border-r border-[#E7E5E4] h-full flex items-center justify-center text-xs font-semibold text-[#78716C] bg-[#F5F5F4]"
+                        style={{ width: `${cellWidth}px` }}
+                      >
+                        <span>{formatDate(date)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
               {/* Employee rows with tasks */}
               {assigneeRows.map((assignee, assigneeIdx) => (
                 <div key={assignee.assignee} className="flex border-b border-[#E7E5E4] last:border-b-0 h-[50px]" data-assignee-idx={assigneeIdx}>
