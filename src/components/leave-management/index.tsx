@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Zap, AlertCircle, Database, RefreshCw } from 'lucide-react'; 
+import { Users, Zap, AlertCircle, Database, RefreshCw, CalendarDays, Clock, Briefcase } from 'lucide-react'; 
 import { Button } from '../ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { Badge } from '../ui/badge';
 
 // Supabase and Auth
 import { supabase } from '@/lib/supabase';
@@ -13,6 +14,7 @@ import { ImpactAnalysisDialog } from './ImpactAnalysisDialog';
 import { LeaveApplicationDialog } from './LeaveApplicationDialog';
 import { EmployeeLeavePortal } from './EmployeeLeavePortal';
 import { CapacityAnalysis } from './CapacityAnalysis';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
 
 export default function LeaveManagementTab() {
   const { user, loading: authLoading } = useAuth();
@@ -46,8 +48,6 @@ export default function LeaveManagementTab() {
     try {
       console.log('[LeaveManagement] Fetching leaves for org:', orgId);
       
-      // Don't try to join with users table - just get the leave_requests data
-      // IMPORTANT: Select 'name' field which is used for matching tasks
       const { data, error } = await supabase
         .from('leave_requests')
         .select('id, user_id, name, start_date, end_date, reason, status, created_at')
@@ -60,11 +60,7 @@ export default function LeaveManagementTab() {
       }
 
       if (data) {
-        console.log('[LeaveManagement] Fetched leaves:', data.length);
-        console.log('[LeaveManagement] Sample leave:', data[0] ? { id: data[0].id, name: data[0].name, status: data[0].status } : 'none');
-        
         const formattedLeaves: LeaveRequest[] = data.map((l: any) => {
-          // Normalize status to proper case
           const normalizeStatus = (status: string) => {
             if (!status) return 'Pending';
             return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
@@ -74,11 +70,12 @@ export default function LeaveManagementTab() {
             id: l.id,
             org_id: orgId,
             user_id: l.user_id,
-            name: l.name || 'Unknown Employee', // USE the name from DB
+            name: l.name || 'Unknown Employee', 
             startDate: l.start_date,
             endDate: l.end_date,
             reason: l.reason || '',
-            status: normalizeStatus(l.status)
+            status: normalizeStatus(l.status),
+            history: [] // Added for activity tracking
           };
         });
         
@@ -87,7 +84,6 @@ export default function LeaveManagementTab() {
     } catch (err: any) {
       if (!err.message?.includes('AbortError')) {
         console.error("[Supabase] Error fetching leaves:", err);
-        // Don't show error toast on fetch failures - just log
       }
     }
   };
@@ -97,26 +93,18 @@ export default function LeaveManagementTab() {
     const fetchAllData = async () => {
       setIsLoadingData(true);
       
-      // Wait for authentication to be ready
-      if (authLoading) {
-        console.log('[LeaveManagement] Waiting for auth to load...');
-        return;
-      }
+      if (authLoading) return;
       
       try {
         let orgId = null;
         let currentUserEmail = user?.email;
 
-        // 1. Ensure we have the user email from Supabase Auth
         if (!currentUserEmail) {
           const { data: { user: authUser } } = await supabase.auth.getUser();
           currentUserEmail = authUser?.email;
         }
 
-        console.log('[LeaveManagement] Starting with org-based approach, using email:', currentUserEmail);
-
         if (currentUserEmail) {
-          // 2. Lookup the user in your PUBLIC.USERS table to find their assigned org
           const { data: userData, error: userError } = await supabase
             .from('users')
             .select('organization_id, name')
@@ -127,38 +115,23 @@ export default function LeaveManagementTab() {
             orgId = userData.organization_id;
             if (isMounted) setCurrentUser(userData.name || currentUserEmail);
           } else {
-            // 3. Fallback for new users (Google/Email/Jira) who aren't in public.users yet
             console.warn("[LeaveManagement] User not found in public.users. Falling back to default org.");
             orgId = '3fa59970-ddfa-4ab4-ad00-008c36d32113'; 
             if (isMounted) setCurrentUser(currentUserEmail);
           }
         } else if (process.env.NODE_ENV === 'development') {
-           // Extreme fallback if no auth user exists but we are in dev mode
-           console.log('[LeaveManagement] DEV MODE: No user found, using hardcoded org_id');
            orgId = '3fa59970-ddfa-4ab4-ad00-008c36d32113';
            if (isMounted) setCurrentUser('VelocityAI Dev User');
         }
 
-        if (!orgId) {
-          console.error('[LeaveManagement] CRITICAL: Could not determine orgId');
-          throw new Error("Unable to determine organization. Please check your configuration.");
-        }
+        if (!orgId) throw new Error("Unable to determine organization.");
         
-        console.log('[LeaveManagement] Using orgId:', orgId);
         if (isMounted) setCurrentOrgId(orgId);
 
-        // Fetch JIRA issues filtered by org_id (ALWAYS filtered)
         const { data: issuesData, error: issuesError } = await supabase
           .from('jira_issues')
           .select('*')
           .eq('org_id', orgId);
-        
-        console.log('[LeaveManagement] Org-filtered JIRA issues query:', {
-          orgId,
-          count: issuesData?.length || 0,
-          error: issuesError?.message,
-          sample: issuesData?.[0] ? { id: issuesData[0].id, assignee: issuesData[0].assignee, summary: issuesData[0].summary } : 'none'
-        });
 
         const [issuesRes] = await Promise.all([
           Promise.resolve({ data: issuesData, error: issuesError }),
@@ -169,8 +142,6 @@ export default function LeaveManagementTab() {
           const uniqueEmployees = new Map<string, EmployeeProfile>();
           const loadedTasks = issuesRes.data.map((issue: any, index: number) => {
             const assignee = issue.assignee || 'Unassigned';
-            
-            // TASK DATE NORMALIZATION: Force Jira dates to simple YYYY-MM-DD
             const cleanCreated = issue.created_date?.split('T')[0] || new Date().toISOString().split('T')[0];
             const cleanDue = issue.due_date?.split('T')[0] || cleanCreated;
 
@@ -203,10 +174,8 @@ export default function LeaveManagementTab() {
             setTasks(loadedTasks);
             setEmployees(Array.from(uniqueEmployees.values()));
             setDataSource('JIRA');
-            console.log('[LeaveManagement] Tasks loaded:', { count: loadedTasks.length, employees: uniqueEmployees.size });
           }
         } else {
-          console.warn('[LeaveManagement] No JIRA issues found for org:', { orgId, error: issuesRes.error?.message });
           if (isMounted) {
             setTasks([]);
             setEmployees([]);
@@ -221,45 +190,23 @@ export default function LeaveManagementTab() {
     };
     fetchAllData();
     return () => { isMounted = false; };
-  }, [user, authLoading]);
+  }, [user, authLoading, leaveUpdateCount]);
 
   // ------------------------------------------------------------------
-  // HARDENED SUBMISSION - with comprehensive error handling
+  // HARDENED SUBMISSION & MANAGER ACTIONS
   // ------------------------------------------------------------------
   const handleApplyLeave = async (request: Omit<LeaveRequest, 'id' | 'status'>) => {
-    console.log('[LeaveManagement] handleApplyLeave called with:', request);
-    
     try {
-      // Get the employee name from the request
       const employeeName = (request as any).employeeName || request.name;
       
-      if (!employeeName) {
-        const errorMsg = "Employee name not provided.";
-        console.error('[LeaveManagement]', errorMsg);
-        toast({ title: "❌ Name Not Found", description: errorMsg, variant: "destructive" });
+      if (!employeeName || !currentOrgId) {
+        toast({ title: "❌ Error", description: "Missing user or organization data.", variant: "destructive" });
         return;
       }
 
-      if (!currentOrgId) {
-        const errorMsg = "Organization not found.";
-        console.error('[LeaveManagement]', errorMsg, { currentOrgId });
-        toast({ title: "❌ Organization Error", description: errorMsg, variant: "destructive" });
-        return;
-      }
-
-      // Step 1: Validate dates
       const startDate = new Date(request.startDate);
       const endDate = new Date(request.endDate || request.startDate);
       
-      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-        throw new Error("Invalid date format. Please use YYYY-MM-DD format.");
-      }
-      
-      if (endDate < startDate) {
-        throw new Error("End date cannot be before start date.");
-      }
-
-      // Step 2: Normalize dates to YYYY-MM-DD (no timezone offset)
       const formatDateAsString = (d: Date) => {
         const year = d.getFullYear();
         const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -270,31 +217,20 @@ export default function LeaveManagementTab() {
       const normalizedStartDate = formatDateAsString(startDate);
       const normalizedEndDate = formatDateAsString(endDate);
 
-      console.log('[LeaveManagement] Normalized dates:', { normalizedStartDate, normalizedEndDate });
-
-      // Step 3: Generate a deterministic user_id from employee name
-      // This avoids querying the users table which has RLS issues
       const generateUserIdFromName = (name: string): string => {
-        // Create a simple hash-like UUID from the name
         let hash = 0;
         for (let i = 0; i < name.length; i++) {
           const char = name.charCodeAt(i);
           hash = ((hash << 5) - hash) + char;
-          hash = hash & hash; // Convert to 32bit integer
+          hash = hash & hash;
         }
-        
-        // Format as a UUID-like string (this is NOT a real UUID but consistent)
         const hashStr = Math.abs(hash).toString(16).padStart(8, '0');
         return `00000000-0000-4000-a000-${hashStr}00000000`.substring(0, 36);
       };
 
-      const userIdFromName = generateUserIdFromName(employeeName);
-      console.log('[LeaveManagement] Generated user_id from name:', { employeeName, userIdFromName });
-
-      // Step 4: Construct payload with proper types
       const payload = {
         org_id: currentOrgId,
-        user_id: userIdFromName,
+        user_id: generateUserIdFromName(employeeName),
         name: employeeName,
         start_date: normalizedStartDate,
         end_date: normalizedEndDate,
@@ -302,49 +238,24 @@ export default function LeaveManagementTab() {
         status: 'pending'
       };
 
-      console.log('[LeaveManagement] Inserting leave request:', payload);
+      const { error: insertError } = await supabase.from('leave_requests').insert([payload]);
+      if (insertError) throw new Error(insertError.message);
 
-      // Step 5: Insert leave request (no RLS issues since user_id is just a UUID value)
-      const { error: insertError } = await supabase
-        .from('leave_requests')
-        .insert([payload]);
-
-      if (insertError) {
-        console.error('[LeaveManagement] Insert error:', insertError);
-        throw new Error(insertError.message || 'Failed to insert leave request');
-      }
-
-      console.log('[LeaveManagement] Leave request created successfully');
-
-      toast({ 
-        title: "✅ Success", 
-        description: `Leave request submitted for ${normalizedStartDate} to ${normalizedEndDate}` 
-      });
-
-      // Step 6: Refresh the leave list
+      toast({ title: "✅ Success", description: `Leave request submitted.` });
       await fetchSupabaseLeaves(currentOrgId);
     } catch (err: any) {
-      console.error('[LeaveManagement] Error in handleApplyLeave:', err);
-      const errorMessage = err?.message || err?.details?.message || 'An unknown error occurred';
-      toast({ 
-        title: "❌ Submission Failed", 
-        description: errorMessage, 
-        variant: "destructive" 
-      });
+      toast({ title: "❌ Submission Failed", description: err.message, variant: "destructive" });
     }
   };
 
   const handleApproveLeave = async (leave: LeaveRequest) => {
     try {
-      console.log('[LeaveManagement] Approving leave:', leave.id);
-      
       const actor = currentUser || 'Manager';
-      const entry = { ts: new Date().toISOString(), actor, action: 'Approved', details: '' };
+      const entry = { ts: new Date().toISOString(), actor, action: 'Approved', details: 'Manual Approval' };
 
       setLeaves(prev => prev.map(l => 
         l.id === leave.id ? { ...l, status: 'Approved', history: [...(l.history||[]), entry] } : l
       ));
-      setLeaveUpdateCount(prev => prev + 1);
       
       const { error } = await supabase
         .from('leave_requests')
@@ -352,25 +263,17 @@ export default function LeaveManagementTab() {
         .eq('id', leave.id);
       
       if (error) throw error;
-      
-      console.log('[LeaveManagement] Leave approved successfully');
       toast({ title: "✅ Approved", description: "Leave status updated." });
     } catch (err: any) {
-      console.error('[LeaveManagement] Approval error:', err);
       if (currentOrgId) fetchSupabaseLeaves(currentOrgId);
-      toast({ 
-        title: "❌ Approval Failed", 
-        description: err.message || 'Failed to approve leave', 
-        variant: "destructive" 
-      });
+      toast({ title: "❌ Approval Failed", description: err.message, variant: "destructive" });
     }
   };
 
   const handleRejectLeave = async (leave: LeaveRequest) => {
     try {
-      console.log('[LeaveManagement] Rejecting leave:', leave.id);
       const actor = currentUser || 'Manager';
-      const entry = { ts: new Date().toISOString(), actor, action: 'Rejected', details: '' };
+      const entry = { ts: new Date().toISOString(), actor, action: 'Rejected', details: 'Request Denied' };
 
       setLeaves(prev => prev.map(l => 
         l.id === leave.id ? { ...l, status: 'Rejected', history: [...(l.history||[]), entry] } : l
@@ -382,17 +285,10 @@ export default function LeaveManagementTab() {
         .eq('id', leave.id);
       
       if (error) throw error;
-      
-      console.log('[LeaveManagement] Leave rejected successfully');
       toast({ title: "❌ Rejected", description: "Leave request denied." });
     } catch (err: any) {
-      console.error('[LeaveManagement] Rejection error:', err);
       if (currentOrgId) fetchSupabaseLeaves(currentOrgId);
-      toast({ 
-        title: "❌ Rejection Failed", 
-        description: err.message || 'Failed to reject leave', 
-        variant: "destructive" 
-      });
+      toast({ title: "❌ Rejection Failed", description: err.message, variant: "destructive" });
     }
   };
 
@@ -425,10 +321,9 @@ export default function LeaveManagementTab() {
   };
 
   const handleShiftTasks = (leave: LeaveRequest) => {
-    // Calculate affected tasks
-    const durationDays = Math.ceil((new Date(leave.endDate).getTime() - new Date(leave.startDate).getTime()) / (86400000)) + 1;
     const lStart = new Date(leave.startDate); lStart.setHours(0,0,0,0);
     const lEnd = new Date(leave.endDate); lEnd.setHours(23,59,59,999);
+    
     const affectedForShift = tasks.filter(t => {
       if (t.assignee !== leave.name || t.isCancelled) return false;
       const tStart = new Date(t.created_date);
@@ -436,7 +331,6 @@ export default function LeaveManagementTab() {
       return tStart <= lEnd && tEnd >= lStart;
     });
     
-    console.log('[LeaveManagement] Affected tasks for shift:', affectedForShift);
     setAffectedTasksForShift(affectedForShift);
     setSelectedLeave(leave);
     setShiftOpen(true);
@@ -447,14 +341,6 @@ export default function LeaveManagementTab() {
       const durationDays = Math.ceil((new Date(leave.endDate).getTime() - new Date(leave.startDate).getTime()) / (86400000)) + 1;
       const affectedForShift = affectedTasksForShift;
         
-      console.log('[LeaveManagement] Calling /api/leave-approval/approve-and-shift for leave:', leave.id);
-      console.log('[LeaveManagement] Affected tasks for shift:', affectedForShift.map(t => ({ 
-        name: t.taskName, 
-        oldDue: t.due_date,
-        newDue: new Date(new Date(t.due_date).getTime() + durationDays * 86400000).toISOString().split('T')[0]
-      })));
-      
-      // Call backend auto-shift endpoint
       const response = await fetch('/api/leave-approval/approve-and-shift', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -469,23 +355,12 @@ export default function LeaveManagementTab() {
         })
       });
 
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || `Backend error: ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`Backend error: ${response.status}`);
 
       const result = await response.json();
-      console.log('[LeaveManagement] Backend response:', result);
-      
       const shiftsCount = result.data?.actions?.shifted || affectedForShift.length;
-      // Build message with task details
-      const taskDetails = affectedForShift.slice(0, 3).map(t => {
-        const newDue = new Date(new Date(t.due_date).getTime() + durationDays * 86400000).toISOString().split('T')[0];
-        return `${t.taskName.substring(0, 30)}: ${t.due_date}→${newDue}`;
-      }).join('\n');
-      
       const actor = currentUser || 'Manager';
-      const detail = `Auto-shifted ${shiftsCount} task(s) by ${durationDays} day${durationDays>1?'s':''} (${affectedForShift.length} tasks affected)`;
+      const detail = `Auto-shifted ${shiftsCount} task(s) by ${durationDays} days`;
       
       setLeaves(prev => prev.map(l => l.id === leave.id ? { 
         ...l, 
@@ -495,16 +370,9 @@ export default function LeaveManagementTab() {
       
       setLeaveUpdateCount(prev => prev + 1);
 
-      // Refresh leaves and tasks from DB to ensure consistency
       if (currentOrgId) {
-        console.log('[LeaveManagement] Refreshing data after shift...');
         await fetchSupabaseLeaves(currentOrgId);
-        // Also refresh jira_issues tasks to show updated due dates
-        const { data: updatedTasks } = await supabase
-          .from('jira_issues')
-          .select('*')
-          .eq('org_id', currentOrgId)
-          .limit(500);
+        const { data: updatedTasks } = await supabase.from('jira_issues').select('*').eq('org_id', currentOrgId).limit(500);
         if (updatedTasks) {
           const formatted = updatedTasks.map((t: any) => ({
             id: t.id,
@@ -523,20 +391,15 @@ export default function LeaveManagementTab() {
         }
       }
 
+      toast({ title: "✅ Success", description: `Leave approved and ${shiftsCount} tasks shifted.` });
       setShiftOpen(false);
       setSelectedLeave(null);
       setAffectedTasksForShift([]);
     } catch (err: any) {
-      console.error('[LeaveManagement] Shift error:', err);
-      toast({ 
-        title: "❌ Shift Failed", 
-        description: err.message || 'Failed to auto-shift tasks', 
-        variant: "destructive" 
-      });
+      toast({ title: "❌ Shift Failed", description: err.message, variant: "destructive" });
     }
   };
 
-  // Mini calendar helper: next 30 days with markers for leaves and shifts
   const getNext30Days = () => {
     const arr: { date: string; leaves: LeaveRequest[] }[] = [];
     const today = new Date();
@@ -545,10 +408,10 @@ export default function LeaveManagementTab() {
       d.setDate(today.getDate() + i);
       const dateStr = d.toISOString().split('T')[0];
       const dayLeaves = leaves.filter(l => {
+        if (l.status !== 'Approved') return false;
         const s = new Date(l.startDate); s.setHours(0,0,0,0);
         const e = new Date(l.endDate); e.setHours(23,59,59,999);
-        const dd = new Date(dateStr);
-        dd.setHours(0,0,0,0);
+        const dd = new Date(dateStr); dd.setHours(0,0,0,0);
         return dd >= s && dd <= e;
       });
       arr.push({ date: dateStr, leaves: dayLeaves });
@@ -556,18 +419,16 @@ export default function LeaveManagementTab() {
     return arr;
   };
 
-  if (authLoading) {
+  if (authLoading || isLoadingData) {
     return (
       <div className="flex flex-col items-center justify-center h-[50vh] space-y-4">
         <RefreshCw className="w-8 h-8 text-blue-500 animate-spin" />
-        <div className="text-slate-500 font-light">Logging in...</div>
+        <div className="text-slate-500 font-light">{authLoading ? "Logging in..." : "Syncing Workspace Data..."}</div>
       </div>
     );
   }
 
-  // In development, allow access without auth for testing
   const isDevelopment = process.env.NODE_ENV === 'development';
-  
   if (!user && !isDevelopment) {
     return (
       <div className="flex flex-col items-center justify-center h-[50vh] space-y-4">
@@ -576,15 +437,6 @@ export default function LeaveManagementTab() {
           <p className="font-semibold">Not authenticated</p>
           <p className="text-sm text-slate-500">Please log in to access Leave Management</p>
         </div>
-      </div>
-    );
-  }
-
-  if (isLoadingData) {
-    return (
-      <div className="flex flex-col items-center justify-center h-[50vh] space-y-4">
-        <RefreshCw className="w-8 h-8 text-blue-500 animate-spin" />
-        <div className="text-slate-500 font-light">Syncing Workspace Data...</div>
       </div>
     );
   }
@@ -620,26 +472,30 @@ export default function LeaveManagementTab() {
 
       {activePersona === 'manager' && (
         <div className="w-full mb-4 mt-4 space-y-6">
-          <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border-2 border-indigo-300 rounded-2xl p-6 shadow-lg">
-            <h3 className="text-xl font-light text-primary mb-6 flex items-center gap-2">📋 All Leave Requests</h3>
+          <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-100 rounded-2xl p-6 shadow-sm">
+            <h3 className="text-xl font-medium text-slate-800 mb-6 flex items-center gap-2">📋 Team Leave Requests</h3>
+            
+            {/* Calendar Overview */}
+            <div className="mb-6 p-4 bg-white border border-slate-200 rounded-xl shadow-sm">
+              <h4 className="text-sm font-semibold text-slate-700 mb-3">30-Day Team Absence Overview</h4>
+              <div className="grid grid-cols-10 md:grid-cols-15 gap-1.5 text-[10px]">
+                {getNext30Days().map(day => (
+                  <div key={day.date} title={`${day.date} — ${day.leaves.length} approved leave(s)`} className={`h-8 rounded flex flex-col items-center justify-center transition-colors ${day.leaves.length > 0 ? 'bg-red-50 border border-red-200 text-red-700 cursor-help' : 'bg-slate-50 border border-slate-100 text-slate-400'}`}>
+                    <span className="font-semibold">{new Date(day.date).getDate()}</span>
+                    {day.leaves.length > 0 && <span className="w-1.5 h-1.5 rounded-full bg-red-400 mt-0.5"></span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+
             {leaves.length === 0 ? (
-              <div className="text-center p-8 text-slate-500 bg-white/50 rounded-xl border border-indigo-100">
-                <AlertCircle className="w-12 h-12 mx-auto opacity-30 mb-2" />
-                <p>No leave requests for your organization.</p>
+              <div className="text-center p-12 text-slate-500 bg-white/60 rounded-xl border border-dashed border-indigo-200">
+                <AlertCircle className="w-10 h-10 mx-auto text-indigo-300 mb-3" />
+                <p className="font-medium">No leave requests found.</p>
+                <p className="text-xs mt-1">Requests submitted by your team will appear here.</p>
               </div>
             ) : (
               <div className="space-y-4">
-                  {/* Mini 30-day calendar showing absences/shifts */}
-                  <div className="mb-4 p-3 bg-white border rounded-lg">
-                    <h4 className="text-sm font-semibold mb-2">30-day Absence Overview</h4>
-                    <div className="grid grid-cols-10 gap-1 text-[10px]">
-                      {getNext30Days().map(day => (
-                        <div key={day.date} title={`${day.date} — ${day.leaves.length} leave(s)`} className={`h-6 rounded flex items-center justify-center ${day.leaves.length > 0 ? 'bg-red-100 border border-red-200 text-red-700' : 'bg-gray-50 border border-gray-100 text-gray-400'}`}>
-                          {new Date(day.date).getDate()}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
                 {leaves.map(leave => {
                   const affectedTasks = tasks.filter(t => {
                     if (t.assignee !== leave.name || t.isCancelled) return false;
@@ -652,78 +508,106 @@ export default function LeaveManagementTab() {
                   const isExpanded = !!expandedLeaves[leave.id];
 
                   return (
-                    <div key={leave.id} className={`p-4 rounded-xl border-2 ${leave.status === 'Approved' ? 'bg-green-50 border-green-300' : leave.status === 'Rejected' ? 'bg-red-50 border-red-300' : 'bg-yellow-50 border-yellow-300'}`}>
-                      <div className="flex items-center justify-between gap-4">
+                    <div key={leave.id} className={`p-5 rounded-xl border transition-all ${leave.status === 'Approved' ? 'bg-white border-green-200 shadow-sm' : leave.status === 'Rejected' ? 'bg-slate-50 border-slate-200 opacity-70' : 'bg-white border-amber-200 shadow-md ring-1 ring-amber-100'}`}>
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
-                            <h4 className="font-light text-lg text-slate-900">{leave.name}</h4>
-                            <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${leave.status === 'Approved' ? 'bg-green-200 text-green-800' : leave.status === 'Rejected' ? 'bg-red-200 text-red-800' : 'bg-yellow-200 text-yellow-800'}`}>
+                            <h4 className="font-semibold text-lg text-slate-900">{leave.name}</h4>
+                            <Badge variant={leave.status === 'Approved' ? 'default' : leave.status === 'Rejected' ? 'destructive' : 'secondary'} className={`${leave.status === 'Approved' ? 'bg-green-100 text-green-800 hover:bg-green-200' : leave.status === 'Pending' ? 'bg-amber-100 text-amber-800 hover:bg-amber-200' : ''}`}>
                               {leave.status}
-                            </span>
+                            </Badge>
                           </div>
-                          <div className="grid grid-cols-2 gap-4 text-sm mb-3">
-                            <div><p className="text-slate-600"><strong>Leave:</strong> {leave.startDate} to {leave.endDate}</p></div>
-                            <div><p className="text-slate-600"><strong>Reason:</strong> {leave.reason}</p></div>
+                          <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm mb-2">
+                            <div className="flex items-center gap-1.5 text-slate-600">
+                              <CalendarDays className="w-4 h-4 text-slate-400" />
+                              <span className="font-medium">{leave.startDate}</span> to <span className="font-medium">{leave.endDate}</span>
+                            </div>
+                            <div className="text-slate-600">
+                              <span className="text-slate-400 mr-1">Reason:</span> {leave.reason}
+                            </div>
                           </div>
-                          {affectedTasks.length > 0 && (
-                            <p className="text-xs font-bold text-slate-700">Affected Tasks: {affectedTasks.length}</p>
-                          )}
                         </div>
 
-                        <div className="flex gap-2 items-start">
+                        <div className="flex gap-2 items-center flex-wrap justify-end">
                           <Button size="sm" variant="ghost" onClick={() => setExpandedLeaves(prev => ({ ...prev, [leave.id]: !prev[leave.id] }))}>
-                            {isExpanded ? 'Collapse' : 'Details'}
+                            {isExpanded ? 'Hide Impact' : `View Impact (${affectedTasks.length} tasks)`}
                           </Button>
+                          
+                          {/* THIS CONDITION FIXES ISSUE 1: Buttons ONLY show when Pending */}
                           {leave.status === 'Pending' && (
-                            <div className="flex gap-2">
-                              <Button size="sm" className="bg-green-600" onClick={() => handleApproveLeave(leave)}>Approve</Button>
-                              <Button size="sm" variant="outline" className="text-red-600 border-red-600" onClick={() => handleRejectLeave(leave)}>Reject</Button>
-                            </div>
-                          )}
-                          {(leave.status === 'Pending' || leave.status === 'Approved') && (
-                            <div className="flex gap-2 ml-2">
-                              <Button size="sm" onClick={() => handleShiftTasks(leave)} className="bg-indigo-600">Approve & Shift Tasks</Button>
-                              <Button size="sm" variant="outline" onClick={() => { setSelectedLeave(leave); setRedeployOpen(true); }}>Approve & Redeploy</Button>
+                            <div className="flex gap-2 border-l pl-2 border-slate-200 flex-wrap justify-end">
+                              <Button size="sm" variant="outline" className="text-red-600 hover:bg-red-50" onClick={() => handleRejectLeave(leave)}>Reject</Button>
+                              <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => handleApproveLeave(leave)}>Approve Only</Button>
+                              <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm" onClick={() => handleShiftTasks(leave)}>
+                                <Zap className="w-3.5 h-3.5 mr-1.5" /> Approve & Shift
+                              </Button>
+                              <Button size="sm" variant="outline" className="border-purple-200 text-purple-700 hover:bg-purple-50" onClick={() => { setSelectedLeave(leave); setRedeployOpen(true); }}>
+                                Approve & Redeploy
+                              </Button>
                             </div>
                           )}
                         </div>
                       </div>
 
+                      {/* THIS FIXES ISSUE 2: Enhanced Preview inside Manager view */}
                       {isExpanded && (
-                        <div className="mt-3 p-3 bg-white rounded-lg border border-gray-100">
-                          <h5 className="text-sm font-semibold mb-2">Affected Tasks</h5>
+                        <div className="mt-4 pt-4 border-t border-slate-100">
+                          <h5 className="text-sm font-semibold text-slate-700 mb-3">Tasks overlapping with this leave:</h5>
                           {affectedTasks.length > 0 ? (
-                            <ul className="text-xs space-y-1 mb-3">
-                              {affectedTasks.map(t => (
-                                <li key={t.id} className="flex justify-between">
-                                  <span>{t.taskName}</span>
-                                  <span className="text-gray-500">{t.hours}h</span>
-                                </li>
-                              ))}
-                            </ul>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              {affectedTasks.map(t => {
+                                // Calculate shifted date preview
+                                const durationDays = Math.ceil((new Date(leave.endDate).getTime() - new Date(leave.startDate).getTime()) / (86400000)) + 1;
+                                const newDue = new Date(new Date(t.due_date).getTime() + durationDays * 86400000).toISOString().split('T')[0];
+                                
+                                return (
+                                  <div key={t.id} className="p-3 bg-white border border-slate-200 rounded-lg shadow-sm flex flex-col justify-between items-start group">
+                                    <div className="flex justify-between w-full mb-2">
+                                      <Badge variant="secondary" className="bg-slate-100 text-slate-600 text-[10px] font-medium px-2 py-0.5 rounded border-0">
+                                        {t.projectName}
+                                      </Badge>
+                                      <span className="text-xs text-slate-500 font-medium">{t.hours}h</span>
+                                    </div>
+                                    <p className="text-sm font-medium text-slate-800 line-clamp-1 mb-3">{t.taskName}</p>
+                                    
+                                    {/* Show the preview of the shift ONLY if pending */}
+                                    {leave.status === 'Pending' ? (
+                                      <div className="flex items-center gap-2 text-xs bg-amber-50 px-2 py-1 rounded w-full border border-amber-100/50">
+                                        <Clock className="w-3 h-3 text-amber-500" />
+                                        <span className="text-slate-500 line-through decoration-slate-400">{t.due_date}</span>
+                                        <span className="text-amber-600 font-bold">→ {newDue}</span>
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center gap-2 text-xs bg-slate-50 px-2 py-1 rounded w-full">
+                                        <Clock className="w-3 h-3 text-slate-400" />
+                                        <span className="text-slate-600 font-medium">Due: {t.due_date}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
                           ) : (
-                            <p className="text-xs text-gray-500">No tasks impacted.</p>
+                            <div className="p-6 bg-slate-50 rounded-xl text-center text-sm text-slate-500 border border-dashed border-slate-200">
+                              No active tasks found for this employee during these dates.
+                            </div>
                           )}
 
-                          <div className="text-xs text-gray-600 mb-3 p-2 bg-slate-50 rounded border border-gray-200">
-                            <strong className="block mb-1">📋 Activity & DB Shifts:</strong>
-                            <ul className="mt-1 space-y-1">
-                              {(leave.history || []).slice().reverse().map((h, i) => (
-                                <li key={i} className="text-[11px] p-1 bg-white rounded border-l-2 border-indigo-400">
-                                  <div>{new Date(h.ts).toLocaleString()} — {h.actor}: <strong>{h.action}</strong></div>
-                                  {h.details && <div className="text-gray-600">{h.details}</div>}
-                                </li>
-                              ))}
-                              {!(leave.history && leave.history.length) && (
-                                <li className="text-gray-500">No activity yet</li>
-                              )}
-                            </ul>
-                          </div>
-
-                          {leave.status === 'Approved' && (
-                            <div className="text-xs mb-2 p-2 bg-green-50 rounded border border-green-200">
-                              <strong className="text-green-700">✅ Approved</strong>
-                              <p className="text-green-600 text-[10px] mt-1">(Click "Approve & Shift Tasks" above to shift task dates)</p>
+                          {/* Activity History Log */}
+                          {leave.history && leave.history.length > 0 && (
+                            <div className="mt-4 p-3 bg-slate-50 rounded-lg border border-slate-100">
+                              <p className="text-xs font-semibold text-slate-600 mb-2">Activity History</p>
+                              <ul className="space-y-1.5">
+                                {leave.history.slice().reverse().map((h, i) => (
+                                  <li key={i} className="text-[11px] text-slate-600 flex items-start gap-2">
+                                    <span className="text-slate-400 min-w-[120px]">{new Date(h.ts).toLocaleString()}</span>
+                                    <span>
+                                      <strong>{h.actor}</strong> {h.action === 'Approved' || h.action === 'Shifted' ? '✅' : '❌'} {h.action}
+                                      {h.details && <span className="text-slate-500 italic ml-1">({h.details})</span>}
+                                    </span>
+                                  </li>
+                                ))}
+                              </ul>
                             </div>
                           )}
                         </div>
@@ -734,6 +618,7 @@ export default function LeaveManagementTab() {
               </div>
             )}
           </div>
+          
           <CapacityAnalysis 
             employees={employees} 
             approvedLeaves={leaves.filter(l => l.status === 'Approved')} 
@@ -770,20 +655,13 @@ export default function LeaveManagementTab() {
         onSubmit={handleApplyLeave} 
       />
 
+      {/* Redeploy Modal */}
       {redeployOpen && selectedLeave && (
         <>
-          {/* Background Overlay */}
-          <div 
-            className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm"
-            onClick={() => setRedeployOpen(false)}
-          />
-          
-          {/* Centered Modal */}
+          <div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm" onClick={() => setRedeployOpen(false)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto">
-              
               <div className="p-8">
-                {/* Header */}
                 <div className="flex items-start justify-between mb-6">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-purple-100 rounded-lg">
@@ -796,15 +674,9 @@ export default function LeaveManagementTab() {
                       <p className="text-sm text-gray-600 mt-1">Select an employee to redeploy tasks to.</p>
                     </div>
                   </div>
-                  <button 
-                    onClick={() => setRedeployOpen(false)}
-                    className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
-                  >
-                    ×
-                  </button>
+                  <button onClick={() => setRedeployOpen(false)} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
                 </div>
                 
-                {/* Employee List */}
                 <div className="mb-6 space-y-2 max-h-[50vh] overflow-y-auto">
                   {getAvailableEmployeesOnDate(selectedLeave.startDate).map(emp => (
                     <button
@@ -825,12 +697,8 @@ export default function LeaveManagementTab() {
                   ))}
                 </div>
 
-                {/* Footer Actions */}
                 <div className="border-t border-gray-200 pt-6 flex gap-3 justify-end">
-                  <button
-                    onClick={() => setRedeployOpen(false)}
-                    className="px-6 h-11 border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 rounded-lg font-light transition-all"
-                  >
+                  <button onClick={() => setRedeployOpen(false)} className="px-6 h-11 border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 rounded-lg font-light transition-all">
                     Cancel
                   </button>
                 </div>
@@ -842,90 +710,47 @@ export default function LeaveManagementTab() {
 
       {/* Shift Tasks Modal */}
       {shiftOpen && selectedLeave && (
-        <>
-          {/* Background Overlay */}
-          <div 
-            className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm"
-            onClick={() => setShiftOpen(false)}
-          />
-          
-          {/* Centered Modal */}
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto">
-              
-              <div className="p-8">
-                {/* Header */}
-                <div className="flex items-start justify-between mb-6">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 rounded-lg">
-                      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
+        <Dialog open={shiftOpen} onOpenChange={setShiftOpen}>
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle className="text-xl flex items-center gap-2">
+                <Zap className="w-5 h-5 text-blue-500" />
+                Approve Leave & Shift Tasks
+              </DialogTitle>
+              <DialogDescription>
+                This will approve {selectedLeave.name}'s leave and push back the deadlines of all overlapping tasks.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="my-4 max-h-[40vh] overflow-y-auto pr-2 space-y-3">
+              {affectedTasksForShift.length === 0 ? (
+                <p className="text-sm text-slate-500 text-center py-4">No tasks need shifting.</p>
+              ) : (
+                affectedTasksForShift.map(task => {
+                  const durationDays = Math.ceil((new Date(selectedLeave.endDate).getTime() - new Date(selectedLeave.startDate).getTime()) / (86400000)) + 1;
+                  const newDueDate = new Date(new Date(task.due_date).getTime() + durationDays * 86400000).toISOString().split('T')[0];
+                  
+                  return (
+                    <div key={task.id} className="p-3 bg-slate-50 border rounded-lg flex justify-between items-center">
+                      <div className="max-w-[60%]">
+                        <p className="font-medium text-sm truncate">{task.taskName}</p>
+                      </div>
+                      <div className="text-xs flex items-center gap-2">
+                        <span className="text-slate-500 line-through">{task.due_date}</span>
+                        <span className="text-blue-500 font-bold">→ {newDueDate}</span>
+                      </div>
                     </div>
-                    <div>
-                      <h2 className="text-2xl font-semibold text-[#121212]">Approve & Shift Tasks</h2>
-                      <p className="text-sm text-gray-600 mt-1">Review tasks that will be shifted by {Math.ceil((new Date(selectedLeave.endDate).getTime() - new Date(selectedLeave.startDate).getTime()) / (86400000)) + 1} day(s).</p>
-                    </div>
-                  </div>
-                  <button 
-                    onClick={() => setShiftOpen(false)}
-                    className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
-                  >
-                    ×
-                  </button>
-                </div>
-                
-                {/* Tasks List */}
-                <div className="mb-6 space-y-2 max-h-[50vh] overflow-y-auto">
-                  {affectedTasksForShift.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
-                      <p className="text-sm">No tasks to shift for this leave period.</p>
-                    </div>
-                  ) : (
-                    affectedTasksForShift.map((task, idx) => {
-                      const durationDays = Math.ceil((new Date(selectedLeave.endDate).getTime() - new Date(selectedLeave.startDate).getTime()) / (86400000)) + 1;
-                      const newDueDate = new Date(new Date(task.due_date).getTime() + durationDays * 86400000).toISOString().split('T')[0];
-                      return (
-                        <div key={idx} className="p-4 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-all">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="font-semibold text-[#121212]">{task.taskName}</div>
-                              <div className="text-xs text-gray-600 mt-1">{task.projectName} • {task.hours}h</div>
-                            </div>
-                            <div className="text-right">
-                              <div className="text-xs text-gray-600 mb-1">Due Date</div>
-                              <div className="flex items-center gap-2 text-sm">
-                                <span className="text-gray-700">{task.due_date}</span>
-                                <span className="text-blue-600 font-semibold">→</span>
-                                <span className="text-blue-600 font-semibold">{newDueDate}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-
-                {/* Footer Actions */}
-                <div className="border-t border-gray-200 pt-6 flex gap-3 justify-end">
-                  <button
-                    onClick={() => setShiftOpen(false)}
-                    className="px-6 h-11 border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 rounded-lg font-light transition-all"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() => performShiftTasks(selectedLeave)}
-                    className="px-6 h-11 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-light transition-all shadow-md"
-                  >
-                    Commit
-                  </button>
-                </div>
-              </div>
+                  );
+                })
+              )}
             </div>
-          </div>
-        </>
+            
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <Button variant="outline" onClick={() => setShiftOpen(false)}>Cancel</Button>
+              <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => performShiftTasks(selectedLeave)}>Confirm & Shift</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
