@@ -105,35 +105,38 @@ export default function LeaveManagementTab() {
       
       try {
         let orgId = null;
-        let userEmail = 'velocityai588@gmail.com'; // Use directly from organization
+        let currentUserEmail = user?.email;
 
-        console.log('[LeaveManagement] Starting with org-based approach, using email:', userEmail);
+        // 1. Ensure we have the user email from Supabase Auth
+        if (!currentUserEmail) {
+          const { data: { user: authUser } } = await supabase.auth.getUser();
+          currentUserEmail = authUser?.email;
+        }
 
-        // For development: Use the hardcoded velocityai588 org
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[LeaveManagement] DEV MODE: Using hardcoded org_id');
-          orgId = '3fa59970-ddfa-4ab4-ad00-008c36d32113'; // Your velocityai588 org_id
-          if (isMounted) setCurrentUser('VelocityAI User');
-        } else {
-          // Production: Try to get org from user lookup
-          let userFromContext = user?.email;
-          if (!userFromContext) {
-            const { data: { user: authUser } } = await supabase.auth.getUser();
-            userFromContext = authUser?.email;
+        console.log('[LeaveManagement] Starting with org-based approach, using email:', currentUserEmail);
+
+        if (currentUserEmail) {
+          // 2. Lookup the user in your PUBLIC.USERS table to find their assigned org
+          const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('organization_id, name')
+            .eq('email', currentUserEmail)
+            .single();
+
+          if (userData?.organization_id) {
+            orgId = userData.organization_id;
+            if (isMounted) setCurrentUser(userData.name || currentUserEmail);
+          } else {
+            // 3. Fallback for new users (Google/Email/Jira) who aren't in public.users yet
+            console.warn("[LeaveManagement] User not found in public.users. Falling back to default org.");
+            orgId = '3fa59970-ddfa-4ab4-ad00-008c36d32113'; 
+            if (isMounted) setCurrentUser(currentUserEmail);
           }
-
-          if (userFromContext) {
-            const { data: userData } = await supabase
-              .from('users')
-              .select('organization_id')
-              .eq('email', userFromContext)
-              .single();
-
-            if (userData) {
-              orgId = userData.organization_id;
-              if (isMounted) setCurrentUser(userFromContext);
-            }
-          }
+        } else if (process.env.NODE_ENV === 'development') {
+           // Extreme fallback if no auth user exists but we are in dev mode
+           console.log('[LeaveManagement] DEV MODE: No user found, using hardcoded org_id');
+           orgId = '3fa59970-ddfa-4ab4-ad00-008c36d32113';
+           if (isMounted) setCurrentUser('VelocityAI Dev User');
         }
 
         if (!orgId) {
