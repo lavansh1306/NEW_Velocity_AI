@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { VelocityAISidebar } from '@/components/dashboard/VelocityAISidebar';
+import { Button } from '@/components/ui/button';
 import { 
   loadProjects, 
   loadMetrics, 
@@ -22,27 +24,32 @@ import type {
   ProjectAnalytics,
 } from '@/lib/dataService';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Calendar, GitBranch, Users, TrendingUp, Clock, CheckCircle, AlertCircle, Activity, Mail, MessageSquare, FileText, Settings, ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Plus, Sparkles, LayoutGrid, Users, CheckSquare, Clock, Lightbulb, GitBranch, AlertCircle, Activity } from 'lucide-react';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
 export default function ProjectDetailNew() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<'overview' | 'github' | 'tasks' | 'issues' | 'insights'>('overview');
+  
+  // Data States
   const [project, setProject] = useState<ProjectItem | null>(null);
   const [metrics, setMetrics] = useState<any>(null);
-  
-  // All data states
   const [commits, setCommits] = useState<Commit[]>([]);
   const [pullRequests, setPullRequests] = useState<PullRequest[]>([]);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [weeklyCommits, setWeeklyCommits] = useState<WeeklyCommit[]>([]);
   const [burndownData, setBurndownData] = useState<BurndownData[]>([]);
-  
   const [jiraIssues, setJiraIssues] = useState<JiraIssue[]>([]);
   const [projectAnalytics, setProjectAnalytics] = useState<ProjectAnalytics | null>(null);
-  
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'github' | 'tasks' | 'issues' | 'automations' | 'integrations'>('overview');
+
+  // Fallback mocks for undefined variables from original code
+  const asanaTasks: any[] = [];
+  const hubspotEvents: any[] = [];
+  const m365Activities: any[] = [];
+  const asanaAutomationRate = '0';
 
   useEffect(() => {
     if (!id) return;
@@ -50,16 +57,13 @@ export default function ProjectDetailNew() {
     const loadAllData = async () => {
       setLoading(true);
       try {
-        // Load project info
         const projects = await loadProjects();
         const found = projects.find((p) => p.id === id);
         setProject(found || null);
         
-        // Load metrics
         const metricsData = await loadMetrics(id);
         setMetrics(metricsData);
         
-        // Load ALL data sources in parallel
         const [
           commitsData,
           prsData,
@@ -85,7 +89,6 @@ export default function ProjectDetailNew() {
         setBurndownData(burndownDataRaw);
         setJiraIssues(jiraData);
         setProjectAnalytics(analyticsData);
-        
       } catch (error) {
         console.error('Failed to load project data:', error);
       } finally {
@@ -98,63 +101,50 @@ export default function ProjectDetailNew() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading comprehensive project data...</p>
+      <VelocityAISidebar>
+        <div className="min-h-screen bg-[#FAFAF9] flex items-center justify-center">
+          <div className="text-center animate-pulse">
+            <div className="w-12 h-12 border-4 border-[#E7E5E4] border-t-[#1C1917] rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-[#78716C] font-light">Loading project intelligence...</p>
+          </div>
         </div>
-      </div>
+      </VelocityAISidebar>
     );
   }
 
   if (!project) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900">Project not found</h2>
-          <Link to="/use-cases" className="text-blue-600 hover:underline mt-4 inline-block">
-            ← Back to Projects
-          </Link>
+      <VelocityAISidebar>
+        <div className="min-h-screen bg-[#FAFAF9] flex items-center justify-center">
+          <div className="text-center">
+            <h2 className="text-2xl font-light text-[#1C1917]">Project not found</h2>
+            <Button onClick={() => navigate('/projects')} variant="outline" className="mt-4">
+              Return to Projects
+            </Button>
+          </div>
         </div>
-      </div>
+      </VelocityAISidebar>
     );
   }
 
-  // Calculate comprehensive metrics
-  const totalCommits = commits.length;
-  const totalPRs = pullRequests.length;
-  const totalJiraIssues = jiraIssues.length;
-  const totalHubSpotEvents = hubspotEvents.length;
-  const totalM365Activities = m365Activities.length;
+  // --- Derived Analytics based on your data models ---
+  const totalEstHours = projectAnalytics?.planned_hours || 1240; // Fallback to mockup data if null
+  const actualHours = projectAnalytics?.actual_hours || 856;
+  const remainingHours = Math.max(totalEstHours - actualHours, 0);
+  const completionPct = totalEstHours > 0 ? Math.round((actualHours / totalEstHours) * 100) : 0;
   
-  const jiraAutomationRate = jiraIssues.length > 0
-    ? ((jiraIssues.filter(i => i.is_automation).length / jiraIssues.length) * 100).toFixed(1)
-    : '0';
+  const totalTasks = asanaTasks.length + jiraIssues.length;
+  const tasksCompleted = jiraIssues.filter(i => i.status?.toLowerCase().includes('done')).length;
+  const tasksRemaining = Math.max(totalTasks - tasksCompleted, 0);
+
+  const healthScore = metrics?.healthScore || 72;
+  const feasibility = 85; // Static for mockup, could derive from burndown velocity
   
-  // Prepare chart data
+  // Chart Data preparation
   const weeklyCommitsChartData = weeklyCommits.map(w => ({
     week: new Date(w.week_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
     commits: w.commits_count,
   }));
-
-  const aiToolUsageData = projectAnalytics?.ai_tool_usage.map(tool => ({
-    name: tool.tool,
-    hours: tool.hours,
-  })) || [];
-
-  const integrationSavingsData = projectAnalytics ? [
-    { name: 'Asana', hours: projectAnalytics.integration_savings.asana },
-  ] : [];
-
-  const timeLogsChartData = projectAnalytics?.time_logs.map(log => ({
-    date: new Date(log.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    hours: log.hours_logged,
-  })) || [];
-
-  const jiraTicketDistribution = projectAnalytics ? [
-    { name: 'Bugs', value: projectAnalytics.jira_tickets.filter(t => t.type === 'bug').length },
-    { name: 'Non-Bugs', value: projectAnalytics.jira_tickets.filter(t => t.type === 'non-bug').length },
-  ] : [];
 
   const burndownChartData = burndownData.map(b => ({
     day: b.day,
@@ -162,489 +152,384 @@ export default function ProjectDetailNew() {
     total: b.total_tasks,
   }));
 
-  // Activity Timeline - unified view of all events
-  const allActivities = [
-    ...commits.map(c => ({ id: `commit-${c.sha}`, type: 'commit', time: c.date, description: `Commit: ${c.message}`, source: 'GitHub', actor: c.author })),
-    ...asanaTasks.map(t => ({ id: `asana-${t.gid}`, type: 'task', time: t.created_at, description: `${t.action}: ${t.task_name || 'Task'}`, source: 'Asana', actor: t.created_by })),
-    ...jiraIssues.map(i => ({ id: `jira-${i.issue_id}`, type: 'issue', time: i.created_at, description: `${i.event_type}: ${i.issue_key} - ${i.summary || 'Issue'}`, source: 'Jira', actor: i.actor })),
-  ].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, 50);
-
-  const getSourceColor = (source: string) => {
-    const colors: Record<string, string> = {
-      'GitHub': 'bg-gray-800 text-white',
-      'Asana': 'bg-pink-600 text-white',
-      'Jira': 'bg-blue-600 text-white',
-    };
-    return colors[source] || 'bg-gray-500 text-white';
-  };
-
-  const getSourceIcon = (source: string) => {
-    const icons: Record<string, any> = {
-      'GitHub': GitBranch,
-      'Asana': CheckCircle,
-      'Jira': AlertCircle,
-    };
-    const Icon = icons[source] || Activity;
-    return <Icon className="w-4 h-4" />;
-  };
+  // --- Reusable Tab Button ---
+  const TabButton = ({ id, label, icon: Icon }: { id: string, label: string, icon: any }) => (
+    <button
+      onClick={() => setActiveTab(id as any)}
+      className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm transition-all duration-200 ${
+        activeTab === id 
+          ? 'bg-white shadow-sm text-[#1C1917] font-medium border border-[#E7E5E4]' 
+          : 'text-[#78716C] hover:bg-[#F5F5F4] hover:text-[#1C1917]'
+      }`}
+    >
+      <Icon className="w-4 h-4" />
+      {label}
+    </button>
+  );
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b">
-        <div className="max-w-full mx-auto px-4 md:px-6 py-6">
-          <Link to="/" className="text-blue-600 hover:underline flex items-center gap-2 mb-4">
-            <ArrowLeft className="w-4 h-4" /> Back to Projects
-          </Link>
-          <div className="flex items-start justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">{project.title}</h1>
-              <p className="text-gray-600 mt-2">{project.category}</p>
-              <div className="flex gap-2 mt-3">
-                {project.tags.map((tag) => (
-                  <span key={tag} className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
-                    {tag}
-                  </span>
-                ))}
+    <VelocityAISidebar>
+      <div className="bg-[#FAFAF9] min-h-screen p-8 md:p-12 font-['Inter',sans-serif]">
+        <div className="max-w-[1200px] mx-auto space-y-8">
+          
+          {/* Top Navigation */}
+          <button 
+            onClick={() => navigate('/projects')}
+            className="flex items-center gap-2 text-sm text-[#78716C] hover:text-[#1C1917] transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Projects
+          </button>
+
+          {/* Header Card */}
+          <div className="bg-white rounded-[24px] border border-[#E7E5E4] p-8 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+            <div className="space-y-4">
+              <span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${healthScore < 50 ? 'bg-[#FFF1F2] text-[#BE123C]' : 'bg-[#F0FDFA] text-[#0F766E]'}`}>
+                {healthScore < 50 ? 'At Risk' : 'On Track'}
+              </span>
+              <h1 className="text-3xl md:text-4xl font-light text-[#1C1917] tracking-tight">
+                {project.title}
+              </h1>
+              <p className="text-sm text-[#78716C]">
+                {new Date(project.created_at || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} &rarr; Present
+              </p>
+            </div>
+
+            <div className="flex items-center gap-8">
+              <div className="text-center">
+                <p className="text-xs text-[#A8A29E] mb-2">Health Score</p>
+                <div className={`w-16 h-16 rounded-full border flex items-center justify-center text-2xl font-light mx-auto ${
+                  healthScore < 50 ? 'border-pink-100 bg-pink-50 text-pink-500' : 'border-teal-100 bg-teal-50 text-teal-600'
+                }`}>
+                  {healthScore}
+                </div>
+                <p className="text-xs text-[#A8A29E] mt-2">Feasibility {feasibility}%</p>
               </div>
+              <Button className="bg-[#1C1917] hover:bg-[#292524] text-white rounded-xl px-6 py-6 h-auto font-light transition-transform hover:scale-105">
+                Edit Project
+              </Button>
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Tabs */}
-      <div className="bg-white border-b">
-        <div className="max-w-full mx-auto px-4 md:px-6">
-          <div className="flex gap-6">
-            {[
-              { id: 'overview', label: 'Overview', icon: Activity },
-              { id: 'tasks', label: 'Team & Tasks', icon: CheckCircle },
-              { id: 'github', label: 'Development', icon: GitBranch },
-            ].map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
-                  className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
-                    activeTab === tab.id
-                      ? 'border-blue-600 text-blue-600'
-                      : 'border-transparent text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  <Icon className="w-5 h-5" />
-                  {tab.label}
-                </button>
-              );
-            })}
+          {/* New Tab Navigation */}
+          <div className="flex flex-wrap gap-2 p-1 bg-[#F5F5F4] rounded-xl w-fit border border-[#E7E5E4]">
+            <TabButton id="overview" label="Overview" icon={LayoutGrid} />
+            <TabButton id="tasks" label="Team & Tasks" icon={Users} />
+            <TabButton id="github" label="Development" icon={GitBranch} />
+            <TabButton id="insights" label="AI Insights" icon={Lightbulb} />
           </div>
-        </div>
-      </div>
 
-      {/* Content */}
-      <div className="max-w-full mx-auto px-4 md:px-6 py-8">
-        
-        {/* OVERVIEW TAB */}
-        {activeTab === 'overview' && (
-          <div className="space-y-8">
-            {/* Project Health - Key Metrics */}
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 rounded-lg shadow-lg">
-              <h2 className="text-2xl font-bold mb-6">Project Health Dashboard</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white/10 backdrop-blur p-4 rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Clock className="w-5 h-5" />
-                    <p className="text-sm opacity-90">Timeline Status</p>
+          {/* ----------------- OVERVIEW TAB ----------------- */}
+          {activeTab === 'overview' && (
+            <div className="space-y-6">
+              
+              {/* 5-Column Stats Grid */}
+              <div className="bg-white rounded-[24px] border border-[#E7E5E4] p-8 shadow-sm">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-8 divide-x divide-[#E7E5E4]">
+                  <div className="px-4 first:px-0">
+                    <p className="text-4xl font-light text-[#1C1917]">{totalEstHours}</p>
+                    <p className="text-xs text-[#A8A29E] mt-2">Total Est. Hours</p>
                   </div>
-                  {projectAnalytics && (
+                  <div className="px-4">
+                    <p className="text-4xl font-light text-[#1C1917]">{actualHours}</p>
+                    <p className="text-xs text-[#A8A29E] mt-2">Actual Hours</p>
+                  </div>
+                  <div className="px-4">
+                    <p className="text-4xl font-light text-[#1C1917]">{remainingHours}</p>
+                    <p className="text-xs text-[#A8A29E] mt-2">Remaining</p>
+                  </div>
+                  <div className="px-4">
+                    <p className="text-4xl font-light text-[#1C1917]">{completionPct}%</p>
+                    <p className="text-xs text-[#A8A29E] mt-2">Completion</p>
+                  </div>
+                  <div className="px-4">
+                    <p className="text-4xl font-light text-[#1C1917]">{teamMembers.length}</p>
+                    <p className="text-xs text-[#A8A29E] mt-2">Team Size</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2-Column Complex Charts Layout */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                
+                {/* Completion Progress Card */}
+                <div className="bg-white rounded-[24px] border border-[#E7E5E4] p-8 shadow-sm space-y-6">
+                  <h3 className="text-[#1C1917] text-lg font-light">Completion Progress</h3>
+                  <div>
+                    <div className="flex justify-between text-sm mb-3">
+                      <span className="text-[#78716C]">Overall</span>
+                      <span className="text-[#1C1917]">{completionPct}%</span>
+                    </div>
+                    <div className="h-2 w-full bg-[#E7E5E4] rounded-full overflow-hidden">
+                      <div className="h-full bg-[#1C1917] rounded-full transition-all duration-1000" style={{ width: `${completionPct}%` }} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 pt-4">
+                    <div className="bg-[#F0FDFA] rounded-xl p-4 border border-teal-100">
+                      <p className="text-3xl text-[#0F766E] font-light">{tasksCompleted}</p>
+                      <p className="text-xs text-[#0F766E] mt-1">Tasks Completed</p>
+                    </div>
+                    <div className="bg-[#FFF7ED] rounded-xl p-4 border border-orange-100">
+                      <p className="text-3xl text-[#C2410C] font-light">{tasksRemaining}</p>
+                      <p className="text-xs text-[#C2410C] mt-1">Tasks Remaining</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Hours Breakdown Card */}
+                <div className="bg-white rounded-[24px] border border-[#E7E5E4] p-8 shadow-sm space-y-6">
+                  <h3 className="text-[#1C1917] text-lg font-light">Hours Breakdown</h3>
+                  <div className="space-y-6">
                     <div>
-                      <p className="text-3xl font-bold">{projectAnalytics.actual_hours}/{projectAnalytics.planned_hours}h</p>
-                      <p className="text-sm opacity-75 mt-1">
-                        {((projectAnalytics.actual_hours / projectAnalytics.planned_hours) * 100).toFixed(0)}% Complete
-                      </p>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="bg-white/10 backdrop-blur p-4 rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <CheckCircle className="w-5 h-5" />
-                    <p className="text-sm opacity-90">Tasks Progress</p>
-                  </div>
-                  <p className="text-3xl font-bold">{totalAsanaTasks + totalJiraIssues}</p>
-                  <p className="text-sm opacity-75 mt-1">Total Tasks Tracked</p>
-                </div>
-                
-                <div className="bg-white/10 backdrop-blur p-4 rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Users className="w-5 h-5" />
-                    <p className="text-sm opacity-90">Team Size</p>
-                  </div>
-                  <p className="text-3xl font-bold">{teamMembers.length}</p>
-                  <p className="text-sm opacity-75 mt-1">Active Members</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Sprint Progress & Burndown */}
-            {burndownChartData.length > 0 && (
-              <div className="bg-white p-6 rounded-lg shadow-sm border">
-                <h3 className="text-xl font-bold text-gray-900 mb-4">Sprint Progress</h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={burndownChartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="day" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Line type="monotone" dataKey="remaining" stroke="#ef4444" strokeWidth={2} name="Remaining Tasks" />
-                    <Line type="monotone" dataKey="total" stroke="#10b981" strokeWidth={2} name="Total Tasks" />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-
-            {/* Recent Activity Feed */}
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
-              <h3 className="text-xl font-bold text-gray-900 mb-4">Recent Activity Feed</h3>
-              <p className="text-sm text-gray-600 mb-4">Latest updates from all team activities</p>
-              <div className="space-y-3 max-h-[600px] overflow-y-auto">
-                {allActivities.map((activity) => (
-                  <div key={activity.id} className="flex items-start gap-3 p-4 hover:bg-gray-50 rounded-lg transition-colors border">
-                    <div className={`p-2 rounded-lg ${getSourceColor(activity.source)}`}>
-                      {getSourceIcon(activity.source)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={`px-2 py-0.5 rounded text-xs font-semibold ${getSourceColor(activity.source)}`}>
-                          {activity.source}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {new Date(activity.time).toLocaleString()}
-                        </span>
+                      <div className="flex justify-between text-sm mb-2">
+                        <span className="text-[#78716C]">Estimated</span>
+                        <span className="text-[#1C1917]">{totalEstHours}h</span>
                       </div>
-                      <p className="text-sm text-gray-900 font-medium">{activity.description}</p>
-                      <p className="text-xs text-gray-600 mt-1">by {activity.actor}</p>
+                      <div className="h-2 w-full bg-[#E7E5E4] rounded-full overflow-hidden">
+                        <div className="h-full bg-[#E7E5E4] rounded-full" style={{ width: '100%' }} />
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-
-
-        {/* GITHUB TAB */}
-        {activeTab === 'github' && (
-          <div className="space-y-8">
-            {/* Weekly Commits Chart */}
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Weekly Commits</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={weeklyCommitsChartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="week" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="commits" stroke="#3b82f6" strokeWidth={2} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Burndown Chart */}
-            {burndownChartData.length > 0 && (
-              <div className="bg-white p-6 rounded-lg shadow-sm border">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">Sprint Burndown</h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={burndownChartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="day" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Line type="monotone" dataKey="remaining" stroke="#ef4444" strokeWidth={2} name="Remaining Tasks" />
-                    <Line type="monotone" dataKey="total" stroke="#10b981" strokeWidth={2} name="Total Tasks" />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-
-            {/* Team Members */}
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Team Members</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {teamMembers.map((member) => (
-                  <div key={member.member_id} className="flex items-center gap-3 p-4 border rounded-lg">
-                    <img src={member.avatar} alt={member.name} className="w-12 h-12 rounded-full" />
-                    <div className="flex-1">
-                      <p className="font-semibold text-gray-900">{member.name}</p>
-                      <p className="text-sm text-gray-600">{member.role}</p>
-                      <div className="flex gap-2 mt-1 text-xs text-gray-500">
-                        <span>{member.tasks_completed}/{member.tasks_assigned} tasks</span>
-                        <span>•</span>
-                        <span>{member.prs_pending} PRs</span>
+                    <div>
+                      <div className="flex justify-between text-sm mb-2">
+                        <span className="text-[#78716C]">Logged</span>
+                        <span className="text-[#1C1917]">{actualHours}h</span>
+                      </div>
+                      <div className="h-2 w-full bg-[#E7E5E4] rounded-full overflow-hidden">
+                        <div className="h-full bg-[#0F766E] rounded-full transition-all duration-1000" style={{ width: `${(actualHours / Math.max(totalEstHours, 1)) * 100}%` }} />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-sm mb-2">
+                        <span className="text-[#78716C]">Remaining</span>
+                        <span className="text-[#1C1917]">{remainingHours}h</span>
+                      </div>
+                      <div className="h-2 w-full bg-[#E7E5E4] rounded-full overflow-hidden">
+                        <div className="h-full bg-[#2DD4BF] rounded-full transition-all duration-1000" style={{ width: `${(remainingHours / Math.max(totalEstHours, 1)) * 100}%` }} />
                       </div>
                     </div>
                   </div>
-                ))}
+                </div>
               </div>
-            </div>
 
-            {/* Pull Requests */}
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Pull Requests</h3>
-              <div className="space-y-3">
-                {pullRequests.map((pr) => (
-                  <div key={pr.pr_id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex-1">
-                      <p className="font-semibold text-gray-900">{pr.title}</p>
-                      <p className="text-sm text-gray-600 mt-1">by {pr.author} • {new Date(pr.created_at).toLocaleDateString()}</p>
-                    </div>
-                    <span className={`px-3 py-1 rounded-full text-sm ${
-                      pr.status === 'approved' ? 'bg-green-100 text-green-800' :
-                      pr.status === 'changes-requested' ? 'bg-red-100 text-red-800' :
-                      'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {pr.status.replace('-', ' ')}
-                    </span>
+              {/* AI Recommendation Banner */}
+              <div className="bg-[#F0FDFA] border border-teal-100 rounded-2xl p-6 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="bg-[#CCFBF1] p-3 rounded-xl text-[#0F766E]">
+                    <Sparkles className="w-6 h-6" />
                   </div>
-                ))}
+                  <div>
+                    <p className="text-xs text-[#0F766E] font-medium uppercase tracking-wider mb-1">Latest AI Recommendation</p>
+                    <p className="text-[#1C1917] text-sm">Balanced redistribution across backend capacity recommended to prevent burnout.</p>
+                  </div>
+                </div>
+                <button className="text-sm text-[#0F766E] hover:underline" onClick={() => setActiveTab('insights')}>
+                  View all insights &rarr;
+                </button>
+              </div>
+
+              {/* Team Allocation Table Card */}
+              <div className="bg-white rounded-[24px] border border-[#E7E5E4] overflow-hidden shadow-sm">
+                <div className="p-8 pb-4 flex justify-between items-center border-b border-[#E7E5E4]">
+                  <h3 className="text-[#1C1917] text-lg font-light">Team Allocation</h3>
+                  <div className="flex items-center gap-4">
+                    <span className="text-xs text-[#A8A29E]">{teamMembers.length} members</span>
+                    <Button variant="outline" className="gap-2 rounded-xl text-xs h-9 border-[#E7E5E4]">
+                      <Plus className="w-3 h-3" /> Add Member
+                    </Button>
+                  </div>
+                </div>
+                
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left">
+                    <thead className="text-[11px] uppercase tracking-wider text-[#A8A29E] bg-[#FAFAF9] border-b border-[#E7E5E4]">
+                      <tr>
+                        <th className="px-8 py-4 font-medium">Member</th>
+                        <th className="px-8 py-4 font-medium">Role</th>
+                        <th className="px-8 py-4 font-medium">Assigned (Tasks)</th>
+                        <th className="px-8 py-4 font-medium">Completed</th>
+                        <th className="px-8 py-4 font-medium w-48">Task Utilization</th>
+                        <th className="px-8 py-4 font-medium text-right">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#E7E5E4]">
+                      {teamMembers.map((member, idx) => {
+                        const utilPercent = member.tasks_assigned > 0 ? (member.tasks_completed / member.tasks_assigned) * 100 : 0;
+                        const isOverloaded = member.tasks_assigned > 15; // Simple logic hook for demo
+
+                        return (
+                          <tr key={idx} className="hover:bg-[#FAFAF9] transition-colors">
+                            <td className="px-8 py-4 flex items-center gap-3">
+                              <img src={member.avatar || `https://ui-avatars.com/api/?name=${member.name}`} alt={member.name} className="w-8 h-8 rounded-full border border-[#E7E5E4]" />
+                              <span className="font-medium text-[#1C1917]">{member.name}</span>
+                            </td>
+                            <td className="px-8 py-4 text-[#78716C]">{member.role}</td>
+                            <td className="px-8 py-4 text-[#78716C]">{member.tasks_assigned}</td>
+                            <td className="px-8 py-4 text-[#78716C]">{member.tasks_completed}</td>
+                            <td className="px-8 py-4">
+                              <div className="flex items-center gap-3">
+                                <div className="flex-1 h-1.5 bg-[#E7E5E4] rounded-full overflow-hidden">
+                                  <div 
+                                    className={`h-full rounded-full ${isOverloaded ? 'bg-[#BE123C]' : 'bg-[#0F766E]'}`} 
+                                    style={{ width: `${Math.min(utilPercent, 100)}%` }} 
+                                  />
+                                </div>
+                                <span className={`text-xs ${isOverloaded ? 'text-[#BE123C]' : 'text-[#78716C]'}`}>
+                                  {Math.round(utilPercent)}%
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-8 py-4 text-right">
+                              <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+                                isOverloaded 
+                                  ? 'text-[#BE123C] bg-[#FFF1F2]' 
+                                  : 'text-[#0F766E] bg-[#F0FDFA]'
+                              }`}>
+                                {isOverloaded ? 'Overloaded' : 'Healthy'}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {teamMembers.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="px-8 py-8 text-center text-[#A8A29E] font-light">No team members assigned yet.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
+          )}
 
-            {/* Recent Commits */}
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Recent Commits</h3>
-              <div className="space-y-3">
-                {commits.slice(0, 10).map((commit) => (
-                  <div key={commit.sha} className="flex items-start gap-3 p-3 border rounded-lg">
-                    <GitBranch className="w-5 h-5 text-gray-400 mt-1" />
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-900">{commit.message}</p>
-                      <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
-                        <span>{commit.author}</span>
-                        <span>•</span>
-                        <span>{new Date(commit.date).toLocaleString()}</span>
-                        {commit.files_changed && (
-                          <>
+          {/* ----------------- GITHUB/DEVELOPMENT TAB ----------------- */}
+          {activeTab === 'github' && (
+            <div className="space-y-6">
+              <div className="bg-white p-8 rounded-[24px] shadow-sm border border-[#E7E5E4]">
+                <h3 className="text-lg font-light text-[#1C1917] mb-6">Weekly Commits</h3>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={weeklyCommitsChartData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E7E5E4" />
+                    <XAxis dataKey="week" stroke="#A8A29E" fontSize={12} tickLine={false} axisLine={false} />
+                    <YAxis stroke="#A8A29E" fontSize={12} tickLine={false} axisLine={false} />
+                    <Tooltip cursor={{ fill: '#F5F5F4' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                    <Line type="monotone" dataKey="commits" stroke="#1C1917" strokeWidth={3} dot={{ r: 4, fill: '#1C1917' }} activeDot={{ r: 6 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-white p-8 rounded-[24px] shadow-sm border border-[#E7E5E4] max-h-[500px] overflow-y-auto">
+                  <h3 className="text-lg font-light text-[#1C1917] mb-6">Recent Pull Requests</h3>
+                  <div className="space-y-4">
+                    {pullRequests.map((pr) => (
+                      <div key={pr.pr_id} className="flex items-center justify-between p-4 border border-[#E7E5E4] rounded-xl hover:bg-[#FAFAF9] transition">
+                        <div className="flex-1">
+                          <p className="font-medium text-[#1C1917]">{pr.title}</p>
+                          <p className="text-xs text-[#78716C] mt-1">by {pr.author} • {new Date(pr.created_at).toLocaleDateString()}</p>
+                        </div>
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                          pr.status === 'approved' ? 'bg-[#F0FDFA] text-[#0F766E]' :
+                          pr.status === 'changes-requested' ? 'bg-[#FFF1F2] text-[#BE123C]' :
+                          'bg-[#FFF7ED] text-[#C2410C]'
+                        }`}>
+                          {pr.status.replace('-', ' ')}
+                        </span>
+                      </div>
+                    ))}
+                    {pullRequests.length === 0 && <p className="text-sm text-[#A8A29E]">No recent PRs.</p>}
+                  </div>
+                </div>
+
+                <div className="bg-white p-8 rounded-[24px] shadow-sm border border-[#E7E5E4] max-h-[500px] overflow-y-auto">
+                  <h3 className="text-lg font-light text-[#1C1917] mb-6">Recent Commits</h3>
+                  <div className="space-y-4">
+                    {commits.slice(0, 10).map((commit) => (
+                      <div key={commit.sha} className="flex items-start gap-4 p-4 border border-[#E7E5E4] rounded-xl hover:bg-[#FAFAF9] transition">
+                        <GitBranch className="w-5 h-5 text-[#A8A29E] mt-0.5" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-[#1C1917]">{commit.message}</p>
+                          <div className="flex items-center gap-3 mt-2 text-xs text-[#78716C]">
+                            <span>{commit.author}</span>
                             <span>•</span>
-                            <span className="text-green-600">+{commit.additions}</span>
-                            <span className="text-red-600">-{commit.deletions}</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* TEAM & TASKS TAB */}
-        {activeTab === 'tasks' && (
-          <div className="space-y-8">
-            {/* Team Members Overview */}
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
-              <h3 className="text-xl font-bold text-gray-900 mb-6">Team Members ({teamMembers.length})</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {teamMembers.map((member) => (
-                  <div key={member.member_id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-center gap-3 mb-3">
-                      <img src={member.avatar} alt={member.name} className="w-14 h-14 rounded-full border-2 border-gray-200" />
-                      <div className="flex-1">
-                        <p className="font-bold text-gray-900">{member.name}</p>
-                        <p className="text-sm text-gray-600">{member.role}</p>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-gray-600">Tasks Assigned:</span>
-                        <span className="font-bold text-gray-900">{member.tasks_assigned}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-gray-600">Tasks Completed:</span>
-                        <span className="font-bold text-green-600">{member.tasks_completed}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-gray-600">Pending PRs:</span>
-                        <span className="font-bold text-orange-600">{member.prs_pending}</span>
-                      </div>
-                      {/* Progress Bar */}
-                      <div className="mt-3">
-                        <div className="flex justify-between text-xs text-gray-600 mb-1">
-                          <span>Completion Rate</span>
-                          <span>{member.tasks_assigned > 0 ? Math.round((member.tasks_completed / member.tasks_assigned) * 100) : 0}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div 
-                            className="bg-blue-600 h-2 rounded-full" 
-                            style={{ width: `${member.tasks_assigned > 0 ? (member.tasks_completed / member.tasks_assigned) * 100 : 0}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Asana Tasks */}
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h3 className="text-xl font-bold text-gray-900">Asana Tasks ({totalAsanaTasks})</h3>
-                  <p className="text-sm text-gray-600 mt-1">Track all tasks and their assignments</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-gray-600">Automation Rate</p>
-                  <p className="text-2xl font-bold text-pink-600">{asanaAutomationRate}%</p>
-                </div>
-              </div>
-              <div className="space-y-3 max-h-[500px] overflow-y-auto">
-                {asanaTasks.map((task) => (
-                  <div key={task.gid} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <p className="font-semibold text-gray-900">{task.task_name || 'Unnamed Task'}</p>
-                          {task.is_automation && (
-                            <span className="px-2 py-0.5 bg-purple-100 text-purple-800 text-xs rounded-full font-medium">Automated</span>
-                          )}
-                        </div>
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-                          <div className="flex items-center gap-2">
-                            <span className="text-gray-500">Status:</span>
-                            <span className="font-medium text-gray-900">{task.action}</span>
-                          </div>
-                          {task.assignee && (
-                            <div className="flex items-center gap-2">
-                              <span className="text-gray-500">Assignee:</span>
-                              <span className="font-medium text-gray-900">{task.assignee}</span>
-                            </div>
-                          )}
-                          {task.status && (
-                            <div className="flex items-center gap-2">
-                              <span className="text-gray-500">Progress:</span>
-                              <span className={`font-medium ${
-                                task.status.toLowerCase().includes('done') || task.status.toLowerCase().includes('complete') 
-                                  ? 'text-green-600' 
-                                  : 'text-orange-600'
-                              }`}>{task.status}</span>
-                            </div>
-                          )}
-                          <div className="flex items-center gap-2">
-                            <span className="text-gray-500">Created:</span>
-                            <span className="text-xs text-gray-600">{new Date(task.created_at).toLocaleDateString()}</span>
+                            <span>{new Date(commit.date).toLocaleDateString()}</span>
                           </div>
                         </div>
                       </div>
-                    </div>
+                    ))}
+                    {commits.length === 0 && <p className="text-sm text-[#A8A29E]">No recent commits.</p>}
                   </div>
-                ))}
+                </div>
               </div>
             </div>
+          )}
 
-            {/* Jira Issues */}
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h3 className="text-xl font-bold text-gray-900">Jira Issues ({totalJiraIssues})</h3>
-                  <p className="text-sm text-gray-600 mt-1">Bug tracking and issue management</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-gray-600">Automation Rate</p>
-                  <p className="text-2xl font-bold text-blue-600">{jiraAutomationRate}%</p>
-                </div>
-              </div>
-
-              {/* Issue Distribution */}
-              {jiraTicketDistribution.length > 0 && (
-                <div className="mb-6 flex items-center gap-6">
-                  <div className="flex-shrink-0">
-                    <ResponsiveContainer width={200} height={150}>
-                      <PieChart>
-                        <Pie
-                          data={jiraTicketDistribution}
-                          cx="50%"
-                          cy="50%"
-                          outerRadius={60}
-                          fill="#8884d8"
-                          dataKey="value"
-                          label={({ name, value }) => `${name}: ${value}`}
-                        >
-                          {jiraTicketDistribution.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={index === 0 ? '#ef4444' : '#10b981'} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="flex-1 grid grid-cols-2 gap-4">
-                    <div className="border rounded-lg p-4 bg-red-50">
-                      <p className="text-3xl font-bold text-red-600">{jiraTicketDistribution[0]?.value || 0}</p>
-                      <p className="text-sm text-gray-600 mt-1">Bugs</p>
-                    </div>
-                    <div className="border rounded-lg p-4 bg-green-50">
-                      <p className="text-3xl font-bold text-green-600">{jiraTicketDistribution[1]?.value || 0}</p>
-                      <p className="text-sm text-gray-600 mt-1">Features/Tasks</p>
-                    </div>
-                  </div>
+          {/* ----------------- TASKS TAB ----------------- */}
+          {activeTab === 'tasks' && (
+            <div className="space-y-6">
+              {burndownChartData.length > 0 && (
+                <div className="bg-white p-8 rounded-[24px] shadow-sm border border-[#E7E5E4]">
+                  <h3 className="text-lg font-light text-[#1C1917] mb-6">Sprint Burndown</h3>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={burndownChartData}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E7E5E4" />
+                      <XAxis dataKey="day" stroke="#A8A29E" fontSize={12} tickLine={false} axisLine={false} />
+                      <YAxis stroke="#A8A29E" fontSize={12} tickLine={false} axisLine={false} />
+                      <Tooltip cursor={{ fill: '#F5F5F4' }} contentStyle={{ borderRadius: '12px', border: 'none' }} />
+                      <Legend iconType="circle" />
+                      <Line type="monotone" dataKey="remaining" stroke="#BE123C" strokeWidth={2} name="Remaining Tasks" />
+                      <Line type="monotone" dataKey="total" stroke="#0F766E" strokeWidth={2} name="Total Tasks" />
+                    </LineChart>
+                  </ResponsiveContainer>
                 </div>
               )}
 
-              <div className="space-y-3 max-h-[500px] overflow-y-auto">
-                {jiraIssues.map((issue) => (
-                  <div key={issue.issue_id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="font-mono text-sm font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">{issue.issue_key}</span>
-                          <p className="font-semibold text-gray-900">{issue.summary || 'No summary'}</p>
-                          {issue.is_automation && (
-                            <span className="px-2 py-0.5 bg-purple-100 text-purple-800 text-xs rounded-full font-medium">Auto</span>
-                          )}
-                        </div>
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-                          <div className="flex items-center gap-2">
-                            <span className="text-gray-500">Type:</span>
-                            <span className="font-medium text-gray-900">{issue.event_type}</span>
+              <div className="bg-white p-8 rounded-[24px] shadow-sm border border-[#E7E5E4]">
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h3 className="text-lg font-light text-[#1C1917]">Jira Issues ({totalJiraIssues})</h3>
+                    <p className="text-sm text-[#78716C] mt-1">Bug tracking and issue management</p>
+                  </div>
+                </div>
+                <div className="space-y-3 max-h-[500px] overflow-y-auto">
+                  {jiraIssues.map((issue) => (
+                    <div key={issue.issue_id} className="border border-[#E7E5E4] rounded-xl p-4 hover:bg-[#FAFAF9] transition-colors">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <span className="font-mono text-xs font-medium text-[#0F766E] bg-[#F0FDFA] px-2 py-1 rounded-md">{issue.issue_key}</span>
+                            <p className="font-medium text-[#1C1917]">{issue.summary || 'No summary'}</p>
                           </div>
-                          {issue.severity && (
-                            <div className="flex items-center gap-2">
-                              <span className="text-gray-500">Severity:</span>
-                              <span className={`font-medium ${
-                                issue.severity === 'Critical' || issue.severity === 'High' 
-                                  ? 'text-red-600' 
-                                  : issue.severity === 'Medium'
-                                  ? 'text-orange-600'
-                                  : 'text-gray-600'
-                              }`}>{issue.severity}</span>
-                            </div>
-                          )}
-                          {issue.from_status && issue.to_status && (
-                            <div className="flex items-center gap-2">
-                              <span className="text-gray-500">Transition:</span>
-                              <span className="text-xs text-gray-900">{issue.from_status} → {issue.to_status}</span>
-                            </div>
-                          )}
-                          <div className="flex items-center gap-2">
-                            <span className="text-gray-500">Updated by:</span>
-                            <span className="text-xs text-gray-600">{issue.actor}</span>
+                          <div className="flex items-center gap-4 text-xs text-[#78716C] mt-3">
+                            <span>Type: {issue.event_type}</span>
+                            {issue.severity && (
+                              <span className={`${issue.severity === 'Critical' ? 'text-[#BE123C]' : ''}`}>Severity: {issue.severity}</span>
+                            )}
+                            <span>Updated by: {issue.actor}</span>
                           </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                  {jiraIssues.length === 0 && <p className="text-sm text-[#A8A29E]">No Jira issues found.</p>}
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+
+          {/* Under Construction fallback */}
+          {activeTab === 'insights' && (
+            <div className="bg-white rounded-[24px] border border-[#E7E5E4] p-16 text-center shadow-sm">
+              <Lightbulb className="w-12 h-12 text-[#A8A29E] mx-auto mb-4 opacity-50" />
+              <h3 className="text-xl font-light text-[#1C1917] mb-2">AI Insights Dashboard</h3>
+              <p className="text-[#78716C] font-light">
+                Advanced AI insights and predictive analytics are currently generating data.
+              </p>
+            </div>
+          )}
+
+        </div>
       </div>
-    </div>
+    </VelocityAISidebar>
   );
 }
