@@ -387,14 +387,108 @@ export default function ProjectAnalytics() {
             </div>
           )}
 
-          {/* Fallback for other tabs */}
-          {activeTab !== 'overview' && (
-            <div className="bg-white rounded-[24px] border border-[#E7E5E4] p-16 text-center shadow-sm">
-              <Lightbulb className="w-12 h-12 text-[#A8A29E] mx-auto mb-4 opacity-50" />
-              <h3 className="text-xl font-light text-[#1C1917] mb-2">{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} View</h3>
-              <p className="text-[#78716C] font-light">
-                Additional modules are connecting to your data sources.
-              </p>
+          {/* ----------------- TEAM TAB ----------------- */}
+          {activeTab === 'team' && (
+            <div className="space-y-6">
+              
+              {/* Dynamic Team Summary Metrics */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white rounded-[24px] border border-[#E7E5E4] p-8 shadow-sm">
+                  <p className="text-3xl font-light text-[#1C1917]">{teamMembers.length}</p>
+                  <p className="text-xs text-[#A8A29E] mt-2 uppercase tracking-wider">Active Team Members</p>
+                </div>
+                <div className="bg-white rounded-[24px] border border-[#E7E5E4] p-8 shadow-sm">
+                  <p className="text-3xl font-light text-[#0F766E]">
+                    {teamMembers.reduce((sum, m) => sum + (m.tasks_completed || 0), 0)}
+                  </p>
+                  <p className="text-xs text-[#A8A29E] mt-2 uppercase tracking-wider">Total Tasks Completed</p>
+                </div>
+                <div className="bg-white rounded-[24px] border border-[#E7E5E4] p-8 shadow-sm">
+                  <p className="text-3xl font-light text-[#C2410C]">
+                    {teamMembers.reduce((sum, m) => sum + (m.prs_pending || 0), 0)}
+                  </p>
+                  <p className="text-xs text-[#A8A29E] mt-2 uppercase tracking-wider">Pending Pull Requests</p>
+                </div>
+              </div>
+
+              {/* Dynamic Member Cards Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {teamMembers.map((member, idx) => {
+                  // Purely dynamic calculations based on DB data
+                  const tasksAssigned = member.tasks_assigned || 0;
+                  const tasksCompleted = member.tasks_completed || 0;
+                  const completionRate = tasksAssigned > 0 ? (tasksCompleted / tasksAssigned) * 100 : 0;
+                  
+                  // Dynamically flag if someone has too many open tasks (e.g., more than 10 incomplete tasks)
+                  const incompleteTasks = tasksAssigned - tasksCompleted;
+                  const isOverloaded = incompleteTasks > 10; 
+
+                  return (
+                    <div key={member.member_id || idx} className="bg-white rounded-[24px] border border-[#E7E5E4] p-8 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex items-start justify-between mb-6">
+                        <div className="flex items-center gap-4">
+                          {member.avatar ? (
+                            <img src={member.avatar} alt={member.name} className="w-12 h-12 rounded-full border border-[#E7E5E4] object-cover" />
+                          ) : (
+                            <div className="w-12 h-12 rounded-full bg-[#F5F5F4] border border-[#E7E5E4] flex items-center justify-center text-sm text-[#1C1917]">
+                              {member.name ? member.name.substring(0, 2).toUpperCase() : '??'}
+                            </div>
+                          )}
+                          <div>
+                            <p className="font-medium text-[#1C1917] text-lg">{member.name || 'Unnamed Member'}</p>
+                            <p className="text-sm text-[#78716C] font-light">{member.role || 'Unassigned Role'}</p>
+                          </div>
+                        </div>
+                        <span className={`text-xs font-medium px-3 py-1 rounded-full ${
+                          isOverloaded ? 'text-[#BE123C] bg-[#FFF1F2]' : 'text-[#0F766E] bg-[#F0FDFA]'
+                        }`}>
+                          {isOverloaded ? 'High Load' : 'Healthy'}
+                        </span>
+                      </div>
+
+                      <div className="space-y-4 pt-2">
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-[#78716C] font-light">Tasks Assigned</span>
+                          <span className="text-[#1C1917] font-medium">{tasksAssigned}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-[#78716C] font-light">Tasks Completed</span>
+                          <span className="text-[#0F766E] font-medium">{tasksCompleted}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-[#78716C] font-light">Pending PRs</span>
+                          <span className={`${(member.prs_pending || 0) > 0 ? 'text-[#C2410C]' : 'text-[#1C1917]'} font-medium`}>
+                            {member.prs_pending || 0}
+                          </span>
+                        </div>
+
+                        {/* Dynamic Progress Bar */}
+                        <div className="pt-4 mt-4 border-t border-[#E7E5E4]">
+                          <div className="flex justify-between text-xs text-[#78716C] mb-2 font-light">
+                            <span>Task Completion Rate</span>
+                            <span>{Math.round(completionRate)}%</span>
+                          </div>
+                          <div className="w-full bg-[#E7E5E4] rounded-full h-1.5 overflow-hidden">
+                            <div 
+                              className={`h-1.5 rounded-full transition-all duration-1000 ${isOverloaded ? 'bg-[#BE123C]' : 'bg-[#0F766E]'}`}
+                              style={{ width: `${Math.min(completionRate, 100)}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Empty State Fallback */}
+                {teamMembers.length === 0 && (
+                  <div className="col-span-full bg-[#F5F5F4] rounded-[24px] border border-[#E7E5E4] border-dashed p-12 text-center">
+                    <Users className="w-10 h-10 text-[#A8A29E] mx-auto mb-3 opacity-50" />
+                    <p className="text-[#1C1917] font-medium">No team members found</p>
+                    <p className="text-[#78716C] text-sm mt-1">Assign members to this project to see their workloads here.</p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
