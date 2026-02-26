@@ -166,18 +166,33 @@ async function storePKCEInDatabase(state: string, codeVerifier: string, supabase
       return;
     }
 
+    // Build insert object with only the fields that exist in the table
+    const insertData: any = {
+      state,
+      code_verifier: codeVerifier,
+      created_at: new Date().toISOString(),
+      expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString()
+    };
+
+    // Try to add optional fields if columns exist
+    if (supabaseUserId) {
+      insertData.supabase_user_id = supabaseUserId;
+    }
+    if (originHostname) {
+      insertData.origin_hostname = originHostname;
+    }
+
     const { error } = await supabaseClient
       .from('jira_oauth_pkce')
-      .insert({
-        state,
-        code_verifier: codeVerifier,
-        supabase_user_id: supabaseUserId || null,
-        origin_hostname: originHostname || null,
-        created_at: new Date().toISOString(),
-        expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString()
-      });
+      .insert(insertData);
 
     if (error) {
+      // If the error is about missing columns, log it but continue anyway
+      if (error.message && (error.message.includes('origin_hostname') || error.message.includes('supabase_user_id'))) {
+        console.warn('[Jira OAuth] Supabase columns not yet migrated, storing in memory:', error.message);
+        jiraPKCEStore.set(state, { codeVerifier, timestamp: Date.now(), originHostname });
+        return;
+      }
       console.warn('[Jira OAuth] Failed to store PKCE in Supabase, falling back to memory:', error);
       jiraPKCEStore.set(state, { codeVerifier, timestamp: Date.now(), originHostname });
     } else {
@@ -206,6 +221,37 @@ async function retrievePKCEFromDatabase(state: string): Promise<{ codeVerifier: 
       .single();
 
     if (error) {
+      // If columns don't exist yet, try without them
+      if (error.message && (error.message.includes('origin_hostname') || error.message.includes('supabase_user_id'))) {
+        console.warn('[Jira OAuth] Optional columns not found, querying basic fields only');
+        const { data: basicData, error: basicError } = await supabaseClient
+          .from('jira_oauth_pkce')
+          .select('code_verifier')
+          .eq('state', state)
+          .single();
+        
+        if (basicError) {
+          console.warn('[Jira OAuth] PKCE not found in Supabase:', basicError.message);
+          const memData = jiraPKCEStore.get(state);
+          if (memData) {
+            console.log('[Jira OAuth] Found PKCE in memory store (fallback)');
+            return { codeVerifier: memData.codeVerifier, supabaseUserId: null, originHostname: memData.originHostname || null };
+          }
+          return null;
+        }
+
+        if (basicData) {
+          console.log('[Jira OAuth] Retrieved PKCE from Supabase (basic fields only)');
+          try {
+            await supabaseClient.from('jira_oauth_pkce').delete().eq('state', state);
+          } catch (cleanupErr) {
+            console.warn('[Jira OAuth] Failed to cleanup PKCE:', cleanupErr);
+          }
+          return { codeVerifier: basicData.code_verifier, supabaseUserId: null, originHostname: null };
+        }
+        return null;
+      }
+
       console.warn('[Jira OAuth] PKCE not found in Supabase:', error.message);
       const memData = jiraPKCEStore.get(state);
       if (memData) {
@@ -217,23 +263,22 @@ async function retrievePKCEFromDatabase(state: string): Promise<{ codeVerifier: 
 
     if (data) {
       console.log('[Jira OAuth] Retrieved PKCE from Supabase');
-      // Delete after retrieval (one-time use)
       try {
-        await supabaseClient
-          .from('jira_oauth_pkce')
-          .delete()
-          .eq('state', state);
+        await supabaseClient.from('jira_oauth_pkce').delete().eq('state', state);
       } catch (cleanupErr) {
         console.warn('[Jira OAuth] Failed to cleanup PKCE:', cleanupErr);
       }
       
-      return { codeVerifier: data.code_verifier, supabaseUserId: data.supabase_user_id || null, originHostname: data.origin_hostname || null };
+      return { 
+        codeVerifier: data.code_verifier, 
+        supabaseUserId: (data as any).supabase_user_id || null, 
+        originHostname: (data as any).origin_hostname || null 
+      };
     }
 
     return null;
   } catch (err) {
     console.warn('[Jira OAuth] Error retrieving PKCE:', err);
-    // Check in-memory as fallback
     const memData = jiraPKCEStore.get(state);
     return memData ? { codeVerifier: memData.codeVerifier, supabaseUserId: null, originHostname: memData.originHostname || null } : null;
   }
