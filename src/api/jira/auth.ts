@@ -431,10 +431,22 @@ async function login(req: Request, res: Response): Promise<void> {
 }
 
 // Exchange authorization code for tokens
-async function exchangeCodeForToken(code: string, codeVerifier: string, req?: Request): Promise<TokenResponse> {
+async function exchangeCodeForToken(code: string, codeVerifier: string, req?: Request, overrideHostname?: string): Promise<TokenResponse> {
   const clientId = getClientId();
   const clientSecret = getClientSecret();
-  const redirectUri = getRedirectUri(req);
+  
+  // If an origin hostname is provided, temporarily override the request hostname
+  let redirectUri: string;
+  if (overrideHostname) {
+    // Build redirect URI with the override hostname
+    if (overrideHostname === 'localhost' || overrideHostname.startsWith('127.')) {
+      redirectUri = `http://${overrideHostname}:4000/api/jira/auth/callback`;
+    } else {
+      redirectUri = `https://${overrideHostname}/api/jira/auth/callback`;
+    }
+  } else {
+    redirectUri = getRedirectUri(req);
+  }
   
   console.log('[Jira OAuth] Token exchange params:', {
     grant_type: 'authorization_code',
@@ -568,14 +580,12 @@ async function callback(req: Request, res: Response): Promise<any> {
     try {
       // When exchanging the code, use the origin hostname to build the correct redirect_uri
       // This ensures the redirect_uri matches what was used when initiating the auth flow
-      let tokenExchangeReq = req;
-      if (originHostname && originHostname !== req.hostname) {
+      const shouldUseOriginHostname = originHostname && originHostname !== 'unknown' && originHostname !== req.hostname;
+      if (shouldUseOriginHostname) {
         console.log('[Jira OAuth Callback] Using stored origin hostname for token exchange:', originHostname);
-        // Create a synthetic request-like object with the origin hostname
-        tokenExchangeReq = { ...req, hostname: originHostname } as any;
       }
       
-      const tokenResp = await exchangeCodeForToken(code, codeVerifier, tokenExchangeReq);
+      const tokenResp = await exchangeCodeForToken(code, codeVerifier, req, shouldUseOriginHostname ? originHostname : undefined);
       console.log('[Jira OAuth Callback] ✓ Token exchange successful');
       
       // Clear the code_verifier from session after use
