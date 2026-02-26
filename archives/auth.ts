@@ -1,5 +1,3 @@
-/*Main Part*/
-
 // src/api/jira/auth.ts
 // Implements OAuth2 Authorization Code flow (3-legged OAuth) for Jira Cloud
 // Multi-tenant SaaS implementation - each user connects their own Jira account
@@ -690,10 +688,6 @@ async function callback(req: Request, res: Response): Promise<any> {
 
       console.log('[Jira OAuth Callback] ✓ Authentication complete! orgId:', orgId);
       
-      // FIX: Define isProduction in this scope
-      const isVercel = process.env.VERCEL === '1';
-      const isProduction = process.env.NODE_ENV === 'production' || isVercel;
-
       // Determine redirect URL based on environment and request origin
       let redirectUrl = 'http://localhost:5173/velocity-ai';
       
@@ -701,7 +695,7 @@ async function callback(req: Request, res: Response): Promise<any> {
         redirectUrl = 'https://velocitydevelopment.vercel.app/velocity-ai';
       } else if (req.hostname === 'www.joinvelocity.co' || req.hostname === 'joinvelocity.co') {
         redirectUrl = 'https://www.joinvelocity.co/velocity-ai';
-      } else if (isProduction) {
+      } else if (process.env.NODE_ENV === 'production' || process.env.VERCEL === '1') {
         redirectUrl = (process.env.FRONTEND_URL_PROD || 'https://www.joinvelocity.co') + '/velocity-ai';
       } else if (process.env.FRONTEND_URL) {
         redirectUrl = process.env.FRONTEND_URL + '/velocity-ai';
@@ -910,3 +904,5 @@ export const jiraAuth = {
   isConnected,
   disconnect,
 };
+
+
