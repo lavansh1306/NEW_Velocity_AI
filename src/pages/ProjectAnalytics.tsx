@@ -1,78 +1,146 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { VelocityAISidebar } from '@/components/dashboard/VelocityAISidebar';
 import { Button } from '@/components/ui/button';
+import { supabase } from '@/lib/supabase'; // Direct Supabase connection
 import { 
-  loadProjects, 
-  loadMetrics, 
-  loadCommitsByProject, 
-  loadPullRequestsByProject, 
-  loadTeamMembersByProject, 
-  loadWeeklyCommitsByProject, 
-  loadBurndownByProject,
-  loadJiraIssuesByProject,
-  loadProjectAnalytics,
-} from '@/lib/dataService';
-import type { 
-  ProjectItem, 
-  TeamMember, 
-  JiraIssue,
-  ProjectAnalytics,
-} from '@/lib/dataService';
-import { ArrowLeft, Plus, Sparkles, LayoutGrid, Users, CheckSquare, Clock, Lightbulb } from 'lucide-react';
+  ArrowLeft, Plus, Sparkles, LayoutGrid, Users, CheckSquare, 
+  Clock, Lightbulb, AlertCircle 
+} from 'lucide-react';
+
+// --- Interfaces matching your Supabase Schema ---
+interface JiraProject {
+  id: string;
+  key: string;
+  title: string;
+  created_at: string;
+}
+
+interface JiraIssue {
+  id: string;
+  issue_key: string;
+  issue_type: string;
+  summary: string;
+  status: string;
+  assignee: string;
+  time_spent_seconds: number | null;
+  original_estimate_seconds: number | null;
+}
+
+interface DerivedTeamMember {
+  name: string;
+  initials: string;
+  tasks_assigned: number;
+  tasks_completed: number;
+  actual_hours: number;
+  est_hours: number;
+}
 
 export default function ProjectAnalytics() {
-  const { projectId, id } = useParams(); // Handle both depending on your router setup
+  const { id, projectId } = useParams();
   const targetId = projectId || id; 
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'overview' | 'team' | 'tasks' | 'timeline' | 'insights'>('overview');
   
-  // Data States
-  const [project, setProject] = useState<ProjectItem | null>(null);
-  const [metrics, setMetrics] = useState<any>(null);
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
-  const [jiraIssues, setJiraIssues] = useState<JiraIssue[]>([]);
-  const [projectAnalytics, setProjectAnalytics] = useState<ProjectAnalytics | null>(null);
+  // States directly from Supabase
+  const [project, setProject] = useState<JiraProject | null>(null);
+  const [issues, setIssues] = useState<JiraIssue[]>([]);
+  const [teamMembers, setTeamMembers] = useState<DerivedTeamMember[]>([]);
+  
   const [loading, setLoading] = useState(true);
-
-  // Fallbacks for undefined variables to prevent crashes
-  const asanaTasks: any[] = [];
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!targetId) return;
     
-    const loadAllData = async () => {
+    const fetchDirectFromSupabase = async () => {
       setLoading(true);
+      setError(null);
+      
       try {
-        const projects = await loadProjects();
-        const found = projects.find((p) => p.id === targetId);
-        setProject(found || null);
+        // 1. Check if the URL parameter is a UUID or a Project Key (like "T3")
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetId);
         
-        const metricsData = await loadMetrics(targetId);
-        setMetrics(metricsData);
+        // 2. Fetch Project using .limit(1) instead of .single() to prevent the 406 JSON Coercion error
+        const { data: projectData, error: projError } = await supabase
+          .from('jira_projects')
+          .select('id, key, title, created_at')
+          .eq(isUUID ? 'id' : 'key', targetId)
+          .limit(1);
+
+        if (projError) throw projError;
+        if (!projectData || projectData.length === 0) throw new Error("Project not found in database.");
         
-        const [
-          membersData,
-          jiraData,
-          analyticsData,
-        ] = await Promise.all([
-          loadTeamMembersByProject(targetId),
-          loadJiraIssuesByProject(targetId),
-          loadProjectAnalytics(targetId),
-        ]);
+        const currentProject = projectData[0];
+        setProject(currentProject);
+
+        // 3. Fetch Issues tied to this project's key
+        const { data: issuesData, error: issuesError } = await supabase
+          .from('jira_issues')
+          .select('id, issue_key, issue_type, summary, status, assignee, time_spent_seconds, original_estimate_seconds')
+          .eq('project_key', currentProject.key);
+
+        if (issuesError) throw issuesError;
+        const fetchedIssues = issuesData || [];
+        setIssues(fetchedIssues);
+
+        // 4. Dynamically aggregate Team Members from the raw issues
+        const teamMap = new Map<string, DerivedTeamMember>();
         
-        setTeamMembers(membersData);
-        setJiraIssues(jiraData);
-        setProjectAnalytics(analyticsData);
-      } catch (error) {
-        console.error('Failed to load project data:', error);
+        fetchedIssues.forEach((issue) => {
+          const assigneeName = issue.assignee && issue.assignee !== 'Unassigned' ? issue.assignee : 'Unassigned';
+          
+          if (!teamMap.has(assigneeName)) {
+            teamMap.set(assigneeName, {
+              name: assigneeName,
+              initials: assigneeName === 'Unassigned' ? 'U' : assigneeName.substring(0, 2).toUpperCase(),
+              tasks_assigned: 0,
+              tasks_completed: 0,
+              actual_hours: 0,
+              est_hours: 0
+            });
+          }
+          
+          const member = teamMap.get(assigneeName)!;
+          member.tasks_assigned += 1;
+          
+          // Check if task is done based on status string
+          const isDone = ['Done', 'Closed', 'Resolved'].some(s => issue.status?.toLowerCase().includes(s.toLowerCase()));
+          if (isDone) member.tasks_completed += 1;
+          
+          member.actual_hours += (issue.time_spent_seconds || 0) / 3600;
+          member.est_hours += (issue.original_estimate_seconds || 0) / 3600;
+        });
+
+        // Filter out "Unassigned" to keep the team tab clean of ghost members
+        teamMap.delete('Unassigned');
+        setTeamMembers(Array.from(teamMap.values()));
+
+      } catch (err: any) {
+        console.error('Supabase direct fetch error:', err);
+        setError(err.message || 'Failed to fetch data directly from Supabase.');
       } finally {
         setLoading(false);
       }
     };
     
-    loadAllData();
+    fetchDirectFromSupabase();
   }, [targetId]);
+
+  // --- Dynamic Core Calculations (Zero Hardcoding) ---
+  const totalEstHours = Math.round(issues.reduce((sum, issue) => sum + (issue.original_estimate_seconds || 0), 0) / 3600);
+  const actualHours = Math.round(issues.reduce((sum, issue) => sum + (issue.time_spent_seconds || 0), 0) / 3600);
+  const remainingHours = Math.max(totalEstHours - actualHours, 0);
+  const completionPct = totalEstHours > 0 ? Math.round((actualHours / totalEstHours) * 100) : 0;
+  
+  const totalTasks = issues.length;
+  const tasksCompleted = issues.filter(i => ['Done', 'Closed', 'Resolved'].some(s => i.status?.toLowerCase().includes(s.toLowerCase()))).length;
+  const tasksRemaining = Math.max(totalTasks - tasksCompleted, 0);
+
+  // Dynamic Health Score based on actual progress vs time spent
+  const healthScore = totalTasks === 0 ? 100 : Math.round(((tasksCompleted / totalTasks) * 0.5 + (actualHours <= totalEstHours ? 1 : totalEstHours / Math.max(actualHours, 1)) * 0.5) * 100);
+  const isAtRisk = healthScore < 50;
+  const startDate = project?.created_at ? new Date(project.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown';
 
   if (loading) {
     return (
@@ -80,21 +148,23 @@ export default function ProjectAnalytics() {
         <div className="min-h-screen bg-[#FAFAF9] flex items-center justify-center">
           <div className="text-center animate-pulse">
             <div className="w-12 h-12 border-4 border-[#E7E5E4] border-t-[#1C1917] rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-[#78716C] font-light">Loading project intelligence...</p>
+            <p className="text-[#78716C] font-light">Querying Supabase Directly...</p>
           </div>
         </div>
       </VelocityAISidebar>
     );
   }
 
-  if (!project) {
+  if (error || !project) {
     return (
       <VelocityAISidebar>
         <div className="min-h-screen bg-[#FAFAF9] flex items-center justify-center">
-          <div className="text-center">
-            <h2 className="text-2xl font-light text-[#1C1917]">Project not found</h2>
-            <Button onClick={() => navigate('/projects')} variant="outline" className="mt-4">
-              Return to Projects
+          <div className="text-center max-w-md bg-white p-8 rounded-[24px] border border-[#E7E5E4] shadow-sm">
+            <AlertCircle className="w-12 h-12 text-[#BE123C] mx-auto mb-4" />
+            <h2 className="text-xl font-light text-[#1C1917] mb-2">Supabase Query Failed</h2>
+            <p className="text-[#78716C] text-sm mb-6">{error}</p>
+            <Button onClick={() => navigate('/projects')} className="bg-[#1C1917] hover:bg-[#292524] text-white rounded-xl">
+              Go Back
             </Button>
           </div>
         </div>
@@ -102,25 +172,12 @@ export default function ProjectAnalytics() {
     );
   }
 
-  // --- Derived Analytics based on Figma Mockup Match ---
-  // Using fallbacks to match the specific numbers in your Figma screenshot if real data is missing
-  const totalEstHours = projectAnalytics?.planned_hours || 1240; 
-  const actualHours = projectAnalytics?.actual_hours || 856;
-  const remainingHours = Math.max(totalEstHours - actualHours, 0);
-  const completionPct = totalEstHours > 0 ? Math.round((actualHours / totalEstHours) * 100) : 69;
-  
-  const tasksCompleted = jiraIssues.filter(i => i.status?.toLowerCase().includes('done')).length || 0;
-  const tasksRemaining = Math.max((asanaTasks.length + jiraIssues.length) - tasksCompleted, 5);
-
-  const healthScore = metrics?.healthScore || 72;
-  const feasibility = 85; 
-
-  // --- Reusable Tab Button to match Figma Pill Design ---
-  const TabButton = ({ id, label, icon: Icon }: { id: string, label: string, icon: any }) => (
+  // --- Reusable Tab Button ---
+  const TabButton = ({ tabId, label, icon: Icon }: { tabId: string, label: string, icon: any }) => (
     <button
-      onClick={() => setActiveTab(id as any)}
+      onClick={() => setActiveTab(tabId as any)}
       className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm transition-all duration-200 ${
-        activeTab === id 
+        activeTab === tabId 
           ? 'bg-white shadow-sm text-[#1C1917] font-medium border border-[#E7E5E4]' 
           : 'text-[#78716C] hover:bg-[#F5F5F4] hover:text-[#1C1917]'
       }`}
@@ -135,88 +192,81 @@ export default function ProjectAnalytics() {
       <div className="bg-[#FAFAF9] min-h-screen p-8 md:p-12 font-['Inter',sans-serif]">
         <div className="max-w-[1200px] mx-auto space-y-8">
           
-          {/* Top Navigation */}
-          <button 
-            onClick={() => navigate('/projects')}
-            className="flex items-center gap-2 text-sm text-[#78716C] hover:text-[#1C1917] transition-colors"
-          >
+          {/* Header */}
+          <button onClick={() => navigate('/projects')} className="flex items-center gap-2 text-sm text-[#78716C] hover:text-[#1C1917] transition-colors">
             <ArrowLeft className="w-4 h-4" />
             Back to Projects
           </button>
 
-          {/* Header Card */}
           <div className="bg-white rounded-[24px] border border-[#E7E5E4] p-8 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
             <div className="space-y-4">
-              <span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${healthScore < 80 ? 'bg-[#FFF1F2] text-[#BE123C]' : 'bg-[#F0FDFA] text-[#0F766E]'}`}>
-                {healthScore < 80 ? 'At Risk' : 'On Track'}
+              <span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${isAtRisk ? 'bg-[#FFF1F2] text-[#BE123C]' : 'bg-[#F0FDFA] text-[#0F766E]'}`}>
+                {isAtRisk ? 'At Risk' : 'On Track'}
               </span>
               <h1 className="text-3xl md:text-4xl font-light text-[#1C1917] tracking-tight">
-                {project.title || "Velocity AI Platform Redesign"}
+                {project.title || project.key}
               </h1>
               <p className="text-sm text-[#78716C]">
-                Jan 15, 2026 &rarr; Mar 30, 2026 · <span className="text-[#A8A29E]">36 days remaining</span>
+                Started {startDate} &rarr; Active Project
               </p>
             </div>
 
             <div className="flex items-center gap-8">
               <div className="text-center">
-                <p className="text-xs text-[#A8A29E] mb-2">Health Score</p>
+                <p className="text-xs text-[#A8A29E] mb-2 uppercase tracking-wider">Health Score</p>
                 <div className={`w-16 h-16 rounded-full border flex items-center justify-center text-2xl font-light mx-auto ${
-                  healthScore < 80 ? 'border-pink-100 bg-pink-50 text-pink-500' : 'border-teal-100 bg-teal-50 text-teal-600'
+                  isAtRisk ? 'border-pink-100 bg-pink-50 text-pink-500' : 'border-teal-100 bg-teal-50 text-teal-600'
                 }`}>
                   {healthScore}
                 </div>
-                <p className="text-xs text-[#A8A29E] mt-2">Feasibility {feasibility}%</p>
               </div>
-              <Button className="bg-[#1C1917] hover:bg-[#292524] text-white rounded-xl px-6 py-6 h-auto font-light transition-transform hover:scale-105">
+              <Button className="bg-[#1C1917] hover:bg-[#292524] text-white rounded-xl px-6 py-6 h-auto font-light">
                 Edit Project
               </Button>
             </div>
           </div>
 
-          {/* Figma Style Tab Navigation */}
+          {/* Navigation Tabs */}
           <div className="flex flex-wrap gap-2 p-1 bg-[#F5F5F4] rounded-xl w-fit border border-[#E7E5E4]">
-            <TabButton id="overview" label="Overview" icon={LayoutGrid} />
-            <TabButton id="team" label="Team" icon={Users} />
-            <TabButton id="tasks" label="Tasks" icon={CheckSquare} />
-            <TabButton id="timeline" label="Timeline" icon={Clock} />
-            <TabButton id="insights" label="AI Insights" icon={Lightbulb} />
+            <TabButton tabId="overview" label="Overview" icon={LayoutGrid} />
+            <TabButton tabId="team" label="Team" icon={Users} />
+            <TabButton tabId="tasks" label="Tasks" icon={CheckSquare} />
+            <TabButton tabId="timeline" label="Timeline" icon={Clock} />
+            <TabButton tabId="insights" label="AI Insights" icon={Lightbulb} />
           </div>
 
           {/* ----------------- OVERVIEW TAB ----------------- */}
           {activeTab === 'overview' && (
-            <div className="space-y-6">
+            <div className="space-y-6 animate-in fade-in duration-500">
               
-              {/* 5-Column Stats Grid */}
               <div className="bg-white rounded-[24px] border border-[#E7E5E4] p-8 shadow-sm">
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-8 divide-x divide-[#E7E5E4]">
                   <div className="px-4 first:px-0">
                     <p className="text-4xl font-light text-[#1C1917]">{totalEstHours}</p>
-                    <p className="text-xs text-[#A8A29E] mt-2">Total Est. Hours</p>
+                    <p className="text-xs text-[#A8A29E] mt-2 uppercase tracking-wider">Total Est. Hours</p>
                   </div>
                   <div className="px-4">
                     <p className="text-4xl font-light text-[#1C1917]">{actualHours}</p>
-                    <p className="text-xs text-[#A8A29E] mt-2">Actual Hours</p>
+                    <p className="text-xs text-[#A8A29E] mt-2 uppercase tracking-wider">Actual Hours</p>
                   </div>
                   <div className="px-4">
                     <p className="text-4xl font-light text-[#1C1917]">{remainingHours}</p>
-                    <p className="text-xs text-[#A8A29E] mt-2">Remaining</p>
+                    <p className="text-xs text-[#A8A29E] mt-2 uppercase tracking-wider">Remaining</p>
                   </div>
                   <div className="px-4">
                     <p className="text-4xl font-light text-[#1C1917]">{completionPct}%</p>
-                    <p className="text-xs text-[#A8A29E] mt-2">Completion</p>
+                    <p className="text-xs text-[#A8A29E] mt-2 uppercase tracking-wider">Completion</p>
                   </div>
                   <div className="px-4">
-                    <p className="text-4xl font-light text-[#1C1917]">{teamMembers.length || 4}</p>
-                    <p className="text-xs text-[#A8A29E] mt-2">Team Size</p>
+                    <p className="text-4xl font-light text-[#1C1917]">{teamMembers.length}</p>
+                    <p className="text-xs text-[#A8A29E] mt-2 uppercase tracking-wider">Team Size</p>
                   </div>
                 </div>
               </div>
 
-              {/* 2-Column Complex Charts Layout */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 
-                {/* Completion Progress Card */}
+                {/* Completion Progress */}
                 <div className="bg-white rounded-[24px] border border-[#E7E5E4] p-8 shadow-sm space-y-6">
                   <h3 className="text-[#1C1917] text-lg font-light">Completion Progress</h3>
                   <div>
@@ -225,7 +275,7 @@ export default function ProjectAnalytics() {
                       <span className="text-[#1C1917]">{completionPct}%</span>
                     </div>
                     <div className="h-2 w-full bg-[#E7E5E4] rounded-full overflow-hidden">
-                      <div className="h-full bg-[#1C1917] rounded-full transition-all duration-1000" style={{ width: `${completionPct}%` }} />
+                      <div className="h-full bg-[#1C1917] rounded-full transition-all duration-1000" style={{ width: `${Math.min(completionPct, 100)}%` }} />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4 pt-4">
@@ -240,7 +290,7 @@ export default function ProjectAnalytics() {
                   </div>
                 </div>
 
-                {/* Hours Breakdown Card */}
+                {/* Hours Breakdown */}
                 <div className="bg-white rounded-[24px] border border-[#E7E5E4] p-8 shadow-sm space-y-6">
                   <h3 className="text-[#1C1917] text-lg font-light">Hours Breakdown</h3>
                   <div className="space-y-8 pt-2">
@@ -262,15 +312,6 @@ export default function ProjectAnalytics() {
                         <div className="h-full bg-[#0F766E] rounded-full transition-all duration-1000" style={{ width: `${(actualHours / Math.max(totalEstHours, 1)) * 100}%` }} />
                       </div>
                     </div>
-                    <div>
-                      <div className="flex justify-between text-sm mb-2">
-                        <span className="text-[#78716C]">Remaining</span>
-                        <span className="text-[#1C1917]">{remainingHours}h</span>
-                      </div>
-                      <div className="h-2 w-full bg-[#E7E5E4] rounded-full overflow-hidden">
-                        <div className="h-full bg-[#2DD4BF] rounded-full transition-all duration-1000" style={{ width: `${(remainingHours / Math.max(totalEstHours, 1)) * 100}%` }} />
-                      </div>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -282,106 +323,13 @@ export default function ProjectAnalytics() {
                     <Sparkles className="w-6 h-6" />
                   </div>
                   <div>
-                    <p className="text-xs text-[#0F766E] font-medium uppercase tracking-wider mb-1">Latest AI Recommendation</p>
-                    <p className="text-[#1C1917] text-sm">Balanced redistribution across backend capacity</p>
+                    <p className="text-xs text-[#0F766E] font-medium uppercase tracking-wider mb-1">AI Health Check</p>
+                    <p className="text-[#1C1917] text-sm">
+                      {actualHours > totalEstHours && totalEstHours > 0 
+                        ? 'Project is running over estimated hours. Recommend reviewing recent task scope.' 
+                        : 'Project capacity tracking normally. Team utilization is balanced.'}
+                    </p>
                   </div>
-                </div>
-                <button className="text-sm text-[#0F766E] hover:underline" onClick={() => setActiveTab('insights')}>
-                  View all insights &rarr;
-                </button>
-              </div>
-
-              {/* Team Allocation Table Card */}
-              <div className="bg-white rounded-[24px] border border-[#E7E5E4] overflow-hidden shadow-sm">
-                <div className="p-8 pb-4 flex justify-between items-center border-b border-[#E7E5E4]">
-                  <h3 className="text-[#1C1917] text-lg font-light">Team Allocation</h3>
-                  <div className="flex items-center gap-6">
-                    <span className="text-xs text-[#A8A29E]">4 members</span>
-                    <span className="text-xs text-[#A8A29E]">2 overloaded</span>
-                    <Button variant="outline" className="gap-2 rounded-xl text-xs h-9 border-[#E7E5E4] font-light">
-                      <Plus className="w-3 h-3" /> Add Member
-                    </Button>
-                  </div>
-                </div>
-                
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm text-left">
-                    <thead className="text-[11px] uppercase tracking-wider text-[#A8A29E] bg-[#FAFAF9] border-b border-[#E7E5E4]">
-                      <tr>
-                        <th className="px-8 py-4 font-medium">MEMBER</th>
-                        <th className="px-8 py-4 font-medium">ROLE</th>
-                        <th className="px-8 py-4 font-medium">ASSIGNED</th>
-                        <th className="px-8 py-4 font-medium">ACTUAL</th>
-                        <th className="px-8 py-4 font-medium w-48">UTILIZATION</th>
-                        <th className="px-8 py-4 font-medium text-right">STATUS</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#E7E5E4]">
-                      {/* Using mock rows directly derived from your Figma image to guarantee visual match */}
-                      <tr className="hover:bg-[#FAFAF9] transition-colors">
-                        <td className="px-8 py-5 flex items-center gap-4">
-                          <div className="w-8 h-8 rounded-full bg-[#F5F5F4] border border-[#E7E5E4] flex items-center justify-center text-xs text-[#1C1917]">SC</div>
-                          <span className="font-light text-[#1C1917]">Sarah Chen</span>
-                        </td>
-                        <td className="px-8 py-5 text-[#78716C] font-light">Frontend Lead</td>
-                        <td className="px-8 py-5 text-[#78716C] font-light">40h</td>
-                        <td className="px-8 py-5 text-[#BE123C] font-light">48h</td>
-                        <td className="px-8 py-5">
-                          <div className="flex items-center gap-3">
-                            <div className="flex-1 h-1.5 bg-[#E7E5E4] rounded-full overflow-hidden">
-                              <div className="h-full rounded-full bg-[#BE123C]" style={{ width: '100%' }} />
-                            </div>
-                            <span className="text-xs text-[#BE123C]">120%</span>
-                          </div>
-                        </td>
-                        <td className="px-8 py-5 text-right">
-                          <span className="text-xs font-medium px-3 py-1 rounded-full text-[#BE123C] bg-[#FFF1F2]">Overloaded</span>
-                        </td>
-                      </tr>
-
-                      <tr className="hover:bg-[#FAFAF9] transition-colors">
-                        <td className="px-8 py-5 flex items-center gap-4">
-                          <div className="w-8 h-8 rounded-full bg-[#F5F5F4] border border-[#E7E5E4] flex items-center justify-center text-xs text-[#1C1917]">MJ</div>
-                          <span className="font-light text-[#1C1917]">Marcus Johnson</span>
-                        </td>
-                        <td className="px-8 py-5 text-[#78716C] font-light">Backend Developer</td>
-                        <td className="px-8 py-5 text-[#78716C] font-light">40h</td>
-                        <td className="px-8 py-5 text-[#78716C] font-light">38h</td>
-                        <td className="px-8 py-5">
-                          <div className="flex items-center gap-3">
-                            <div className="flex-1 h-1.5 bg-[#E7E5E4] rounded-full overflow-hidden">
-                              <div className="h-full rounded-full bg-[#0F766E]" style={{ width: '95%' }} />
-                            </div>
-                            <span className="text-xs text-[#78716C]">95%</span>
-                          </div>
-                        </td>
-                        <td className="px-8 py-5 text-right">
-                          <span className="text-xs font-medium px-3 py-1 rounded-full text-[#0F766E] bg-[#F0FDFA]">Healthy</span>
-                        </td>
-                      </tr>
-
-                      <tr className="hover:bg-[#FAFAF9] transition-colors">
-                        <td className="px-8 py-5 flex items-center gap-4">
-                          <div className="w-8 h-8 rounded-full bg-[#F5F5F4] border border-[#E7E5E4] flex items-center justify-center text-xs text-[#1C1917]">ER</div>
-                          <span className="font-light text-[#1C1917]">Emily Rodriguez</span>
-                        </td>
-                        <td className="px-8 py-5 text-[#78716C] font-light">UI Designer</td>
-                        <td className="px-8 py-5 text-[#78716C] font-light">30h</td>
-                        <td className="px-8 py-5 text-[#78716C] font-light">28h</td>
-                        <td className="px-8 py-5">
-                          <div className="flex items-center gap-3">
-                            <div className="flex-1 h-1.5 bg-[#E7E5E4] rounded-full overflow-hidden">
-                              <div className="h-full rounded-full bg-[#0F766E]" style={{ width: '93%' }} />
-                            </div>
-                            <span className="text-xs text-[#78716C]">93%</span>
-                          </div>
-                        </td>
-                        <td className="px-8 py-5 text-right">
-                          <span className="text-xs font-medium px-3 py-1 rounded-full text-[#0F766E] bg-[#F0FDFA]">Healthy</span>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
                 </div>
               </div>
             </div>
@@ -389,54 +337,24 @@ export default function ProjectAnalytics() {
 
           {/* ----------------- TEAM TAB ----------------- */}
           {activeTab === 'team' && (
-            <div className="space-y-6">
-              
-              {/* Dynamic Team Summary Metrics */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white rounded-[24px] border border-[#E7E5E4] p-8 shadow-sm">
-                  <p className="text-3xl font-light text-[#1C1917]">{teamMembers.length}</p>
-                  <p className="text-xs text-[#A8A29E] mt-2 uppercase tracking-wider">Active Team Members</p>
-                </div>
-                <div className="bg-white rounded-[24px] border border-[#E7E5E4] p-8 shadow-sm">
-                  <p className="text-3xl font-light text-[#0F766E]">
-                    {teamMembers.reduce((sum, m) => sum + (m.tasks_completed || 0), 0)}
-                  </p>
-                  <p className="text-xs text-[#A8A29E] mt-2 uppercase tracking-wider">Total Tasks Completed</p>
-                </div>
-                <div className="bg-white rounded-[24px] border border-[#E7E5E4] p-8 shadow-sm">
-                  <p className="text-3xl font-light text-[#C2410C]">
-                    {teamMembers.reduce((sum, m) => sum + (m.prs_pending || 0), 0)}
-                  </p>
-                  <p className="text-xs text-[#A8A29E] mt-2 uppercase tracking-wider">Pending Pull Requests</p>
-                </div>
-              </div>
-
-              {/* Dynamic Member Cards Grid */}
+            <div className="space-y-6 animate-in fade-in duration-500">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {teamMembers.map((member, idx) => {
-                  // Purely dynamic calculations based on DB data
-                  const tasksAssigned = member.tasks_assigned || 0;
-                  const tasksCompleted = member.tasks_completed || 0;
-                  const completionRate = tasksAssigned > 0 ? (tasksCompleted / tasksAssigned) * 100 : 0;
-                  
-                  // Dynamically flag if someone has too many open tasks (e.g., more than 10 incomplete tasks)
-                  const incompleteTasks = tasksAssigned - tasksCompleted;
-                  const isOverloaded = incompleteTasks > 10; 
+                  const assigned = member.tasks_assigned;
+                  const completed = member.tasks_completed;
+                  const completionRate = assigned > 0 ? (completed / assigned) * 100 : 0;
+                  const isOverloaded = (assigned - completed) > 5;
 
                   return (
-                    <div key={member.member_id || idx} className="bg-white rounded-[24px] border border-[#E7E5E4] p-8 shadow-sm hover:shadow-md transition-shadow">
+                    <div key={idx} className="bg-white rounded-[24px] border border-[#E7E5E4] p-8 shadow-sm hover:shadow-md transition-shadow">
                       <div className="flex items-start justify-between mb-6">
                         <div className="flex items-center gap-4">
-                          {member.avatar ? (
-                            <img src={member.avatar} alt={member.name} className="w-12 h-12 rounded-full border border-[#E7E5E4] object-cover" />
-                          ) : (
-                            <div className="w-12 h-12 rounded-full bg-[#F5F5F4] border border-[#E7E5E4] flex items-center justify-center text-sm text-[#1C1917]">
-                              {member.name ? member.name.substring(0, 2).toUpperCase() : '??'}
-                            </div>
-                          )}
+                          <div className="w-12 h-12 rounded-full bg-[#F5F5F4] border border-[#E7E5E4] flex items-center justify-center text-sm font-medium text-[#1C1917]">
+                            {member.initials}
+                          </div>
                           <div>
-                            <p className="font-medium text-[#1C1917] text-lg">{member.name || 'Unnamed Member'}</p>
-                            <p className="text-sm text-[#78716C] font-light">{member.role || 'Unassigned Role'}</p>
+                            <p className="font-medium text-[#1C1917] text-lg">{member.name}</p>
+                            <p className="text-sm text-[#78716C] font-light">Team Member</p>
                           </div>
                         </div>
                         <span className={`text-xs font-medium px-3 py-1 rounded-full ${
@@ -449,20 +367,17 @@ export default function ProjectAnalytics() {
                       <div className="space-y-4 pt-2">
                         <div className="flex justify-between items-center text-sm">
                           <span className="text-[#78716C] font-light">Tasks Assigned</span>
-                          <span className="text-[#1C1917] font-medium">{tasksAssigned}</span>
+                          <span className="text-[#1C1917] font-medium">{assigned}</span>
                         </div>
                         <div className="flex justify-between items-center text-sm">
                           <span className="text-[#78716C] font-light">Tasks Completed</span>
-                          <span className="text-[#0F766E] font-medium">{tasksCompleted}</span>
+                          <span className="text-[#0F766E] font-medium">{completed}</span>
                         </div>
                         <div className="flex justify-between items-center text-sm">
-                          <span className="text-[#78716C] font-light">Pending PRs</span>
-                          <span className={`${(member.prs_pending || 0) > 0 ? 'text-[#C2410C]' : 'text-[#1C1917]'} font-medium`}>
-                            {member.prs_pending || 0}
-                          </span>
+                          <span className="text-[#78716C] font-light">Hours Tracked</span>
+                          <span className="text-[#1C1917] font-medium">{Math.round(member.actual_hours)}h</span>
                         </div>
 
-                        {/* Dynamic Progress Bar */}
                         <div className="pt-4 mt-4 border-t border-[#E7E5E4]">
                           <div className="flex justify-between text-xs text-[#78716C] mb-2 font-light">
                             <span>Task Completion Rate</span>
@@ -480,15 +395,63 @@ export default function ProjectAnalytics() {
                   );
                 })}
 
-                {/* Empty State Fallback */}
                 {teamMembers.length === 0 && (
                   <div className="col-span-full bg-[#F5F5F4] rounded-[24px] border border-[#E7E5E4] border-dashed p-12 text-center">
                     <Users className="w-10 h-10 text-[#A8A29E] mx-auto mb-3 opacity-50" />
-                    <p className="text-[#1C1917] font-medium">No team members found</p>
-                    <p className="text-[#78716C] text-sm mt-1">Assign members to this project to see their workloads here.</p>
+                    <p className="text-[#1C1917] font-medium">No team members mapped</p>
+                    <p className="text-[#78716C] text-sm mt-1">Assign Jira issues to individuals to populate this list.</p>
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* ----------------- TASKS TAB ----------------- */}
+          {activeTab === 'tasks' && (
+            <div className="space-y-6 animate-in fade-in duration-500">
+              <div className="bg-white p-8 rounded-[24px] shadow-sm border border-[#E7E5E4]">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-light text-[#1C1917]">Project Issues ({issues.length})</h3>
+                </div>
+                
+                <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
+                  {issues.map((issue) => (
+                    <div key={issue.id} className="border border-[#E7E5E4] rounded-xl p-5 hover:bg-[#FAFAF9] transition-colors">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <span className="font-mono text-xs font-medium text-[#0F766E] bg-[#F0FDFA] px-2 py-1 rounded-md">
+                              {issue.issue_key}
+                            </span>
+                            <p className="font-medium text-[#1C1917]">{issue.summary}</p>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-4 text-xs text-[#78716C] mt-3">
+                            <span className="bg-[#F5F5F4] px-2 py-1 rounded border border-[#E7E5E4]">Type: {issue.issue_type}</span>
+                            <span className={`px-2 py-1 rounded border ${['Done', 'Closed', 'Resolved'].includes(issue.status) ? 'bg-[#F0FDFA] text-[#0F766E] border-teal-100' : 'bg-[#FFF7ED] text-[#C2410C] border-orange-100'}`}>
+                              Status: {issue.status}
+                            </span>
+                            <span>Assignee: <strong className="text-[#1C1917] font-medium">{issue.assignee || 'Unassigned'}</strong></span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {issues.length === 0 && <p className="text-sm text-[#A8A29E]">No Jira issues found in Supabase.</p>}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ----------------- TIMELINE & INSIGHTS ----------------- */}
+          {(activeTab === 'timeline' || activeTab === 'insights') && (
+            <div className="bg-white rounded-[24px] border border-[#E7E5E4] p-24 text-center shadow-sm animate-in fade-in duration-500">
+              {activeTab === 'insights' ? <Lightbulb className="w-16 h-16 text-[#A8A29E] mx-auto mb-6 opacity-40" /> : <Clock className="w-16 h-16 text-[#A8A29E] mx-auto mb-6 opacity-40" />}
+              <h3 className="text-2xl font-light text-[#1C1917] mb-3">{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} View</h3>
+              <p className="text-[#78716C] font-light max-w-md mx-auto">
+                {activeTab === 'insights' 
+                  ? 'AI recommendations require more extended project history to generate actionable, predictive insights.' 
+                  : 'Timeline engine is currently tracking issue dependencies and due dates.'}
+              </p>
             </div>
           )}
 
