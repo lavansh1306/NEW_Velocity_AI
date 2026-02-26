@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Users, AlertCircle, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Clock, Users, AlertCircle, TrendingUp, RefreshCw } from 'lucide-react';
 import { EmployeeProfile, LeaveRequest } from './types';
 
 interface CapacityCandidate {
@@ -44,6 +44,20 @@ interface CapacityAnalysisProps {
   onRefresh?: () => void;
 }
 
+const getStatusColor = (status: string): string => {
+  switch (status) {
+    case 'available':
+    case 'full':
+      return 'bg-green-50 border-green-200 text-green-800';
+    case 'limited':
+      return 'bg-yellow-50 border-yellow-200 text-yellow-800';
+    case 'unavailable':
+      return 'bg-red-50 border-red-200 text-red-800';
+    default:
+      return 'bg-gray-50 border-gray-200 text-gray-800';
+  }
+};
+
 const getStatusBadgeColor = (status: string): string => {
   switch (status) {
     case 'available':
@@ -58,12 +72,6 @@ const getStatusBadgeColor = (status: string): string => {
   }
 };
 
-// Safe date parser to prevent UTC timezone shifts from Supabase dates
-const parseLocalMidnight = (dateStr: string) => {
-  const [y, m, d] = dateStr.split('T')[0].split('-').map(Number);
-  return new Date(y, m - 1, d);
-};
-
 export const CapacityAnalysis: React.FC<CapacityAnalysisProps> = ({ 
   employees, 
   approvedLeaves, 
@@ -75,41 +83,44 @@ export const CapacityAnalysis: React.FC<CapacityAnalysisProps> = ({
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
+    console.log('\n=== CAPACITY ANALYSIS UPDATE ===');
+    console.log('✓ Employees:', employees.map(e => e.name));
+    console.log('✓ Approved Leaves:', approvedLeaves.map(l => `${l.name} (${l.startDate} - ${l.endDate})`));
     setIsRefreshing(true);
-    calculateCapacityData();
+    fetchCapacityData();
   }, [employees, approvedLeaves]);
 
-  const calculateCapacityData = () => {
+  const fetchCapacityData = async () => {
     try {
       setLoading(true);
       setError(null);
 
       // Prepare candidates data from employees and approved leaves
       const today = new Date();
-      today.setHours(0, 0, 0, 0); // Local midnight
-      
       const weekStart = new Date(today);
       weekStart.setDate(today.getDate() - today.getDay());
       const weekEnd = new Date(weekStart);
       weekEnd.setDate(weekStart.getDate() + 6);
 
+      console.log('[CapacityAnalysis] Week range:', weekStart.toLocaleDateString(), '-', weekEnd.toLocaleDateString());
+
       const candidates: CapacityCandidate[] = employees.map((emp) => {
+        // Calculate PTO hours for this week from approved leaves
         let ptoHours = 0;
-        
         approvedLeaves.forEach((leave) => {
-          // Case insensitive match to prevent bugs if DB names have different casing
-          if (leave.name.toLowerCase() === emp.name.toLowerCase() && leave.status === 'Approved') {
-            const leaveStart = parseLocalMidnight(leave.startDate);
-            const leaveEnd = parseLocalMidnight(leave.endDate || leave.startDate);
+          console.log('[CapacityAnalysis] Checking leave for', emp.name, '- Leave:', leave.name, 'Status:', leave.status, 'Dates:', leave.startDate, '-', leave.endDate);
+          if (leave.name === emp.name && leave.status === 'Approved') {
+            const leaveStart = new Date(leave.startDate);
+            const leaveEnd = new Date(leave.endDate);
 
             // Check if leave overlaps with current week
             if (leaveStart <= weekEnd && leaveEnd >= weekStart) {
+              // Calculate overlapping days
               const overlapStart = new Date(Math.max(leaveStart.getTime(), weekStart.getTime()));
               const overlapEnd = new Date(Math.min(leaveEnd.getTime(), weekEnd.getTime()));
-              
-              // Calculate overlapping working days (excluding weekends if needed, but keeping your original math for now)
               const daysDiff = Math.ceil((overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
               ptoHours += daysDiff * 8; // Assuming 8 hour workdays
+              console.log('[CapacityAnalysis] Leave matches! PTO hours for', emp.name, ':', ptoHours);
             }
           }
         });
@@ -124,17 +135,19 @@ export const CapacityAnalysis: React.FC<CapacityAnalysisProps> = ({
           efficiency_score: 1.0,
           base_productive_hours: 40, // Default 40 hour work week
           pto_hours_this_week: ptoHours,
-          holiday_hours_this_week: 0, 
+          holiday_hours_this_week: 0, // Can be updated based on company holidays
         };
       });
 
-      // LOCAL CALCULATION - Pure synchronous math based on props
+      console.log('[CapacityAnalysis] Candidates:', candidates);
+
+      // LOCAL CALCULATION - No API call needed
       const totalBaseHours = candidates.reduce((sum, c) => sum + c.base_productive_hours, 0);
       const totalPtoHours = candidates.reduce((sum, c) => sum + c.pto_hours_this_week, 0);
       const totalHolidayHours = candidates.reduce((sum, c) => sum + c.holiday_hours_this_week, 0);
       const totalAvailableHours = totalBaseHours - totalPtoHours - totalHolidayHours;
       
-      const newCapacityData: CapacityResponse = {
+      const capacityData: CapacityResponse = {
         success: true,
         timestamp: new Date().toISOString(),
         summary: {
@@ -157,12 +170,14 @@ export const CapacityAnalysis: React.FC<CapacityAnalysisProps> = ({
         })),
       };
 
-      setCapacityData(newCapacityData);
+      console.log('[CapacityAnalysis] Local capacity data:', capacityData);
+      setCapacityData(capacityData);
+      setIsRefreshing(false);
     } catch (err) {
       console.error('[CapacityAnalysis] Error calculating data:', err);
       setError(err instanceof Error ? err.message : 'Failed to calculate capacity data');
-    } finally {
       setIsRefreshing(false);
+    } finally {
       setLoading(false);
     }
   };
@@ -190,7 +205,7 @@ export const CapacityAnalysis: React.FC<CapacityAnalysisProps> = ({
         <p className="text-sm text-red-600">{error}</p>
         <button
           onClick={() => {
-            calculateCapacityData();
+            fetchCapacityData();
             onRefresh?.();
           }}
           className="mt-4 px-4 py-2 bg-red-100 text-red-800 rounded hover:bg-red-200 transition-colors"
@@ -201,7 +216,9 @@ export const CapacityAnalysis: React.FC<CapacityAnalysisProps> = ({
     );
   }
 
-  if (!capacityData) return null;
+  if (!capacityData) {
+    return null;
+  }
 
   const { summary, data } = capacityData;
 
@@ -216,7 +233,7 @@ export const CapacityAnalysis: React.FC<CapacityAnalysisProps> = ({
               Team Capacity Check
             </h3>
             <div className="text-xs text-slate-500 mt-1 flex items-center gap-2">
-              Employees: {employees.length} | Approved Leaves: {approvedLeaves.length} | PTO Hours: {summary.total_pto_hours}h
+              Employees: {employees.length} | Approved Leaves: {approvedLeaves.length} | PTO Hours: {capacityData?.summary.total_pto_hours ?? '—'}h
               {isRefreshing && (
                 <span className="flex items-center gap-1 text-blue-600">
                   <RefreshCw className="w-3 h-3 animate-spin" />
@@ -228,7 +245,8 @@ export const CapacityAnalysis: React.FC<CapacityAnalysisProps> = ({
           <button
             onClick={() => {
               setIsRefreshing(true);
-              onRefresh?.(); // Trigger parent refresh (Supabase fetch)
+              fetchCapacityData();
+              onRefresh?.();
             }}
             disabled={isRefreshing}
             className={`px-3 py-1 text-sm rounded transition-colors flex items-center gap-1 ${
@@ -238,7 +256,7 @@ export const CapacityAnalysis: React.FC<CapacityAnalysisProps> = ({
             }`}
           >
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            Sync Data
+            Refresh
           </button>
         </div>
 
@@ -310,13 +328,6 @@ export const CapacityAnalysis: React.FC<CapacityAnalysisProps> = ({
                   </td>
                 </tr>
               ))}
-              {data.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="text-center py-6 text-slate-500 italic">
-                    No employees found. Sync Jira tasks to populate capacity.
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>

@@ -1,377 +1,194 @@
-import React, { useState } from 'react';
-import { ArrowLeft } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import React from 'react';
 import {
-  DASHBOARD_STYLES,
-  getStatusBadgeStyle,
-  getPriorityBadgeStyle,
-  getHealthIndicatorStyle,
-  getUtilizationBarColor,
-  getUtilizationTextColor,
-} from './styles';
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from 'recharts';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 // ==================== PROJECT DASHBOARD WITH AI INSIGHTS ====================
 
 export const ProjectDashboardWithInsights = ({ projectId, projectName }: { projectId: string; projectName: string }) => {
-  const [selectedScenario, setSelectedScenario] = useState(0);
-
   const projectData = {
     health: 72,
-    status: 'At Risk',
+    progress: 69,
     deadline: 'Mar 30, 2026',
-    startDate: 'Jan 15, 2026',
-    daysRemaining: 44,
-    feasibility: 85,
-    totalEstHours: 1240,
-    actualHours: 856,
-    remainingHours: 384,
-    completion: 69,
-    teamSize: 8,
+    team: ['SC', 'MJ', 'ER', 'DK'],
+    tasks: [
+      {
+        name: 'User Authentication System',
+        skill: 'Backend',
+        assignedTo: 'MJ',
+        estimatedHours: 80,
+        actualHours: 75,
+        status: 'In Progress',
+        confidence: 92,
+      },
+      {
+        name: 'Dashboard UI Components',
+        skill: 'Frontend',
+        assignedTo: 'SC',
+        estimatedHours: 160,
+        actualHours: 185,
+        status: 'In Progress',
+        confidence: 68,
+      },
+      {
+        name: 'API Integration',
+        skill: 'Backend',
+        assignedTo: 'MJ',
+        estimatedHours: 100,
+        actualHours: 85,
+        status: 'In Progress',
+        confidence: 85,
+      },
+      {
+        name: 'Design System',
+        skill: 'Design',
+        assignedTo: 'ER',
+        estimatedHours: 60,
+        actualHours: 60,
+        status: 'Completed',
+        confidence: 100,
+      },
+    ],
   };
 
-  const tasks = [
-    {
-      id: 1,
-      title: 'User Authentication System',
-      key: 'AUTH-001',
-      assignee: 'MJ',
-      assigneeInitials: 'MJ',
-      status: 'In Progress',
-      priority: 'High',
-    },
-    {
-      id: 2,
-      title: 'Dashboard UI Components',
-      key: 'UI-045',
-      assignee: 'SC',
-      assigneeInitials: 'SC',
-      status: 'In Progress',
-      priority: 'High',
-    },
-    {
-      id: 3,
-      title: 'API Integration',
-      key: 'API-023',
-      assignee: 'ER',
-      assigneeInitials: 'ER',
-      status: 'In Progress',
-      priority: 'Medium',
-    },
-    {
-      id: 4,
-      title: 'Design System Setup',
-      key: 'DES-008',
-      assignee: 'DK',
-      assigneeInitials: 'DK',
-      status: 'Completed',
-      priority: 'Medium',
-    },
-  ];
-
-  const teamMembers = [
-    { name: 'Sarah Chen', role: 'Lead Frontend', avatar: 'SC', utilization: 95, status: 'Active' },
-    { name: 'Michael J.', role: 'Backend Engineer', avatar: 'MJ', utilization: 120, status: 'At Risk' },
-    { name: 'Emily Rodriguez', role: 'Full Stack', avatar: 'ER', utilization: 85, status: 'Active' },
-    { name: 'David Kim', role: 'DevOps Engineer', avatar: 'DK', utilization: 75, status: 'Active' },
-  ];
-
-  const scenarios = [
-    {
-      title: 'Accelerated Timeline',
-      metrics: { hours: '+120h budget', team: '+2 engineers' },
-      pros: ['Complete by Mar 15', 'Buffer for QA'],
-      cons: ['Higher budget', 'Team strain'],
-    },
-    {
-      title: 'Current Plan',
-      metrics: { hours: 'On track', team: 'Stable' },
-      pros: ['Sustainable pace', 'Budget aligned'],
-      cons: ['Tight deadline', 'Minimal buffer'],
-    },
-    {
-      title: 'Extended Scope',
-      metrics: { hours: '+60h', team: 'Current' },
-      pros: ['Polish features', 'Better QA'],
-      cons: ['Move deadline', 'More testing'],
-    },
+  const skillDistribution = [
+    { name: 'Frontend', value: 35, fill: '#93c5fd' },
+    { name: 'Backend', value: 40, fill: '#dbeafe' },
+    { name: 'QA', value: 15, fill: '#bfdbfe' },
+    { name: 'Design', value: 10, fill: '#0ea5e9' },
   ];
 
   const StatusBadge = ({ status }: { status: string }) => {
-    const className = getStatusBadgeStyle(status);
+    const variants: Record<string, string> = {
+      'Completed': 'bg-emerald-50 text-emerald-700',
+      'In Progress': 'bg-blue-50 text-blue-700',
+      'Not Started': 'bg-gray-50 text-gray-600',
+      'At Risk': 'bg-rose-50 text-rose-700',
+      'On Track': 'bg-emerald-50 text-emerald-700',
+    };
+
     return (
-      <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-light ${className}`}>
+      <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-light ${variants[status] || 'bg-gray-50 text-gray-700'}`}>
         {status}
       </span>
     );
   };
 
-  const MetricCard = ({ label, value }: { label: string; value: string }) => (
-    <div className={DASHBOARD_STYLES.metricContainer}>
-      <div className={DASHBOARD_STYLES.metricValue}>{value}</div>
-      <div className={DASHBOARD_STYLES.metricCardLabel}>{label}</div>
-    </div>
-  );
-
-  const Divider = () => <div className={DASHBOARD_STYLES.divider}></div>;
-
-  const UtilizationBar = ({ value }: { value: number }) => {
-    const color = getUtilizationBarColor(value);
-    const width = Math.min(value, 150);
-
-    return (
-      <div className={DASHBOARD_STYLES.utilizationBarContainer}>
-        <div className={`${DASHBOARD_STYLES.utilizationBarFill} ${color}`} style={{ width: `${width}%` }} />
-      </div>
-    );
-  };
-
-  const HealthIndicator = ({ score }: { score: number }) => {
-    const { container, text } = getHealthIndicatorStyle(score);
-
-    return (
-      <div className={container}>
-        <span className={text}>{score}</span>
-      </div>
-    );
-  };
-
-  const AIRecommendationCard = ({
-    title,
-    metrics,
-    pros,
-    cons,
-    isSelected,
-    onSelect,
-  }: {
-    title: string;
-    metrics: Record<string, string>;
-    pros: string[];
-    cons: string[];
-    isSelected: boolean;
-    onSelect: () => void;
-  }) => (
-    <div
-      onClick={onSelect}
-      className={`${DASHBOARD_STYLES.aiCardBase} ${
-        isSelected ? DASHBOARD_STYLES.aiCardSelected : DASHBOARD_STYLES.aiCardDefault
-      }`}
-    >
-      <h3 className={DASHBOARD_STYLES.aiCardTitle}>{title}</h3>
-      <div className={DASHBOARD_STYLES.aiCardMetrics}>
-        {Object.entries(metrics).map(([key, value]) => (
-          <div key={key}>{value}</div>
-        ))}
-      </div>
-      {isSelected && (
-        <div className="text-xs space-y-2">
-          <div>
-            <div className={DASHBOARD_STYLES.aiCardProLabel}>Pros:</div>
-            {pros.map((pro, idx) => (
-              <div key={idx} className={DASHBOARD_STYLES.aiCardBullet}>• {pro}</div>
-            ))}
-          </div>
-          <div>
-            <div className={DASHBOARD_STYLES.aiCardConLabel}>Cons:</div>
-            {cons.map((con, idx) => (
-              <div key={idx} className={DASHBOARD_STYLES.aiCardBullet}>• {con}</div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-
-  const AIInsightsPanel = () => (
-    <div className={DASHBOARD_STYLES.cardSticky}>
-      <h2 className={DASHBOARD_STYLES.headingSection}>AI Recommendations</h2>
-
-      <div className="space-y-4 mt-8">
-        {scenarios.map((scenario, idx) => (
-          <AIRecommendationCard
-            key={idx}
-            title={scenario.title}
-            metrics={scenario.metrics}
-            pros={scenario.pros}
-            cons={scenario.cons}
-            isSelected={selectedScenario === idx}
-            onSelect={() => setSelectedScenario(idx)}
-          />
-        ))}
-      </div>
-    </div>
-  );
-
-  const TaskTrackerSection = () => (
-    <div className={DASHBOARD_STYLES.cardBase}>
-      <div className="flex items-center justify-between mb-8">
-        <h2 className={DASHBOARD_STYLES.headingSection}>Project Tasks</h2>
-        <Button
-          variant="outline"
-          size="sm"
-          className={`h-9 text-xs ${DASHBOARD_STYLES.buttonSecondary}`}
-        >
-          View All Tasks
-        </Button>
-      </div>
-
-      <div className="w-full">
-        {/* Header */}
-        <div className={DASHBOARD_STYLES.tableHeader}>
-          <div className="flex-1 text-xs text-[#A8A29E] uppercase tracking-wider font-light">Task</div>
-          <div className="w-40 text-xs text-[#A8A29E] uppercase tracking-wider font-light">Assignee</div>
-          <div className="w-28 text-xs text-[#A8A29E] uppercase tracking-wider font-light">Status</div>
-          <div className="w-24 text-right text-xs text-[#A8A29E] uppercase tracking-wider font-light">Priority</div>
-        </div>
-
-        {/* Task Rows */}
-        <div className="space-y-1">
-          {tasks.map((task) => (
-            <div key={task.id} className={DASHBOARD_STYLES.tableRow}>
-              <div className="flex-1">
-                <div className={DASHBOARD_STYLES.taskTitle}>{task.title}</div>
-                <div className={DASHBOARD_STYLES.taskKey}>{task.key}</div>
-              </div>
-              <div className="w-40 flex items-center gap-2">
-                <Avatar className={`w-6 h-6 ${DASHBOARD_STYLES.avatar}`}>
-                  <AvatarFallback className={`${DASHBOARD_STYLES.avatarFallback} text-[10px]`}>
-                    {task.assigneeInitials}
-                  </AvatarFallback>
-                </Avatar>
-                <span className={DASHBOARD_STYLES.taskAssignee}>{task.assignee}</span>
-              </div>
-              <div className="w-28">
-                <StatusBadge status={task.status} />
-              </div>
-              <div className="w-24 text-right">
-                <span className={`text-xs px-2 py-1 rounded-md ${getPriorityBadgeStyle(task.priority)}`}>
-                  {task.priority}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-
-  const TeamAllocationSection = () => (
-    <div className={DASHBOARD_STYLES.cardBase}>
-      <h2 className={DASHBOARD_STYLES.headingSection}>Team Allocation</h2>
-      <div className="space-y-2 mt-8">
-        {teamMembers.map((member, idx) => (
-          <div key={idx} className={DASHBOARD_STYLES.allocationRow}>
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-4 flex-1">
-                <Avatar className={`w-10 h-10 ${DASHBOARD_STYLES.avatar} shadow-sm`}>
-                  <AvatarFallback className={`${DASHBOARD_STYLES.avatarFallback} text-sm font-light`}>
-                    {member.avatar}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <div className={DASHBOARD_STYLES.memberName}>{member.name}</div>
-                  <div className={DASHBOARD_STYLES.memberRole}>{member.role}</div>
-                </div>
-              </div>
-
-              <div className="w-48 flex items-center gap-3">
-                <div className="flex-1">
-                  <UtilizationBar value={member.utilization} />
-                </div>
-                <span className={`text-sm font-light ${getUtilizationTextColor(member.utilization)}`}>
-                  {member.utilization}%
-                </span>
-              </div>
-
-              <div className="w-28 flex justify-end">
-                <StatusBadge status={member.status} />
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-
   return (
-    <div className={DASHBOARD_STYLES.pageContainer}>
-      {/* Background gradient effect */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={DASHBOARD_STYLES.backgroundGradient}
-      />
-
-      <div className="max-w-[1600px] mx-auto relative z-10">
-        {/* Back Button */}
-        <div className="mb-6">
-          <button className={DASHBOARD_STYLES.backButton}>
-            <ArrowLeft className={DASHBOARD_STYLES.backButtonArrow} />
-            Back to Projects
-          </button>
+    <div className="p-12 bg-gray-50 min-h-screen">
+      <div className="max-w-[1600px] mx-auto">
+        {/* Header */}
+        <div className="mb-12">
+          <h1 className="text-4xl font-light text-gray-900 tracking-tight mb-2">{projectName}</h1>
+          <p className="text-gray-500 font-light">Due {projectData.deadline}</p>
         </div>
 
-        <div className={DASHBOARD_STYLES.gridMain}>
-          {/* MAIN CONTENT - 8 columns */}
-          <div className="col-span-8 space-y-10">
-            {/* ===== HEADER SECTION ===== */}
-            <div className={DASHBOARD_STYLES.cardBase}>
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="mb-3">
-                    <StatusBadge status={projectData.status} />
+        <div>
+          {/* Main Content */}
+          <div className="space-y-12">
+            {/* Project Health & Progress */}
+            <div className="grid grid-cols-2 gap-6">
+              <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
+                <div className="text-sm text-gray-500 font-light mb-4">Project Health</div>
+                <div className="flex items-center gap-5">
+                  <div
+                    className={`w-14 h-14 rounded-2xl flex items-center justify-center ${
+                      projectData.health >= 80
+                        ? 'bg-emerald-50 text-emerald-700'
+                        : projectData.health >= 60
+                          ? 'bg-amber-50 text-amber-700'
+                          : 'bg-rose-50 text-rose-700'
+                    }`}
+                  >
+                    <span className="text-2xl font-light">{projectData.health}</span>
                   </div>
-                  <h1 className={DASHBOARD_STYLES.headingMain}>
-                    {projectName}
-                  </h1>
-                  <div className="flex items-center gap-2 text-sm font-light">
-                    <span className="text-[#1C1917]">
-                      {projectData.startDate} → {projectData.deadline}
-                    </span>
-                    <span className="text-[#A8A29E]">· {projectData.daysRemaining} days remaining</span>
+                  <div className="flex-1">
+                    <div className="text-sm text-gray-600 font-light">Status</div>
+                    <div className="text-xs text-gray-400 font-light">Monitor closely</div>
                   </div>
                 </div>
-                <div className="flex items-start gap-12 text-right">
-                  <div>
-                    <div className={DASHBOARD_STYLES.label}>Health Score</div>
-                    <div className="flex justify-end">
-                      <HealthIndicator score={projectData.health} />
-                    </div>
-                    <div className={DASHBOARD_STYLES.label + ' mt-2'}>Feasibility {projectData.feasibility}%</div>
+              </div>
+
+              <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
+                <div className="text-sm text-gray-500 font-light mb-4">Progress</div>
+                <div>
+                  <div className="flex items-center gap-3 mb-3">
+                    <Progress value={projectData.progress} className="h-2 flex-1" />
+                    <span className="text-sm text-gray-500 font-light">{projectData.progress}%</span>
+                  </div>
+                  <div className="text-xs text-gray-400 font-light">
+                    {projectData.tasks.filter((t) => t.status === 'Completed').length} of {projectData.tasks.length} tasks complete
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Edit Button */}
-            <div className="mt-4 flex justify-end">
-              <Button className={DASHBOARD_STYLES.buttonPrimary}>
-                Edit Project
-              </Button>
+            {/* Skill Distribution */}
+            <div className="bg-white rounded-2xl p-10 shadow-sm border border-gray-100">
+              <h2 className="text-xl font-light text-gray-900 mb-8">Skill Distribution</h2>
+              <div className="flex items-center justify-center h-[240px]">
+                <ResponsiveContainer width="100%" height={240}>
+                  <PieChart>
+                    <Pie data={skillDistribution} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={2} dataKey="value">
+                      {skillDistribution.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => `${value}%`} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 mt-8">
+                {skillDistribution.map((skill, idx) => (
+                  <div key={idx} className="flex items-center gap-3">
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: skill.fill }}></div>
+                    <span className="text-sm text-gray-600 font-light">{skill.name} {skill.value}%</span>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            {/* ===== OVERVIEW METRICS ===== */}
-            <div className={`flex items-center gap-8 py-8 px-10 ${DASHBOARD_STYLES.cardSmall}`}>
-              <MetricCard label="Total Est. Hours" value={projectData.totalEstHours.toString()} />
-              <Divider />
-              <MetricCard label="Actual Hours" value={projectData.actualHours.toString()} />
-              <Divider />
-              <MetricCard label="Remaining" value={projectData.remainingHours.toString()} />
-              <Divider />
-              <MetricCard label="Completion" value={`${projectData.completion}%`} />
-              <Divider />
-              <MetricCard label="Team Size" value={projectData.teamSize.toString()} />
+            {/* Task Breakdown */}
+            <div className="bg-white rounded-2xl p-10 shadow-sm border border-gray-100">
+              <h2 className="text-xl font-light text-gray-900 mb-8">Task Breakdown</h2>
+              <div className="space-y-2">
+                {projectData.tasks.map((task, idx) => (
+                  <div key={idx} className="py-5 px-6 hover:bg-gray-50 rounded-2xl cursor-pointer transition-all duration-300">
+                    <div className="flex items-center gap-6">
+                      <div className="flex-1 flex items-center gap-3">
+                        {task.confidence < 70 && <div className="w-1.5 h-1.5 bg-amber-400 rounded-full" />}
+                        <span className="text-sm text-gray-900 font-light">{task.name}</span>
+                      </div>
+                      <span className="px-3 py-1.5 bg-gray-50 text-gray-700 text-xs rounded-lg font-light">{task.skill}</span>
+                      <Avatar className="w-8 h-8">
+                        <AvatarFallback className="bg-blue-50 text-blue-700 text-xs font-light">{task.assignedTo}</AvatarFallback>
+                      </Avatar>
+                      <div className="text-sm text-gray-500 font-light w-16 text-right">{task.estimatedHours}h</div>
+                      <div className="text-sm text-gray-900 font-light w-16 text-right">{task.actualHours}h</div>
+                      <div className="w-28">
+                        <StatusBadge status={task.status} />
+                      </div>
+                      <span className={`text-sm font-light w-12 text-right ${task.confidence < 70 ? 'text-amber-600' : 'text-gray-500'}`}>
+                        {task.confidence}%
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-
-            {/* ===== TASK TRACKER ===== */}
-            <TaskTrackerSection />
-
-            {/* ===== TEAM ALLOCATION ===== */}
-            <TeamAllocationSection />
-          </div>
-
-          {/* AI INSIGHTS PANEL - 4 columns */}
-          <div className="col-span-4">
-            <AIInsightsPanel />
           </div>
         </div>
       </div>

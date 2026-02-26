@@ -93,16 +93,16 @@ export function LandingImpact() {
   }, { scope: containerRef });
 
   return (
-    <div ref={containerRef} className="py-24 sm:py-32 relative overflow-hidden bg-white">
+    <div ref={containerRef} className="py-24 sm:py-32 relative overflow-hidden">
       <div className="mx-auto max-w-7xl px-6 lg:px-8 relative z-10">
         <div className="mx-auto max-w-2xl text-center mb-16">
-          <div className="inline-flex items-center rounded-full px-4 py-2 text-xs font-medium uppercase tracking-wider text-[#78716C] ring-1 ring-[#E7E5E4] bg-white/70 mb-6">
+          <div className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-600 ring-1 ring-inset ring-indigo-200 bg-indigo-50 mb-6">
             The Results
           </div>
-          <h2 className="text-4xl font-light tracking-tight text-[#1C1917] sm:text-5xl">
-            Measurable Impact
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-5xl">
+            Measurable <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-600 italic" style={{ fontFamily: "'Source Serif 4', serif" }}>Impact</span>
           </h2>
-          <p className="mt-6 text-lg leading-8 text-[#78716C]">
+          <p className="mt-6 text-lg leading-8 text-slate-600">
             Real outcomes that transform how your organization operates, moving your baseline from surviving to scaling.
           </p>
         </div>
@@ -111,19 +111,19 @@ export function LandingImpact() {
           {stats.map((stat, index) => (
             <div
               key={index}
-              className={`flex flex-col items-center text-center p-8 rounded-2xl bg-white border border-[#E7E5E4] shadow-sm hover:shadow-md transition-all group`}
+              className={`flex flex-col items-center text-center p-8 rounded-2xl bg-white/60 backdrop-blur-md border ${stat.border} hover:bg-white/80 transition-all shadow-sm hover:shadow-lg group`}
             >
               <div className={`mb-6 p-3 rounded-xl ${stat.bg} ${stat.color} group-hover:scale-110 transition-transform duration-300`}>
                 <stat.icon className="h-8 w-8" />
               </div>
-              <div className={`text-4xl font-light mb-2 ${stat.color} flex items-center`}>
+              <div className={`text-4xl font-bold mb-2 ${stat.color} flex items-center`}>
                 <span className="stat-number" data-value={stat.value}>
                   {stat.value}
                 </span>
                 {stat.suffix}
               </div>
-              <div className="text-lg font-semibold text-[#1C1917] mb-2">{stat.label}</div>
-              <p className="text-sm text-[#78716C] leading-relaxed">{stat.description}</p>
+              <div className="text-lg font-semibold text-slate-900 mb-2">{stat.label}</div>
+              <p className="text-sm text-slate-600 leading-relaxed">{stat.description}</p>
             </div>
           ))}
         </div>
