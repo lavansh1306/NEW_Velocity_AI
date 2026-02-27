@@ -26,30 +26,19 @@ declare module 'express-session' {
 const getClientId = () => process.env.JIRA_OAUTH_CLIENT_ID || '';
 const getClientSecret = () => process.env.JIRA_OAUTH_CLIENT_SECRET || '';
 
-// Get the correct redirect URI based on environment and request hostname
+// Get the correct redirect URI based on environment
 // This must match a registered redirect URI in the Jira OAuth app
 const getRedirectUri = (req?: Request) => {
-  // If we have a request object, use its hostname to build the redirect URI
-  // This ensures we redirect back to the same domain the request came from
-  if (req && req.hostname) {
-    const protocol = req.protocol || 'https';
-    const hostname = req.hostname;
-    
-    // For localhost, use http; for others use https
-    if (hostname === 'localhost' || hostname.startsWith('127.')) {
-      return `http://${hostname}:4000/api/jira/auth/callback`;
-    } else {
-      return `https://${hostname}/api/jira/auth/callback`;
-    }
-  }
-  
-  // Fallback if no request object provided
+  // Check if we're on production based on multiple signals
   const isVercel = process.env.VERCEL === '1';
-  const isProduction = process.env.NODE_ENV === 'production' || isVercel;
+  const isProduction = 
+    process.env.NODE_ENV === 'production' || 
+    isVercel ||
+    (req && (req.hostname === 'joinvelocity.co' || req.hostname === 'www.joinvelocity.co'));
   
   if (isProduction) {
-    // Use environment variable if available, otherwise fall back to main domain
-    return process.env.JIRA_OAUTH_REDIRECT_URI || 'https://www.joinvelocity.co/api/jira/auth/callback';
+    // Always use production redirect URI when in production
+    return 'https://www.joinvelocity.co/api/jira/auth/callback';
   } else {
     // Use local development redirect URI
     return process.env.JIRA_OAUTH_REDIRECT_URI_LOCAL || 'http://localhost:4000/api/jira/auth/callback';
@@ -139,7 +128,7 @@ const jiraTokens: Map<string, TokenStore> = new Map();
 
 // In-memory PKCE state store - for local dev only
 // In production (Vercel), PKCE data is stored in Supabase
-const jiraPKCEStore: Map<string, { codeVerifier: string; timestamp: number; originHostname?: string }> = new Map();
+const jiraPKCEStore: Map<string, { codeVerifier: string; timestamp: number }> = new Map();
 
 function cleanupExpiredPKCE() {
   const now = Date.now();
@@ -157,130 +146,84 @@ function cleanupExpiredPKCE() {
 setInterval(() => cleanupExpiredPKCE(), 5 * 60 * 1000);
 
 // Store PKCE in Supabase for serverless compatibility
-async function storePKCEInDatabase(state: string, codeVerifier: string, supabaseUserId?: string, originHostname?: string): Promise<void> {
+async function storePKCEInDatabase(state: string, codeVerifier: string, supabaseUserId?: string): Promise<void> {
   try {
     const supabaseClient = getSupabaseClient();
     if (!supabaseClient) {
       console.log('[Jira OAuth] Supabase not configured, using in-memory store only');
-      jiraPKCEStore.set(state, { codeVerifier, timestamp: Date.now(), originHostname });
+      jiraPKCEStore.set(state, { codeVerifier, timestamp: Date.now() });
       return;
-    }
-
-    // Build insert object with only the fields that exist in the table
-    const insertData: any = {
-      state,
-      code_verifier: codeVerifier,
-      created_at: new Date().toISOString(),
-      expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString()
-    };
-
-    // Try to add optional fields if columns exist
-    if (supabaseUserId) {
-      insertData.supabase_user_id = supabaseUserId;
-    }
-    if (originHostname) {
-      insertData.origin_hostname = originHostname;
     }
 
     const { error } = await supabaseClient
       .from('jira_oauth_pkce')
-      .insert(insertData);
+      .insert({
+        state,
+        code_verifier: codeVerifier,
+        supabase_user_id: supabaseUserId || null,
+        created_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString()
+      });
 
     if (error) {
-      // If the error is about missing columns, log it but continue anyway
-      if (error.message && (error.message.includes('origin_hostname') || error.message.includes('supabase_user_id'))) {
-        console.warn('[Jira OAuth] Supabase columns not yet migrated, storing in memory:', error.message);
-        jiraPKCEStore.set(state, { codeVerifier, timestamp: Date.now(), originHostname });
-        return;
-      }
       console.warn('[Jira OAuth] Failed to store PKCE in Supabase, falling back to memory:', error);
-      jiraPKCEStore.set(state, { codeVerifier, timestamp: Date.now(), originHostname });
+      jiraPKCEStore.set(state, { codeVerifier, timestamp: Date.now() });
     } else {
-      console.log('[Jira OAuth] PKCE stored in Supabase (userId:', supabaseUserId || 'none', ', origin:', originHostname || 'none', ')');
+      console.log('[Jira OAuth] PKCE stored in Supabase (userId:', supabaseUserId || 'none', ')');
     }
   } catch (err) {
     console.warn('[Jira OAuth] Error storing PKCE:', err);
-    jiraPKCEStore.set(state, { codeVerifier, timestamp: Date.now(), originHostname });
+    jiraPKCEStore.set(state, { codeVerifier, timestamp: Date.now() });
   }
 }
 
 // Retrieve PKCE from Supabase (or memory as fallback)
-async function retrievePKCEFromDatabase(state: string): Promise<{ codeVerifier: string; supabaseUserId: string | null; originHostname: string | null } | null> {
+async function retrievePKCEFromDatabase(state: string): Promise<{ codeVerifier: string; supabaseUserId: string | null } | null> {
   try {
     const supabaseClient = getSupabaseClient();
     if (!supabaseClient) {
       console.log('[Jira OAuth] Supabase not configured, checking in-memory store');
       const data = jiraPKCEStore.get(state);
-      return data ? { codeVerifier: data.codeVerifier, supabaseUserId: null, originHostname: data.originHostname || null } : null;
+      return data ? { codeVerifier: data.codeVerifier, supabaseUserId: null } : null;
     }
 
     const { data, error } = await supabaseClient
       .from('jira_oauth_pkce')
-      .select('code_verifier, supabase_user_id, origin_hostname')
+      .select('code_verifier, supabase_user_id')
       .eq('state', state)
       .single();
 
     if (error) {
-      // If columns don't exist yet, try without them
-      if (error.message && (error.message.includes('origin_hostname') || error.message.includes('supabase_user_id'))) {
-        console.warn('[Jira OAuth] Optional columns not found, querying basic fields only');
-        const { data: basicData, error: basicError } = await supabaseClient
-          .from('jira_oauth_pkce')
-          .select('code_verifier')
-          .eq('state', state)
-          .single();
-        
-        if (basicError) {
-          console.warn('[Jira OAuth] PKCE not found in Supabase:', basicError.message);
-          const memData = jiraPKCEStore.get(state);
-          if (memData) {
-            console.log('[Jira OAuth] Found PKCE in memory store (fallback)');
-            return { codeVerifier: memData.codeVerifier, supabaseUserId: null, originHostname: memData.originHostname || null };
-          }
-          return null;
-        }
-
-        if (basicData) {
-          console.log('[Jira OAuth] Retrieved PKCE from Supabase (basic fields only)');
-          try {
-            await supabaseClient.from('jira_oauth_pkce').delete().eq('state', state);
-          } catch (cleanupErr) {
-            console.warn('[Jira OAuth] Failed to cleanup PKCE:', cleanupErr);
-          }
-          return { codeVerifier: basicData.code_verifier, supabaseUserId: null, originHostname: null };
-        }
-        return null;
-      }
-
       console.warn('[Jira OAuth] PKCE not found in Supabase:', error.message);
       const memData = jiraPKCEStore.get(state);
       if (memData) {
         console.log('[Jira OAuth] Found PKCE in memory store');
-        return { codeVerifier: memData.codeVerifier, supabaseUserId: null, originHostname: memData.originHostname || null };
+        return { codeVerifier: memData.codeVerifier, supabaseUserId: null };
       }
       return null;
     }
 
     if (data) {
       console.log('[Jira OAuth] Retrieved PKCE from Supabase');
+      // Delete after retrieval (one-time use)
       try {
-        await supabaseClient.from('jira_oauth_pkce').delete().eq('state', state);
+        await supabaseClient
+          .from('jira_oauth_pkce')
+          .delete()
+          .eq('state', state);
       } catch (cleanupErr) {
         console.warn('[Jira OAuth] Failed to cleanup PKCE:', cleanupErr);
       }
       
-      return { 
-        codeVerifier: data.code_verifier, 
-        supabaseUserId: (data as any).supabase_user_id || null, 
-        originHostname: (data as any).origin_hostname || null 
-      };
+      return { codeVerifier: data.code_verifier, supabaseUserId: data.supabase_user_id || null };
     }
 
     return null;
   } catch (err) {
     console.warn('[Jira OAuth] Error retrieving PKCE:', err);
+    // Check in-memory as fallback
     const memData = jiraPKCEStore.get(state);
-    return memData ? { codeVerifier: memData.codeVerifier, supabaseUserId: null, originHostname: memData.originHostname || null } : null;
+    return memData ? { codeVerifier: memData.codeVerifier, supabaseUserId: null } : null;
   }
 }
 
@@ -422,19 +365,15 @@ async function login(req: Request, res: Response): Promise<void> {
     // Generate unique state for this OAuth flow
     const state = crypto.randomBytes(32).toString('hex');
     
-    // Capture origin hostname for cross-domain redirect handling
-    const originHostname = req.hostname || 'unknown';
-    
     console.log('[Jira OAuth Login] Starting OAuth flow:', {
       sessionID: req.sessionID,
       state,
       supabaseUserId: supabaseUserId || 'none',
-      originHostname,
       timestamp: new Date().toISOString()
     });
 
-    // Store PKCE data in Supabase (with supabaseUserId and originHostname for serverless compatibility)
-    await storePKCEInDatabase(state, codeVerifier, supabaseUserId, originHostname);
+    // Store PKCE data in Supabase (with supabaseUserId for serverless compatibility)
+    await storePKCEInDatabase(state, codeVerifier, supabaseUserId);
 
     // Also store PKCE data in session as backup
     req.session.jiraCodeVerifier = codeVerifier;
@@ -452,13 +391,12 @@ async function login(req: Request, res: Response): Promise<void> {
       });
     });
 
-    // Build authorization URL with dynamic redirect URI
-    const redirectUri = getRedirectUri(req);
+    // Build authorization URL
     const params = new URLSearchParams({
       audience: 'api.atlassian.com',
       client_id: getClientId(),
       scope: SCOPES,
-      redirect_uri: redirectUri,
+      redirect_uri: getRedirectUri(req),
       state: state,
       response_type: 'code',
       code_challenge: codeChallenge,
@@ -476,22 +414,10 @@ async function login(req: Request, res: Response): Promise<void> {
 }
 
 // Exchange authorization code for tokens
-async function exchangeCodeForToken(code: string, codeVerifier: string, req?: Request, overrideHostname?: string): Promise<TokenResponse> {
+async function exchangeCodeForToken(code: string, codeVerifier: string, req?: Request): Promise<TokenResponse> {
   const clientId = getClientId();
   const clientSecret = getClientSecret();
-  
-  // If an origin hostname is provided, temporarily override the request hostname
-  let redirectUri: string;
-  if (overrideHostname) {
-    // Build redirect URI with the override hostname
-    if (overrideHostname === 'localhost' || overrideHostname.startsWith('127.')) {
-      redirectUri = `http://${overrideHostname}:4000/api/jira/auth/callback`;
-    } else {
-      redirectUri = `https://${overrideHostname}/api/jira/auth/callback`;
-    }
-  } else {
-    redirectUri = getRedirectUri(req);
-  }
+  const redirectUri = getRedirectUri(req);
   
   console.log('[Jira OAuth] Token exchange params:', {
     grant_type: 'authorization_code',
@@ -601,7 +527,7 @@ async function callback(req: Request, res: Response): Promise<any> {
   try {
     console.log('[Jira OAuth Callback] Retrieving PKCE with state:', `${state.substring(0, 20)}...`);
     
-    // Retrieve PKCE code verifier + supabaseUserId + origin hostname from database
+    // Retrieve PKCE code verifier + supabaseUserId from database
     const pkceResult = await retrievePKCEFromDatabase(state);
     
     if (!pkceResult) {
@@ -615,22 +541,15 @@ async function callback(req: Request, res: Response): Promise<any> {
       return;
     }
 
-    const { codeVerifier, supabaseUserId: pkceUserId, originHostname } = pkceResult;
+    const { codeVerifier, supabaseUserId: pkceUserId } = pkceResult;
     // Resolve supabaseUserId: PKCE store > session > null
     const supabaseUserId = pkceUserId || req.session?.supabaseUserId || null;
 
-    console.log('[Jira OAuth Callback] ✓ Code verifier retrieved, supabaseUserId:', supabaseUserId || 'none', 'originHostname:', originHostname || 'none');
+    console.log('[Jira OAuth Callback] ✓ Code verifier retrieved, supabaseUserId:', supabaseUserId || 'none');
     
     // Exchange code for tokens
     try {
-      // When exchanging the code, use the origin hostname to build the correct redirect_uri
-      // This ensures the redirect_uri matches what was used when initiating the auth flow
-      const shouldUseOriginHostname = originHostname && originHostname !== 'unknown' && originHostname !== req.hostname;
-      if (shouldUseOriginHostname) {
-        console.log('[Jira OAuth Callback] Using stored origin hostname for token exchange:', originHostname);
-      }
-      
-      const tokenResp = await exchangeCodeForToken(code, codeVerifier, req, shouldUseOriginHostname ? originHostname : undefined);
+      const tokenResp = await exchangeCodeForToken(code, codeVerifier, req);
       console.log('[Jira OAuth Callback] ✓ Token exchange successful');
       
       // Clear the code_verifier from session after use
@@ -764,33 +683,31 @@ async function callback(req: Request, res: Response): Promise<any> {
 
       console.log('[Jira OAuth Callback] ✓ Authentication complete! orgId:', orgId);
       
-      // Determine redirect URL based on origin hostname (where the login started)
+      // FIX: Define isProduction in this scope
+      const isVercel = process.env.VERCEL === '1';
+      const isProduction = process.env.NODE_ENV === 'production' || isVercel;
+
+      // Determine redirect URL based on environment and request origin
       let redirectUrl = 'http://localhost:5173/velocity-ai';
       
-      if (originHostname && originHostname !== 'unknown') {
-        // Use the origin hostname that was stored during login
-        if (originHostname === 'localhost' || originHostname.startsWith('127.')) {
-          redirectUrl = `http://${originHostname}:5173/velocity-ai`;
-        } else {
-          redirectUrl = `https://${originHostname}/velocity-ai`;
-        }
-        console.log('[Jira OAuth Callback] Using stored origin hostname for redirect:', originHostname);
-      } else {
-        // Fallback to current request hostname if origin wasn't stored
-        if (req.hostname === 'velocitydevelopment.vercel.app') {
-          redirectUrl = 'https://velocitydevelopment.vercel.app/velocity-ai';
-        } else if (req.hostname === 'www.joinvelocity.co' || req.hostname === 'joinvelocity.co') {
-          redirectUrl = 'https://www.joinvelocity.co/velocity-ai';
-        } else if (req.hostname === 'localhost' || req.hostname.startsWith('127.')) {
-          redirectUrl = `http://${req.hostname}:5173/velocity-ai`;
-        } else {
-          // Generic fallback for any other production hostname
-          redirectUrl = `https://${req.hostname}/velocity-ai`;
-        }
-        console.log('[Jira OAuth Callback] Using current request hostname for redirect (origin not stored):', req.hostname);
+      if (req.hostname === 'velocitydevelopment.vercel.app') {
+        redirectUrl = 'https://velocitydevelopment.vercel.app/velocity-ai';
+      } else if (req.hostname === 'www.joinvelocity.co' || req.hostname === 'joinvelocity.co') {
+        redirectUrl = 'https://www.joinvelocity.co/velocity-ai';
+      } else if (isProduction) {
+        redirectUrl = (process.env.FRONTEND_URL_PROD || 'https://www.joinvelocity.co') + '/velocity-ai';
+      } else if (process.env.FRONTEND_URL) {
+        redirectUrl = process.env.FRONTEND_URL + '/velocity-ai';
       }
       
-      console.log('[Jira OAuth Callback] Redirecting to:', redirectUrl);
+      console.log('[Jira OAuth Callback] Determining redirect URL:', {
+        isProduction,
+        nodeEnv: process.env.NODE_ENV,
+        vercelEnv: process.env.VERCEL,
+        hostname: req.hostname,
+        redirectUrl
+      });
+      
       res.redirect(redirectUrl);
     } catch (tokenErr) {
       console.error('[Jira OAuth Callback] Token exchange or resource fetch failed:', tokenErr instanceof Error ? tokenErr.message : String(tokenErr));

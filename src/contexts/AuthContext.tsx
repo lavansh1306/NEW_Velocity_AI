@@ -165,11 +165,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({
+    const redirectUrl = import.meta.env.DEV
+      ? `${window.location.origin}/auth/callback`
+      : `${window.location.origin}/auth/callback`;
+
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        emailRedirectTo: redirectUrl,
+      },
     });
     if (error) throw error;
+
+    // Log for debugging email delivery issues
+    console.log('[Auth] Sign-up response:', {
+      userId: data?.user?.id,
+      emailConfirmedAt: data?.user?.email_confirmed_at,
+      identities: data?.user?.identities?.length,
+    });
+
+    // If user already exists (identities is empty), throw a helpful error
+    if (data?.user?.identities?.length === 0) {
+      throw new Error('An account with this email already exists. Please sign in instead.');
+    }
   };
 
   const signIn = async (email: string, password: string) => {
