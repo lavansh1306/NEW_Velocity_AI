@@ -8,6 +8,19 @@ import {
   Clock, Lightbulb, AlertCircle, Sparkles, Loader2
 } from 'lucide-react';
 
+// --- Helper Function for Health Score Calculation ---
+function calculateHealthScore(
+  completedTasks: number,
+  totalTasks: number,
+  estimatedHours: number,
+  actualHours: number
+): number {
+  // 60% based on task completion, 40% based on time budget adherence
+  const taskFactor = totalTasks > 0 ? (completedTasks / totalTasks) : 1;
+  const timeFactor = estimatedHours > 0 ? Math.min(1, (estimatedHours / Math.max(actualHours, 1))) : 1;
+  return Math.round(((taskFactor * 0.6) + (timeFactor * 0.4)) * 100);
+}
+
 // --- Interfaces ---
 interface JiraProject {
   id: string;
@@ -155,11 +168,8 @@ export default function ProjectAnalytics() {
           ? Math.round((actualHours / totalEstHours) * 100) 
           : (totalTasks > 0 ? Math.round((completedCount / totalTasks) * 100) : 0);
 
-        // Health Score (Weighted Formula)
-        // 60% based on task completion, 40% based on time budget adherence
-        const taskFactor = totalTasks > 0 ? (completedCount / totalTasks) : 1;
-        const timeFactor = totalEstHours > 0 ? Math.min(1, (totalEstHours / Math.max(actualHours, 1))) : 1;
-        const healthScore = Math.round(((taskFactor * 0.6) + (timeFactor * 0.4)) * 100);
+        // Health Score using shared calculation
+        const healthScore = calculateHealthScore(completedCount, totalTasks, totalEstHours, actualHours);
 
         setAnalytics({
           totalEstHours,

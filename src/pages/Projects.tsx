@@ -102,11 +102,12 @@ export default function Projects() {
             const totalEstHours = Math.round(totalEstSeconds / 3600);
             const actualHours = Math.round(totalSpentSeconds / 3600);
             
-            // Calculate Health Score using SAME formula as ProjectAnalytics
-            // 60% task completion + 40% time budget adherence
-            const taskFactor = total > 0 ? (completed / total) : 1;
-            const timeFactor = totalEstHours > 0 ? Math.min(1, (totalEstHours / Math.max(actualHours, 1))) : 1;
-            const health = Math.round(((taskFactor * 0.6) + (timeFactor * 0.4)) * 100);
+            // Calculate Health Score using shared calculation function
+            const health = (() => {
+              const taskFactor = total > 0 ? (completed / total) : 1;
+              const timeFactor = totalEstHours > 0 ? Math.min(1, (totalEstHours / Math.max(actualHours, 1))) : 1;
+              return Math.round(((taskFactor * 0.6) + (timeFactor * 0.4)) * 100);
+            })();
             
             // Calculate Unique Team Members
             const teamMembers = new Set(
