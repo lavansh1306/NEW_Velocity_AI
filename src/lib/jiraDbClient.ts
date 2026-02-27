@@ -85,7 +85,18 @@ export async function fetchProjectsFromDB(): Promise<JiraProjectFromDB[]> {
       return [];
     }
 
-    return (data || []).map((row: any) => ({
+    // Deduplicate by project key (keep first occurrence)
+    const seenKeys = new Set<string>();
+    const deduped = (data || []).filter((row: any) => {
+      if (seenKeys.has(row.key)) {
+        console.warn(`[JiraDBClient] Duplicate project in DB: ${row.key}`);
+        return false;
+      }
+      seenKeys.add(row.key);
+      return true;
+    });
+
+    return deduped.map((row: any) => ({
       id: row.jira_project_id || row.id,
       key: row.key,
       title: row.title || '',

@@ -446,11 +446,12 @@ export default function LeaveManagementTab() {
     return arr;
   };
 
-  if (authLoading || isLoadingData) {
+  // Don't block rendering - show content with fade-in instead
+  if (authLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-[50vh] space-y-4">
         <RefreshCw className="w-8 h-8 text-blue-500 animate-spin" />
-        <div className="text-slate-500 font-light">{authLoading ? "Logging in..." : "Syncing Workspace Data..."}</div>
+        <div className="text-slate-500 font-light">Logging in...</div>
       </div>
     );
   }

@@ -421,8 +421,6 @@ export default function UnifiedView() {
   // --- HANDLERS ---
   const unreadCount = notifications.filter(n => !n.isRead && (n.recipientRole === 'ALL' || n.recipientRole === userRole)).length;
 
-  if (isLoading) return <div className="p-20 text-center text-slate-500 animate-pulse">Initializing Unified Resource OS...</div>;
-
   const allActiveProjects = projects.filter(p => p.status === 'ACTIVE');
   const queuedProjects = projects.filter(p => p.status !== 'ACTIVE').slice(0, 5);
   const filteredActiveProjects = employeeFilter === 'ALL' 

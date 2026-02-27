@@ -282,18 +282,6 @@ export default function ProjectCheckView() {
             </div>
           )}
 
-          {(isLoadingData || isAnalyzing) && !dataError && (
-             <div className="flex flex-col items-center justify-center h-[400px] animate-in fade-in">
-               <Loader2 className="w-12 h-12 text-indigo-600 animate-spin mb-4" />
-               <h3 className="font-bold text-xl text-slate-800">
-                 {isLoadingData ? "Initializing Neural Engine..." : "Analyzing SRS Document..."}
-               </h3>
-               <p className="text-slate-500 mt-2">
-                 {isLoadingData ? "Loading 140+ employee records" : "Matching skills against project requirements"}
-               </p>
-             </div>
-          )}
-
           {!isLoadingData && !isAnalyzing && !dataError && viewMode === 'input' && (
             <div className="max-w-3xl mx-auto py-10 animate-in slide-in-from-bottom-4 duration-500">
               <ProjectCheckInput onAnalyze={handleAnalyze} />

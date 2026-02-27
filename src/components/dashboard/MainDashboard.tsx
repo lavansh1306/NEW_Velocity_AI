@@ -385,17 +385,12 @@ export const MainDashboard = () => {
             </button>
           </div>
 
-          {loading ? (
-            <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-6 w-6 border-2 border-[#0F766E] border-t-transparent mx-auto mb-2"></div>
-              <p className="text-sm text-[#78716C] font-light">Loading deadlines...</p>
-            </div>
-          ) : projectDeadlines.length === 0 ? (
+          {projectDeadlines.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-sm text-[#78716C] font-light">No upcoming deadlines</p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3 animate-in fade-in duration-300">
               {projectDeadlines.map((deadline, idx) => (
                 <div
                   key={idx}
@@ -532,16 +527,13 @@ export const MainDashboard = () => {
             </div>
 
             {/* Team rows */}
-            {loading ? (
-              <div className="text-center py-8">
-                <p className="text-sm text-[#78716C] font-light">Loading team capacity...</p>
-              </div>
-            ) : teamCapacity.length === 0 ? (
+            {teamCapacity.length === 0 ? (
               <div className="text-center py-8">
                 <p className="text-sm text-[#78716C] font-light">No team members with assignments</p>
               </div>
             ) : (
-              teamCapacity.map((member, idx) => (
+              <div className="animate-in fade-in duration-300">
+                {teamCapacity.map((member, idx) => (
                 <div key={idx} className="flex gap-1 py-6 border-b border-[#E7E5E4] last:border-b-0 hover-lift rounded-lg px-4 -mx-4 group transition-smooth">
                   <div className="w-40 flex-shrink-0">
                     <div>
@@ -586,7 +578,8 @@ export const MainDashboard = () => {
                     })}
                   </div>
                 </div>
-              ))
+              ))}
+              </div>
             )}
           </div>
         </div>

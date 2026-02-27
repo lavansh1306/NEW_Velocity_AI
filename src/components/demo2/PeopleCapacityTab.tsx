@@ -139,18 +139,7 @@ export default function PeopleCapacityTab() {
     return () => clearInterval(interval);
   }, []);
 
-  if (loading) {
-    return (
-      <div className="w-full px-6 py-8">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
-            <p className="text-gray-600 font-medium">Loading team capacity data...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Don't block render on loading - show content with fade-in instead
 
   if (error) {
     return (
@@ -170,7 +159,7 @@ export default function PeopleCapacityTab() {
   }
 
   return (
-    <div className="w-full px-6 py-8 space-y-8">
+    <div className="w-full px-6 py-8 space-y-8 animate-in fade-in duration-300">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

@@ -211,59 +211,39 @@ export default function ProjectAnalytics() {
   }, [targetId]);
 
 
-  // --- 3. Loading & Error States ---
-  if (loading) {
-    return (
-      <VelocityAISidebar>
-        <div className="min-h-screen bg-[#FAFAF9] flex items-center justify-center">
-          <div className="flex flex-col items-center">
-             <Loader2 className="w-10 h-10 text-[#1C1917] animate-spin mb-4" />
-             <p className="text-[#78716C] font-light">Analyzing project data...</p>
-          </div>
-        </div>
-      </VelocityAISidebar>
-    );
-  }
-
-  if (error || !project) {
-    return (
-      <VelocityAISidebar>
-         <div className="min-h-screen bg-[#FAFAF9] flex items-center justify-center">
-          <div className="text-center bg-white p-12 rounded-[24px] border border-[#E7E5E4]">
-            <AlertCircle className="w-12 h-12 text-[#BE123C] mx-auto mb-4" />
-            <h2 className="text-xl text-[#1C1917] mb-2 font-medium">Unable to Load Project</h2>
-            <p className="text-[#78716C] mb-6">{error || 'Project data unavailable'}</p>
-            <Button onClick={() => navigate('/projects')} variant="outline" className="border-[#1C1917] text-[#1C1917]">
-              Return to Projects
-            </Button>
-          </div>
-        </div>
-      </VelocityAISidebar>
-    );
-  }
-
-  // --- 4. Render UI ---
-  const startDate = new Date(project.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-
-  // Reusable Tab Component
-  const TabButton = ({ id, label, icon: Icon }: { id: string, label: string, icon: any }) => (
-    <button
-      onClick={() => setActiveTab(id as any)}
-      className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm transition-all duration-200 ${
-        activeTab === id 
-          ? 'bg-white shadow-sm text-[#1C1917] font-medium border border-[#E7E5E4]' 
-          : 'text-[#78716C] hover:bg-[#F5F5F4] hover:text-[#1C1917]'
-      }`}
-    >
-      <Icon className="w-4 h-4" />
-      {label}
-    </button>
-  );
-
   return (
     <VelocityAISidebar>
-      <div className="bg-[#FAFAF9] min-h-screen p-8 md:p-12 font-['Inter',sans-serif]">
+      <div className="bg-[#FAFAF9] min-h-screen p-8 md:p-12 font-['Inter',sans-serif] animate-in fade-in duration-300">
         <div className="max-w-[1200px] mx-auto space-y-8">
+          
+          {/* Error State */}
+          {error && (
+            <div className="bg-white border border-red-200 rounded-[24px] p-6 text-red-800">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h3 className="font-semibold">Unable to Load Project</h3>
+                  <p className="text-sm mt-1">{error}</p>
+                  <button onClick={() => navigate('/projects')} className="text-sm font-medium mt-3 hover:underline">
+                    Return to Projects →
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Show empty state while loading or if no project */}
+          {!loading && !project && !error && (
+            <div className="text-center py-12">
+              <p className="text-[#78716C]">Project not found</p>
+            </div>
+          )}
+
+          {/* Main Content - only show if project loaded */}
+          {project && (() => {
+            const startDate = new Date(project.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            return (
+            <>
           
           {/* Back Nav */}
           <button onClick={() => navigate('/projects')} className="flex items-center gap-2 text-sm text-[#78716C] hover:text-[#1C1917] transition-colors">
@@ -302,11 +282,30 @@ export default function ProjectAnalytics() {
 
           {/* Navigation Tabs */}
           <div className="flex flex-wrap gap-2 p-1 bg-[#F5F5F4] rounded-xl w-fit border border-[#E7E5E4]">
-            <TabButton id="overview" label="Overview" icon={LayoutGrid} />
-            <TabButton id="team" label="Team" icon={Users} />
-            <TabButton id="tasks" label="Tasks" icon={CheckSquare} />
-            <TabButton id="timeline" label="Timeline" icon={Clock} />
-            <TabButton id="insights" label="AI Insights" icon={Lightbulb} />
+            {(() => {
+              const TabButton = ({ id, label, icon: Icon }: { id: string, label: string, icon: any }) => (
+                <button
+                  onClick={() => setActiveTab(id as any)}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm transition-all duration-200 ${
+                    activeTab === id 
+                      ? 'bg-white shadow-sm text-[#1C1917] font-medium border border-[#E7E5E4]' 
+                      : 'text-[#78716C] hover:bg-[#F5F5F4] hover:text-[#1C1917]'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {label}
+                </button>
+              );
+              return (
+                <>
+                  <TabButton id="overview" label="Overview" icon={LayoutGrid} />
+                  <TabButton id="team" label="Team" icon={Users} />
+                  <TabButton id="tasks" label="Tasks" icon={CheckSquare} />
+                  <TabButton id="timeline" label="Timeline" icon={Clock} />
+                  <TabButton id="insights" label="AI Insights" icon={Lightbulb} />
+                </>
+              );
+            })()}
           </div>
 
           {/* --- TAB CONTENT: OVERVIEW --- */}
@@ -512,6 +511,9 @@ export default function ProjectAnalytics() {
                <p className="text-[#78716C]">Advanced module loading...</p>
              </div>
           )}
+            </>
+            );
+          })()}
 
         </div>
       </div>

@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { VelocityAISidebar } from '@/components/dashboard/VelocityAISidebar';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
-import { Plus, Search, Loader2 } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
+import { getCurrentOrgId } from '@/lib/orgContext';
 
 // --- Interfaces ---
 interface ProjectSummary {
@@ -27,10 +28,20 @@ export default function Projects() {
       setLoading(true);
       
       try {
-        // 1. Fetch ALL projects
-        const { data: projectsData, error: projError } = await supabase
+        // 1. Fetch ALL projects for this org
+        const orgId = getCurrentOrgId();
+        console.log('%c[Projects] Fetching projects', 'color: #2DD4BF; font-weight: bold;', { orgId });
+        
+        let query = supabase
           .from('jira_projects')
-          .select('id, key, title, created_at')
+          .select('id, key, title, created_at');
+        
+        // Apply org_id filter if available
+        if (orgId) {
+          query = query.eq('org_id', orgId);
+        }
+        
+        const { data: projectsData, error: projError } = await query
           .order('created_at', { ascending: false });
 
         if (projError) throw projError;
@@ -39,41 +50,100 @@ export default function Projects() {
             return;
         }
 
+        // Deduplicate by project key (keep the first occurrence)
+        const seenKeys = new Set<string>();
+        const dedupedProjects = projectsData.filter((p: any) => {
+          if (seenKeys.has(p.key)) {
+            console.warn(`%c[Projects] Duplicate project detected: ${p.key}, skipping`, 'color: #F59E0B; font-weight: bold;');
+            return false;
+          }
+          seenKeys.add(p.key);
+          return true;
+        });
+        
+        console.log(`%c[Projects] Fetched ${projectsData.length} projects, ${dedupedProjects.length} unique`, 'color: #10B981; font-weight: bold;');
+
         // 2. Fetch Aggregated Stats for EACH project
-        const summaries = await Promise.all(projectsData.map(async (p) => {
-          const { data: issues } = await supabase
-            .from('jira_issues')
-            .select('status, assignee')
-            .eq('project_key', p.key);
+        const summaries = await Promise.all(dedupedProjects.map(async (p: any) => {
+          try {
+            let issuesQuery = supabase
+              .from('jira_issues')
+              .select('*') // Fetch all columns like ProjectAnalytics does
+              .eq('project_key', p.key);
+            
+            // Apply org_id filter if available
+            if (orgId) {
+              issuesQuery = issuesQuery.eq('org_id', orgId);
+            }
+            
+            const { data: issues, error: issuesError } = await issuesQuery;
 
-          const total = issues?.length || 0;
-          
-          // Calculate Completed
-          const completed = issues?.filter(i => 
-            ['done', 'closed', 'resolved', 'complete'].some(s => i.status?.toLowerCase().includes(s))
-          ).length || 0;
-          
-          // Calculate Unique Team Members
-          const teamMembers = new Set(
-            issues?.map(i => i.assignee).filter(a => a && a !== 'Unassigned')
-          );
+            if (issuesError) {
+              console.warn(`[Projects] Error fetching issues for ${p.key}:`, issuesError.message);
+            }
 
-          // Calculate Health Score
-          const health = total === 0 ? 100 : Math.round((completed / total) * 100);
+            const total = issues?.length || 0;
+            
+            // Calculate Completed (same as ProjectAnalytics)
+            const completed = issues?.filter(i => {
+              const status = i.status?.toLowerCase?.() || '';
+              return ['done', 'closed', 'resolved', 'complete'].some(s => status.includes(s));
+            }).length || 0;
+            
+            // Calculate time-based metrics (same as ProjectAnalytics)
+            let totalEstSeconds = 0;
+            let totalSpentSeconds = 0;
+            
+            issues?.forEach((issue: any) => {
+              totalEstSeconds += issue.original_estimate_seconds || 0;
+              totalSpentSeconds += issue.time_spent_seconds || 0;
+            });
+            
+            const totalEstHours = Math.round(totalEstSeconds / 3600);
+            const actualHours = Math.round(totalSpentSeconds / 3600);
+            
+            // Calculate Health Score using SAME formula as ProjectAnalytics
+            // 60% task completion + 40% time budget adherence
+            const taskFactor = total > 0 ? (completed / total) : 1;
+            const timeFactor = totalEstHours > 0 ? Math.min(1, (totalEstHours / Math.max(actualHours, 1))) : 1;
+            const health = Math.round(((taskFactor * 0.6) + (timeFactor * 0.4)) * 100);
+            
+            // Calculate Unique Team Members
+            const teamMembers = new Set(
+              issues?.map(i => i.assignee).filter(a => a && a !== 'Unassigned')
+            );
 
-          return {
-            id: p.id,
-            key: p.key,
-            title: p.title || p.key,
-            created_at: p.created_at,
-            issue_count: total,
-            completed_count: completed,
-            team_size: teamMembers.size,
-            health_score: health
-          };
+            const summary = {
+              id: p.id,
+              key: p.key,
+              title: p.title || p.key,
+              created_at: p.created_at,
+              issue_count: total,
+              completed_count: completed,
+              team_size: teamMembers.size,
+              health_score: Math.max(0, Math.min(100, health)) // Ensure 0-100
+            };
+            
+            console.log(`[Projects] ${p.key}: ${summary.issue_count} issues, ${summary.completed_count} completed, ${totalEstHours}h est / ${actualHours}h spent, health=${summary.health_score}%`);
+            return summary;
+          } catch (err) {
+            console.error(`[Projects] Error processing project ${p.key}:`, err);
+            return {
+              id: p.id,
+              key: p.key,
+              title: p.title || p.key,
+              created_at: p.created_at,
+              issue_count: 0,
+              completed_count: 0,
+              team_size: 0,
+              health_score: 0
+            };
+          }
         }));
 
         setProjects(summaries);
+        console.log('%c[Projects] State Updated', 'color: #10B981; font-weight: bold;', summaries);
+        console.table(summaries.map(p => ({ key: p.key, title: p.title, issues: p.issue_count, completed: p.completed_count, health: p.health_score })));
       } catch (error) {
         console.error('Error loading projects:', error);
       } finally {
@@ -113,13 +183,7 @@ export default function Projects() {
           </div>
 
           {/* List View Content */}
-          {loading ? (
-             <div className="bg-white rounded-[24px] border border-[#E7E5E4] p-12 text-center">
-                <Loader2 className="w-8 h-8 text-[#1C1917] animate-spin mx-auto mb-4" />
-                <p className="text-[#78716C]">Loading projects...</p>
-             </div>
-          ) : (
-            <div className="bg-white rounded-[24px] border border-[#E7E5E4] overflow-hidden shadow-sm">
+          <div className="bg-white rounded-[24px] border border-[#E7E5E4] overflow-hidden shadow-sm animate-in fade-in duration-300">
               
               {/* Table Header */}
               <div className="grid grid-cols-12 gap-6 px-8 py-5 border-b border-[#E7E5E4] bg-[#FAFAF9]">
@@ -159,10 +223,10 @@ export default function Projects() {
                       {/* Health Score */}
                       <div className="col-span-2">
                         <span className={`text-lg font-light ${
-                          project.health_score >= 80 ? 'text-[#0F766E]' : 
-                          project.health_score >= 50 ? 'text-[#C2410C]' : 'text-[#BE123C]'
+                          (project.health_score ?? 0) >= 80 ? 'text-[#0F766E]' : 
+                          (project.health_score ?? 0) >= 50 ? 'text-[#C2410C]' : 'text-[#BE123C]'
                         }`}>
-                          {project.health_score}
+                          {typeof project.health_score === 'number' ? `${project.health_score}%` : '-'}
                         </span>
                       </div>
 
@@ -171,13 +235,13 @@ export default function Projects() {
                         <div className="flex-1 h-1.5 bg-[#E7E5E4] rounded-full overflow-hidden">
                           <div 
                             className={`h-full rounded-full transition-all duration-500 ${
-                              project.health_score >= 80 ? 'bg-[#0F766E]' : 
-                              project.health_score >= 50 ? 'bg-[#C2410C]' : 'bg-[#BE123C]'
+                              (project.health_score ?? 0) >= 80 ? 'bg-[#0F766E]' : 
+                              (project.health_score ?? 0) >= 50 ? 'bg-[#C2410C]' : 'bg-[#BE123C]'
                             }`}
-                            style={{ width: `${project.health_score}%` }}
+                            style={{ width: `${project.health_score ?? 0}%` }}
                           />
                         </div>
-                        <span className="text-xs text-[#78716C] w-8">{project.health_score}%</span>
+                        <span className="text-xs text-[#78716C] w-8">{project.health_score ?? '-'}%</span>
                       </div>
 
                       {/* Team */}
@@ -205,7 +269,6 @@ export default function Projects() {
                 </div>
               )}
             </div>
-          )}
         </div>
       </div>
     </VelocityAISidebar>

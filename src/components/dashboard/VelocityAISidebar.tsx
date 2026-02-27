@@ -8,7 +8,6 @@ import {
   Calendar, 
   Settings, 
   LogOut,
-  Menu,
   Zap
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -22,10 +21,47 @@ interface VelocityAISidebarProps {
 export const VelocityAISidebar = ({ children }: VelocityAISidebarProps) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signOut } = useAuth();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const { signOut, user } = useAuth();
+  
+  // Initialize sidebarOpen from localStorage, default to true
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    const stored = localStorage.getItem('sidebarOpen');
+    return stored !== null ? JSON.parse(stored) : true;
+  });
+  
   const [loggingOut, setLoggingOut] = useState(false);
   const [activeSection, setActiveSection] = useState('dashboard');
+
+  // Persist sidebar state to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('sidebarOpen', JSON.stringify(sidebarOpen));
+  }, [sidebarOpen]);
+
+  // Get user display name
+  const getUserDisplayName = () => {
+    if (!user) return 'User';
+    
+    if (user.user_metadata?.full_name) {
+      return user.user_metadata.full_name;
+    }
+    
+    if (user.email) {
+      const namePart = user.email.split('@')[0];
+      return namePart.charAt(0).toUpperCase() + namePart.slice(1);
+    }
+    
+    return 'User';
+  };
+
+  // Get user initials for avatar
+  const getUserInitials = () => {
+    const displayName = getUserDisplayName();
+    return displayName
+      .split(' ')
+      .map((name: string) => name[0].toUpperCase())
+      .join('')
+      .slice(0, 2);
+  };
 
   const navItems = [
     { id: 'dashboard', path: '/velocity-ai', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
@@ -88,6 +124,11 @@ export const VelocityAISidebar = ({ children }: VelocityAISidebarProps) => {
   };
 
   const handleNavClick = (item: any) => {
+    // If clicking the same nav item, toggle sidebar
+    // If clicking a different nav item, just navigate without toggling
+    if (activeSection === item.id) {
+      setSidebarOpen(!sidebarOpen);
+    }
     setActiveSection(item.id);
     navigate(item.path);
   };
@@ -182,29 +223,18 @@ export const VelocityAISidebar = ({ children }: VelocityAISidebarProps) => {
           {/* User Profile */}
           <div className={`flex items-center ${sidebarOpen ? 'gap-3' : 'justify-center'} px-2 py-4 mt-2 border-t border-[#292524] hover-scale transition-all`}>
             <div className="w-9 h-9 rounded-lg bg-[#292524] flex items-center justify-center text-xs font-medium text-[#D6D3D1] flex-shrink-0 group-hover:bg-[#2DD4BF]/20 transition-colors">
-              JD
+              {getUserInitials()}
             </div>
             {sidebarOpen && (
               <div className="flex flex-col whitespace-nowrap overflow-hidden animate-in fade-in duration-300 min-w-0">
-                <span className="text-xs font-medium text-[#E7E5E4] truncate">John Doe</span>
-                <span className="text-[10px] text-[#A8A29E] truncate">Product Lead</span>
+                <span className="text-xs font-medium text-[#E7E5E4] truncate">{getUserDisplayName()}</span>
+                <span className="text-[10px] text-[#A8A29E] truncate">{user?.email || ''}</span>
               </div>
             )}
           </div>
         </div>
 
-        {/* Collapse Toggle */}
-        <div className="px-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="w-full h-10 text-[#A8A29E] hover:text-[#E7E5E4] hover:bg-[#292524] transition-all duration-200 group hover-scale"
-            title={sidebarOpen ? 'Collapse' : 'Expand'}
-          >
-            <Menu className="w-5 h-5 group-hover:rotate-90 transition-transform" />
-          </Button>
-        </div>
+
       </div>
 
       {/* Main Content Area */}

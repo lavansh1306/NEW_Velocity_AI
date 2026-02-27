@@ -80,8 +80,21 @@ async function fetchJiraData() {
   try {
     // Fetch projects from DB (hybrid)
     const { projects: dbProjects, source: projSource } = await fetchProjectsHybrid();
-    const projects = dbProjects;
-    console.log(`[VelocityAI] Got ${projects.length} projects from ${projSource}`);
+    
+    // Deduplicate projects by key
+    const seenProjectKeys = new Set<string>();
+    const projects = dbProjects.filter((p: any) => {
+      if (seenProjectKeys.has(p.key)) {
+        console.warn(`[VelocityAI] Duplicate project detected: ${p.key}`);
+        return false;
+      }
+      seenProjectKeys.add(p.key);
+      return true;
+    });
+    
+    console.log(`%c[VelocityAI] Projects Fetched`, 'color: #2DD4BF; font-weight: bold;');
+    console.log(`  Source: ${projSource}`);
+    console.log(`  Total fetched: ${dbProjects.length}, Unique: ${projects.length}`);
 
     if (projects.length === 0) {
       console.warn('No Jira projects found');
@@ -753,15 +766,7 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
           }
           console.log('[ModernDashboard] Gantt section render check:', state)
           
-          if (jiraLoading) {
-            console.log('[ModernDashboard] Showing loading state')
-            return (
-              <div className="bg-white rounded-2xl shadow-sm p-10 border border-gray-100 text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#0F766E] border-t-transparent mx-auto mb-4"></div>
-                <p className="text-gray-600 font-light">Loading employee timeline...</p>
-              </div>
-            )
-          }
+          // Don't block render on loading - show content with fade-in instead
           
           if (!jiraIssues || jiraIssues.length === 0) {
             console.log('[ModernDashboard] Showing no tasks state')
@@ -946,29 +951,9 @@ export default function VelocityAI() {
     setActiveTab('security');
   };
 
-  // Show loading while checking authentication
-  if (authLoading || !authCheckDone) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0F766E] mx-auto mb-4"></div>
-          <p className="text-[#78716C]">Loading dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Redirect happens in useEffect if not authenticated
-  if (!user && !jiraAuthStatus) {
-    return null;
-  }
-
+  // Show loading indicator but don't completely block rendering
   return (
     <VelocityAISidebar>
-      <div className="w-full h-full flex flex-col bg-[#F5F5F4] overflow-auto">
-        {/* Content Area */}
-        <div className="flex-1 overflow-auto">
-          <div className="px-4 py-6 w-full animate-in fade-in duration-300">
             <style>{`
               .capacity-bar {
                 height: 24px;
@@ -987,12 +972,12 @@ export default function VelocityAI() {
                 transform: translateY(-2px);
               }
               .tab-transition {
-                animation: fadeInUp 0.4s ease-out;
+                animation: fadeInUpSmooth 0.3s ease-out;
               }
-              @keyframes fadeInUp {
+              @keyframes fadeInUpSmooth {
                 from {
                   opacity: 0;
-                  transform: translateY(12px);
+                  transform: translateY(8px);
                 }
                 to {
                   opacity: 1;
@@ -1015,8 +1000,6 @@ export default function VelocityAI() {
               {activeTab === 'progress' && <SmartProgressTracker />}
             </div>
           </div>
-        </div>
-      </div>
     </VelocityAISidebar>
   );
 }

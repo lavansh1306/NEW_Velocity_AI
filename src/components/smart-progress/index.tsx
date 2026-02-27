@@ -224,13 +224,8 @@ export default function SmartProgressTracker() {
       )}
 
       {/* Content Area */}
-      <div className="min-h-[500px]">
-        {isLoading ? (
-          <div className="bg-white rounded-xl border border-[#E7E5E4] p-12 text-center shadow-sm">
-            <Loader2 className="w-8 h-8 animate-spin text-[#2DD4BF] mx-auto mb-3" />
-            <p className="text-[#78716C] font-light">Loading Jira data...</p>
-          </div>
-        ) : tasks.length === 0 ? (
+      <div className="min-h-[500px] animate-in fade-in duration-300">
+        {tasks.length === 0 ? (
           <div className="bg-white border border-[#E7E5E4] rounded-xl p-8 text-center shadow-sm">
             <Upload className="w-12 h-12 mx-auto text-[#A8A29E] mb-3 opacity-40" />
             <h3 className="text-lg font-light text-[#1C1917] mb-2">No Tasks Found</h3>
