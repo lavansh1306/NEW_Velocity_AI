@@ -5,10 +5,9 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Plus, ChevronDown, Check, Trash2, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { getCurrentOrgId } from '@/lib/orgContext';
-import { useAuth } from '@/contexts/AuthContext'; // Import AuthContext to get current user
+import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
-// Interface for UI display
 interface TeamMemberDisplay {
   id: string;
   name: string;
@@ -21,9 +20,8 @@ interface TeamMemberDisplay {
 export default function CreateProject() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user } = useAuth(); // Get authenticated user
+  const { user } = useAuth();
   
-  // Loading States
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingMembers, setIsLoadingMembers] = useState(true);
 
@@ -34,26 +32,33 @@ export default function CreateProject() {
   const [projectLead, setProjectLead] = useState('');
   const [description, setDescription] = useState('');
   
-  // Dynamic Data
   const [teamMembers, setTeamMembers] = useState<TeamMemberDisplay[]>([]);
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
-
   const [tasks, setTasks] = useState([
     { id: 1, name: 'Database Setup', assignee: 'Unassigned', hours: '0', timeline: 'Week 1' }
   ]);
 
-  // --- FETCH MEMBERS FROM DB ---
+  // Fetch Members (Schema compliant: uses organization_id)
   useEffect(() => {
     const fetchMembers = async () => {
-      const orgId = getCurrentOrgId();
-      if (!orgId) return;
+      // 1. Get the real Org ID from the logged-in user profile
+      if (!user) return;
 
       try {
-        // NOTE: The 'users' table uses 'organization_id' (Long form)
+        const { data: userProfile } = await supabase
+          .from('users')
+          .select('organization_id')
+          .eq('id', user.id)
+          .single();
+
+        const orgId = userProfile?.organization_id;
+        
+        if (!orgId) return;
+
         const { data: users, error } = await supabase
           .from('users')
           .select('id, name, email, role, skills, avatar_url')
-          .eq('organization_id', orgId); // <--- Using organization_id
+          .eq('organization_id', orgId);
 
         if (error) throw error;
 
@@ -70,8 +75,7 @@ export default function CreateProject() {
           }));
         } 
         
-        // Fallback: If DB returns empty (only you exist and RLS hides you, or just empty), 
-        // ensure at least the current logged-in user is visible
+        // Fallback for solo users
         if (formattedMembers.length === 0 && user) {
            formattedMembers.push({
              id: user.id,
@@ -84,11 +88,9 @@ export default function CreateProject() {
         }
 
         setTeamMembers(formattedMembers);
-        
-        // Auto-select the first member (usually the creator)
         if (formattedMembers.length > 0) {
           setSelectedMembers([formattedMembers[0].id]);
-          setProjectLead(formattedMembers[0].name); // Default lead to first user
+          setProjectLead(formattedMembers[0].name);
         }
 
       } catch (err) {
@@ -101,27 +103,11 @@ export default function CreateProject() {
     fetchMembers();
   }, [user]);
 
-  // --- HANDLERS ---
-
-  const handleAddTask = () => {
-    setTasks([...tasks, { id: Date.now(), name: '', assignee: '', hours: '', timeline: '' }]);
-  };
-
-  const handleDeleteTask = (id: number) => {
-    if (tasks.length > 1) {
-      setTasks(tasks.filter(t => t.id !== id));
-    }
-  };
-
-  const handleTaskChange = (id: number, field: string, value: string) => {
-    setTasks(tasks.map(t => t.id === id ? { ...t, [field]: value } : t));
-  };
-
-  const toggleMember = (id: string) => {
-    setSelectedMembers(prev => 
-      prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]
-    );
-  };
+  // Handlers
+  const handleAddTask = () => setTasks([...tasks, { id: Date.now(), name: '', assignee: '', hours: '', timeline: '' }]);
+  const handleDeleteTask = (id: number) => { if (tasks.length > 1) setTasks(tasks.filter(t => t.id !== id)); };
+  const handleTaskChange = (id: number, field: string, value: string) => setTasks(tasks.map(t => t.id === id ? { ...t, [field]: value } : t));
+  const toggleMember = (id: string) => setSelectedMembers(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]);
 
   const handleCreateProject = async () => {
     if (!projectName.trim() || !projectKey.trim()) {
@@ -129,39 +115,46 @@ export default function CreateProject() {
       return;
     }
 
-    const orgId = getCurrentOrgId();
-    if (!orgId) {
-      toast({ title: "Authentication Error", description: "Organization ID missing.", variant: "destructive" });
+    if (!user) {
+      toast({ title: "Auth Error", description: "You must be logged in.", variant: "destructive" });
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      // 1. Fetch Cloud ID
-      // NOTE: 'jira_connections' uses 'org_id' (Short form)
+      // 1. Get accurate Org ID
+      const { data: userProfile } = await supabase
+        .from('users')
+        .select('organization_id')
+        .eq('id', user.id)
+        .single();
+
+      const orgId = userProfile?.organization_id;
+      if (!orgId) throw new Error("No Organization linked to your account.");
+
+      // 2. Fetch Cloud ID (required by schema)
       const { data: connectionData } = await supabase
         .from('jira_connections')
         .select('cloud_id')
-        .eq('org_id', orgId) // <--- Using org_id
+        .eq('org_id', orgId)
         .limit(1)
         .single();
 
       const cloudId = connectionData?.cloud_id || `local-${orgId}`;
 
-      // 2. Insert Project
-      // NOTE: 'jira_projects' uses 'org_id' (Short form)
+      // 3. Insert Project (FIXED: Removing lead_name, mapping category)
       const { data: projectData, error: projectError } = await supabase
         .from('jira_projects')
         .insert({
-          org_id: orgId, // <--- Using org_id
+          org_id: orgId,
           cloud_id: cloudId,
-          jira_project_id: `local-${Date.now()}`,
+          jira_project_id: `local-${Date.now()}`, // Placeholder required by schema
           key: projectKey.toUpperCase(),
           title: projectName,
-          category: projectType,
-          lead_name: projectLead || null,
+          category: projectType, // Mapped to 'category' column
           description: description || '',
+          // lead_name: REMOVED (Not in schema)
           created_at: new Date().toISOString()
         })
         .select('id, key')
@@ -172,12 +165,11 @@ export default function CreateProject() {
         throw projectError;
       }
 
-      // 3. Insert Tasks
-      // NOTE: 'jira_issues' uses 'org_id' (Short form)
+      // 4. Insert Tasks
       const validTasks = tasks.filter(t => t.name.trim() !== '');
       if (validTasks.length > 0) {
         const issuesPayload = validTasks.map(t => ({
-          org_id: orgId, // <--- Using org_id
+          org_id: orgId,
           cloud_id: cloudId,
           project_key: projectData.key,
           summary: t.name,
@@ -219,8 +211,6 @@ export default function CreateProject() {
 
           <div className="bg-white rounded-[24px] border border-[#E7E5E4] p-8 shadow-sm">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-              
-              {/* LEFT COLUMN */}
               <div className="lg:col-span-2 space-y-6">
                 <div className="grid grid-cols-4 gap-6">
                   <div className="col-span-3 space-y-2">
@@ -239,9 +229,7 @@ export default function CreateProject() {
                     <select value={projectType} onChange={(e) => setProjectType(e.target.value)} className="w-full h-11 px-4 bg-[#FAFAF9] border border-[#E7E5E4] rounded-xl appearance-none focus:outline-none focus:ring-1 focus:ring-[#1C1917] text-[#1C1917] transition-all cursor-pointer">
                       <option>Scrum Software Development</option>
                       <option>Kanban</option>
-                      <option>Business</option>
-                      <option>Marketing</option>
-                      <option>Custom</option>
+                      <option>Task Tracking</option>
                     </select>
                     <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#78716C] pointer-events-none" />
                   </div>
@@ -266,92 +254,41 @@ export default function CreateProject() {
                 </div>
               </div>
 
-              {/* RIGHT COLUMN - TEAM */}
               <div className="lg:col-span-1 border-l border-[#E7E5E4] lg:pl-12">
                 <div className="flex justify-between items-center mb-6">
                   <h3 className="text-sm font-medium text-[#1C1917]">Add Team Members</h3>
                   <span className="text-xs text-[#78716C] bg-[#F5F5F4] px-2 py-1 rounded-md">{selectedMembers.length} selected</span>
                 </div>
-
                 <div className="space-y-3 max-h-[450px] overflow-y-auto pr-2 custom-scrollbar">
-                  {isLoadingMembers ? (
-                    <div className="text-center py-8 text-[#A8A29E] text-sm">
-                      <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" />
-                      Loading team...
-                    </div>
-                  ) : teamMembers.length === 0 ? (
-                    <div className="text-center py-8 text-[#A8A29E] text-sm italic bg-[#FAFAF9] rounded-xl border border-dashed border-[#E7E5E4]">
-                      No team members found in your organization.
-                    </div>
-                  ) : (
-                    teamMembers.map(member => {
+                  {isLoadingMembers ? <div className="text-center py-8 text-[#A8A29E] text-sm"><Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" />Loading team...</div> : 
+                   teamMembers.map(member => {
                       const isSelected = selectedMembers.includes(member.id);
                       return (
                         <div key={member.id} onClick={() => toggleMember(member.id)} className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all border ${isSelected ? 'bg-[#FAFAF9] border-[#1C1917] shadow-sm' : 'bg-white border-transparent hover:bg-[#FAFAF9]'}`}>
-                          {member.avatar_url ? (
-                            <img src={member.avatar_url} alt={member.name} className="w-10 h-10 rounded-full border border-[#E7E5E4] object-cover" />
-                          ) : (
-                            <div className={`w-10 h-10 rounded-full border flex items-center justify-center text-xs font-medium shadow-sm transition-colors ${isSelected ? 'bg-white border-[#E7E5E4] text-[#1C1917]' : 'bg-[#F5F5F4] border-transparent text-[#78716C]'}`}>
-                              {member.initials}
-                            </div>
-                          )}
-                          <div className="flex-1">
-                            <div className="flex justify-between items-center">
-                              <p className={`text-sm font-medium ${isSelected ? 'text-[#1C1917]' : 'text-[#78716C]'}`}>{member.name}</p>
-                              <span className="text-xs font-medium text-[#10B981]">Avail</span>
-                            </div>
-                            <p className="text-xs text-[#A8A29E] truncate max-w-[140px]">{member.role}</p>
-                          </div>
+                          <div className={`w-10 h-10 rounded-full border flex items-center justify-center text-xs font-medium shadow-sm transition-colors ${isSelected ? 'bg-white border-[#E7E5E4] text-[#1C1917]' : 'bg-[#F5F5F4] border-transparent text-[#78716C]'}`}>{member.initials}</div>
+                          <div className="flex-1"><p className={`text-sm font-medium ${isSelected ? 'text-[#1C1917]' : 'text-[#78716C]'}`}>{member.name}</p><p className="text-xs text-[#A8A29E]">{member.role}</p></div>
                           {isSelected && <div className="w-5 h-5 bg-[#1C1917] rounded-full flex items-center justify-center"><Check className="w-3 h-3 text-white" /></div>}
                         </div>
                       );
-                    })
-                  )}
+                   })
+                  }
                 </div>
               </div>
             </div>
 
-            {/* BOTTOM - TASKS */}
             <div className="mt-16 pt-8 border-t border-[#E7E5E4]">
               <div className="flex justify-between items-end mb-6">
-                <div>
-                  <h3 className="text-lg font-medium text-[#1C1917]">Initial Project Plan</h3>
-                  <p className="text-sm text-[#78716C] mt-1 font-light">Outline key tasks and assign responsibilities</p>
-                </div>
-                <Button onClick={handleAddTask} variant="outline" className="bg-white border-[#E7E5E4] text-[#1C1917] hover:bg-[#FAFAF9] h-9 text-xs rounded-lg gap-2">
-                  <Plus className="w-3.5 h-3.5" /> Add Task
-                </Button>
+                <div><h3 className="text-lg font-medium text-[#1C1917]">Initial Project Plan</h3></div>
+                <Button onClick={handleAddTask} variant="outline" className="bg-white border-[#E7E5E4] text-[#1C1917] hover:bg-[#FAFAF9] h-9 text-xs rounded-lg gap-2"><Plus className="w-3.5 h-3.5" /> Add Task</Button>
               </div>
-
               <div className="bg-[#FAFAF9] rounded-xl border border-[#E7E5E4] overflow-hidden">
-                <div className="grid grid-cols-12 gap-4 px-6 py-3 border-b border-[#E7E5E4] text-[10px] font-bold text-[#A8A29E] uppercase tracking-wider">
-                  <div className="col-span-5">Task Name</div>
-                  <div className="col-span-3">Assignee</div>
-                  <div className="col-span-2">Est. Hours</div>
-                  <div className="col-span-2">Timeline</div>
-                </div>
-                
                 <div className="divide-y divide-[#E7E5E4]">
                   {tasks.map((task, index) => (
-                    <div key={task.id} className="grid grid-cols-12 gap-4 px-6 py-3 bg-white items-center group">
-                      <div className="col-span-5">
-                        <input type="text" value={task.name} onChange={(e) => handleTaskChange(task.id, 'name', e.target.value)} placeholder={index === 0 ? "e.g. Database Setup" : "Task name"} className="w-full text-sm bg-transparent focus:outline-none placeholder:text-[#D6D3D1] text-[#1C1917]" />
-                      </div>
-                      <div className="col-span-3">
-                        <select value={task.assignee} onChange={(e) => handleTaskChange(task.id, 'assignee', e.target.value)} className="w-full text-sm bg-transparent focus:outline-none text-[#78716C] cursor-pointer">
-                          <option>Unassigned</option>
-                          {teamMembers.filter(m => selectedMembers.includes(m.id)).map(m => (
-                            <option key={m.id}>{m.name}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="col-span-2">
-                        <input type="number" value={task.hours} onChange={(e) => handleTaskChange(task.id, 'hours', e.target.value)} placeholder="0" className="w-20 text-sm bg-transparent focus:outline-none placeholder:text-[#D6D3D1] text-[#1C1917]" />
-                      </div>
-                      <div className="col-span-2 flex justify-between items-center">
-                        <input type="text" value={task.timeline} onChange={(e) => handleTaskChange(task.id, 'timeline', e.target.value)} placeholder="e.g. Week 1" className="w-full text-sm bg-transparent focus:outline-none placeholder:text-[#D6D3D1] text-[#1C1917]" />
-                        {tasks.length > 1 && <button onClick={() => handleDeleteTask(task.id)} className="opacity-0 group-hover:opacity-100 text-[#EF4444] p-1 hover:bg-red-50 rounded transition-all"><Trash2 className="w-3.5 h-3.5" /></button>}
-                      </div>
+                    <div key={task.id} className="grid grid-cols-12 gap-4 px-6 py-3 bg-white items-center">
+                      <div className="col-span-5"><input type="text" value={task.name} onChange={(e) => handleTaskChange(task.id, 'name', e.target.value)} placeholder="Task name" className="w-full text-sm bg-transparent focus:outline-none text-[#1C1917]" /></div>
+                      <div className="col-span-3"><select value={task.assignee} onChange={(e) => handleTaskChange(task.id, 'assignee', e.target.value)} className="w-full text-sm bg-transparent focus:outline-none text-[#78716C]"><option>Unassigned</option>{teamMembers.map(m => <option key={m.id}>{m.name}</option>)}</select></div>
+                      <div className="col-span-2"><input type="number" value={task.hours} onChange={(e) => handleTaskChange(task.id, 'hours', e.target.value)} placeholder="0" className="w-20 text-sm bg-transparent focus:outline-none text-[#1C1917]" /></div>
+                      <div className="col-span-2 flex justify-between"><input type="text" value={task.timeline} onChange={(e) => handleTaskChange(task.id, 'timeline', e.target.value)} className="w-full text-sm bg-transparent focus:outline-none text-[#1C1917]" /> <button onClick={() => handleDeleteTask(task.id)} className="text-red-500"><Trash2 className="w-3.5 h-3.5" /></button></div>
                     </div>
                   ))}
                 </div>
@@ -359,10 +296,8 @@ export default function CreateProject() {
             </div>
 
             <div className="flex justify-end gap-3 mt-8">
-              <Button variant="ghost" onClick={() => navigate('/projects')} disabled={isSubmitting} className="text-[#78716C] hover:text-[#1C1917] hover:bg-[#F5F5F4] rounded-xl">Cancel</Button>
-              <Button onClick={handleCreateProject} disabled={isSubmitting} className="bg-[#1C1917] hover:bg-[#292524] text-white px-8 rounded-xl h-11 disabled:opacity-50 disabled:cursor-not-allowed">
-                {isSubmitting ? <div className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Creating...</div> : 'Create Project'}
-              </Button>
+              <Button variant="ghost" onClick={() => navigate('/projects')}>Cancel</Button>
+              <Button onClick={handleCreateProject} disabled={isSubmitting} className="bg-[#1C1917] text-white px-8 rounded-xl h-11">{isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create Project'}</Button>
             </div>
           </div>
         </div>

@@ -6,7 +6,7 @@ export interface TimeLog {
 }
 
 export interface Task {
-  id: number | string; // Updated to support string IDs/UUIDs from Supabase
+  id: number;
   projectName: string;
   taskName: string;
   assignee: string;
@@ -23,15 +23,12 @@ export interface Task {
 }
 
 export interface LeaveRequest {
-  id: string | number; // Changed to prefer UUID strings
-  org_id?: string;     // Added to match Supabase multi-tenancy
-  user_id?: string;    // Added to link directly to auth.users
+  id: number;
   name: string;
   startDate: string;
   endDate: string;
   reason: string;
-  status: 'Pending' | 'Approved' | 'Rejected' | 'Shifted'; // Added 'Shifted' status
-  history?: { ts: string; actor: string; action: string; details?: string }[];
+  status: 'Pending' | 'Approved' | 'Rejected';
 }
 
 export interface EmployeeProfile {

@@ -1,255 +1,409 @@
-# Velocity AI
-
+# ⚡ Velocity Ai
 
 <div align="center">
 
-## Tech Stack
+<<<<<<< HEAD
+![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
+![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
+![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)
+![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)
+![Express](https://img.shields.io/badge/Express-000000?style=for-the-badge&logo=express&logoColor=white)
+![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white)
+![Jira](https://img.shields.io/badge/Jira-0052CC?style=for-the-badge&logo=jira&logoColor=white)
 
-![React](https://img.shields.io/badge/Frontend-React-61DAFB?logo=react&logoColor=white)
-![TypeScript](https://img.shields.io/badge/Language-TypeScript-3178C6?logo=typescript&logoColor=white)
-![Vite](https://img.shields.io/badge/Build-Vite-646CFF?logo=vite&logoColor=white)
-![TailwindCSS](https://img.shields.io/badge/UI-TailwindCSS-06B6D4?logo=tailwindcss&logoColor=white)
-![NodeJS](https://img.shields.io/badge/Backend-Node.js-339933?logo=node.js&logoColor=white)
-![Express](https://img.shields.io/badge/API-Express-000000?logo=express&logoColor=white)
-![Python](https://img.shields.io/badge/ML-Python-3776AB?logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/ML-FastAPI-009688?logo=fastapi&logoColor=white)
-![Supabase](https://img.shields.io/badge/Database-Supabase-3ECF8E?logo=supabase&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/DB-PostgreSQL-4169E1?logo=postgresql&logoColor=white)
-![Redis](https://img.shields.io/badge/Cache-Redis-DC382D?logo=redis&logoColor=white)
-![Gemini](https://img.shields.io/badge/AI-Google%20Gemini-4285F4?logo=google&logoColor=white)
-![Jira](https://img.shields.io/badge/Integration-Jira-0052CC?logo=jira&logoColor=white)
-![Vercel](https://img.shields.io/badge/Deploy-Vercel-000000?logo=vercel&logoColor=white)
-![Render](https://img.shields.io/badge/ML%20Hosting-Render-46E3B7?logo=render&logoColor=black)
+**AI-powered project analytics and productivity intelligence platform**
+
+[Features](#-features) • [Tech Stack](#-tech-stack) • [Getting Started](#-getting-started) • [Architecture](#-architecture)
 
 </div>
+=======
+**Stc:** React + TypeScript + Express +OAuthh
+## Arhitcture
+``
+┌────────────────────────────────────────────────────────────────┐
+│                         FRONEND (React)                         │
+│  ┌──────────┐  ┌──────────┐  ┌───────┐  ┌──────────┐       
+│  │   Jira   │  │  HubSpot │  │  Asana   │  │  M365    │       │
+│  │Dashboard │ │Dahboard │  │Dahboard │  │\ │       │
+│  └────┬─────┘  └────┬─────┘  └───┬─────┘  └────┬─────┘       │
+│       │             │                        │           
+│       └─────────────┴──────────────┴──────────────┘              │
+│                         │                                        
+│                  React Query (API Calls)                         │
+└───────────────────────────┬─────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    EXPRESS SERVER (Node.js)                      │
+│                                                                   │
+│  ┌────────────────┐  ┌────────────────┐  ┌──────────────────┐  │
+│  │  Jira OAuth    │  │ HubSpot OAuth  │  │   M365 OAuth     │  │
+│  │  /api/jira/*   │  │ /api/hubspot/* │  │ /api/microsoft*  │  │
+│  └───────┬────────┘  └───────┬────────┘  └────────┬─────────┘  │
+│          │                   │                     │             │
+│          └───────────────────┴─────────────────────┘             │
+│                              │                                   │
+│                   Session Management                             │
+│                   (express-session)                              │
+└───────────────────────────────┬─────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      EXTERNAL APIs                               │
+│  ┌─────────────┐  ┌─────────────┐  ┌──────────────┐            │
+│  │ Jira Cloud  │  │  HubSpot    │  │ Microsoft    │            │
+│  │ REST API    │  │  CRM API    │  │ Graph API    │            │
+│  └─────────────┘  └─────────────┘  └──────────────┘            │
+└─────────────────────────────────────────────────────────────────┘
+```
+>>>>>>> c5ce8ffec616cbcb8837c7327cdb35a999716df2
 
 ---
 
-## Overview
+## 📖 What is Velocity AI?
 
+<<<<<<< HEAD
+**Velocity AI** is an enterprise SaaS platform that transforms Jira project data into actionable insights using AI and machine learning. It helps teams optimize resource allocation, predict project outcomes, and prevent burnout through real-time analytics and intelligent recommendations.
+
+### Problems We Solve
+
+- **📊 Data Visibility**: Consolidate Jira data across multiple sites into unified dashboards
+- **👥 Resource Optimization**: AI-driven capacity planning and skill-based task matching
+- **⏱️ Time Tracking**: Automated leave management with project impact analysis
+- **🔮 Predictive Analytics**: ML-powered hotspot detection identifies at-risk projects
+- **💰 ROI Measurement**: Quantify productivity improvements in monetary terms
+- **🔥 Burnout Prevention**: Monitor workload distribution and team capacity
+=======
 Velocity AI is a project management intelligence platform that connects to Jira via OAuth 2.0 and surfaces AI-driven analytics for engineering teams. It tracks project health, analyzes team capacity, matches employees to tasks based on skill profiles, automates leave approval decisions, and provides ROI reporting — all from a single dashboa
 The platform runs as a React SPA backed by an Express server. An external Python ML engine handles bottleneck detection, availability scoring, and capacity forecasting. Google Gemini AI powers contextual skill-to-task matching.
+>>>>>>> 35ec46b374365ab65714da3736e9b1a332f9dbb9
 
 ---
 
-## Featres
+## ✨ Features
 
-✔ Jira OAuth 2.0 itegration with multi-tenant (multiple Atlassian Cloud sites) support  
-✔ User authentication via email/password, Google OAuth, and Jira OAuth (Supabase Auth)  
-✔ Project list with per-project health scores and issue metrics  
-✔ Jira issues table with assignee and status filtering  
-✔ Interactive Gantt chart per project and global cross-project Gantt dashboard  
-✔ AI insights dashboard with project health analysis  
-✔ Team capacity analysis (productive hours minus PTO and holidays)  
-✔ ML-powered bottleneck detection and employee availability/skill matching  
-✔ Reinforcement learning feedback loop for improving ML task recommendations  
-✔ AI leave approval agent using weighted scoring (employee rating, leave balance, team capacity, absence type)  
-✔ Smart progress tracker that parses EOD reports and updates weighted task completion  
-✔ ROI calculator and ROI report pages  
-✔ Audit page documenting validated formulas (health score, capacity, ROI)  
-✔ Waitlist endpoint with Supabase and optional Google Sheets webhook integration  
+### Core Capabilities
+
+- **🔗 Jira Integration**
+  - OAuth 2.0 multi-tenant authentication
+  - Real-time issue tracking across multiple Jira Cloud sites
+  - Sprint velocity metrics and burndown charts
+  - Custom field support and advanced filtering
+
+- **📈 Advanced Analytics**
+  - Interactive Gantt charts (global and per-project)
+  - Team capacity heatmaps and utilization tracking
+  - 8-week capacity forecasting
+  - At-risk project detection with hotspot scoring
+
+- **🤖 AI-Powered Insights**
+  - NLP-based skill extraction from issue descriptions
+  - Predictive resource recommendations
+  - Smart progress tracking
+  - Automated causal attribution analysis
+
+- **👨‍💼 Team Management**
+  - Leave approval workflows
+  - Automatic capacity adjustment for absences
+  - Dynamic skill matrices from work history
+  - Manager dashboards with team metrics
+
+- **💵 Business Intelligence**
+  - ROI calculator for productivity improvements
+  - Revenue realization tracking
+  - Time savings quantification
+  - Executive summary reports
 
 ---
 
-## Architecture
+## 🛠️ Tech Stack
+
+### Frontend
+- **React 18.3** + **TypeScript 5.8** - Modern reactive UI
+- **Vite 6.4** - Lightning-fast build tool
+- **TailwindCSS 3.4** - Utility-first styling
+- **Shadcn/UI + Radix** - Accessible component library
+- **TanStack Query 5.83** - Data fetching & caching
+- **React Router 6.30** - Client-side routing
+- **Recharts + Chart.js** - Data visualizations
+- **React Hook Form + Zod** - Forms & validation
+
+### Backend
+- **Node.js 18+** + **Express 5.2** - REST API server
+- **TypeScript** - Type-safe backend code
+- **Redis 4.6** - Session storage & caching
+- **Express-Session** - OAuth session management
+
+### Database & Auth
+- **Supabase** - PostgreSQL backend & authentication
+- **OAuth 2.0** - Jira Cloud integration (3-legged flow)
+
+### AI & ML
+- **Google Generative AI** - LLM-powered insights
+- **Custom ML Engine** - Predictive analytics
+
+### DevOps
+- **Vercel** - Production deployment
+- **ESLint 9.32** - Code quality
+- **Vercel Analytics** - Usage metrics
+
+---
+
+## 🏗️ Architecture
 
 ```
-Browser (React SPA)
-    │
-    │  /api/* proxied to Express (dev), Vercel serverless (prod)
-    ▼
-Express Server (server.ts / api/index.ts)
-    ├── /api/jira/*           Jira OAuth 2.0 + issue/project data (Supabase cache)
-    ├── /api/leave-approval/* Leave request approval (weighted scoring)
-    ├── /api/deployed/*       Gemini AI skill-matching routes
-    ├── /api/waitlist         Waitlist capture
-    └── /api/ml/*             Proxy → Python ML Engine (Render)
-                                  ├── POST /api/v1/analyze/availability
-                                  ├── POST /api/v1/analyze/bottlenecks
-                                  ├── POST /api/v1/analyze/capacity
-                                  └── POST /api/v1/train
-    │
-    ├── Supabase (PostgreSQL)
-    │     organizations, organization_members, jira_connections,
-    │     jira_projects, jira_issues, waitlist
-    │
-    └── Redis (optional session store, falls back to in-memory)
+┌─────────────────────────────────────────────────────────────┐
+│                    Frontend (React + Vite)                   │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
+│  │   Dashboard  │  │  Jira Views  │  │ ROI Reports  │      │
+│  │   Analytics  │  │ Gantt Charts │  │  Leave Mgmt  │      │
+│  └──────────────┘  └──────────────┘  └──────────────┘      │
+└────────────────────────┬────────────────────────────────────┘
+                         │ REST API + React Query
+┌────────────────────────▼────────────────────────────────────┐
+│              Backend (Express + TypeScript)                  │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
+│  │ Jira OAuth   │  │ Session Mgmt │  │ Data Normali │      │
+│  │ Multi-tenant │  │ Redis Store  │  │ -zation      │      │
+│  └──────────────┘  └──────────────┘  └──────────────┘      │
+└───┬────────────────────┬───────────────────┬────────────────┘
+    │                    │                   │
+    ▼                    ▼                   ▼
+┌──────────┐      ┌────────────┐     ┌────────────┐
+│   Jira   │      │  Supabase  │     │   Redis    │
+│   Cloud  │      │ PostgreSQL │     │   Cache    │
+└──────────┘      └────────────┘     └────────────┘
 ```
 
-**Frontend routes** (React Router):
+### Key Components
 
-| Path | Component |
-|------|-----------|
-| `/` | Landing page |
-| `/login` · `/signup` · `/auth/callback` | Authentication |
-| `/dashboard` | AI insights dashboard |
-| `/velocity-ai` | Main tabbed dashboard (capacity, ROI, activity, leave, ML, Gantt) |
-| `/projects` | Project list with health scores |
-| `/projects/:id` | Project detail (issues, Gantt) |
-| `/projects/jira-dashboard` | Jira issues & Gantt dashboard |
-| `/projects/global-gantt` | Cross-project Gantt view |
-| `/project-analytics/:id` | Project analytics detail |
-| `/progress` | Smart progress tracker |
-| `/roi-calculator` · `/roi-report` | ROI tools |
-| `/audit` | Formula audit / validation reference |
+**Pages**:
+- `/` - Landing page with features & stats
+- `/dashboard` - AI insights dashboard
+- `/projects/jira-dashboard` - Jira-integrated analytics
+- `/projects/:id` - Detailed project view with Gantt
+- `/projects/global-gantt` - Cross-project capacity view
+- `/roi-calculator` - ROI measurement tool
+- `/progress` - Smart progress tracking
 
----
+**API Routes** (server.ts):
+- `GET /api/jira/auth/connect` - Initiate Jira OAuth
+- `GET /api/jira/auth/callback` - OAuth callback handler
+- `GET /api/jira/projects` - Fetch Jira projects
+- `GET /api/jira/issues` - Fetch & filter issues
+- `POST /api/jira/auth/switch-site` - Multi-tenant site switching
+- `GET /api/jira/auth/status` - Connection status
 
-## How It Works
-
-1. A user signs in (email, Google, or Jira OAuth) — auth state is stored in Supabase and exposed via `AuthContext`.
-2. On the Jira Dashboard, the frontend calls `/api/jira/auth/status`. If not connected, the user is redirected through the Jira OAuth 2.0 Authorization Code flow (`/api/jira/auth/connect` → Atlassian → `/api/jira/auth/callback`).
-3. Once connected, projects and issues are fetched from Jira's REST API and cached in Supabase (`jira_projects`, `jira_issues` tables) via `jiraDbClient.ts`.
-4. The project health score is calculated client-side in `lib/metrics.ts` using schedule performance (40%), resource utilization (30%), risk factors (20%), and quality metrics (10%).
-5. For ML features, the frontend (via `src/services/mlService.ts`) sends employee and task data to `/api/ml/*` which proxies to the external Python FastAPI engine on Render.
-6. For leave approval, the frontend posts leave requests to `/api/leave-approval/approve-single` or `/approve-batch`. The server runs a weighted scoring algorithm (0–100) and returns an approval decision with confidence score.
-7. Gemini AI (`gemini-1.5-flash`) is called server-side in `/api/deployed/*` to determine whether an employee's skills match a task description, with results cached in memory.
+**Key Hooks**:
+- `useJiraData()` - Fetch & manage Jira issues with caching
+- `useToast()` - Toast notifications
+- `useMobile()` - Responsive design detection
 
 ---
 
-## ML Pipeline
+## 🚀 Getting Started
 
-**External ML engine**: `https://python-ml-engine-xlwh.onrender.com`  
-**Backend proxy** (avoids CORS in production): `api/ml.ts` (Vercel serverless) and `src/api/deployed/routes.ts`
+### Prerequisites
 
-| Endpoint | Input | Output |
-|----------|-------|--------|
-| `POST /api/v1/analyze/availability` | `{ task: MLTask, candidates: MLCandidate[] }` | `AvailabilityReport[]` — per-employee eligibility, match score, matched/missing skills |
-| `POST /api/v1/analyze/bottlenecks` | `{ task: MLTask, candidates: MLCandidate[] }` | `BottleneckReport` — overloaded skills, system strain score, health status |
-| `POST /api/v1/analyze/capacity` | `{ candidates: MLCandidate[] }` | `CapacityReport[]` — net available hours after PTO and holidays |
-| `POST /api/v1/train` | `{ recommendation_id, selected_employee_id, actual_reward }` | `TrainResponse` — reinforcement learning update confirmation |
+- **Node.js 18+**
+- **npm** or **yarn**
+- **Jira Cloud** account with admin access
+- **Supabase** account
+- **Redis** (optional, falls back to memory store)
 
-**Graceful degradation**: if the ML engine is offline, `mlService.ts` returns fallback results computed locally (simple skill matching and default capacity estimates). Health checks are cached for 60 seconds to avoid redundant calls.
+### Environment Setup
 
-**Gemini AI** (`src/api/deployed/routes.ts`): On task-to-employee matching requests, the server builds a structured prompt from the task description and employee skill list, calls `gemini-1.5-flash`, and parses the `{ match: boolean, confidence: number }` JSON response. Results are cached in-memory for 24 hours per unique task+skill combination.
-
----
-
-## Installation
-
+1. **Clone the repository**
 ```bash
-# Install all dependencies
+git clone https://github.com/velocityai588-tech/NEW_Velocity_AI.git
+cd NEW_Velocity_AI
+```
+
+2. **Install dependencies**
+```bash
 npm install
 ```
 
----
+3. **Configure environment variables**
 
-## Environment Variables
-
-Copy `.env.example` to `.env` and fill in the values:
+Create `.env` file in the root directory:
 
 ```env
-# Jira OAuth 2.0
-JIRA_OAUTH_CLIENT_ID=your_atlassian_oauth_client_id
-JIRA_OAUTH_CLIENT_SECRET=your_atlassian_oauth_client_secret
-JIRA_OAUTH_REDIRECT_URI_LOCAL=http://localhost:4000/api/jira/auth/callback
-JIRA_OAUTH_REDIRECT_URI_PROD=https://www.joinvelocity.co/api/jira/auth/callback
+# Server Configuration
+NODE_ENV=development
+API_PORT=3001
+FRONTEND_URL_PROD=https://www.joinvelocity.co
+
+# Jira OAuth 2.0 (3-legged flow)
+JIRA_CLIENT_ID=your_jira_client_id
+JIRA_CLIENT_SECRET=your_jira_client_secret
+JIRA_REDIRECT_URI=http://localhost:3001/api/jira/auth/callback
 
 # Supabase
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your_anon_key
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 
-# Session
-SESSION_SECRET=a_random_string_at_least_32_chars
+# Session Management
+SESSION_SECRET=your_random_session_secret
 
-# Gemini AI
-GEMINI_API_KEY=your_gemini_api_key
-
-# Server
-API_PORT=4000
-NODE_ENV=development
-
-# Redis (optional — falls back to in-memory if not set)
+# Redis (Optional - production recommended)
 REDIS_URL=redis://localhost:6379
+# OR
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=your_redis_password
 ```
 
----
+4. **Set up Jira OAuth App**
 
-## Running Locally
+   - Go to [Atlassian Developer Console](https://developer.atlassian.com/console/myapps/)
+   - Create a new OAuth 2.0 integration
+   - Add scopes: `read:jira-work`, `read:jira-user`, `offline_access`
+   - Set callback URL: `http://localhost:3001/api/jira/auth/callback`
+   - Copy Client ID and Client Secret to `.env`
+
+5. **Start development servers**
 
 ```bash
-# Start the Express API server (port 4000)
+# Terminal 1 - Backend API
 npm run api
 
-# In a separate terminal, start the Vite dev server (port 5173)
+# Terminal 2 - Frontend dev server
 npm run dev
 ```
 
-Vite proxies all `/api/*` requests to `http://127.0.0.1:4000`, so the frontend and backend run independently without CORS issues.
+6. **Access the application**
+   - Frontend: http://localhost:5173
+   - Backend API: http://localhost:3001
 
-**Production build:**
+### Production Build
 
 ```bash
-npm run build          # outputs to dist/
-```
+# Build frontend
+npm run build
 
-Deploy the `dist/` folder as a static site on Vercel. The `api/` directory is deployed as Vercel serverless functions according to `vercel.json`.
+# Production mode
+NODE_ENV=production npm run api
+```
 
 ---
 
-## Project Structure
+## 📁 Project Structure
 
 ```
-/
+NEW_Velocity_AI/
 ├── src/
-│   ├── main.tsx                    # React entry point
-│   ├── App.tsx                     # Router and global providers
-│   ├── pages/                      # Route-level components
-│   │   ├── Index.tsx               # Landing page
-│   │   ├── Dashboard.tsx           # AI insights dashboard
-│   │   ├── VelocityAI.tsx          # Main tabbed dashboard
-│   │   ├── Projects.tsx            # Project list
-│   │   ├── JiraDashboard.tsx       # Jira issues + Gantt
-│   │   ├── GlobalGanttDashboard.tsx
-│   │   ├── ProjectDetailNew.tsx
-│   │   ├── PlanMyProject.tsx       # Smart progress tracker
-│   │   ├── ROICalculator.tsx
-│   │   ├── Login.tsx / SignUp.tsx / AuthCallback.tsx
-│   │   └── Audit.tsx
 │   ├── components/
-│   │   ├── jira/                   # IssuesTable, GanttChart, ManagerGantt, ManagerSummary
-│   │   ├── dashboard/              # AIInsightsDashboard, ProjectDashboardWithInsights
-│   │   ├── leave-management/       # JiraCapacityMap, ProjectLeaveManagement
-│   │   ├── leave-approval/         # LeaveApprovalAgent UI
-│   │   ├── ml-model/               # ProjectCheckDashboard, RecommendationEngine
-│   │   ├── smart-progress/         # SmartProgressTracker, ProgressAgent
-│   │   ├── demo2/                  # VeloHeader, VeloNavTabs, tabbed views
-│   │   ├── landing/                # LandingHero, LandingFeatures, etc.
-│   │   └── ui/                     # shadcn/ui components (Radix primitives)
-│   ├── contexts/
-│   │   ├── AuthContext.tsx          # Supabase auth + org membership
-│   │   └── ToastContext.tsx
-│   ├── hooks/
-│   │   └── useJiraData.ts
+│   │   ├── jira/                 # Jira integration components
+│   │   │   ├── IssuesTable.tsx
+│   │   │   ├── GanttChart.tsx
+│   │   │   ├── ManagerGantt.tsx
+│   │   │   └── ManagerSummary.tsx
+│   │   ├── dashboard/            # Dashboard components
+│   │   ├── leave-management/     # Leave tracking
+│   │   ├── ml-model/             # ML insights
+│   │   └── ui/                   # Shadcn UI components
+│   ├── pages/
+│   │   ├── Index.tsx             # Landing page
+│   │   ├── JiraDashboard.tsx     # Main Jira analytics
+│   │   ├── Projects.tsx          # Project management
+│   │   └── Dashboard.tsx         # AI insights
 │   ├── lib/
-│   │   ├── supabase.ts             # Supabase client
-│   │   ├── jiraDbClient.ts         # Hybrid Jira fetch (API + Supabase cache)
-│   │   ├── leaveApprovalAgent.ts   # Weighted scoring leave approval logic
-│   │   ├── metrics.ts              # Project health score calculation
-│   │   ├── dataService.ts          # Project/metrics data loading
-│   │   └── api.ts                  # API URL helper
-│   ├── services/
-│   │   └── mlService.ts            # ML engine client with fallback
-│   └── api/
-│       ├── jira/                   # routes.ts, auth.ts, db.ts
-│       ├── leave-approval/         # routes.ts
-│       └── deployed/               # routes.ts (Gemini AI)
-├── api/
-│   ├── index.ts                    # Vercel serverless entry (Express app)
-│   └── ml.ts                       # Vercel ML proxy serverless function
-├── server.ts                       # Standalone Express server (local dev + self-host)
-├── public/
-│   └── data/employees.csv          # Employee data for Gemini skill matching
-├── supabase-migrations/            # SQL migration files
-├── vite.config.ts
-├── tailwind.config.ts
-├── vercel.json                     # Vercel deployment + rewrite rules
-└── package.json
+│   │   ├── api.ts                # API utilities
+│   │   ├── leaveApprovalAgent.ts # Leave approval logic
+│   │   └── normalizers/          # Data normalization
+│   ├── contexts/
+│   │   ├── AuthContext.tsx       # Auth state management
+│   │   └── ToastContext.tsx      # Toast notifications
+│   ├── api/
+│   │   ├── jira/                 # Jira API routes
+│   │   ├── leave-approval/       # Leave approval APIs
+│   │   └── projects/             # Project APIs
+│   ├── App.tsx                   # Main app component
+│   └── main.tsx                  # Entry point
+├── server.ts                     # Express backend server
+├── api/                          # Serverless API routes
+├── public/                       # Static assets
+├── package.json                  # Dependencies
+├── vite.config.ts                # Vite configuration
+├── tailwind.config.ts            # Tailwind setup
+└── tsconfig.json                 # TypeScript config
 ```
 
 ---
 
-## License
+## 🔐 Security & Production
 
-MIT — see [LICENSE](LICENSE) for details.
+### Multi-Tenant Architecture
+- OAuth 2.0 Authorization Code Flow (3-legged)
+- Session-based token management with Redis
+- Support for multiple Jira Cloud instances per user
+- Secure cookie handling (SameSite=none, HttpOnly, Secure)
+
+### Production Considerations
+- **HTTPS Required**: OAuth flows require HTTPS in production
+- **Redis Recommended**: Use Redis for session storage in multi-instance deployments
+- **CORS Configured**: Properly configured for cross-origin requests
+- **Session Timeout**: 24-hour sessions with automatic refresh
+- **Trust Proxy**: Configured for Vercel/Nginx deployments
+
+---
+
+## 📊 Key Features in Detail
+
+### Jira Integration
+- **Multi-Site Support**: Connect and switch between multiple Jira Cloud instances
+- **Real-Time Sync**: Live data updates with React Query caching
+- **Advanced Filtering**: Filter issues by assignee, status, project, sprint
+- **Custom Fields**: Support for custom Jira fields and workflows
+
+### AI & ML Capabilities
+- **Skill Extraction**: NLP extracts skills from issue descriptions
+- **Hotspot Detection**: Identifies at-risk projects before delays occur
+- **Resource Matching**: Suggests best team members for tasks
+- **Predictive Analytics**: Forecasts project completion dates
+
+### Analytics & Reporting
+- **Gantt Charts**: Interactive timeline views with drag-and-drop
+- **Burndown Charts**: Track sprint progress and velocity
+- **Capacity Planning**: 8-week capacity forecasting with leave tracking
+- **ROI Metrics**: Measure productivity gains in dollars and hours
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please follow these steps:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 🌐 Links
+
+- **Website**: [joinvelocity.co](https://www.joinvelocity.co)
+- **Documentation**: [GitHub Wiki](https://github.com/velocityai588-tech/NEW_Velocity_AI/wiki)
+- **Issues**: [GitHub Issues](https://github.com/velocityai588-tech/NEW_Velocity_AI/issues)
+
+---
+
+<div align="center">
+
+**Built with ❤️ by the Velocity AI Team**
+
+_Transforming project management with intelligent analytics_
+
+</div>

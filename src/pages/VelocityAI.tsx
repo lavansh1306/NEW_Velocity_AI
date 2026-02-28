@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
+import { VelocityAISidebar } from '../components/dashboard/VelocityAISidebar';
+import PeopleCapacityTab from '../components/demo2/PeopleCapacityTab'; 
 import { 
   BarChart3, 
   Users, 
@@ -18,7 +20,9 @@ import {
 } from 'recharts';
 
 // Layout Components
-import { VelocityAISidebar } from '@/components/dashboard/VelocityAISidebar';
+import VeloHeader from '../components/demo2/VeloHeader';
+import VeloNavTabs from '../components/demo2/VeloNavTabs';
+import VPDashboard from '../components/demo2/VPDashboard';
 
 // Feature Components
 import StandardTimeCatalogTab from '../components/demo2/StandardTimeCatalogTab';
@@ -26,7 +30,6 @@ import CapacityLedgerTab from '../components/demo2/CapacityLedgerTab';
 import ROIVerificationTab from '../components/demo2/ROIVerificationTab';
 import ProjectActivityTab from '../components/demo2/ProjectActivityTab';
 import SecurityAuditTab from '../components/demo2/SecurityAuditTab';
-import PeopleCapacityTab from '../components/demo2/PeopleCapacityTab';
 import Projects from './Projects';
 import LeaveManagementTab from '../components/leave-management'; 
 import ProjectCheckView from '@/components/ml-model';
@@ -643,66 +646,66 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
   }, []);
 
   return (
-    <div className="bg-[#FAFAF9] min-h-screen px-3 py-6 font-['Inter',sans-serif] animate-in fade-in duration-300">
-      <div className="w-full space-y-4">
+    <div className="bg-gray-50 min-h-screen p-12 font-['Inter',sans-serif]">
+      <div className="max-w-[1600px] mx-auto space-y-12">
       
       {/* Header Section */}
-      <div className="mb-2 animate-in slide-in-from-top duration-500 transition-all">
-        <h1 className="text-3xl font-light text-[#1C1917] mb-1 tracking-tight">Dashboard</h1>
-        <p className="text-[#78716C] font-light text-sm">Here's what's happening with your teams today.</p>
+      <div>
+        <h1 className="text-4xl font-light text-gray-900 mb-3 tracking-tight">Dashboard</h1>
+        <p className="text-gray-600 font-light text-base">Here's what's happening with your teams today.</p>
       </div>
 
       {/* Main Content Area - KPI Cards (Full Width) */}
-      <div className="grid grid-cols-4 gap-3 animate-in slide-in-from-top duration-500 transition-all delay-100">
+      <div className="grid grid-cols-4 gap-6">
         {/* Active Project Card */}
-        <div className="bg-white rounded-2xl shadow-sm p-5 border border-gray-100 hover:shadow-md transition-all duration-300 hover:scale-105 hover:-translate-y-1 animate-in fade-in slide-in-from-bottom duration-500">
-          <div className="flex items-center justify-between mb-2">
+        <div className="bg-white rounded-2xl shadow-sm p-8 border border-gray-100 hover:shadow-md transition-all">
+          <div className="flex items-center justify-between mb-3">
             <h3 className="text-xs font-light text-gray-500 uppercase tracking-wider">Active Projects</h3>
             <div className="w-2 h-2 bg-red-500 rounded-full"></div>
           </div>
-          <div className="text-3xl font-light text-gray-900 mb-1">{dashboardMetrics.activeProjects}</div>
+          <div className="text-4xl font-light text-gray-900 mb-2">{dashboardMetrics.activeProjects}</div>
           <p className="text-xs text-gray-500 font-light">Projects with activity today</p>
         </div>
 
         {/* Team Utilization Card */}
-        <div className="bg-white rounded-2xl shadow-sm p-5 border border-gray-100 hover:shadow-md transition-all duration-300 hover:scale-105 hover:-translate-y-1 animate-in fade-in slide-in-from-bottom duration-500 delay-75">
-          <h3 className="text-xs font-light text-gray-500 uppercase tracking-wider mb-2">Team Utilization</h3>
-          <div className="text-3xl font-light text-gray-900 mb-2">{dashboardMetrics.teamUtilization}%</div>
+        <div className="bg-white rounded-2xl shadow-sm p-8 border border-gray-100 hover:shadow-md transition-all">
+          <h3 className="text-xs font-light text-gray-500 uppercase tracking-wider mb-3">Team Utilization</h3>
+          <div className="text-4xl font-light text-gray-900 mb-3">{dashboardMetrics.teamUtilization}%</div>
           <div className="w-full bg-gray-100 rounded-full h-1.5">
             <div
-              className="bg-[#0F766E] h-1.5 rounded-full transition-all duration-300"
+              className="bg-blue-600 h-1.5 rounded-full transition-all duration-300"
               style={{ width: `${dashboardMetrics.teamUtilization}%` }}
             ></div>
           </div>
-          <p className="text-xs text-gray-500 font-light mt-1">{dashboardMetrics.teamMembers} team members</p>
+          <p className="text-xs text-gray-500 font-light mt-2">{dashboardMetrics.teamMembers} team members</p>
         </div>
 
         {/* Project at Risk Card */}
-        <div className="bg-white rounded-2xl shadow-sm p-5 border border-gray-100 hover:shadow-md transition-all duration-300 hover:scale-105 hover:-translate-y-1 animate-in fade-in slide-in-from-bottom duration-500 delay-150">
-          <div className="flex items-center justify-between mb-2">
+        <div className="bg-white rounded-2xl shadow-sm p-8 border border-gray-100 hover:shadow-md transition-all">
+          <div className="flex items-center justify-between mb-3">
             <h3 className="text-xs font-light text-gray-500 uppercase tracking-wider">Projects at Risk</h3>
             <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
           </div>
-          <div className="text-3xl font-light text-gray-900 mb-1">{dashboardMetrics.projectsAtRisk}</div>
+          <div className="text-4xl font-light text-gray-900 mb-2">{dashboardMetrics.projectsAtRisk}</div>
           <p className="text-xs text-gray-500 font-light">Behind schedule</p>
         </div>
 
         {/* Team Members Card */}
-        <div className="bg-white rounded-2xl shadow-sm p-5 border border-gray-100 hover:shadow-md transition-all duration-300 hover:scale-105 hover:-translate-y-1 animate-in fade-in slide-in-from-bottom duration-500 delay-200">
-          <h3 className="text-xs font-light text-gray-500 uppercase tracking-wider mb-2">Team Members</h3>
-          <div className="text-3xl font-light text-gray-900 mb-1">{dashboardMetrics.teamMembers}</div>
+        <div className="bg-white rounded-2xl shadow-sm p-8 border border-gray-100 hover:shadow-md transition-all">
+          <h3 className="text-xs font-light text-gray-500 uppercase tracking-wider mb-3">Team Members</h3>
+          <div className="text-4xl font-light text-gray-900 mb-2">{dashboardMetrics.teamMembers}</div>
           <p className="text-xs text-gray-500 font-light">Active across all projects</p>
         </div>
       </div>
 
       {/* Available Capacity Card with Filters */}
-      <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100 animate-in fade-in slide-in-from-bottom duration-500 delay-300 transition-all">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-light text-gray-900">Available Capacity</h3>
+      <div className="bg-white rounded-2xl shadow-sm p-10 border border-gray-100">
+        <div className="flex items-center justify-between mb-8">
+          <h3 className="text-xl font-light text-gray-900">Available Capacity</h3>
         </div>
         
         {/* Filters */}
-        <div className="grid grid-cols-2 gap-3 mb-4">
+        <div className="grid grid-cols-3 gap-6 mb-6">
           <div>
             <label className="text-xs font-light text-gray-600 mb-2 block">Filter by Project</label>
             <select
@@ -731,21 +734,21 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
         </div>
 
         {/* Display filtered capacity */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="space-y-1">
+        <div className="grid grid-cols-3 gap-6">
+          <div className="space-y-2">
             <p className="text-xs font-light text-gray-600 uppercase tracking-wider">Available Capacity</p>
-            <div className="text-3xl font-light text-gray-900">
+            <div className="text-4xl font-light text-gray-900">
               {filteredCapacity.hours}h
               <span className="text-lg text-gray-500 ml-2 font-light">({filteredCapacity.days}d)</span>
             </div>
           </div>
-          <div className="space-y-1">
+          <div className="space-y-2">
             <p className="text-xs font-light text-gray-600 uppercase tracking-wider">Total Tasks</p>
-            <div className="text-3xl font-light text-gray-900">{dashboardMetrics.totalTasks}</div>
+            <div className="text-4xl font-light text-gray-900">{dashboardMetrics.totalTasks}</div>
           </div>
-          <div className="space-y-1">
+          <div className="space-y-2">
             <p className="text-xs font-light text-gray-600 uppercase tracking-wider">Total Allocated</p>
-            <div className="text-3xl font-light text-gray-900">{dashboardMetrics.totalAllocated}h</div>
+            <div className="text-4xl font-light text-gray-900">{dashboardMetrics.totalAllocated}h</div>
           </div>
         </div>
         <p className="text-xs text-gray-500 mt-4 font-light">
@@ -755,9 +758,140 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
         </p>
       </div>
 
+      {/* Capacity Overview - Full Width */}
+      <div className="bg-white rounded-2xl shadow-sm p-10 border border-gray-100">
+        <div className="mb-8">
+          <h2 className="text-xl font-light text-gray-900">Capacity Overview</h2>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="border border-gray-200 rounded-lg p-4">
+            <p className="text-sm text-gray-600 mb-2">Total Allocated</p>
+            <div className="text-3xl font-bold text-gray-900">{dashboardMetrics.totalAllocated}h</div>
+            <p className="text-xs text-gray-500 mt-2">Out of {(dashboardMetrics.teamMembers * 40).toLocaleString()}h weekly capacity</p>
+          </div>
+
+          <div className="border border-gray-200 rounded-lg p-4">
+            <p className="text-sm text-gray-600 mb-2">Available</p>
+            <div className="text-3xl font-bold text-emerald-600">{dashboardMetrics.availableCapacity}h</div>
+            <p className="text-xs text-gray-500 mt-2">{dashboardMetrics.availableCapacity > 0 ? 'Ready for new work' : 'At full capacity'}</p>
+          </div>
+
+          <div className="border border-gray-200 rounded-lg p-4">
+            <p className="text-sm text-gray-600 mb-2">Team Members</p>
+            <div className="text-3xl font-bold text-blue-600">{dashboardMetrics.teamMembers}</div>
+            <p className="text-xs text-gray-500 mt-2">Active in projects</p>
+          </div>
+        </div>
+
+        {/* Capacity Bar */}
+        <div className="mt-6 pt-6 border-t border-gray-200">
+          <p className="text-sm font-semibold text-gray-700 mb-3">Weekly Capacity Utilization</p>
+          <div className="w-full bg-gray-200 rounded-full h-3">
+            <div
+              className="bg-gradient-to-r from-emerald-500 to-blue-500 h-3 rounded-full transition-all duration-300"
+              style={{ width: `${dashboardMetrics.teamUtilization}%` }}
+            ></div>
+          </div>
+          <div className="flex justify-between mt-2">
+            <span className="text-xs text-gray-500">0%</span>
+            <span className="text-xs font-semibold text-gray-900">{dashboardMetrics.teamUtilization}% Utilized</span>
+            <span className="text-xs text-gray-500">100%</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 8-Week Capacity Graph */}
+      <div className="bg-white rounded-2xl shadow-sm p-10 border border-gray-100">
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-xl font-light text-gray-900">8-Week Capacity Progress</h2>
+          <div className="flex gap-4">
+            <div>
+              <label className="text-xs font-light text-gray-600 block mb-2">Month</label>
+              <select
+                value={fromDate.month}
+                onChange={(e) => setFromDate({ ...fromDate, month: e.target.value })}
+                className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-light focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              >
+                {['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'].map(m => (
+                  <option key={m} value={m}>{new Date(2024, parseInt(m) - 1).toLocaleString('default', { month: 'long' })}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-light text-gray-600 block mb-2">Year</label>
+              <select
+                value={fromDate.year}
+                onChange={(e) => setFromDate({ ...fromDate, year: e.target.value })}
+                className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-light focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              >
+                {[2024, 2025, 2026, 2027].map(y => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Chart */}
+        <div className="w-full h-80">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={generateCapacityData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis 
+                dataKey="week" 
+                stroke="#6b7280"
+                tick={{ fontSize: 12, fill: '#6b7280' }}
+              />
+              <YAxis 
+                stroke="#6b7280"
+                tick={{ fontSize: 12, fill: '#6b7280' }}
+              />
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: '#fff', 
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px'
+                }}
+                formatter={(value: any) => `${value}h`}
+              />
+              <Bar 
+                dataKey="worked" 
+                fill="#3b82f6" 
+                name="Hours Worked"
+                radius={[8, 8, 0, 0]}
+              />
+              <Bar 
+                dataKey="notWorked" 
+                fill="#9ca3af" 
+                name="Hours Not Worked"
+                radius={[8, 8, 0, 0]}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="mt-6 grid grid-cols-2 gap-6">
+          <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg">
+            <div className="w-4 h-4 bg-blue-500 rounded"></div>
+            <div>
+              <p className="text-xs text-blue-700 font-medium">Hours Worked (Completed)</p>
+              <p className="text-sm text-blue-600 font-light">All employees - Issues marked as done or completed</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
+            <div className="w-4 h-4 bg-gray-400 rounded"></div>
+            <div>
+              <p className="text-xs text-gray-700 font-medium">Hours Not Worked (Pending)</p>
+              <p className="text-sm text-gray-600 font-light">All employees - Issues still in progress or not started</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Employee Timeline View */}
-      <div className="animate-in fade-in slide-in-from-bottom duration-500 delay-600 transition-all">
-        <h2 className="text-lg font-light text-gray-900 mb-4">Employee Timeline</h2>
+      <div className="">
+        <h2 className="text-xl font-light text-gray-900 mb-8">Employee Timeline</h2>
         {(() => {
           const state = {
             loading: jiraLoading,
@@ -782,73 +916,6 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
           return <ManagerGantt autoFetch={false} jiraIssues={jiraIssues} />
         })()}
       </div>
-
-      {/* Upcoming Deadlines */}
-      {(() => {
-        if (!jiraIssues || jiraIssues.length === 0) return null;
-        
-        const today = new Date();
-        const projectsList = jiraIssues
-          .filter((issue: any) => issue.due || issue.duedate)
-          .slice(0, 5)
-          .map((issue: any) => {
-            const dueDate = issue.due || issue.duedate;
-            const due = new Date(dueDate);
-            const daysRemaining = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-            const isAtRisk = daysRemaining <= 7 && daysRemaining > 0;
-            const storyPoints = issue.story_points || issue.storypoints || issue.customfield_10016 || 0;
-            
-            return {
-              key: issue.key,
-              projectName: `${issue.key} (${storyPoints})`,
-              dueDate: due.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-              daysRemaining,
-              isAtRisk
-            };
-          });
-
-        if (projectsList.length === 0) return null;
-
-        return (
-          <div className="animate-in fade-in slide-in-from-bottom duration-500 delay-700 transition-all mt-12">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-lg font-light text-gray-900">Projects</h2>
-                <p className="text-sm text-gray-500 mt-1 font-light">Active Jira projects and tasks</p>
-              </div>
-              <button className="text-sm text-gray-600 hover:text-gray-900 font-light">View All →</button>
-            </div>
-            
-            <div className="space-y-3">
-              {projectsList.map((project: any, index: number) => (
-                <div
-                  key={index}
-                  className={`bg-white rounded-xl border p-4 flex items-center justify-between hover:shadow-md transition-all ${
-                    project.isAtRisk ? 'border-red-200' : 'border-gray-200'
-                  }`}
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="font-light text-gray-900 text-sm truncate">{project.projectName}</div>
-                  </div>
-                  
-                  <div className="flex items-center gap-8 flex-shrink-0 ml-4">
-                    <div className="text-right">
-                      <div className="text-sm font-light text-gray-900">{project.dueDate}</div>
-                    </div>
-                    {project.daysRemaining > 0 && (
-                      <div className="text-right">
-                        <div className={`text-sm font-light ${
-                          project.isAtRisk ? 'text-red-700' : 'text-gray-900'
-                        }`}>{project.daysRemaining}</div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      })()}
       </div>
     </div>
   );
