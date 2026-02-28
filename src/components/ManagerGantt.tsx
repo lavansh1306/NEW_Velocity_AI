@@ -69,8 +69,7 @@ interface ManagerGanttProps {
 
 export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = true, jiraIssues: externalJiraIssues }: ManagerGanttProps) {
   const { addToast } = useToast()
-  const [viewType, setViewType] = useState<ViewType>('day')
-  const [zoom, setZoom] = useState(1.6)
+  const [zoom] = useState(2)
   const [selectedTask, setSelectedTask] = useState<TaskWithDates | null>(null)
   const [tasks, setTasks] = useState<Issue[]>(externalTasks)
   const [loading, setLoading] = useState(false)
@@ -586,39 +585,71 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
             </div>
           </div>
 
-          {/* Employee rows with tasks */}
-          {assigneeRows.map((assignee) => (
-            <div key={assignee.assignee} className="flex border-b last:border-b-0">
-              {/* Employee name column */}
-              <div className="w-56 p-3 font-medium bg-white border-r flex-shrink-0 text-sm">{assignee.assignee}</div>
-
-              {/* Timeline area */}
-              <div
-                className="relative flex-shrink-0"
-                style={{ width: `${totalUnits * cellWidth}px`, height: '50px' }}
-              >
-                {/* Grid columns */}
-                <div className="absolute inset-0 flex">
-                  {Array.from({ length: totalUnits }).map((_, idx) => {
-                    let isWeekend = false
-
-                    if (viewType === 'day') {
+          {/* Scrollable timeline area */}
+          <div className="flex-1 overflow-x-auto">
+            <div className="min-w-max" ref={containerRef}>
+              {/* Date Header Row */}
+              <div className="flex border-b border-[#E7E5E4] h-[50px] bg-[#F5F5F4]">
+                <div
+                  className="relative flex-shrink-0"
+                  style={{ width: `${totalUnits * cellWidth}px`, height: '50px' }}
+                >
+                  <div className="absolute inset-0 flex flex-nowrap">
+                    {Array.from({ length: totalUnits }).map((_, idx) => {
                       const cellDate = new Date(minDate.getTime() + idx * 24 * 60 * 60 * 1000)
                       const dayOfWeek = cellDate.getDay()
-                      isWeekend = dayOfWeek === 0 || dayOfWeek === 6
-                    }
-                    // In week and month view, don't highlight weekends on the grid
-                    // since each cell represents a longer period
+                      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
+                      
+                      // Format date in USA format: MM/DD/YYYY
+                      const month = String(cellDate.getMonth() + 1).padStart(2, '0')
+                      const day = String(cellDate.getDate()).padStart(2, '0')
+                      const year = cellDate.getFullYear()
+                      const formattedDate = `${month}/${day}/${year}`
+                      
+                      // Format short day name
+                      const dayName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dayOfWeek]
 
-                    return (
-                      <div
-                        key={idx}
-                        className={`border-r border-gray-200 h-full ${isWeekend ? 'bg-gray-100' : ''}`}
-                        style={{ width: `${cellWidth}px` }}
-                      />
-                    )
-                  })}
+                      return (
+                        <div
+                          key={idx}
+                          className={`border-r border-[#E7E5E4] h-full flex flex-col items-center justify-center text-[10px] font-medium flex-shrink-0 ${
+                            isWeekend ? 'bg-[#FFFBFA]' : 'bg-white'
+                          }`}
+                          style={{ width: `${cellWidth}px` }}
+                        >
+                          <div className="text-[#78716C]">{dayName}</div>
+                          <div className="text-[#1C1917]">{formattedDate}</div>
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
+              </div>
+
+              {/* Employee rows with tasks */}
+              {assigneeRows.map((assignee, assigneeIdx) => (
+                <div key={assignee.assignee} className="flex border-b border-[#E7E5E4] last:border-b-0 h-[50px]" data-assignee-idx={assigneeIdx}>
+                  {/* Timeline area */}
+                  <div
+                    className="relative flex-shrink-0"
+                    style={{ width: `${totalUnits * cellWidth}px`, height: '50px' }}
+                  >
+                    {/* Grid columns */}
+                    <div className="absolute inset-0 flex flex-nowrap">
+                      {Array.from({ length: totalUnits }).map((_, idx) => {
+                        const cellDate = new Date(minDate.getTime() + idx * 24 * 60 * 60 * 1000)
+                        const dayOfWeek = cellDate.getDay()
+                        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
+
+                        return (
+                          <div
+                            key={idx}
+                            className={`border-r border-[#E7E5E4] h-full flex-shrink-0 ${isWeekend ? 'bg-[#F5F5F4]' : ''}`}
+                            style={{ width: `${cellWidth}px` }}
+                          />
+                        )
+                      })}
+                    </div>
 
                 {/* Task bars */}
                 {assignee.tasks.map((task, tIdx) => {

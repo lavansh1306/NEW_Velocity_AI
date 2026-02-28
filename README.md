@@ -64,6 +64,7 @@
 
 ## 📖 What is Velocity AI?
 
+<<<<<<< HEAD
 **Velocity AI** is an enterprise SaaS platform that transforms Jira project data into actionable insights using AI and machine learning. It helps teams optimize resource allocation, predict project outcomes, and prevent burnout through real-time analytics and intelligent recommendations.
 
 ### Problems We Solve
@@ -74,6 +75,10 @@
 - **🔮 Predictive Analytics**: ML-powered hotspot detection identifies at-risk projects
 - **💰 ROI Measurement**: Quantify productivity improvements in monetary terms
 - **🔥 Burnout Prevention**: Monitor workload distribution and team capacity
+=======
+Velocity AI is a project management intelligence platform that connects to Jira via OAuth 2.0 and surfaces AI-driven analytics for engineering teams. It tracks project health, analyzes team capacity, matches employees to tasks based on skill profiles, automates leave approval decisions, and provides ROI reporting — all from a single dashboa
+The platform runs as a React SPA backed by an Express server. An external Python ML engine handles bottleneck detection, availability scoring, and capacity forecasting. Google Gemini AI powers contextual skill-to-task matching.
+>>>>>>> 35ec46b374365ab65714da3736e9b1a332f9dbb9
 
 ---
 
