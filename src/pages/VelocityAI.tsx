@@ -45,6 +45,10 @@ import { setCurrentOrgId } from '../lib/orgContext';
 import { parseCSV } from '../components/ml-model/RecommendationEngine';
 import { Task, EmployeeProfile } from '../components/leave-management/types';
 
+// NEW: Import Jira data service
+import { syncJiraDataWithDB, syncAfterJiraOAuth, getJiraDataState } from '../lib/jiraDataService';
+import { JiraSyncLoading } from '../components/dashboard/JiraSyncLoading';
+
 // Fetch Jira connection status using API
 async function fetchJiraStatus() {
   try {
@@ -866,6 +870,10 @@ export default function VelocityAI() {
   const [jiraData, setJiraData] = useState<any>(null);
   const [jiraAuthStatus, setJiraAuthStatus] = useState<boolean>(false);
   const [authCheckDone, setAuthCheckDone] = useState(false);
+  
+  // NEW: Jira sync loading state
+  const [jiraSyncLoading, setJiraSyncLoading] = useState(false);
+  const [jiraSyncProgress, setJiraSyncProgress] = useState(0);
 
   // Check for tab query parameter on mount
   useEffect(() => {
@@ -875,6 +883,55 @@ export default function VelocityAI() {
       setActiveTab(tabParam);
     }
   }, [location.search]);
+
+  // NEW: Detect when user returns from Jira OAuth and sync data
+  useEffect(() => {
+    const jiraLoginInitiated = sessionStorage.getItem('jiraLoginInitiated');
+    if (jiraLoginInitiated === 'true') {
+      console.log('[VelocityAI] User returned from Jira OAuth, syncing data...');
+      sessionStorage.removeItem('jiraLoginInitiated');
+      
+      setJiraSyncLoading(true);
+      setJiraSyncProgress(20);
+
+      // Wait a moment for server-side sync to complete
+      setTimeout(async () => {
+        try {
+          setJiraSyncProgress(40);
+          
+          // Check auth status first
+          const response = await fetch(apiUrl('/api/jira/auth/status'), {
+            credentials: 'include',
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data?.orgId) {
+              setCurrentOrgId(data.orgId);
+              setJiraSyncProgress(60);
+              
+              // Now sync the data
+              await syncAfterJiraOAuth(data.orgId);
+              setJiraSyncProgress(90);
+              
+              // Small delay then hide
+              setTimeout(() => {
+                setJiraSyncProgress(100);
+                setTimeout(() => {
+                  setJiraSyncLoading(false);
+                  // Refresh the page to show all the data
+                  window.location.reload();
+                }, 500);
+              }, 500);
+            }
+          }
+        } catch (err) {
+          console.error('[VelocityAI] Error syncing after Jira OAuth:', err);
+          setJiraSyncLoading(false);
+        }
+      }, 1000);
+    }
+  }, []);
 
   // Check Jira authentication status on mount
   useEffect(() => {
@@ -897,6 +954,11 @@ export default function VelocityAI() {
             responseData: data 
           });
           setJiraAuthStatus(isConnected);
+          
+          // Store orgId for data fetching
+          if (data?.orgId) {
+            setCurrentOrgId(data.orgId);
+          }
         } else {
           console.warn('[VelocityAI] Jira status endpoint returned non-OK status:', response.status);
           setJiraAuthStatus(false);
@@ -953,7 +1015,15 @@ export default function VelocityAI() {
 
   // Show loading indicator but don't completely block rendering
   return (
-    <VelocityAISidebar>
+    <>
+      {/* Jira sync loading overlay */}
+      <JiraSyncLoading 
+        isVisible={jiraSyncLoading} 
+        message="Syncing your Jira data"
+        progress={jiraSyncProgress}
+      />
+      
+      <VelocityAISidebar>
             <style>{`
               .capacity-bar {
                 height: 24px;
@@ -999,6 +1069,7 @@ export default function VelocityAI() {
               {activeTab === 'leave' && <LeaveManagementTab />}
               {activeTab === 'progress' && <SmartProgressTracker />}
             </div>
-    </VelocityAISidebar>
+      </VelocityAISidebar>
+    </>
   );
 }

@@ -220,6 +220,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Jira OAuth flow - redirects to backend which handles Atlassian OAuth
     // Pass supabaseUserId so the backend can create/link the org
     console.log('[OAuth] Signing in with Jira');
+    
+    // Store flag indicating user initiated Jira login
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('jiraLoginInitiated', 'true');
+      sessionStorage.setItem('jiraLoginStartTime', Date.now().toString());
+    }
+    
     const userId = user?.id;
     const qs = userId ? `?supabaseUserId=${encodeURIComponent(userId)}` : '';
     window.location.href = `${window.location.origin}/api/jira/auth/connect${qs}`;

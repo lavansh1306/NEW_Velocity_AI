@@ -16,22 +16,27 @@ import { EmployeeLeavePortal } from './EmployeeLeavePortal';
 import { CapacityAnalysis } from './CapacityAnalysis';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
 
+// NEW: Import the normalized data fetching hook
+import { useLeaveManagementData } from '@/hooks/useLeaveManagementData';
+
 export default function LeaveManagementTab() {
-  const { user, loading: authLoading } = useAuth();
-  const [activePersona, setActivePersona] = useState<'manager' | 'employee'>('manager');
   const { toast } = useToast();
+  const [activePersona, setActivePersona] = useState<'manager' | 'employee'>('manager');
   
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
-  const [currentUser, setCurrentUser] = useState<string>("Loading..."); 
-  const [currentOrgId, setCurrentOrgId] = useState<string | null>(null);
-  
-  const [isLoadingData, setIsLoadingData] = useState(true);
-  const [dataSource, setDataSource] = useState<'JIRA' | 'CSV'>('CSV');
+  // NEW: Use the centralized data fetching hook instead of managing state directly
+  const {
+    tasks,
+    employees,
+    leaves,
+    currentUser,
+    currentOrgId,
+    isLoading: isLoadingData,
+    dataSource,
+    refreshLeaves,
+    addLeaveRequest,
+  } = useLeaveManagementData();
 
-  const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
-  const [leaveUpdateCount, setLeaveUpdateCount] = useState(0);
-
+  // UI state - separate from data fetching
   const [scenarioOpen, setScenarioOpen] = useState(false);
   const [applyOpen, setApplyOpen] = useState(false);
   const [redeployOpen, setRedeployOpen] = useState(false);
@@ -45,157 +50,6 @@ export default function LeaveManagementTab() {
   const [overviewStartDate, setOverviewStartDate] = useState(new Date());
 
   // ------------------------------------------------------------------
-  // 1. SUPABASE INTEGRATION: DIRECT FETCH WITH ROBUST ERROR HANDLING
-  // ------------------------------------------------------------------
-  const fetchSupabaseLeaves = async (orgId: string) => {
-    try {
-      console.log('[LeaveManagement] Fetching leaves for org:', orgId);
-      
-      const { data, error } = await supabase
-        .from('leave_requests')
-        .select('id, user_id, name, start_date, end_date, reason, status, created_at')
-        .eq('org_id', orgId)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('[LeaveManagement] Supabase fetch error:', error);
-        throw error;
-      }
-
-      if (data) {
-        const formattedLeaves: LeaveRequest[] = data.map((l: any) => {
-          const normalizeStatus = (status: string) => {
-            if (!status) return 'Pending';
-            return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
-          };
-
-          return {
-            id: l.id,
-            org_id: orgId,
-            user_id: l.user_id,
-            name: l.name || 'Unknown Employee', 
-            startDate: l.start_date,
-            endDate: l.end_date,
-            reason: l.reason || '',
-            status: normalizeStatus(l.status),
-            history: [] // Added for activity tracking
-          };
-        });
-        
-        setLeaves(formattedLeaves);
-      }
-    } catch (err: any) {
-      if (!err.message?.includes('AbortError')) {
-        console.error("[Supabase] Error fetching leaves:", err);
-      }
-    }
-  };
-
-  useEffect(() => {
-    let isMounted = true; 
-    const fetchAllData = async () => {
-      setIsLoadingData(true);
-      
-      if (authLoading) return;
-      
-      try {
-        let orgId = null;
-        let currentUserEmail = user?.email;
-
-        if (!currentUserEmail) {
-          const { data: { user: authUser } } = await supabase.auth.getUser();
-          currentUserEmail = authUser?.email;
-        }
-
-        if (currentUserEmail) {
-          const { data: userData, error: userError } = await supabase
-            .from('users')
-            .select('organization_id, name')
-            .eq('email', currentUserEmail)
-            .single();
-
-          if (userData?.organization_id) {
-            orgId = userData.organization_id;
-            if (isMounted) setCurrentUser(userData.name || currentUserEmail);
-          } else {
-            console.warn("[LeaveManagement] User not found in public.users. Falling back to default org.");
-            orgId = '3fa59970-ddfa-4ab4-ad00-008c36d32113'; 
-            if (isMounted) setCurrentUser(currentUserEmail);
-          }
-        } else if (process.env.NODE_ENV === 'development') {
-           orgId = '3fa59970-ddfa-4ab4-ad00-008c36d32113';
-           if (isMounted) setCurrentUser('VelocityAI Dev User');
-        }
-
-        if (!orgId) throw new Error("Unable to determine organization.");
-        
-        if (isMounted) setCurrentOrgId(orgId);
-
-        const { data: issuesData, error: issuesError } = await supabase
-          .from('jira_issues')
-          .select('*')
-          .eq('org_id', orgId);
-
-        const [issuesRes] = await Promise.all([
-          Promise.resolve({ data: issuesData, error: issuesError }),
-          fetchSupabaseLeaves(orgId)
-        ]);
-
-        if (issuesRes.data) {
-          const uniqueEmployees = new Map<string, EmployeeProfile>();
-          const loadedTasks = issuesRes.data.map((issue: any, index: number) => {
-            const assignee = issue.assignee || 'Unassigned';
-            const cleanCreated = issue.created_date?.split('T')[0] || new Date().toISOString().split('T')[0];
-            const cleanDue = issue.due_date?.split('T')[0] || cleanCreated;
-
-            if (assignee !== 'Unassigned' && !uniqueEmployees.has(assignee)) {
-              uniqueEmployees.set(assignee, {
-                name: assignee,
-                role: issue.issue_type || 'Developer',
-                skills: [issue.issue_type || 'Development'],
-              });
-            }
-
-            return {
-              id: issue.id || index,
-              projectName: issue.project_name || issue.project_key || 'Unassigned',
-              taskName: `${issue.issue_key}: ${issue.summary}`,
-              assignee: assignee,
-              hours: issue.original_estimate_seconds ? (issue.original_estimate_seconds / 3600) : 8,
-              day: 0,
-              requiredSkills: [issue.issue_type || 'Task'],
-              isReallocated: false,
-              isCancelled: ['closed', 'done', 'resolved'].includes(issue.status?.toLowerCase()),
-              totalLogged: issue.time_spent_seconds ? (issue.time_spent_seconds / 3600) : 0,
-              logs: [],
-              created_date: cleanCreated,
-              due_date: cleanDue
-            };
-          });
-
-          if (isMounted) {
-            setTasks(loadedTasks);
-            setEmployees(Array.from(uniqueEmployees.values()));
-            setDataSource('JIRA');
-          }
-        } else {
-          if (isMounted) {
-            setTasks([]);
-            setEmployees([]);
-            setDataSource('CSV');
-          }
-        }
-      } catch (error) {
-        console.error("[LeaveManagement] Load Error:", error);
-      } finally {
-        if (isMounted) setIsLoadingData(false);
-      }
-    };
-    fetchAllData();
-    return () => { isMounted = false; };
-  }, [user, authLoading, leaveUpdateCount]);
-
-  // ------------------------------------------------------------------
   // HARDENED SUBMISSION & MANAGER ACTIONS
   // ------------------------------------------------------------------
   const handleApplyLeave = async (request: Omit<LeaveRequest, 'id' | 'status'>) => {
@@ -207,45 +61,8 @@ export default function LeaveManagementTab() {
         return;
       }
 
-      const startDate = new Date(request.startDate);
-      const endDate = new Date(request.endDate || request.startDate);
-      
-      const formatDateAsString = (d: Date) => {
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-      };
-
-      const normalizedStartDate = formatDateAsString(startDate);
-      const normalizedEndDate = formatDateAsString(endDate);
-
-      const generateUserIdFromName = (name: string): string => {
-        let hash = 0;
-        for (let i = 0; i < name.length; i++) {
-          const char = name.charCodeAt(i);
-          hash = ((hash << 5) - hash) + char;
-          hash = hash & hash;
-        }
-        const hashStr = Math.abs(hash).toString(16).padStart(8, '0');
-        return `00000000-0000-4000-a000-${hashStr}00000000`.substring(0, 36);
-      };
-
-      const payload = {
-        org_id: currentOrgId,
-        user_id: generateUserIdFromName(employeeName),
-        name: employeeName,
-        start_date: normalizedStartDate,
-        end_date: normalizedEndDate,
-        reason: request.reason || 'Not specified',
-        status: 'pending'
-      };
-
-      const { error: insertError } = await supabase.from('leave_requests').insert([payload]);
-      if (insertError) throw new Error(insertError.message);
-
+      await addLeaveRequest(request);
       toast({ title: "✅ Success", description: `Leave request submitted.` });
-      await fetchSupabaseLeaves(currentOrgId);
     } catch (err: any) {
       toast({ title: "❌ Submission Failed", description: err.message, variant: "destructive" });
     }
@@ -256,19 +73,15 @@ export default function LeaveManagementTab() {
       const actor = currentUser || 'Manager';
       const entry = { ts: new Date().toISOString(), actor, action: 'Approved', details: 'Manual Approval' };
 
-      setLeaves(prev => prev.map(l => 
-        l.id === leave.id ? { ...l, status: 'Approved', history: [...(l.history||[]), entry] } : l
-      ));
-      
       const { error } = await supabase
         .from('leave_requests')
         .update({ status: 'approved' })
         .eq('id', leave.id);
       
       if (error) throw error;
+      await refreshLeaves();
       toast({ title: "✅ Approved", description: "Leave status updated." });
     } catch (err: any) {
-      if (currentOrgId) fetchSupabaseLeaves(currentOrgId);
       toast({ title: "❌ Approval Failed", description: err.message, variant: "destructive" });
     }
   };
@@ -278,19 +91,15 @@ export default function LeaveManagementTab() {
       const actor = currentUser || 'Manager';
       const entry = { ts: new Date().toISOString(), actor, action: 'Rejected', details: 'Request Denied' };
 
-      setLeaves(prev => prev.map(l => 
-        l.id === leave.id ? { ...l, status: 'Rejected', history: [...(l.history||[]), entry] } : l
-      ));
-      
       const { error } = await supabase
         .from('leave_requests')
         .update({ status: 'rejected' })
         .eq('id', leave.id);
       
       if (error) throw error;
+      await refreshLeaves();
       toast({ title: "❌ Rejected", description: "Leave request denied." });
     } catch (err: any) {
-      if (currentOrgId) fetchSupabaseLeaves(currentOrgId);
       toast({ title: "❌ Rejection Failed", description: err.message, variant: "destructive" });
     }
   };

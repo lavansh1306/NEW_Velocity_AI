@@ -642,19 +642,26 @@ async function callback(req: Request, res: Response): Promise<any> {
 
         // Deduplicate issues on reconnect (fire-and-forget to not block redirect)
         console.log('[Jira OAuth Callback] Starting deduplication for org:', orgId, 'cloud:', cloudId);
-        db.deduplicateIssuesForOrgCloud(orgId, cloudId).then((deletedCount: number) => {
-          if (deletedCount > 0) {
-            console.log('[Jira OAuth Callback] ✓ Deduplication complete, removed', deletedCount, 'duplicate(s)');
+        void (async () => {
+          try {
+            const deletedCount = await db.deduplicateIssuesForOrgCloud(orgId, cloudId);
+            if (deletedCount > 0) {
+              console.log('[Jira OAuth Callback] ✓ Deduplication complete, removed', deletedCount, 'duplicate(s)');
+            }
+          } catch (err) {
+            console.warn('[Jira OAuth Callback] Deduplication failed (non-blocking):', err instanceof Error ? err.message : String(err));
           }
-        }).catch((err: any) => {
-          console.warn('[Jira OAuth Callback] Deduplication failed (non-blocking):', err instanceof Error ? err.message : String(err));
-        });
+        })();
 
         // Also deduplicate for all accessible resources
         for (let i = 1; i < resources.length; i++) {
-          db.deduplicateIssuesForOrgCloud(orgId, resources[i].id).catch((err: any) => {
-            console.warn('[Jira OAuth Callback] Deduplication failed for resource', resources[i].id, ':', err instanceof Error ? err.message : String(err));
-          });
+          void (async () => {
+            try {
+              await db.deduplicateIssuesForOrgCloud(orgId, resources[i].id);
+            } catch (err) {
+              console.warn('[Jira OAuth Callback] Deduplication failed for resource', resources[i].id, ':', err instanceof Error ? err.message : String(err));
+            }
+          })();
         }
       } else {
         console.error('[Jira OAuth Callback] ✗ FAILED to create/find org - no DB storage will happen!');

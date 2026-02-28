@@ -267,76 +267,75 @@ export const PeopleCapacityScreen = () => {
         </div>
         
         {/* Team Table */}
-        <div className="bg-white/70 backdrop-blur-[32px] border-[0.5px] border-white/20 rounded-2xl p-8 shadow-sm">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b-[0.5px] border-white/20">
-                <th className="text-left py-4 px-4 text-xs font-light text-[#78716C] uppercase tracking-wider">Name</th>
-                <th className="text-left py-4 px-4 text-xs font-light text-[#78716C] uppercase tracking-wider">Role</th>
-                <th className="text-left py-4 px-4 text-xs font-light text-[#78716C] uppercase tracking-wider">Skills</th>
-                <th className="text-left py-4 px-4 text-xs font-light text-[#78716C] uppercase tracking-wider">Utilization</th>
-                <th className="text-center py-4 px-4 text-xs font-light text-[#78716C] uppercase tracking-wider">Projects</th>
-                <th className="text-center py-4 px-4 text-xs font-light text-[#78716C] uppercase tracking-wider">Status</th>
-                <th className="text-right py-4 px-4 text-xs font-light text-[#78716C] uppercase tracking-wider">Next 2 Weeks</th>
-              </tr>
-            </thead>
-            <tbody>
-              {teamMembers.map((member, idx) => (
-                <tr 
-                  key={idx} 
-                  className="border-b border-white/10 hover:bg-[#FAFAF9]/40 cursor-pointer transition-all duration-300"
-                  onClick={() => setSelectedPerson(member)}
-                >
-                  <td className="py-5 px-4">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="w-10 h-10 border border-white/20 shadow-sm">
-                        <AvatarFallback className="bg-[#F5F5F4] text-[#1C1917] text-sm font-light">{member.avatar}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <div className="text-sm text-[#292524] font-light">{member.name}</div>
+        <div className="bg-white/70 backdrop-blur-xl border border-white/20 rounded-2xl shadow-sm overflow-hidden">
+          <div className="divide-y divide-gray-100">
+            {teamMembers.map((member, idx) => (
+              <div 
+                key={idx} 
+                className="p-6 hover:bg-white/60 transition-all duration-300 cursor-pointer"
+                onClick={() => setSelectedPerson(member)}
+              >
+                <div className="flex items-center justify-between gap-6">
+                  <div className="flex items-center gap-4 w-64">
+                    <Avatar className="w-10 h-10 border border-white/20 shadow-sm">
+                      <AvatarFallback className="bg-[#F5F5F4] text-[#1C1917] text-sm font-light">{member.avatar}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <div className="text-sm text-[#1C1917] font-light mb-0.5">{member.name}</div>
+                      <div className="text-xs text-[#78716C] font-light">{member.role}</div>
+                    </div>
+                  </div>
+
+                  <div className="flex-1 grid grid-cols-3 gap-4">
+                    <div>
+                      <div className="text-xs text-[#A3A3A3] font-light mb-2">Skills</div>
+                      <div className="flex gap-1 flex-wrap">
+                        {member.skills.slice(0, 2).map((skill, i) => (
+                          <span key={i} className="px-2 py-1 bg-[#F5F5F4] border border-white/20 text-[#292524] text-xs rounded-full font-light">
+                            {skill}
+                          </span>
+                        ))}
+                        {member.skills.length > 2 && (
+                          <span className="px-2 py-1 bg-[#F5F5F4] border border-white/20 text-[#78716C] text-xs rounded-full font-light">
+                            +{member.skills.length - 2}
+                          </span>
+                        )}
                       </div>
                     </div>
-                  </td>
-                  <td className="py-5 px-4 text-sm text-[#78716C] font-light">{member.role}</td>
-                  <td className="py-5 px-4">
-                    <div className="flex gap-1.5 flex-wrap">
-                      {member.skills.slice(0, 2).map((skill, i) => (
-                        <span key={i} className="px-2.5 py-1 bg-white/60 border border-white/20 text-[#292524] text-xs rounded-full font-light shadow-sm">
-                          {skill}
+
+                    <div>
+                      <div className="text-xs text-[#A3A3A3] font-light mb-2">Utilization</div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-20">
+                          <UtilizationBar value={member.utilization} />
+                        </div>
+                        <span className={`text-sm font-light ${member.utilization > 110 ? 'text-[#E27052]' : 'text-[#292524]'}`}>
+                          {member.utilization}%
                         </span>
-                      ))}
-                      {member.skills.length > 2 && (
-                        <span className="px-2.5 py-1 bg-white/60 border border-white/20 text-[#78716C] text-xs rounded-full font-light shadow-sm">
-                          +{member.skills.length - 2}
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="py-5 px-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-24">
-                        <UtilizationBar value={member.utilization} />
                       </div>
-                      <span className={`text-sm font-light ${member.utilization > 110 ? 'text-rose-600' : 'text-[#292524]'}`}>
-                        {member.utilization}%
-                      </span>
                     </div>
-                  </td>
-                  <td className="py-5 px-4 text-center text-sm text-[#292524] font-light">{member.projects}</td>
-                  <td className="py-5 px-4 text-center">
-                    <div className="flex justify-center">
-                      <div className={`w-2 h-2 rounded-full ${
-                        member.status === 'overloaded' ? 'bg-rose-400' :
-                        member.status === 'healthy' ? 'bg-emerald-400' :
-                        'bg-[#D6D3D1]'
-                      }`} />
+
+                    <div>
+                      <div className="text-xs text-[#A3A3A3] font-light mb-2">Status</div>
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${
+                          member.status === 'overloaded' ? 'bg-[#E27052]' :
+                          member.status === 'healthy' ? 'bg-[#88A67E]' :
+                          'bg-[#D6D3D1]'
+                        }`} />
+                        <span className="text-sm text-[#292524] font-light capitalize">{member.status}</span>
+                      </div>
                     </div>
-                  </td>
-                  <td className="py-5 px-4 text-right text-sm text-[#292524] font-light">{member.availability}h</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </div>
+
+                  <div className="text-right w-32">
+                    <div className="text-xs text-[#A3A3A3] font-light mb-2">Available</div>
+                    <div className="text-sm text-[#292524] font-light">{member.availability}h</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
       

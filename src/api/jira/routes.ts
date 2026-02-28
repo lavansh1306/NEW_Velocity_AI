@@ -79,7 +79,7 @@ router.get('/auth/status', async (req: Request, res: Response) => {
 });
 
 // Switch to a different Jira site
-router.post('/auth/switch-site/:siteId', (req: Request, res: Response) => {
+router.post('/auth/switch-site/:siteId', async (req: Request, res: Response) => {
   const { siteId } = req.params;
   const availableSites = req.session?.jiraAccessibleResources || [];
   const targetSite = availableSites.find((s: any) => s.id === siteId);
@@ -97,17 +97,25 @@ router.post('/auth/switch-site/:siteId', (req: Request, res: Response) => {
   req.session.jiraCloudId = targetSite.id;
   console.log('[Jira Router] Updated jiraCloudId to:', req.session.jiraCloudId);
   
-  req.session.save((err) => {
-    if (err) {
-      console.error('[Jira Router] Error saving session:', err);
-      return res.status(500).json({ error: 'Failed to save session' });
-    }
-    console.log('[Jira Router] Session saved successfully');
+  try {
+    await new Promise<void>((resolve, reject) => {
+      req.session.save((err) => {
+        if (err) {
+          console.error('[Jira Router] Error saving session:', err);
+          reject(err);
+        } else {
+          console.log('[Jira Router] Session saved successfully');
+          resolve();
+        }
+      });
+    });
     res.json({ 
       success: true, 
       site: { id: targetSite.id, name: targetSite.name, url: targetSite.url }
     });
-  });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to save session' });
+  }
 });
 
 // Fetch issues for a specific project (multi-tenant)
@@ -336,9 +344,15 @@ router.get('/issues', async (req: Request, res: Response) => {
       raw_fields: iss.rawFields || {},
       fetched_by: req.session?.jiraUserId || null,
     }));
-    if (orgId) upsertIssues(orgId, cloudId!, projectKey, dbIssues).catch(err =>
-      console.error('[Jira Issues] DB upsert failed (non-blocking):', err)
-    );
+    if (orgId) {
+      void (async () => {
+        try {
+          await upsertIssues(orgId, cloudId!, projectKey, dbIssues);
+        } catch (err) {
+          console.error('[Jira Issues] DB upsert failed (non-blocking):', err);
+        }
+      })();
+    }
 
     console.log('[Jira Issues] Sending response...');
     res.json({ issues });
@@ -471,9 +485,15 @@ router.get('/projects', async (req: Request, res: Response) => {
       category: '',
       fetched_by: req.session?.jiraUserId || null,
     }));
-    if (orgId) upsertProjects(orgId, cloudId!, dbProjects).catch(err =>
-      console.error('[Jira Projects] DB upsert failed (non-blocking):', err)
-    );
+    if (orgId) {
+      void (async () => {
+        try {
+          await upsertProjects(orgId, cloudId!, dbProjects);
+        } catch (err) {
+          console.error('[Jira Projects] DB upsert failed (non-blocking):', err);
+        }
+      })();
+    }
 
     console.log('[Jira Projects] Sending response...');
     res.json({ projects });
