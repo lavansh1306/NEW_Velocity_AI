@@ -57,14 +57,22 @@ const App = () => (
               <Route path="/velocity-ai" element={<VelocityAI />} />
               <Route path="/progress" element={<PlanMyProject />} />
               <Route path="/settings" element={<SettingsPage />} />
+              
+              {/* --- PROJECT ROUTES (ORDER IS CRITICAL) --- */}
+              
+              {/* 1. Main List */}
               <Route path="/projects" element={<Projects />} />
-              <Route path="/project-analytics/:id" element={<ProjectAnalytics />} />
+              
+              {/* 2. Specific/Static Project Routes (MUST be before :id) */}
+              <Route path="/projects/create" element={<CreateProject />} />
               <Route path="/projects/global-gantt" element={<GlobalGanttDashboard />} />
               <Route path="/projects/jira-dashboard" element={<JiraDashboard />} />
+              
+              {/* 3. Dynamic ID Routes (Catches everything else) */}
               <Route path="/projects/:id" element={<ProjectDetailNew />} />
-              <Route path="/projects" element={<Projects />} />
-              <Route path="/projects/create" element={<CreateProject />} /> 
               <Route path="/project-analytics/:id" element={<ProjectAnalytics />} />
+              
+              {/* Utilities */}
               <Route path="/debug-normalization" element={<DebugNormalization />} />
               <Route path="/audit" element={<AuditPage />} />
               
