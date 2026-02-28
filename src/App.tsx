@@ -52,52 +52,52 @@ const App = () => (
           <ToastContainer />
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <OnboardingProvider>
-            <Routes>
-              {/* Authentication Routes */}
-              <Route path="/login" element={<Login />} />
-              <Route path="/signup" element={<SignUp />} />
-              <Route path="/auth/callback" element={<AuthCallback />} />
-              
-              {/* Onboarding Routes (protected - require auth) */}
-              <Route path="/onboarding/mode" element={<ProtectedRoute><OnboardingModeSelection /></ProtectedRoute>} />
-              <Route path="/onboarding/join" element={<ProtectedRoute><OnboardingJoin /></ProtectedRoute>} />
-              <Route path="/onboarding/welcome" element={<ProtectedRoute><OnboardingWelcome /></ProtectedRoute>} />
-              <Route path="/onboarding/team" element={<ProtectedRoute><OnboardingTeam /></ProtectedRoute>} />
-              <Route path="/onboarding/settings" element={<ProtectedRoute><OnboardingSettings /></ProtectedRoute>} />
-              <Route path="/onboarding/holidays" element={<ProtectedRoute><OnboardingHolidays /></ProtectedRoute>} />
-              <Route path="/onboarding/complete" element={<ProtectedRoute><OnboardingComplete /></ProtectedRoute>} />
-              
-              {/* Invite Routes */}
-              <Route path="/invite/email" element={<InviteEmail />} />
-              <Route path="/invite/accept" element={<SetPassword />} />
-              
-              {/* Public Routes */}
-              <Route path="/" element={<Index />} />
-              <Route path="/demo" element={<Demo />} />
-              <Route path="/roi-calculator" element={<ROICalculator />} />
-              <Route path="/use-cases" element={<UseCases />} />
-              <Route path="/roi-report" element={<ROIReport />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/velocity-ai" element={<VelocityAI />} />
-              <Route path="/progress" element={<PlanMyProject />} />
-              <Route path="/projects" element={<Projects />} />
-              
-              {/* 2. Specific/Static Project Routes (MUST be before :id) */}
-              <Route path="/projects/create" element={<CreateProject />} />
-              <Route path="/projects/global-gantt" element={<GlobalGanttDashboard />} />
-              <Route path="/projects/jira-dashboard" element={<JiraDashboard />} />
-              
-              {/* 3. Dynamic ID Routes (Catches everything else) */}
-              <Route path="/projects/:id" element={<ProjectDetailNew />} />
-              <Route path="/project-analytics/:id" element={<ProjectAnalytics />} />
-              
-              {/* Utilities */}
-              <Route path="/debug-normalization" element={<DebugNormalization />} />
-              <Route path="/audit" element={<AuditPage />} />
-              
-              {/* Catch-all - 404 */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+              <Routes>
+                {/* Authentication Routes */}
+                <Route path="/login" element={<Login />} />
+                <Route path="/signup" element={<SignUp />} />
+                <Route path="/auth/callback" element={<AuthCallback />} />
+
+                {/* Onboarding Routes (protected - require auth) */}
+                <Route path="/onboarding/mode" element={<ProtectedRoute><OnboardingModeSelection /></ProtectedRoute>} />
+                <Route path="/onboarding/join" element={<ProtectedRoute><OnboardingJoin /></ProtectedRoute>} />
+                <Route path="/onboarding/welcome" element={<ProtectedRoute><OnboardingWelcome /></ProtectedRoute>} />
+                <Route path="/onboarding/team" element={<ProtectedRoute><OnboardingTeam /></ProtectedRoute>} />
+                <Route path="/onboarding/settings" element={<ProtectedRoute><OnboardingSettings /></ProtectedRoute>} />
+                <Route path="/onboarding/holidays" element={<ProtectedRoute><OnboardingHolidays /></ProtectedRoute>} />
+                <Route path="/onboarding/complete" element={<ProtectedRoute><OnboardingComplete /></ProtectedRoute>} />
+
+                {/* Invite Routes */}
+                <Route path="/invite/email" element={<InviteEmail />} />
+                <Route path="/invite/accept" element={<SetPassword />} />
+
+                {/* Public Routes */}
+                <Route path="/" element={<Index />} />
+                <Route path="/demo" element={<Demo />} />
+                <Route path="/roi-calculator" element={<ROICalculator />} />
+                <Route path="/use-cases" element={<UseCases />} />
+                <Route path="/roi-report" element={<ROIReport />} />
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/velocity-ai" element={<VelocityAI />} />
+                <Route path="/progress" element={<PlanMyProject />} />
+                <Route path="/projects" element={<Projects />} />
+
+                {/* 2. Specific/Static Project Routes (MUST be before :id) */}
+                <Route path="/projects/create" element={<CreateProject />} />
+                <Route path="/projects/global-gantt" element={<GlobalGanttDashboard />} />
+                <Route path="/projects/jira-dashboard" element={<JiraDashboard />} />
+
+                {/* 3. Dynamic ID Routes (Catches everything else) */}
+                <Route path="/projects/:id" element={<ProjectDetailNew />} />
+                <Route path="/project-analytics/:id" element={<ProjectAnalytics />} />
+
+                {/* Utilities */}
+                <Route path="/debug-normalization" element={<DebugNormalization />} />
+                <Route path="/audit" element={<AuditPage />} />
+
+                {/* Catch-all - 404 */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
             </OnboardingProvider>
           </BrowserRouter>
         </AuthProvider>
