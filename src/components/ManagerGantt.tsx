@@ -66,7 +66,7 @@ interface ManagerGanttProps {
 
 export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = true, jiraIssues: externalJiraIssues }: ManagerGanttProps) {
   const { addToast } = useToast()
-  const zoom = 1 // Fixed zoom level
+  const [zoom] = useState(2)
   const [selectedTask, setSelectedTask] = useState<TaskWithDates | null>(null)
   const [tasks, setTasks] = useState<Issue[]>(externalTasks)
   const [loading, setLoading] = useState(false)
@@ -422,6 +422,44 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
           {/* Scrollable timeline area */}
           <div className="flex-1 overflow-x-auto">
             <div className="min-w-max" ref={containerRef}>
+              {/* Date Header Row */}
+              <div className="flex border-b border-[#E7E5E4] h-[50px] bg-[#F5F5F4]">
+                <div
+                  className="relative flex-shrink-0"
+                  style={{ width: `${totalUnits * cellWidth}px`, height: '50px' }}
+                >
+                  <div className="absolute inset-0 flex flex-nowrap">
+                    {Array.from({ length: totalUnits }).map((_, idx) => {
+                      const cellDate = new Date(minDate.getTime() + idx * 24 * 60 * 60 * 1000)
+                      const dayOfWeek = cellDate.getDay()
+                      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
+                      
+                      // Format date in USA format: MM/DD/YYYY
+                      const month = String(cellDate.getMonth() + 1).padStart(2, '0')
+                      const day = String(cellDate.getDate()).padStart(2, '0')
+                      const year = cellDate.getFullYear()
+                      const formattedDate = `${month}/${day}/${year}`
+                      
+                      // Format short day name
+                      const dayName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dayOfWeek]
+
+                      return (
+                        <div
+                          key={idx}
+                          className={`border-r border-[#E7E5E4] h-full flex flex-col items-center justify-center text-[10px] font-medium flex-shrink-0 ${
+                            isWeekend ? 'bg-[#FFFBFA]' : 'bg-white'
+                          }`}
+                          style={{ width: `${cellWidth}px` }}
+                        >
+                          <div className="text-[#78716C]">{dayName}</div>
+                          <div className="text-[#1C1917]">{formattedDate}</div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+
               {/* Employee rows with tasks */}
               {assigneeRows.map((assignee, assigneeIdx) => (
                 <div key={assignee.assignee} className="flex border-b border-[#E7E5E4] last:border-b-0 h-[50px]" data-assignee-idx={assigneeIdx}>
@@ -431,7 +469,7 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
                     style={{ width: `${totalUnits * cellWidth}px`, height: '50px' }}
                   >
                     {/* Grid columns */}
-                    <div className="absolute inset-0 flex">
+                    <div className="absolute inset-0 flex flex-nowrap">
                       {Array.from({ length: totalUnits }).map((_, idx) => {
                         const cellDate = new Date(minDate.getTime() + idx * 24 * 60 * 60 * 1000)
                         const dayOfWeek = cellDate.getDay()
@@ -440,7 +478,7 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
                         return (
                           <div
                             key={idx}
-                            className={`border-r border-[#E7E5E4] h-full ${isWeekend ? 'bg-[#F5F5F4]' : ''}`}
+                            className={`border-r border-[#E7E5E4] h-full flex-shrink-0 ${isWeekend ? 'bg-[#F5F5F4]' : ''}`}
                             style={{ width: `${cellWidth}px` }}
                           />
                         )

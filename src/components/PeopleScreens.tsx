@@ -141,16 +141,17 @@ const AddTeamMemberModal = ({ open, onOpenChange }: { open: boolean; onOpenChang
 export const PeopleCapacityScreen = () => {
   const [selectedPerson, setSelectedPerson] = useState<any>(null);
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
+  const [showAtRiskTooltip, setShowAtRiskTooltip] = useState(false);
   
   const teamMembers = [
-    { name: 'Sarah Chen', role: 'Frontend Lead', skills: ['React', 'TypeScript', 'CSS'], utilization: 120, projects: 3, status: 'overloaded', availability: 8, avatar: 'SC' },
-    { name: 'Marcus Johnson', role: 'Backend Developer', skills: ['Node.js', 'Python', 'AWS'], utilization: 95, projects: 2, status: 'healthy', availability: 32, avatar: 'MJ' },
-    { name: 'Emily Rodriguez', role: 'UI Designer', skills: ['Figma', 'Design Systems'], utilization: 93, projects: 4, status: 'healthy', availability: 16, avatar: 'ER' },
-    { name: 'David Kim', role: 'Full Stack Developer', skills: ['React', 'Node.js', 'Docker'], utilization: 112, projects: 3, status: 'overloaded', availability: 12, avatar: 'DK' },
-    { name: 'Jessica Liu', role: 'QA Engineer', skills: ['Testing', 'Automation', 'Cypress'], utilization: 78, projects: 2, status: 'healthy', availability: 48, avatar: 'JL' },
-    { name: 'Alex Park', role: 'DevOps Engineer', skills: ['AWS', 'Kubernetes', 'CI/CD'], utilization: 65, projects: 1, status: 'healthy', availability: 56, avatar: 'AP' },
-    { name: 'Rachel Kim', role: 'Product Designer', skills: ['UI/UX', 'Prototyping'], utilization: 88, projects: 3, status: 'healthy', availability: 24, avatar: 'RK' },
-    { name: 'Tom Anderson', role: 'Backend Developer', skills: ['Python', 'PostgreSQL'], utilization: 92, projects: 2, status: 'healthy', availability: 28, avatar: 'TA' },
+    { name: 'Sarah Chen', role: 'Frontend Lead', skills: ['React', 'TypeScript', 'CSS'], utilization: 120, projects: 3, status: 'overloaded', availability: 8, avatar: 'SC', assignedProjects: ['Velocity AI Platform', 'Mobile App MVP', 'Design System'] },
+    { name: 'Marcus Johnson', role: 'Backend Developer', skills: ['Node.js', 'Python', 'AWS'], utilization: 95, projects: 2, status: 'healthy', availability: 32, avatar: 'MJ', assignedProjects: ['Velocity AI Platform', 'API Integration'] },
+    { name: 'Emily Rodriguez', role: 'UI Designer', skills: ['Figma', 'Design Systems'], utilization: 93, projects: 4, status: 'healthy', availability: 16, avatar: 'ER', assignedProjects: ['Design System', 'Mobile App MVP', 'UI Overhaul', 'Brand Refresh'] },
+    { name: 'David Kim', role: 'Full Stack Developer', skills: ['React', 'Node.js', 'Docker'], utilization: 112, projects: 3, status: 'overloaded', availability: 12, avatar: 'DK', assignedProjects: ['Velocity AI Platform', 'Infrastructure Upgrade', 'CI/CD Pipeline'] },
+    { name: 'Jessica Liu', role: 'QA Engineer', skills: ['Testing', 'Automation', 'Cypress'], utilization: 78, projects: 2, status: 'healthy', availability: 48, avatar: 'JL', assignedProjects: ['Mobile App MVP', 'Testing Framework'] },
+    { name: 'Alex Park', role: 'DevOps Engineer', skills: ['AWS', 'Kubernetes', 'CI/CD'], utilization: 65, projects: 1, status: 'healthy', availability: 56, avatar: 'AP', assignedProjects: ['Infrastructure Upgrade'] },
+    { name: 'Rachel Kim', role: 'Product Designer', skills: ['UI/UX', 'Prototyping'], utilization: 88, projects: 3, status: 'healthy', availability: 24, avatar: 'RK', assignedProjects: ['Design System', 'UI Overhaul', 'Brand Refresh'] },
+    { name: 'Tom Anderson', role: 'Backend Developer', skills: ['Python', 'PostgreSQL'], utilization: 92, projects: 2, status: 'healthy', availability: 28, avatar: 'TA', assignedProjects: ['API Integration', 'Database Optimization'] },
   ];
   
   const personDetails = {
@@ -180,6 +181,18 @@ export const PeopleCapacityScreen = () => {
       { text: 'Consider pairing with Emily for CSS animations', action: 'Apply' },
     ]
   };
+
+  // Calculate available capacity for most recent project (first in list)
+  const mostRecentProject = personDetails.projects[0];
+  const availableCapacityForProject = mostRecentProject ? 40 - mostRecentProject.hours : 0;
+
+  // Get overloaded members and their projects
+  const atRiskProjects = teamMembers
+    .filter(member => member.status === 'overloaded')
+    .flatMap(member => member.assignedProjects)
+    .filter((value, index, self) => self.indexOf(value) === index); // Remove duplicates
+  
+  const overloadedCount = teamMembers.filter(m => m.status === 'overloaded').length;
   
   return (
     <div className="p-12 relative min-h-screen bg-[#FAFAF9]">
@@ -210,7 +223,7 @@ export const PeopleCapacityScreen = () => {
         <AddTeamMemberModal open={isAddMemberOpen} onOpenChange={setIsAddMemberOpen} />
         
         {/* Capacity Summary Strip */}
-        <div className="flex items-center gap-0 mb-10">
+        <div className="flex items-center gap-0 mb-10 relative">
           <div className="flex-1 py-8">
             <div className="text-4xl font-light text-[#1C1917] mb-2">24</div>
             <div className="text-sm text-[#78716C] font-light">Total Members</div>
@@ -221,14 +234,35 @@ export const PeopleCapacityScreen = () => {
             <div className="text-sm text-[#78716C] font-light">Avg Utilization</div>
           </div>
           <div className="w-px h-16 bg-[#E7E5E4]"></div>
-          <div className="flex-1 py-8 px-8">
-            <div className="text-4xl font-light text-[#1C1917] mb-2">5</div>
+          <div 
+            className="flex-1 py-8 px-8 relative group"
+            onMouseEnter={() => setShowAtRiskTooltip(true)}
+            onMouseLeave={() => setShowAtRiskTooltip(false)}
+          >
+            <div className="text-4xl font-light text-[#1C1917] mb-2 cursor-pointer hover:text-[#E27052] transition-colors">{overloadedCount}</div>
             <div className="text-sm text-[#78716C] font-light">Overloaded Count</div>
+            
+            {/* Tooltip for projects at risk */}
+            {showAtRiskTooltip && atRiskProjects.length > 0 && (
+              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-3 bg-white border border-[#E7E5E4] rounded-xl shadow-xl p-4 w-64 z-[1000]">
+                <div className="text-xs font-medium text-[#78716C] uppercase tracking-wider mb-2">Projects at Risk</div>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {atRiskProjects.map((project, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-[#E27052] flex-shrink-0"></div>
+                      <span className="text-sm text-[#1C1917] font-light">{project}</span>
+                    </div>
+                  ))}
+                </div>
+                {/* Tooltip arrow */}
+                <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-white"></div>
+              </div>
+            )}
           </div>
           <div className="w-px h-16 bg-[#E7E5E4]"></div>
-          <div className="flex-1 py-8 pl-8">
-            <div className="text-4xl font-light text-[#1C1917] mb-2">224h</div>
-            <div className="text-sm text-[#78716C] font-light">Available Capacity</div>
+          <div className="flex-1 py-8 px-8">
+            <div className="text-4xl font-light text-[#1C1917] mb-2">{availableCapacityForProject}h</div>
+            <div className="text-sm text-[#78716C] font-light">Available Capacity ({mostRecentProject?.name})</div>
           </div>
         </div>
         
