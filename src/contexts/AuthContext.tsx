@@ -101,75 +101,107 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
-    // Check for existing session with timeout
-    const checkSession = async () => {
-      try {
-        // Add timeout to prevent hanging
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Auth timeout')), 5000)
-        );
-        
-        const sessionPromise = supabase.auth.getSession();
-        const { data: { session }, error } = await Promise.race([sessionPromise, timeoutPromise]) as any;
-        
-        if (error) throw error;
-        setSession(session);
-        setUser(session?.user ?? null);
-        console.log('[Auth] Session check:', session ? 'User authenticated' : 'No session');
-        // Hydrate org context if we have a session and orgId isn't already set
-        if (session?.user?.id && !getCurrentOrgId()) {
-          await lookupOrg(session.user.id);
-        }
-      } catch (error) {
-        console.error('[Auth] Error checking session:', error instanceof Error ? error.message : error);
-        // Even if auth check fails, allow access (user might be Jira-authenticated)
-      } finally {
-        setLoading(false);
-      }
-    };
+    // Use onAuthStateChange as the SOLE session source.
+    // Supabase v2 fires INITIAL_SESSION synchronously on subscribe,
+    // so we never need a separate getSession() call (which can race & hang).
+    let initialDone = false;
 
-    checkSession();
-
-    // Listen for auth changes (including OAuth callbacks)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         console.log('[Auth] State changed:', event, session ? 'authenticated' : 'not authenticated');
-        
-        // Important: Set session and user state immediately when auth state changes
+
+        // Set session and user state immediately (synchronous — safe inside callback)
         setSession(session);
         setUser(session?.user ?? null);
-        
-        // If user just authenticated via Google, save their email
-        if (event === 'SIGNED_IN' && session?.user?.email) {
-          // Check if this is a Google OAuth login (app_metadata.provider is set by Supabase)
-          const isGoogleAuth = session?.user?.app_metadata?.provider === 'google';
-          if (isGoogleAuth) {
-            console.log('[Auth] Saving Google user email:', session.user.email);
-            await saveGoogleUserEmail(session.user.email);
-          }
-          // Look up org membership
-          await lookupOrg(session.user.id);
+
+        // On the very first callback, mark loading as done
+        if (!initialDone) {
+          initialDone = true;
+          setLoading(false);
         }
-        
-        // Ensure loading is false after auth state change
+
+        // IMPORTANT: Never await async DB operations inside onAuthStateChange.
+        // Supabase v2 uses navigator.locks internally; awaiting here deadlocks
+        // the lock and causes AbortError on subsequent DB queries.
+        // Instead, defer async work outside the callback.
+        if (event === 'SIGNED_IN' && session?.user?.email) {
+          const userId = session.user.id;
+          const userEmail = session.user.email;
+          const isGoogleAuth = session.user.app_metadata?.provider === 'google';
+
+          setTimeout(async () => {
+            try {
+              if (isGoogleAuth) {
+                console.log('[Auth] Saving Google user email:', userEmail);
+                await saveGoogleUserEmail(userEmail);
+              }
+              // Look up org membership
+              await lookupOrg(userId);
+            } catch (err) {
+              console.warn('[Auth] Deferred auth work failed:', err);
+            }
+          }, 0);
+        }
+
+        // Ensure loading is false after any auth state change
         setLoading(false);
-        
-        // When user authenticates via OAuth, they'll be on the redirect page
-        // Just update state - ProtectedRoute will handle navigation
       }
     );
 
+    // Safety net: if onAuthStateChange never fires (e.g. no stored session), unblock loading
+    const safetyTimeout = setTimeout(() => {
+      if (!initialDone) {
+        console.warn('[Auth] Safety timeout: no auth event after 4s, unblocking');
+        initialDone = true;
+        setLoading(false);
+      }
+    }, 4000);
+
     return () => {
+      clearTimeout(safetyTimeout);
       subscription?.unsubscribe();
     };
   }, []);
 
   const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        // No email verification — user is ready to go immediately
+      },
     });
     if (error) throw error;
+
+    console.log('[Auth] Sign-up response:', {
+      userId: data?.user?.id,
+      emailConfirmedAt: data?.user?.email_confirmed_at,
+      identities: data?.user?.identities?.length,
+      session: !!data?.session,
+    });
+
+    // If user already exists (identities is empty), throw a helpful error
+    if (data?.user?.identities?.length === 0) {
+      throw new Error('An account with this email already exists. Please sign in instead.');
+    }
+
+    // When "Confirm email" is OFF in Supabase, signUp() already returns a session.
+    // Only call signInWithPassword as a fallback if no session was returned.
+    if (!data?.session) {
+      console.log('[Auth] No session from signUp, attempting signInWithPassword...');
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (signInError) {
+        console.warn('[Auth] Auto sign-in after signup failed:', signInError.message);
+      }
+    } else {
+      console.log('[Auth] Session created directly from signUp, skipping redundant signIn');
+      // Manually update state since onAuthStateChange may lag
+      setSession(data.session);
+      setUser(data.session.user);
+    }
   };
 
   const signIn = async (email: string, password: string) => {

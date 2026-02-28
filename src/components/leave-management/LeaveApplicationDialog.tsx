@@ -67,24 +67,14 @@ export const LeaveApplicationDialog: React.FC<LeaveApplicationDialogProps> = ({ 
         alert('All leave requests must have Start Date, End Date, and Reason filled in');
         return;
       }
-      if (new Date(leave.endDate) < new Date(leave.startDate)) {
-        alert('End Date cannot be before Start Date');
-        return;
-      }
     }
     
-    // Normalize dates to strict YYYY-MM-DD to prevent Supabase rejection
-    const normalizeDate = (dateStr: string) => {
-      const d = new Date(dateStr);
-      return new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
-    };
-
     // All validations passed - submit all leaves
     filledLeaves.forEach(leave => {
       onSubmit({
         name: currentUser,
-        startDate: normalizeDate(leave.startDate),
-        endDate: normalizeDate(leave.endDate),
+        startDate: leave.startDate,
+        endDate: leave.endDate,
         reason: leave.reason
       });
     });
@@ -93,7 +83,7 @@ export const LeaveApplicationDialog: React.FC<LeaveApplicationDialogProps> = ({ 
     setSubmitted(true);
     setSubmittedCount(filledLeaves.length);
     
-    // Reset after 1.5 seconds and close
+    // Reset after 2 seconds and close
     setTimeout(() => {
       setLeaves([{ id: `leave-${Date.now()}`, startDate: '', endDate: '', reason: '' }]);
       setSubmitted(false);

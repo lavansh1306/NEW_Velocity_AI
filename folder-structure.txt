@@ -19,13 +19,23 @@ NEW_Velocity_AI
 │   ├── auth.ts
 │   └── VelocityAI.tsx
 ├── asana
+├── CAPACITY_ENDPOINT_DOCUMENTATION.md
 ├── components.json
+├── DASHBOARD_IMPLEMENTATION_SUMMARY.md
+├── DASHBOARD_INTEGRATION_GUIDE.md
 ├── demo
 │   ├── LiveFeed.tsx
 │   ├── ROIMetrics.tsx
 │   └── TimeTracking.tsx
 ├── eslint.config.js
+├── googleba79ddad728eb1f3.html
 ├── index.html
+├── JIRA_DASHBOARD_COMPLETE.md
+├── JIRA_DASHBOARD_INTEGRATION.md
+├── JIRA_DASHBOARD_QUICK_REFERENCE.md
+├── JIRA_DEDUPLICATION_FIX.md
+├── JIRA_OIDC_PKCE_MULTIDOMAIN_FIX.md
+├── krish.txt
 ├── LICENSE
 ├── node_modules/
 ├── package-lock.json
@@ -40,84 +50,10 @@ NEW_Velocity_AI
 │   │   ├── projects-analytics.csv
 │   │   ├── projects-hubspot.csv
 │   │   └── projects-microsoft365.csv
+│   ├── googleba79ddad728eb1f3.html
 │   ├── placeholder.svg
 │   └── robots.txt
 ├── README.md
-├── ref
-│   ├── ATTRIBUTIONS.md
-│   ├── guidelines
-│   │   └── Guidelines.md
-│   ├── index.html
-│   ├── package.json
-│   ├── postcss.config.mjs
-│   ├── README.md
-│   ├── src
-│   │   ├── app
-│   │   │   ├── App.tsx
-│   │   │   └── components
-│   │   │       ├── ActivityScreens.tsx
-│   │   │       ├── figma
-│   │   │       │   └── ImageWithFallback.tsx
-│   │   │       ├── OnboardingScreens.tsx
-│   │   │       ├── PeopleScreens.tsx
-│   │   │       ├── ProjectScreens.tsx
-│   │   │       ├── ReportsScreens.tsx
-│   │   │       └── ui
-│   │   │           ├── accordion.tsx
-│   │   │           ├── alert-dialog.tsx
-│   │   │           ├── alert.tsx
-│   │   │           ├── aspect-ratio.tsx
-│   │   │           ├── avatar.tsx
-│   │   │           ├── badge.tsx
-│   │   │           ├── breadcrumb.tsx
-│   │   │           ├── button.tsx
-│   │   │           ├── calendar.tsx
-│   │   │           ├── card.tsx
-│   │   │           ├── carousel.tsx
-│   │   │           ├── chart.tsx
-│   │   │           ├── checkbox.tsx
-│   │   │           ├── collapsible.tsx
-│   │   │           ├── command.tsx
-│   │   │           ├── context-menu.tsx
-│   │   │           ├── dialog.tsx
-│   │   │           ├── drawer.tsx
-│   │   │           ├── dropdown-menu.tsx
-│   │   │           ├── form.tsx
-│   │   │           ├── hover-card.tsx
-│   │   │           ├── input-otp.tsx
-│   │   │           ├── input.tsx
-│   │   │           ├── label.tsx
-│   │   │           ├── menubar.tsx
-│   │   │           ├── navigation-menu.tsx
-│   │   │           ├── pagination.tsx
-│   │   │           ├── popover.tsx
-│   │   │           ├── progress.tsx
-│   │   │           ├── radio-group.tsx
-│   │   │           ├── resizable.tsx
-│   │   │           ├── scroll-area.tsx
-│   │   │           ├── select.tsx
-│   │   │           ├── separator.tsx
-│   │   │           ├── sheet.tsx
-│   │   │           ├── sidebar.tsx
-│   │   │           ├── skeleton.tsx
-│   │   │           ├── slider.tsx
-│   │   │           ├── sonner.tsx
-│   │   │           ├── switch.tsx
-│   │   │           ├── table.tsx
-│   │   │           ├── tabs.tsx
-│   │   │           ├── textarea.tsx
-│   │   │           ├── toggle-group.tsx
-│   │   │           ├── toggle.tsx
-│   │   │           ├── tooltip.tsx
-│   │   │           ├── use-mobile.ts
-│   │   │           └── utils.ts
-│   │   ├── main.tsx
-│   │   └── styles
-│   │       ├── fonts.css
-│   │       ├── index.css
-│   │       ├── tailwind.css
-│   │       └── theme.css
-│   └── vite.config.ts
 ├── server.ts
 ├── src
 │   ├── api
@@ -136,7 +72,6 @@ NEW_Velocity_AI
 │   ├── App.css
 │   ├── App.tsx
 │   ├── components
-│   │   ├── ActivityScreens.tsx
 │   │   ├── analytics
 │   │   │   ├── AIUsageChart.tsx
 │   │   │   ├── AnalyticsPanel.tsx
@@ -159,16 +94,11 @@ NEW_Velocity_AI
 │   │   ├── CTA.tsx
 │   │   ├── dashboard
 │   │   │   ├── AIInsightsDashboard.tsx
-│   │   │   ├── DashboardLayout.tsx
 │   │   │   ├── EXAMPLES.tsx
-│   │   │   ├── Header.tsx
 │   │   │   ├── index.ts
 │   │   │   ├── JiraPoweredDashboard.tsx
 │   │   │   ├── MainDashboard.tsx
-│   │   │   ├── MainLayout.tsx
 │   │   │   ├── ProjectDashboardWithInsights.tsx
-│   │   │   ├── styles.ts
-│   │   │   ├── TeamCapacityGantt.tsx
 │   │   │   └── VelocityAISidebar.tsx
 │   │   ├── demo
 │   │   │   ├── DeploymentView.tsx
@@ -243,16 +173,14 @@ NEW_Velocity_AI
 │   │   │   ├── RecommendationEngine.ts
 │   │   │   └── types.ts
 │   │   ├── NavLink.tsx
-│   │   ├── OnboardingScreens.tsx
-│   │   ├── PeopleScreens.tsx
 │   │   ├── projects
 │   │   │   ├── ProjectLeaveManagement.tsx
 │   │   │   └── ProjectManagementDashboard.tsx
-│   │   ├── ProjectScreens.tsx
 │   │   ├── ProtectedRoute.tsx
-│   │   ├── ReportsScreens.tsx
 │   │   ├── Results.tsx
-│   │   ├── Settings.tsx
+│   │   ├── shared
+│   │   │   ├── AuthLayout.tsx
+│   │   │   └── FormError.tsx
 │   │   ├── smart-progress
 │   │   │   ├── EmployeeView.tsx
 │   │   │   ├── EODUploadDialog.tsx
@@ -311,9 +239,7 @@ NEW_Velocity_AI
 │   │   │   ├── toggle-group.tsx
 │   │   │   ├── toggle.tsx
 │   │   │   ├── tooltip.tsx
-│   │   │   ├── use-mobile.ts
-│   │   │   ├── use-toast.ts
-│   │   │   └── utils.ts
+│   │   │   └── use-toast.ts
 │   │   ├── unified-system
 │   │   │   ├── allocator
 │   │   │   │   └── AllocatorEngine.tsx
@@ -337,6 +263,7 @@ NEW_Velocity_AI
 │   │   └── UserProfile.tsx
 │   ├── contexts
 │   │   ├── AuthContext.tsx
+│   │   ├── OnboardingContext.tsx
 │   │   └── ToastContext.tsx
 │   ├── hooks
 │   │   ├── use-mobile.tsx
@@ -370,10 +297,19 @@ NEW_Velocity_AI
 │   │   ├── GlobalCapacity.tsx
 │   │   ├── GlobalGanttDashboard.tsx
 │   │   ├── Index.tsx
+│   │   ├── InviteEmail.tsx
 │   │   ├── JiraDashboard.tsx
 │   │   ├── JiraEmployeeExtractor.tsx
 │   │   ├── Login.tsx
 │   │   ├── NotFound.tsx
+│   │   ├── onboarding
+│   │   │   ├── OnboardingComplete.tsx
+│   │   │   ├── OnboardingHolidays.tsx
+│   │   │   ├── OnboardingJoin.tsx
+│   │   │   ├── OnboardingModeSelection.tsx
+│   │   │   ├── OnboardingSettings.tsx
+│   │   │   ├── OnboardingTeam.tsx
+│   │   │   └── OnboardingWelcome.tsx
 │   │   ├── PlanMyProject.tsx
 │   │   ├── ProjectAnalytics.tsx
 │   │   ├── ProjectDetail.tsx
@@ -381,7 +317,7 @@ NEW_Velocity_AI
 │   │   ├── Projects.tsx
 │   │   ├── ROICalculator.tsx
 │   │   ├── ROIReport.tsx
-│   │   ├── SettingsPage.tsx
+│   │   ├── SetPassword.tsx
 │   │   ├── SignUp.tsx
 │   │   ├── UseCases.tsx
 │   │   └── VelocityAI.tsx
@@ -389,19 +325,21 @@ NEW_Velocity_AI
 │   │   └── mlService.ts
 │   └── vite-env.d.ts
 ├── supabase-migrations
-│   ├── 2026-02-22_ensure_leave_history_and_name.sql
 │   ├── add_complete_jira_fields.sql
+│   ├── add_origin_hostname_to_pkce.sql
 │   ├── create_jira_data_tables.sql
 │   ├── create_jira_oauth_pkce_table.sql
-│   ├── create_leave_management_tables.sql
 │   ├── create_multi_tenant_tables.sql
+│   ├── create_onboarding_tables.sql
 │   └── dedup_jira_issues.sql
 ├── tailwind.config.ts
+├── TECHNICAL_REPORT.md
 ├── test-capacity-endpoint.ps1
 ├── test-server.ts
 ├── tsconfig.app.json
 ├── tsconfig.json
 ├── tsconfig.node.json
 ├── tsconfig.server.json
+├── velo.html
 ├── vercel.json
 └── vite.config.ts

@@ -12,11 +12,8 @@ import {
 
 import { fetchRawCSV } from '../ml-model/RecommendationEngine'; 
 import csvPath from '../ml-model/datasets/master_employee_task_report.csv?url';
-<<<<<<< HEAD
 import { CapacityReport } from '../../lib/types'; // Import the CapacityReport type
-=======
 import { fetchProjectsHybrid, fetchIssuesHybrid } from '@/lib/jiraDbClient';
->>>>>>> c5ce8ffec616cbcb8837c7327cdb35a999716df2
 
 import { mlService } from '../../services/mlService'; // adjust path if needed
 

@@ -18,7 +18,7 @@ export interface RawJiraRow {
 }
 
 // ========================================
-<<<<<<< HEAD
+// ML Candidate interface
 export interface MLCandidate {
   id: string;
   current_load: number;
@@ -33,7 +33,7 @@ export interface MLCandidate {
   holiday_hours_this_week?: number;
 }
 
-// 2. Add these new Request/Response interfaces anywhere in the file:
+// Capacity Request/Response interfaces
 export interface CapacityRequest {
   candidates: MLCandidate[];
 }
@@ -47,7 +47,8 @@ export interface CapacityReport {
   net_available_hours: number;
   status: string; // "Available", "At Capacity", or "Overloaded / Out of Office"
 }
-=======
+
+// ========================================
 // Normalized event — output of all normalizers
 // ========================================
 
@@ -97,6 +98,3 @@ export interface MetricsResponse {
   totalReturns?: number;
   savingsInvestmentTrend?: { label: string; investmentUSD: number; savingsUSD: number }[];
 }
-
-// ========================================
->>>>>>> c5ce8ffec616cbcb8837c7327cdb35a999716df2
