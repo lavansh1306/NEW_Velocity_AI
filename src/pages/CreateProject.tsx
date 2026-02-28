@@ -211,6 +211,9 @@ export default function CreateProject() {
                       <option>Scrum Software Development</option>
                       <option>Kanban</option>
                       <option>Task Tracking</option>
+                      <option>Business Project</option>
+                      <option>Marketing Campaign </option>
+                      <option>Custom</option>
                     </select>
                     <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#78716C] pointer-events-none" />
                   </div>
