@@ -182,18 +182,32 @@ export async function fetchIssuesHybrid(projectKey: string): Promise<{ issues: J
     return { issues: dbIssues, source: 'database' };
   }
 
-  // 2. Fall back to live API
-  console.log(`[JiraDBClient] No issues for ${projectKey} in DB, falling back to API...`);
+  // 2. If DB returns 0 issues, try fresh Jira OAuth sync first
+  console.log(`[JiraDBClient] No issues for ${projectKey} in DB, trying fresh Jira OAuth sync...`);
+  try {
+    const syncedIssues = await syncProjectFromJira(projectKey);
+    if (syncedIssues.length > 0) {
+      console.log(`[JiraDBClient] ✅ Fresh Jira OAuth sync found ${syncedIssues.length} issues for ${projectKey}`);
+      return { issues: syncedIssues, source: 'api' };
+    }
+  } catch (syncErr) {
+    console.warn(`[JiraDBClient] Fresh Jira OAuth sync failed for ${projectKey}:`, syncErr);
+  }
+
+  // 3. Fall back to regular API if Jira OAuth sync didn't work
+  console.log(`[JiraDBClient] Jira OAuth sync returned 0 issues for ${projectKey}, falling back to regular API...`);
   try {
     const orgId = getCurrentOrgId();
     const orgParam = orgId ? `&orgId=${encodeURIComponent(orgId)}` : '';
     const resp = await fetch(apiUrl(`/api/jira/issues?projectKey=${encodeURIComponent(projectKey)}${orgParam}`), { credentials: 'include' });
     if (resp.ok) {
       const data = await resp.json();
-      return { issues: data.issues || [], source: 'api' };
+      const apiIssues = data.issues || [];
+      console.log(`[JiraDBClient] Regular API returned ${apiIssues.length} issues for ${projectKey}`);
+      return { issues: apiIssues, source: 'api' };
     }
   } catch (err) {
-    console.warn('[JiraDBClient] API fallback failed:', err);
+    console.warn('[JiraDBClient] Regular API fallback failed:', err);
   }
 
   return { issues: [], source: 'api' };
@@ -216,56 +230,88 @@ export async function fetchAllIssuesHybrid(): Promise<{ issues: JiraIssueFromDB[
     if (!projResp.ok) return { issues: [], source: 'api' };
     const projData = await projResp.json();
     const projects = projData.projects || [];
+    console.log(`[JiraDBClient] Fetching issues for ${projects.length} projects`);
 
     const allIssues: JiraIssueFromDB[] = [];
     for (const p of projects) {
       try {
-        const issOrgParam = orgId ? `&orgId=${encodeURIComponent(orgId)}` : '';
-        const issResp = await fetch(apiUrl(`/api/jira/issues?projectKey=${encodeURIComponent(p.key)}${issOrgParam}`), { credentials: 'include' });
-        if (issResp.ok) {
-          const issData = await issResp.json();
-          const issues = (issData.issues || []).map((iss: any) => ({
-            key: iss.key || '',
-            issueType: iss.issueType || 'Task',
-            summary: iss.summary || '',
-            description: iss.description || '',
-            priority: iss.priority || 'Medium',
-            status: iss.status || 'Open',
-            resolution: iss.resolution || '',
-            assignee: iss.assignee || 'Unassigned',
-            assigneeEmail: iss.assigneeEmail || '',
-            reporter: iss.reporter || '',
-            reporterEmail: iss.reporterEmail || '',
-            team: iss.team || p.key,
-            projectName: iss.projectName || '',
-            labels: iss.labels || [],
-            components: iss.components || [],
-            originalEstimate: iss.originalEstimate || '',
-            originalEstimateSeconds: iss.originalEstimateSeconds || 0,
-            timeSpent: iss.timeSpent || '',
-            timeSpentSeconds: iss.timeSpentSeconds || 0,
-            remainingEstimate: iss.remainingEstimate || '',
-            remainingEstimateSeconds: iss.remainingEstimateSeconds || 0,
-            created: iss.created || null,
-            updated: iss.updated || null,
-            due: iss.due || null,
-            resolved: iss.resolved || null,
-            duration: iss.duration ?? '',
-            start: iss.start || null,
-            customfield_10015: iss.customfield_10015 || null,
-            parentKey: iss.parentKey || '',
-            epicKey: iss.epicKey || '',
-            epicName: iss.epicName || '',
-            sprint: iss.sprint || '',
-            storyPoints: iss.storyPoints || 0,
-            project_key: p.key,
-          }));
-          allIssues.push(...issues);
+        console.log(`[JiraDBClient] Fetching issues for project: ${p.key}`);
+        
+        // First, try Jira OAuth sync
+        console.log(`[JiraDBClient] Attempting Jira OAuth sync for ${p.key}...`);
+        const syncedIssues = await syncProjectFromJira(p.key);
+        console.log(`[JiraDBClient] Jira OAuth sync returned ${syncedIssues.length} issues for ${p.key}`);
+        
+        let issues = syncedIssues;
+        
+        // If Jira OAuth sync returns 0 issues, fall back to regular API
+        if (issues.length === 0) {
+          console.log(`[JiraDBClient] Jira OAuth sync returned 0 for ${p.key}, falling back to regular API...`);
+          try {
+            const issOrgParam = orgId ? `&orgId=${encodeURIComponent(orgId)}` : '';
+            const issUrl = apiUrl(`/api/jira/issues?projectKey=${encodeURIComponent(p.key)}${issOrgParam}`);
+            console.log(`[JiraDBClient] Request URL: ${issUrl}`);
+            const issResp = await fetch(issUrl, { credentials: 'include' });
+            
+            if (issResp.ok) {
+              const issData = await issResp.json();
+              console.log(`[JiraDBClient] Regular API response for ${p.key}: ${issData.issues?.length || 0} issues`);
+              
+              issues = (issData.issues || []).map((iss: any) => ({
+                key: iss.key || '',
+                issueType: iss.issueType || 'Task',
+                summary: iss.summary || '',
+                description: iss.description || '',
+                priority: iss.priority || 'Medium',
+                status: iss.status || 'Open',
+                resolution: iss.resolution || '',
+                assignee: iss.assignee || 'Unassigned',
+                assigneeEmail: iss.assigneeEmail || '',
+                reporter: iss.reporter || '',
+                reporterEmail: iss.reporterEmail || '',
+                team: iss.team || p.key,
+                projectName: iss.projectName || '',
+                labels: iss.labels || [],
+                components: iss.components || [],
+                originalEstimate: iss.originalEstimate || '',
+                originalEstimateSeconds: iss.originalEstimateSeconds || 0,
+                timeSpent: iss.timeSpent || '',
+                timeSpentSeconds: iss.timeSpentSeconds || 0,
+                remainingEstimate: iss.remainingEstimate || '',
+                remainingEstimateSeconds: iss.remainingEstimateSeconds || 0,
+                created: iss.created || null,
+                updated: iss.updated || null,
+                due: iss.due || null,
+                resolved: iss.resolved || null,
+                duration: iss.duration ?? '',
+                start: iss.start || null,
+                customfield_10015: iss.customfield_10015 || null,
+                parentKey: iss.parentKey || '',
+                epicKey: iss.epicKey || '',
+                epicName: iss.epicName || '',
+                sprint: iss.sprint || '',
+                storyPoints: iss.storyPoints || 0,
+                project_key: p.key,
+              }));
+            } else {
+              const errText = await issResp.text();
+              console.error(`[JiraDBClient] Regular API failed for ${p.key}: ${issResp.status} - ${errText}`);
+            }
+          } catch (err) {
+            console.warn(`[JiraDBClient] Regular API fallback failed for ${p.key}:`, err);
+          }
+        } else {
+          // Jira OAuth sync returned issues, map them
+          issues = syncedIssues;
         }
+        
+        console.log(`[JiraDBClient] Adding ${issues.length} issues from ${p.key} to allIssues`);
+        allIssues.push(...issues);
       } catch (err) {
-        console.warn(`[JiraDBClient] API fallback failed for ${p.key}:`, err);
+        console.warn(`[JiraDBClient] Failed to fetch issues for ${p.key}:`, err);
       }
     }
+    console.log(`[JiraDBClient] Total issues collected: ${allIssues.length}`);
     return { issues: allIssues, source: 'api' };
   } catch (err) {
     console.warn('[JiraDBClient] Full API fallback failed:', err);

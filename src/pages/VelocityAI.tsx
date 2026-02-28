@@ -999,7 +999,6 @@ export default function VelocityAI() {
               {activeTab === 'leave' && <LeaveManagementTab />}
               {activeTab === 'progress' && <SmartProgressTracker />}
             </div>
-          </div>
     </VelocityAISidebar>
   );
 }

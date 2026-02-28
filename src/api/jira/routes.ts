@@ -159,6 +159,8 @@ router.get('/issues', async (req: Request, res: Response) => {
     
     console.log('[Jira Issues] Search URL:', searchUrl);
     console.log('[Jira Issues] JQL:', jql);
+    console.log('[Jira Issues] CloudID:', cloudId);
+    console.log('[Jira Issues] AccessToken exists:', !!accessToken);
     
     const response = await fetch(searchUrl, {
       method: 'GET',
@@ -175,12 +177,14 @@ router.get('/issues', async (req: Request, res: Response) => {
       console.error('[Jira Issues] Fetch issues failed:', response.status, errorText);
       return res.status(response.status).json({ 
         error: 'Failed to fetch Jira issues',
-        details: errorText 
+        details: errorText,
+        projectKey,
+        jql
       });
     }
 
     const data = await response.json() as any;
-    console.log('[Jira Issues] Received', data.issues?.length || 0, 'issues');
+    console.log('[Jira Issues] Received', data.issues?.length || 0, 'issues for project', projectKey);
     const MS_PER_DAY = 1000 * 60 * 60 * 24;
     
     const issues = (data.issues || []).map((issue: any) => {
