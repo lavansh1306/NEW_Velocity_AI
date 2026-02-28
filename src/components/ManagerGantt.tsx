@@ -82,7 +82,7 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
   useEffect(() => {
     if (externalJiraIssues && externalJiraIssues.length > 0) {
       // Convert Jira issues to internal Issue format
-      const convertedTasks = externalJiraIssues.map(issue => ({
+      const convertedTasks: JiraIssue[] = externalJiraIssues.map(issue => ({
         ...issue,
       }))
       setTasks(convertedTasks)

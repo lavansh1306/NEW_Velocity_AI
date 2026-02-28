@@ -19,6 +19,7 @@ export interface JiraIssue {
   projectId?: string
   project_key?: string
   projectKey?: string
+  projectName?: string
 }
 
 interface UseJiraDataReturn {

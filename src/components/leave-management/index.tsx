@@ -36,6 +36,8 @@ export default function LeaveManagementTab() {
     addLeaveRequest,
   } = useLeaveManagementData();
 
+  const { user, loading: authLoading } = useAuth();
+
   // UI state - separate from data fetching
   const [scenarioOpen, setScenarioOpen] = useState(false);
   const [applyOpen, setApplyOpen] = useState(false);
@@ -279,7 +281,18 @@ export default function LeaveManagementTab() {
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 pb-20">
+    <div className="w-full min-h-screen h-full flex flex-col space-y-8 bg-[#F5F5F4] animate-in fade-in duration-500 pb-20 p-8">
+      {/* DEBUG SECTION */}
+      <div className="bg-yellow-100 border-2 border-yellow-400 rounded-lg p-6 text-yellow-900 font-mono text-sm space-y-2 shadow-md">
+        <h3 className="font-bold text-base mb-4">🔍 Leave Management Debug Info</h3>
+        <div><strong>Auth Loading:</strong> {authLoading ? '✓ YES' : '✗ NO'}</div>
+        <div><strong>User Email:</strong> {user?.email || '✗ No user'}</div>
+        <div><strong>Current User ID:</strong> {currentUser || '✗ Not set'}</div>
+        <div><strong>Org ID:</strong> {currentOrgId || '✗ Not set'}</div>
+        <div><strong>Tasks Loaded:</strong> {tasks.length > 0 ? `✓ ${tasks.length}` : '✗ 0'}</div>
+        <div><strong>Leaves Loaded:</strong> {leaves.length > 0 ? `✓ ${leaves.length}` : '✗ 0'}</div>
+        <div><strong>Data Loading:</strong> {isLoadingData ? '⏳ YES' : '✓ NO'}</div>
+      </div>
       
       {/* HEADER & CONTROLS */}
       <div className="flex flex-col md:flex-row md:items-center justify-between p-4 bg-slate-900 border border-slate-800 rounded-2xl shadow-lg gap-4">

@@ -28,7 +28,7 @@ export interface LeaveRequest {
   startDate: string;
   endDate: string;
   reason: string;
-  status: 'Pending' | 'Approved' | 'Rejected';
+  status: 'Pending' | 'Approved' | 'Rejected' | 'Shifted';
 }
 
 export interface EmployeeProfile {

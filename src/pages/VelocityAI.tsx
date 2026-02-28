@@ -762,49 +762,6 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
         </p>
       </div>
 
-      {/* Capacity Overview - Full Width */}
-      <div className="bg-white rounded-2xl shadow-sm p-10 border border-gray-100">
-        <div className="mb-8">
-          <h2 className="text-xl font-light text-gray-900">Capacity Overview</h2>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="border border-gray-200 rounded-lg p-4">
-            <p className="text-sm text-gray-600 mb-2">Total Allocated</p>
-            <div className="text-3xl font-bold text-gray-900">{dashboardMetrics.totalAllocated}h</div>
-            <p className="text-xs text-gray-500 mt-2">Out of {(dashboardMetrics.teamMembers * 40).toLocaleString()}h weekly capacity</p>
-          </div>
-
-          <div className="border border-gray-200 rounded-lg p-4">
-            <p className="text-sm text-gray-600 mb-2">Available</p>
-            <div className="text-3xl font-bold text-emerald-600">{dashboardMetrics.availableCapacity}h</div>
-            <p className="text-xs text-gray-500 mt-2">{dashboardMetrics.availableCapacity > 0 ? 'Ready for new work' : 'At full capacity'}</p>
-          </div>
-
-          <div className="border border-gray-200 rounded-lg p-4">
-            <p className="text-sm text-gray-600 mb-2">Team Members</p>
-            <div className="text-3xl font-bold text-blue-600">{dashboardMetrics.teamMembers}</div>
-            <p className="text-xs text-gray-500 mt-2">Active in projects</p>
-          </div>
-        </div>
-
-        {/* Capacity Bar */}
-        <div className="mt-6 pt-6 border-t border-gray-200">
-          <p className="text-sm font-semibold text-gray-700 mb-3">Weekly Capacity Utilization</p>
-          <div className="w-full bg-gray-200 rounded-full h-3">
-            <div
-              className="bg-gradient-to-r from-emerald-500 to-blue-500 h-3 rounded-full transition-all duration-300"
-              style={{ width: `${dashboardMetrics.teamUtilization}%` }}
-            ></div>
-          </div>
-          <div className="flex justify-between mt-2">
-            <span className="text-xs text-gray-500">0%</span>
-            <span className="text-xs font-semibold text-gray-900">{dashboardMetrics.teamUtilization}% Utilized</span>
-            <span className="text-xs text-gray-500">100%</span>
-          </div>
-        </div>
-      </div>
-
       {/* 8-Week Capacity Graph */}
       <div className="bg-white rounded-2xl shadow-sm p-10 border border-gray-100">
         <div className="flex items-center justify-between mb-8">
