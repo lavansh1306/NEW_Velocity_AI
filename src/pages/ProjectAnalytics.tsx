@@ -518,7 +518,7 @@ export default function ProjectAnalytics() {
           {/* --- TAB CONTENT: PLACEHOLDER --- */}
           {(activeTab === 'timeline' || activeTab === 'insights') && (
              <div className="bg-white rounded-[24px] border border-[#E7E5E4] p-24 text-center shadow-sm">
-               <p className="text-[#78716C]">Advanced module loading...</p>
+               <p className="text-[#78716C]">Advanced module coming soon</p>
              </div>
           )}
             </>

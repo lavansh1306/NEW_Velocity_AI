@@ -27,6 +27,7 @@ import AuthCallback from "./pages/AuthCallback";
 import NotFound from "./pages/NotFound";
 import Dashboard from "./pages/Dashboard";
 import AuditPage from "./pages/Audit";
+import CreateProject from '@/pages/CreateProject';
 
 const queryClient = new QueryClient();
 
@@ -61,6 +62,9 @@ const App = () => (
               <Route path="/projects/global-gantt" element={<GlobalGanttDashboard />} />
               <Route path="/projects/jira-dashboard" element={<JiraDashboard />} />
               <Route path="/projects/:id" element={<ProjectDetailNew />} />
+              <Route path="/projects" element={<Projects />} />
+              <Route path="/projects/create" element={<CreateProject />} /> 
+              <Route path="/project-analytics/:id" element={<ProjectAnalytics />} />
               <Route path="/debug-normalization" element={<DebugNormalization />} />
               <Route path="/audit" element={<AuditPage />} />
               

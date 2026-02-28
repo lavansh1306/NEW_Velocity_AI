@@ -177,7 +177,10 @@ export default function Projects() {
                   className="pl-9 pr-4 py-2.5 bg-white border border-[#E7E5E4] rounded-xl text-sm w-64 focus:outline-none focus:ring-1 focus:ring-[#1C1917]"
                 />
               </div>
-              <Button className="bg-[#1C1917] hover:bg-[#292524] text-white rounded-xl gap-2 h-11">
+              <Button 
+                onClick={() => navigate('/projects/create')} 
+                className="bg-[#1C1917] hover:bg-[#292524] text-white rounded-xl gap-2 h-11"
+              >
                 <Plus className="w-4 h-4" /> New Project
               </Button>
             </div>

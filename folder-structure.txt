@@ -363,6 +363,7 @@ NEW_Velocity_AI
 │   ├── pages
 │   │   ├── Audit.tsx
 │   │   ├── AuthCallback.tsx
+│   │   ├── CreateProject.tsx
 │   │   ├── Dashboard.tsx
 │   │   ├── DebugNormalization.tsx
 │   │   ├── Demo.tsx

@@ -88,7 +88,7 @@ export function EmployeeLeavePortal({
     return new Date(y, m - 1, d);
   };
 
-  // NEW: Returns the leave object so we can check its status, ignoring 'Rejected' ones
+  // Get the existing leave to determine status
   const getLeaveOnDate = (dateStr: string) => {
     if (!existingLeaves || existingLeaves.length === 0) return undefined;
     const userId = generateUserIdFromName(selectedEmployee);
@@ -164,31 +164,16 @@ export function EmployeeLeavePortal({
     const selectedEmpColor = employeeColors[employees.findIndex(e => e.name === selectedEmployee) % employeeColors.length] || employeeColors[0];
 
     userTasks.forEach(task => {
-      let taskStart: Date;
-      let taskEnd: Date;
-
+      // STRICT LOGIC: Only show tasks with real database dates.
+      // Removed the fallback that projected 'day: 0' tasks onto the current month.
       if (task.created_date && task.due_date) {
-        taskStart = parseLocalMidnight(task.created_date);
-        taskEnd = parseLocalMidnight(task.due_date);
+        const taskStart = parseLocalMidnight(task.created_date);
+        const taskEnd = parseLocalMidnight(task.due_date);
         taskEnd.setHours(23, 59, 59, 999);
-      } else {
-        const firstOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
-        const dayOfWeek = firstOfMonth.getDay();
-        const firstMonday = new Date(firstOfMonth);
-        firstMonday.setDate(firstOfMonth.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-        firstMonday.setHours(0, 0, 0, 0);
 
-        taskStart = new Date(firstMonday);
-        taskStart.setDate(firstMonday.getDate() + task.day);
-
-        const durationDays = Math.max(1, Math.ceil(task.hours / 8));
-        taskEnd = new Date(taskStart);
-        taskEnd.setDate(taskStart.getDate() + durationDays - 1);
-        taskEnd.setHours(23, 59, 59, 999);
-      }
-
-      if (cellDate >= taskStart && cellDate <= taskEnd) {
-        tasksOnDay.push(task);
+        if (cellDate >= taskStart && cellDate <= taskEnd) {
+          tasksOnDay.push(task);
+        }
       }
     });
 
@@ -203,32 +188,17 @@ export function EmployeeLeavePortal({
     rangeEnd.setHours(23, 59, 59, 999);
 
     return userTasks.filter(task => {
-      let taskStart: Date;
-      let taskEnd: Date;
-
+      // STRICT LOGIC: Same here - only count real tasks in the "Tasks Affected" box.
       if (task.created_date && task.due_date) {
-        taskStart = parseLocalMidnight(task.created_date);
-        taskEnd = parseLocalMidnight(task.due_date);
+        const taskStart = parseLocalMidnight(task.created_date);
+        const taskEnd = parseLocalMidnight(task.due_date);
         taskEnd.setHours(23, 59, 59, 999);
-      } else {
-        const firstOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
-        const dayOfWeek = firstOfMonth.getDay();
-        const firstMonday = new Date(firstOfMonth);
-        firstMonday.setDate(firstOfMonth.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-        firstMonday.setHours(0, 0, 0, 0);
-
-        taskStart = new Date(firstMonday);
-        taskStart.setDate(firstMonday.getDate() + task.day);
-
-        const durationDays = Math.max(1, Math.ceil(task.hours / 8));
-        taskEnd = new Date(taskStart);
-        taskEnd.setDate(taskStart.getDate() + durationDays - 1);
-        taskEnd.setHours(23, 59, 59, 999);
+        
+        return taskStart <= rangeEnd && taskEnd >= rangeStart;
       }
-
-      return taskStart <= rangeEnd && taskEnd >= rangeStart;
+      return false;
     });
-  }, [startLeaveDate, endLeaveDate, userTasks, currentMonth]);
+  }, [startLeaveDate, endLeaveDate, userTasks]);
 
   const tasksOnLeaveDate = useMemo(() => {
     if (!startLeaveDate) return [];
@@ -245,6 +215,7 @@ export function EmployeeLeavePortal({
 
   const handleDateClick = (day: number) => {
     const clickedDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+    // Properly format ISO date without time zone shift issues
     const dateStr = new Date(clickedDate.getTime() - (clickedDate.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
     
     const existingLeave = getLeaveOnDate(dateStr);
