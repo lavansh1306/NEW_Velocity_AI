@@ -1,12 +1,34 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { UserPlus, ChevronRight } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { UserPlus, ChevronRight, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useOnboarding } from '@/contexts/OnboardingContext';
 
 export default function OnboardingJoin() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { joinWithInviteCode, loading, error, clearError } = useOnboarding();
   const [code, setCode] = useState('');
+
+  // Pre-fill code from URL query parameter (e.g., /onboarding/join?code=ACME-X8J9)
+  useEffect(() => {
+    const urlCode = searchParams.get('code');
+    if (urlCode) {
+      setCode(urlCode);
+    }
+  }, [searchParams]);
+
+  const handleJoin = async () => {
+    if (!code.trim()) return;
+    clearError();
+    try {
+      await joinWithInviteCode(code.trim());
+      navigate('/velocity-ai');
+    } catch {
+      // error shown via context
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#FDFDFB] font-['Inter',sans-serif] relative overflow-hidden flex items-center justify-center p-4">
@@ -25,21 +47,32 @@ export default function OnboardingJoin() {
           <p className="text-[#78716C] text-sm font-light">Enter the invite code shared by your admin.</p>
         </div>
 
-        <div className="mb-6">
+        <div className="mb-4">
           <Input
             placeholder="Enter invite code (e.g., ACME-X8J9)"
             value={code}
-            onChange={(e) => setCode(e.target.value)}
+            onChange={(e) => { setCode(e.target.value.toUpperCase()); clearError(); }}
+            onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
             className="h-12 text-center text-lg tracking-widest border-[#E7E5E4] focus:border-[#0F766E] focus:ring-1 focus:ring-[#0F766E] rounded-lg font-light"
           />
         </div>
 
+        {error && (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3">
+            <p className="text-sm text-red-600 text-center">{error}</p>
+          </div>
+        )}
+
         <Button 
-          onClick={() => navigate('/app/employee/dashboard')}
-          disabled={!code.trim()}
+          onClick={handleJoin}
+          disabled={!code.trim() || loading}
           className="w-full h-12 bg-[#1C1917] hover:bg-[#292524] text-white rounded-lg font-normal text-base transition-all duration-200 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Join Team <ChevronRight className="h-4 w-4 ml-1" />
+          {loading ? (
+            <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Joining...</>
+          ) : (
+            <>Join Team <ChevronRight className="h-4 w-4 ml-1" /></>
+          )}
         </Button>
 
         <div className="mt-6 text-center">

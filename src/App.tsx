@@ -34,6 +34,7 @@ import OnboardingTeam from "./pages/onboarding/OnboardingTeam";
 import OnboardingSettings from "./pages/onboarding/OnboardingSettings";
 import OnboardingHolidays from "./pages/onboarding/OnboardingHolidays";
 import OnboardingComplete from "./pages/onboarding/OnboardingComplete";
+import { OnboardingProvider } from "@/contexts/OnboardingContext";
 import InviteEmail from "./pages/InviteEmail";
 import SetPassword from "./pages/SetPassword";
 
@@ -49,6 +50,7 @@ const App = () => (
           <Sonner />
           <ToastContainer />
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <OnboardingProvider>
             <Routes>
               {/* Authentication Routes */}
               <Route path="/login" element={<Login />} />
@@ -88,6 +90,7 @@ const App = () => (
               {/* Catch-all - 404 */}
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </OnboardingProvider>
           </BrowserRouter>
         </AuthProvider>
       </TooltipProvider>

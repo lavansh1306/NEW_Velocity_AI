@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, X, Plus } from 'lucide-react';
+import { ChevronLeft, X, Plus, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useOnboarding } from '@/contexts/OnboardingContext';
 
 const PREDEFINED_ROLES = [
   "Engineer",
@@ -19,6 +20,7 @@ const PREDEFINED_ROLES = [
 
 export default function OnboardingTeam() {
   const navigate = useNavigate();
+  const { saveTeamMembers, loading, error, clearError } = useOnboarding();
   const [members, setMembers] = useState([
     { name: '', email: '', role: 'Engineer' },
     { name: '', email: '', role: 'Designer' },
@@ -44,6 +46,20 @@ export default function OnboardingTeam() {
       return member;
     });
     setMembers(newMembers);
+  };
+
+  const handleContinue = async () => {
+    clearError();
+    try {
+      // Only save members that have an email
+      const validMembers = members.filter(m => m.email.trim());
+      if (validMembers.length > 0) {
+        await saveTeamMembers(validMembers);
+      }
+      navigate('/onboarding/settings');
+    } catch {
+      // error shown via context
+    }
   };
 
   return (
@@ -160,22 +176,29 @@ export default function OnboardingTeam() {
           </Button>
         </div>
 
-        <div className="bg-[#F0FDFA] border border-[#CCFBF1] rounded-lg p-4 mb-20 text-center">
+        <div className="bg-[#F0FDFA] border border-[#CCFBF1] rounded-lg p-4 mb-8 text-center">
           <p className="text-sm text-[#134E4A] font-light">
             <span className="font-medium mr-1">💡 TIP:</span>
             Don't worry about getting everything perfect. You can edit roles and add skills later.
           </p>
         </div>
 
+        {error && (
+          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-3 text-center">
+            <p className="text-sm text-red-600">{error}</p>
+          </div>
+        )}
+
         <div className="flex justify-between items-center">
           <button onClick={() => navigate('/onboarding/welcome')} className="text-sm text-[#78716C] hover:text-[#1C1917] transition-colors">
             ← Back
           </button>
           <Button 
-            onClick={() => navigate('/onboarding/settings')}
-            className="h-10 px-8 bg-[#1C1917] hover:bg-[#292524] text-white rounded-lg font-normal transition-all duration-200 shadow-md"
+            onClick={handleContinue}
+            disabled={loading}
+            className="h-10 px-8 bg-[#1C1917] hover:bg-[#292524] text-white rounded-lg font-normal transition-all duration-200 shadow-md disabled:opacity-50"
           >
-            Continue →
+            {loading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...</> : 'Continue →'}
           </Button>
         </div>
       </div>

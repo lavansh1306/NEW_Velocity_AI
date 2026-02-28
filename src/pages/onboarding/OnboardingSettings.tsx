@@ -1,11 +1,35 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Calendar, Sparkles } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Sparkles, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useOnboarding } from '@/contexts/OnboardingContext';
 
 export default function OnboardingSettings() {
   const navigate = useNavigate();
+  const { saveSettings, loading, error, clearError } = useOnboarding();
+  const [workHours, setWorkHours] = useState('40');
+  const [workDays, setWorkDays] = useState('5');
+  const [weekStart, setWeekStart] = useState<'sunday' | 'monday'>('monday');
+  const [fiscalYear, setFiscalYear] = useState<'January' | 'April' | 'July' | 'October'>('January');
+  const [utilization, setUtilization] = useState('85');
+
+  const handleContinue = async () => {
+    clearError();
+    try {
+      await saveSettings({
+        workHoursPerWeek: parseInt(workHours) || 40,
+        workDaysPerWeek: parseInt(workDays) || 5,
+        weekStartDay: weekStart,
+        fiscalYearStart: fiscalYear,
+        targetUtilization: parseInt(utilization) || 85,
+      });
+      navigate('/onboarding/holidays');
+    } catch {
+      // error shown via context
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#FDFDFB] font-['Inter',sans-serif] relative overflow-hidden">
@@ -47,7 +71,14 @@ export default function OnboardingSettings() {
               <div>
                 <Label className="text-sm text-[#57534E] font-medium mb-2 block">Standard Work Hours</Label>
                 <div className="flex items-center gap-3">
-                  <Input className="w-full h-10 border-[#E7E5E4] focus:border-[#0F766E] focus:ring-1 focus:ring-[#0F766E]" defaultValue="40" />
+                  <Input 
+                    className="w-full h-10 border-[#E7E5E4] focus:border-[#0F766E] focus:ring-1 focus:ring-[#0F766E]" 
+                    value={workHours} 
+                    onChange={(e) => setWorkHours(e.target.value)}
+                    type="number"
+                    min="1"
+                    max="168"
+                  />
                   <span className="text-sm text-[#78716C] font-light whitespace-nowrap">hrs / week</span>
                 </div>
                 <p className="text-xs text-[#A8A29E] mt-2 font-light">Most teams work 40 hours/week</p>
@@ -57,7 +88,14 @@ export default function OnboardingSettings() {
               <div>
                 <Label className="text-sm text-[#57534E] font-medium mb-2 block">Work Days</Label>
                 <div className="flex items-center gap-3">
-                  <Input className="w-full h-10 border-[#E7E5E4] focus:border-[#0F766E] focus:ring-1 focus:ring-[#0F766E]" defaultValue="5" />
+                  <Input 
+                    className="w-full h-10 border-[#E7E5E4] focus:border-[#0F766E] focus:ring-1 focus:ring-[#0F766E]" 
+                    value={workDays}
+                    onChange={(e) => setWorkDays(e.target.value)}
+                    type="number"
+                    min="1"
+                    max="7"
+                  />
                   <span className="text-sm text-[#78716C] font-light whitespace-nowrap">days / week</span>
                 </div>
                 <p className="text-xs text-[#A8A29E] mt-2 font-light">Usually Monday - Friday</p>
@@ -69,14 +107,26 @@ export default function OnboardingSettings() {
                 <div className="flex items-center gap-6">
                   <label className="flex items-center gap-2 cursor-pointer group">
                     <div className="relative flex items-center justify-center">
-                      <input type="radio" name="weekstart" className="peer appearance-none w-5 h-5 border border-[#D6D3D1] rounded-full checked:border-[#0F766E] checked:bg-[#0F766E] transition-all" />
+                      <input 
+                        type="radio" 
+                        name="weekstart" 
+                        checked={weekStart === 'sunday'}
+                        onChange={() => setWeekStart('sunday')}
+                        className="peer appearance-none w-5 h-5 border border-[#D6D3D1] rounded-full checked:border-[#0F766E] checked:bg-[#0F766E] transition-all" 
+                      />
                       <div className="absolute w-2 h-2 bg-white rounded-full opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" />
                     </div>
                     <span className="text-sm text-[#57534E] font-light group-hover:text-[#1C1917] transition-colors">Sunday</span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer group">
                     <div className="relative flex items-center justify-center">
-                      <input type="radio" name="weekstart" className="peer appearance-none w-5 h-5 border border-[#D6D3D1] rounded-full checked:border-[#0F766E] checked:bg-[#0F766E] transition-all" defaultChecked />
+                      <input 
+                        type="radio" 
+                        name="weekstart" 
+                        checked={weekStart === 'monday'}
+                        onChange={() => setWeekStart('monday')}
+                        className="peer appearance-none w-5 h-5 border border-[#D6D3D1] rounded-full checked:border-[#0F766E] checked:bg-[#0F766E] transition-all" 
+                      />
                       <div className="absolute w-2 h-2 bg-white rounded-full opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" />
                     </div>
                     <span className="text-sm text-[#57534E] font-light group-hover:text-[#1C1917] transition-colors">Monday</span>
@@ -100,7 +150,11 @@ export default function OnboardingSettings() {
               <div>
                 <Label className="text-sm text-[#57534E] font-medium mb-2 block">Fiscal Year Starts</Label>
                 <div className="relative">
-                  <select className="w-full h-10 rounded-md border border-[#E7E5E4] px-3 text-sm bg-white focus:border-[#0F766E] outline-none text-[#57534E] font-light appearance-none cursor-pointer">
+                  <select 
+                    value={fiscalYear}
+                    onChange={(e) => setFiscalYear(e.target.value as any)}
+                    className="w-full h-10 rounded-md border border-[#E7E5E4] px-3 text-sm bg-white focus:border-[#0F766E] outline-none text-[#57534E] font-light appearance-none cursor-pointer"
+                  >
                     <option>January</option>
                     <option>April</option>
                     <option>July</option>
@@ -117,7 +171,14 @@ export default function OnboardingSettings() {
               <div>
                 <Label className="text-sm text-[#57534E] font-medium mb-2 block">Target Utilization</Label>
                 <div className="flex items-center gap-3">
-                  <Input className="w-full h-10 border-[#E7E5E4] text-center focus:border-[#0F766E] focus:ring-1 focus:ring-[#0F766E]" defaultValue="85" />
+                  <Input 
+                    className="w-full h-10 border-[#E7E5E4] text-center focus:border-[#0F766E] focus:ring-1 focus:ring-[#0F766E]" 
+                    value={utilization}
+                    onChange={(e) => setUtilization(e.target.value)}
+                    type="number"
+                    min="1"
+                    max="100"
+                  />
                   <span className="text-sm text-[#78716C] font-light whitespace-nowrap">% capacity</span>
                 </div>
                 <p className="text-xs text-[#A8A29E] mt-2 font-light">Recommended: 85%</p>
@@ -127,15 +188,22 @@ export default function OnboardingSettings() {
 
         </div>
 
+        {error && (
+          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-3 text-center">
+            <p className="text-sm text-red-600">{error}</p>
+          </div>
+        )}
+
         <div className="flex justify-between items-center">
           <button onClick={() => navigate('/onboarding/team')} className="text-sm text-[#78716C] hover:text-[#1C1917] transition-colors">
             ← Back
           </button>
           <Button 
-            onClick={() => navigate('/onboarding/holidays')}
-            className="h-10 px-8 bg-[#1C1917] hover:bg-[#292524] text-white rounded-lg font-normal transition-all duration-200 shadow-md"
+            onClick={handleContinue}
+            disabled={loading}
+            className="h-10 px-8 bg-[#1C1917] hover:bg-[#292524] text-white rounded-lg font-normal transition-all duration-200 shadow-md disabled:opacity-50"
           >
-            Continue →
+            {loading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...</> : 'Continue →'}
           </Button>
         </div>
       </div>

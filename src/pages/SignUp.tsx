@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Zap, Eye, EyeOff, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { Zap, Eye, EyeOff, ChevronRight } from 'lucide-react';
 import AuthLayout from '@/components/shared/AuthLayout';
 import { FormError, validators } from '@/components/shared/FormError';
 
@@ -47,7 +47,6 @@ export default function SignUp() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const { signUp, signInWithGoogle, signInWithJira, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -130,7 +129,6 @@ export default function SignUp() {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setSuccess('');
     setLoading(true);
 
     if (password !== confirmPassword) {
@@ -146,17 +144,9 @@ export default function SignUp() {
     }
 
     try {
-      // Save email interest before signing up
-      await saveEmailInterest(email);
-      
       await signUp(email, password);
-      setSuccess('Account created! Please check your email (including spam folder) to confirm your account before logging in. After confirming, you will be guided through the setup process.');
-      // Don't redirect automatically - let user see the email confirmation message
-      // After email confirmation, AuthCallback will route them to /onboarding/mode
-      setEmail('');
-      setPassword('');
-      setConfirmPassword('');
-      setLoading(false);
+      // Account created & auto-signed-in — go straight to onboarding
+      navigate('/onboarding/mode');
     } catch (err: any) {
       setError(err.message || 'Failed to sign up');
       setLoading(false);
@@ -182,24 +172,6 @@ export default function SignUp() {
         </p>
       </div>
 
-      {/* Success Message */}
-      {success && (
-        <div className="mb-8 rounded-2xl border border-emerald-200 bg-emerald-50 p-6 shadow-sm">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100">
-              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-            </div>
-            <h3 className="font-medium text-emerald-900">Check your email</h3>
-          </div>
-          <p className="text-sm font-light text-emerald-800 leading-relaxed mb-4">{success}</p>
-          <Link to="/login">
-            <Button className="w-full bg-[#1C1917] hover:bg-[#292524] text-white font-medium h-11 rounded-lg shadow-md">
-              Go to Sign In
-            </Button>
-          </Link>
-        </div>
-      )}
-
       {/* Error Message */}
       {error && (
         <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4">
@@ -207,8 +179,6 @@ export default function SignUp() {
         </div>
       )}
 
-      {!success && (
-        <>
           <div className="grid grid-cols-2 gap-4 mb-8">
             <Button 
               variant="outline" 
@@ -304,8 +274,6 @@ export default function SignUp() {
           <p className="text-xs text-center text-[#A8A29E] leading-relaxed mb-6">
             By creating an account, you agree to our Terms of Service and Privacy Policy.
           </p>
-        </>
-      )}
 
       <div className="text-center">
         <span className="text-sm text-[#78716C]">Already have an account? </span>

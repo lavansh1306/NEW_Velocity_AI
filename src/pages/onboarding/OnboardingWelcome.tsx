@@ -1,9 +1,44 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { useOnboarding } from '@/contexts/OnboardingContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function OnboardingWelcome() {
   const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
+  const { createOrganization, loading, error, clearError, orgId } = useOnboarding();
+  const [orgName, setOrgName] = useState('');
+
+  const handleStart = async () => {
+    if (!orgName.trim() || !user) return;
+    clearError();
+    try {
+      await createOrganization(orgName.trim());
+      navigate('/onboarding/team');
+    } catch {
+      // error is already set in context
+    }
+  };
+
+  const handleSkip = async () => {
+    if (!orgId && orgName.trim()) {
+      try {
+        await createOrganization(orgName.trim());
+      } catch {
+        // proceed anyway
+      }
+    } else if (!orgId) {
+      try {
+        await createOrganization('My Team');
+      } catch {
+        // proceed anyway
+      }
+    }
+    navigate('/onboarding/complete');
+  };
 
   return (
     <div className="min-h-screen bg-[#FDFDFB] font-['Inter',sans-serif] relative overflow-hidden">
@@ -16,7 +51,7 @@ export default function OnboardingWelcome() {
       {/* Top Bar */}
       <div className="relative z-10 h-14 bg-[#FAFAF9]/80 backdrop-blur-sm border-b border-[#E7E5E4] px-8 flex items-center justify-between">
         <span className="text-xs text-[#A8A29E]">Step 1 of 4</span>
-        <button onClick={() => navigate('/onboarding/complete')} className="text-sm text-[#78716C] hover:text-[#1C1917] transition-colors">
+        <button onClick={handleSkip} className="text-sm text-[#78716C] hover:text-[#1C1917] transition-colors">
           Skip Setup
         </button>
       </div>
@@ -31,6 +66,24 @@ export default function OnboardingWelcome() {
         <p className="text-base text-[#78716C] text-center mb-12 font-light">
           Let's get your workspace set up in 4 quick steps
         </p>
+
+        {/* Organization Name Input */}
+        <div className="w-[400px] mb-8">
+          <label className="text-sm text-[#57534E] font-medium mb-2 block">What's your team or company name?</label>
+          <Input
+            placeholder="e.g., Acme Inc, Engineering Team"
+            value={orgName}
+            onChange={(e) => setOrgName(e.target.value)}
+            className="h-12 text-base border-[#E7E5E4] focus:border-[#0F766E] focus:ring-1 focus:ring-[#0F766E] rounded-lg"
+            onKeyDown={(e) => e.key === 'Enter' && handleStart()}
+          />
+        </div>
+
+        {error && (
+          <div className="w-[400px] mb-4 rounded-lg border border-red-200 bg-red-50 p-3">
+            <p className="text-sm text-red-600">{error}</p>
+          </div>
+        )}
 
         <div className="w-[400px] space-y-4 mb-8">
           {[
@@ -51,10 +104,15 @@ export default function OnboardingWelcome() {
         <p className="text-sm text-[#A8A29E] mb-16 font-light">This will take about 5 minutes.</p>
 
         <Button 
-          onClick={() => navigate('/onboarding/team')}
-          className="h-12 px-8 bg-[#1C1917] hover:bg-[#292524] text-white rounded-lg font-normal text-base transition-all duration-200 shadow-md"
+          onClick={handleStart}
+          disabled={loading || authLoading || !user || !orgName.trim()}
+          className="h-12 px-8 bg-[#1C1917] hover:bg-[#292524] text-white rounded-lg font-normal text-base transition-all duration-200 shadow-md disabled:opacity-50"
         >
-          Let's Get Started <ChevronRight className="h-4 w-4 ml-2" />
+          {loading ? (
+            <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Creating workspace...</>
+          ) : (
+            <>Let's Get Started <ChevronRight className="h-4 w-4 ml-2" /></>
+          )}
         </Button>
       </div>
     </div>
