@@ -84,7 +84,7 @@ export default function OnboardingComplete() {
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
             <Button 
-              onClick={() => navigate('/progress')}
+              onClick={() => navigate('/projects')}
               className="h-12 px-8 bg-[#1C1917] hover:bg-[#292524] text-white rounded-lg font-normal text-base transition-all duration-200 shadow-md"
             >
               ✨ Plan First Project
