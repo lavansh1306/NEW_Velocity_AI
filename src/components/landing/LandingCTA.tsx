@@ -28,26 +28,32 @@ export function LandingCTA() {
   }, { scope: containerRef });
 
   return (
-    <div ref={containerRef} className="py-24 sm:py-32 relative overflow-hidden bg-white">
+    <div ref={containerRef} className="py-24 sm:py-32 relative overflow-hidden">
       <div className="px-6 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-4xl text-center">
           <div
             ref={cardRef}
-            className="relative isolate overflow-hidden rounded-3xl bg-[#1C1917] px-6 py-24 text-center shadow-2xl sm:px-16"
+            className="relative isolate overflow-hidden rounded-3xl bg-slate-900 px-6 py-24 text-center shadow-2xl sm:px-16"
           >
             {/* Background Gradients */}
-            <div className="absolute -top-24 left-1/2 -z-10 h-[500px] w-[500px] -translate-x-1/2 rounded-full bg-gradient-to-b from-[#2DD4BF]/20 to-[#0F766E]/20 blur-[100px]"></div>
+            <div className="absolute -top-24 left-1/2 -z-10 h-[500px] w-[500px] -translate-x-1/2 rounded-full bg-gradient-to-b from-purple-900 to-indigo-900 opacity-20 blur-[100px]"></div>
             
             <div className="mx-auto max-w-2xl text-center">
-              <div className="inline-flex items-center rounded-full px-4 py-2 text-xs font-medium text-[#2DD4BF] ring-1 ring-[#2DD4BF]/30 bg-[#2DD4BF]/10 mb-8">
-                GET STARTED TODAY
+              <div className="inline-flex items-center rounded-full px-4 py-1.5 text-sm font-medium text-yellow-300 ring-1 ring-inset ring-yellow-400/20 bg-yellow-400/10 mb-8">
+                <span className="mr-2">⚡</span> GET STARTED TODAY
               </div>
               
-              <h2 className="text-3xl font-light tracking-tight text-white sm:text-4xl">
-                Ready to Transform Your Workforce Operations?
+              <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                Ready to Transform Your<br />
+                <span 
+                  className="bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent italic"
+                  style={{ fontFamily: "'Source Serif 4', serif" }}
+                >
+                  Workforce Operations?
+                </span>
               </h2>
               
-              <p className="mx-auto mt-6 max-w-xl text-lg leading-8 text-stone-300">
+              <p className="mx-auto mt-6 max-w-xl text-lg leading-8 text-slate-300">
                 Join forward-thinking organizations that have already transformed their scheduling, redeployment, and capacity planning with Velocity AI.
               </p>
               

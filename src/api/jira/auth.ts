@@ -29,22 +29,15 @@ const getClientSecret = () => process.env.JIRA_OAUTH_CLIENT_SECRET || '';
 // Get the correct redirect URI based on environment
 // This must match a registered redirect URI in the Jira OAuth app
 const getRedirectUri = (req?: Request) => {
-  // Check for specific deployment hostnames first
-  if (req) {
-    if (req.hostname === 'velocitydevelopment.vercel.app') {
-      return 'https://velocitydevelopment.vercel.app/api/jira/auth/callback';
-    }
-    if (req.hostname === 'joinvelocity.co' || req.hostname === 'www.joinvelocity.co') {
-      return 'https://www.joinvelocity.co/api/jira/auth/callback';
-    }
-  }
-
-  // Check if we're on production based on environment signals
+  // Check if we're on production based on multiple signals
   const isVercel = process.env.VERCEL === '1';
-  const isProduction = process.env.NODE_ENV === 'production' || isVercel;
+  const isProduction = 
+    process.env.NODE_ENV === 'production' || 
+    isVercel ||
+    (req && (req.hostname === 'joinvelocity.co' || req.hostname === 'www.joinvelocity.co'));
   
   if (isProduction) {
-    // Default production redirect URI
+    // Always use production redirect URI when in production
     return 'https://www.joinvelocity.co/api/jira/auth/callback';
   } else {
     // Use local development redirect URI
