@@ -21,7 +21,6 @@ import { useLeaveManagementData } from '@/hooks/useLeaveManagementData';
 
 export default function LeaveManagementTab() {
   const { toast } = useToast();
-  const [activePersona, setActivePersona] = useState<'manager' | 'employee'>('manager');
   
   // NEW: Use the centralized data fetching hook instead of managing state directly
   const {
@@ -50,6 +49,9 @@ export default function LeaveManagementTab() {
 
   // NEW: Movable Calendar State for Manager View
   const [overviewStartDate, setOverviewStartDate] = useState(new Date());
+  
+  // Default to employee view for better UX - users see their leave portal first
+  const [activePersona, setActivePersona] = useState<'manager' | 'employee'>('employee');
 
   // ------------------------------------------------------------------
   // HARDENED SUBMISSION & MANAGER ACTIONS
@@ -282,18 +284,6 @@ export default function LeaveManagementTab() {
 
   return (
     <div className="w-full min-h-screen h-full flex flex-col space-y-8 bg-[#F5F5F4] animate-in fade-in duration-500 pb-20 p-8">
-      {/* DEBUG SECTION */}
-      <div className="bg-yellow-100 border-2 border-yellow-400 rounded-lg p-6 text-yellow-900 font-mono text-sm space-y-2 shadow-md">
-        <h3 className="font-bold text-base mb-4">🔍 Leave Management Debug Info</h3>
-        <div><strong>Auth Loading:</strong> {authLoading ? '✓ YES' : '✗ NO'}</div>
-        <div><strong>User Email:</strong> {user?.email || '✗ No user'}</div>
-        <div><strong>Current User ID:</strong> {currentUser || '✗ Not set'}</div>
-        <div><strong>Org ID:</strong> {currentOrgId || '✗ Not set'}</div>
-        <div><strong>Tasks Loaded:</strong> {tasks.length > 0 ? `✓ ${tasks.length}` : '✗ 0'}</div>
-        <div><strong>Leaves Loaded:</strong> {leaves.length > 0 ? `✓ ${leaves.length}` : '✗ 0'}</div>
-        <div><strong>Data Loading:</strong> {isLoadingData ? '⏳ YES' : '✓ NO'}</div>
-      </div>
-      
       {/* HEADER & CONTROLS */}
       <div className="flex flex-col md:flex-row md:items-center justify-between p-4 bg-slate-900 border border-slate-800 rounded-2xl shadow-lg gap-4">
         <div className="flex items-center gap-3">
