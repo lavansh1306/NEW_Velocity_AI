@@ -33,7 +33,7 @@ The platform runs as a React SPA backed by an Express server. An external Python
 - **⏱️ Time Tracking**: Automated leave management with project impact analysis
 - **🔮 Predictive Analytics**: ML-powered hotspot detection identifies at-risk projects
 - **💰 ROI Measurement**: Quantify productivity improvements in monetary terms
-- **🔥 Burnout Prevention**: Monitor workload distribution and team capacity
+- **🔥 Burnout Prevenion**: Monitor workload distribution and team capacity
 
 ---
 
