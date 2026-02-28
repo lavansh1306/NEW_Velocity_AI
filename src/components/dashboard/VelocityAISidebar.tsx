@@ -12,7 +12,6 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { Header } from '../Header';
 
 interface VelocityAISidebarProps {
   children: React.ReactNode;
@@ -239,9 +238,6 @@ export const VelocityAISidebar = ({ children }: VelocityAISidebarProps) => {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 bg-[#F5F5F4]">
-        {/* Header */}
-        <Header />
-
         {/* Content */}
         <main className="flex-1 flex flex-col min-w-0 bg-[#F5F5F4] relative overflow-auto">
           {/* Texture Overlay */}
