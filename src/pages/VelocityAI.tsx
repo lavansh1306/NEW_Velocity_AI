@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
+import { VelocityAISidebar } from '../components/dashboard/VelocityAISidebar';
+import PeopleCapacityTab from '../components/demo2/PeopleCapacityTab'; 
 import { 
   BarChart3, 
   Users, 

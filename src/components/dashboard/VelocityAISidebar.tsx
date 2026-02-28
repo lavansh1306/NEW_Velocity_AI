@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { Header } from './Header';
+import { Header } from '../Header';
 
 interface VelocityAISidebarProps {
   children: React.ReactNode;
