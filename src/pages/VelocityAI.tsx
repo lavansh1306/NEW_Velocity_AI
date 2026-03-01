@@ -200,8 +200,6 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
   const [csvLoading, setCsvLoading] = useState(true);
   const { issues: jiraIssues, loading: jiraLoading } = useJiraData();
   const [capacityBreakdown, setCapacityBreakdown] = useState<any>(null);
-  const [selectedProject, setSelectedProject] = useState<string>('');
-  const [selectedEmployee, setSelectedEmployee] = useState<string>('all');
   const [fromDate, setFromDate] = useState({ month: '01', year: '2025' });
   const [toDate, setToDate] = useState({ month: '03', year: '2025' });
   
@@ -551,50 +549,7 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
     };
   }, [jiraIssues, dateFrom, dateTo]);
 
-  // Calculate filtered available capacity based on selected project and employee
-  const filteredCapacity = useMemo(() => {
-    if (!capacityBreakdown || !capacityBreakdown.assigneeData) return { hours: 0, days: 0 };
 
-    let totalIdleHours = 0;
-    let totalIdleDays = 0;
-
-    Object.entries(capacityBreakdown.assigneeData).forEach(([assignee, projects]: [string, any]) => {
-      // Filter by employee
-      if (selectedEmployee !== 'all' && assignee !== selectedEmployee) return;
-
-      // Filter by project
-      projects.forEach((proj: any) => {
-        if (selectedProject !== '' && proj.projectKey !== selectedProject) return;
-        totalIdleHours += proj.idleHours;
-        totalIdleDays += proj.idleDays;
-      });
-    });
-
-    return { hours: totalIdleHours, days: totalIdleDays };
-  }, [capacityBreakdown, selectedProject, selectedEmployee]);
-
-  // Get available projects and employees for filter dropdowns
-  const availableProjects = useMemo(() => {
-    if (!capacityBreakdown || !capacityBreakdown.assigneeData) return [];
-    return Array.from(
-      new Set(
-        Object.values(capacityBreakdown.assigneeData)
-          .flatMap((projects: any) => projects.map((p: any) => p.projectKey))
-      )
-    ).sort();
-  }, [capacityBreakdown]);
-
-  const availableEmployees = useMemo(() => {
-    if (!capacityBreakdown || !capacityBreakdown.assigneeData) return [];
-    return Object.keys(capacityBreakdown.assigneeData).sort();
-  }, [capacityBreakdown]);
-
-  // Set default project to first available project
-  useEffect(() => {
-    if (availableProjects.length > 0 && !selectedProject) {
-      setSelectedProject(availableProjects[0]);
-    }
-  }, [availableProjects, selectedProject]);
 
   // Get upcoming deadlines (next 2 weeks)
   const upcomingDeadlines = useMemo(() => {
@@ -700,66 +655,6 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
           <div className="text-4xl font-light text-gray-900 mb-2">{dashboardMetrics.teamMembers}</div>
           <p className="text-xs text-gray-500 font-light">Active across all projects</p>
         </div>
-      </div>
-
-      {/* Available Capacity Card with Filters */}
-      <div className="bg-white rounded-2xl shadow-sm p-10 border border-gray-100">
-        <div className="flex items-center justify-between mb-8">
-          <h3 className="text-xl font-light text-gray-900">Available Capacity</h3>
-        </div>
-        
-        {/* Filters */}
-        <div className="grid grid-cols-3 gap-6 mb-6">
-          <div>
-            <label className="text-xs font-light text-gray-600 mb-2 block">Filter by Project</label>
-            <select
-              value={selectedProject}
-              onChange={(e) => setSelectedProject(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm font-light focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-            >
-              {availableProjects.map((project) => (
-                <option key={project} value={project}>{project}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="text-xs font-light text-gray-600 mb-2 block">Filter by Employee</label>
-            <select
-              value={selectedEmployee}
-              onChange={(e) => setSelectedEmployee(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm font-light focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-            >
-              <option value="all">All Employees</option>
-              {availableEmployees.map((employee) => (
-                <option key={employee} value={employee}>{employee}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Display filtered capacity */}
-        <div className="grid grid-cols-3 gap-6">
-          <div className="space-y-2">
-            <p className="text-xs font-light text-gray-600 uppercase tracking-wider">Available Capacity</p>
-            <div className="text-4xl font-light text-gray-900">
-              {filteredCapacity.hours}h
-              <span className="text-lg text-gray-500 ml-2 font-light">({filteredCapacity.days}d)</span>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <p className="text-xs font-light text-gray-600 uppercase tracking-wider">Total Tasks</p>
-            <div className="text-4xl font-light text-gray-900">{dashboardMetrics.totalTasks}</div>
-          </div>
-          <div className="space-y-2">
-            <p className="text-xs font-light text-gray-600 uppercase tracking-wider">Total Allocated</p>
-            <div className="text-4xl font-light text-gray-900">{dashboardMetrics.totalAllocated}h</div>
-          </div>
-        </div>
-        <p className="text-xs text-gray-500 mt-4 font-light">
-          {selectedEmployee !== 'all' 
-            ? `Filtered: ${selectedProject}${selectedEmployee !== 'all' ? ` - ${selectedEmployee}` : ''}` 
-            : 'Showing capacity data'}
-        </p>
       </div>
 
       {/* Employee Timeline View */}
