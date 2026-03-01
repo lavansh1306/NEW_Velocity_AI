@@ -14,6 +14,7 @@ interface ProjectSummary {
   title: string;
   description?: string;
   created_at: string;
+  // Note: These fields will now show 0 or default values since the secondary fetch is removed
   issue_count: number;
   completed_count: number;
   health_score: number;
@@ -43,7 +44,7 @@ export default function Projects() {
   const [searchQuery, setSearchQuery] = useState('');
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
 
-  const fetchData = useCallback(async () => {
+ const fetchData = useCallback(async () => {
     if (authLoading) return;
     if (!user) {
       setIsLoading(false);
@@ -80,61 +81,28 @@ export default function Projects() {
         return;
       }
 
-      // 2. PARALLEL FETCH: Primary Projects + Associated Issues (Clone)
-      const [projectsResponse, issuesResponse] = await Promise.all([
-        supabase
-          .from('jira_projects')
-          .select('id, key, title, description, created_at')
-          .eq('org_id', orgId)
-          .order('created_at', { ascending: false }),
-        
-        supabase
-          .from('jira_issues_clone')
-          .select('project_key, status, assignee')
-          .eq('org_id', orgId)
-      ]);
+      // 2. PRIMARY FETCH ONLY: Fetch from jira_projects
+      const { data: rawProjects, error } = await supabase
+        .from('jira_projects')
+        .select('id, key, title, description, created_at')
+        .eq('org_id', orgId)
+        .order('created_at', { ascending: false });
 
-      if (projectsResponse.error) throw projectsResponse.error;
-      const rawProjects = projectsResponse.data || [];
-      const allIssues = issuesResponse.data || [];
+      if (error) throw error;
 
-      // 3. Map Issues to Projects to calculate stats
-      const processedProjects: ProjectSummary[] = rawProjects.map(project => {
-        const projectIssues = allIssues.filter(i => i.project_key === project.key);
-        const total = projectIssues.length;
-
-        const completed = projectIssues.filter(i => {
-          const s = (i.status || '').toLowerCase();
-          return ['done', 'closed', 'resolved', 'complete'].includes(s);
-        }).length;
-
-        const uniqueAssignees = Array.from(
-          new Set(
-            projectIssues
-              .filter(i => i.assignee && i.assignee !== 'Unassigned')
-              .map(i => i.assignee as string)
-          )
-        );
-
-        const health = total === 0 ? 0 : Math.round((completed / total) * 100);
-
-        const team_initials = uniqueAssignees.slice(0, 4).map(name =>
-          name.trim().split(' ').map(part => part[0]?.toUpperCase() ?? '').slice(0, 2).join('')
-        );
-
-        return {
-          id: project.id,
-          key: project.key,
-          title: project.title,
-          description: project.description || '',
-          created_at: project.created_at || new Date().toISOString(),
-          issue_count: total,
-          completed_count: completed,
-          health_score: health,
-          team_size: uniqueAssignees.length,
-          team_initials,
-        };
-      });
+      // 3. Format data (Stats default to 0 as secondary fetch is removed)
+      const processedProjects: ProjectSummary[] = (rawProjects || []).map(project => ({
+        id: project.id,
+        key: project.key,
+        title: project.title,
+        description: project.description || '',
+        created_at: project.created_at || new Date().toISOString(),
+        issue_count: 0,
+        completed_count: 0,
+        health_score: 0,
+        team_size: 0,
+        team_initials: [],
+      }));
 
       setProjects(processedProjects);
       setLastRefreshed(new Date());
@@ -169,6 +137,7 @@ export default function Projects() {
     <VelocityAISidebar>
       <div className="bg-[#FAFAF9] min-h-screen p-8 md:p-12 font-['Inter',sans-serif]">
         <div className="max-w-[1600px] mx-auto">
+          {/* Header */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
             <div>
               <h1 className="text-4xl font-light text-[#1C1917] tracking-tight">Projects</h1>
@@ -212,6 +181,7 @@ export default function Projects() {
             </div>
           </div>
 
+          {/* Project List Content */}
           <div className="bg-white rounded-[24px] border border-[#E7E5E4] overflow-hidden shadow-sm min-h-[500px] flex flex-col">
             <div className="grid grid-cols-12 gap-6 px-8 py-5 border-b border-[#E7E5E4] bg-[#FAFAF9]">
               <div className="col-span-5 md:col-span-4">
@@ -240,80 +210,46 @@ export default function Projects() {
               {isLoading && projects.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-[#A8A29E]">
                   <Loader2 className="w-8 h-8 animate-spin mb-4 text-[#1C1917]" />
-                  <p className="font-light">Syncing your workspace...</p>
+                  <p className="font-light">Fetching projects...</p>
                 </div>
               ) : filteredProjects.length > 0 ? (
                 <div>
-                  {filteredProjects.map(project => {
-                    const progressPct = Math.round((project.completed_count / Math.max(project.issue_count, 1)) * 100);
-                    return (
-                      <div
-                        key={project.id}
-                        onClick={() => navigate(`/project-analytics/${project.id}`)}
-                        className="grid grid-cols-12 gap-6 px-8 py-5 border-b border-[#F5F5F4] hover:bg-[#FAFAF9] transition-all cursor-pointer items-center last:border-b-0 group"
-                      >
-                        <div className="col-span-5 md:col-span-4">
-                          <h3 className="text-sm font-medium text-[#1C1917] mb-1.5 group-hover:text-[#0F766E] transition-colors truncate pr-4">
-                            {project.title}
-                          </h3>
-                          <div className="flex items-center gap-2 text-xs text-[#78716C] font-light">
-                            <span className="font-mono bg-[#F5F5F4] text-[#57534E] border border-[#E7E5E4] px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider">
-                              {project.key}
-                            </span>
-                            <span className="text-[#D6D3D1]">•</span>
-                            <span>{new Date(project.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
-                          </div>
-                        </div>
-
-                        <div className="col-span-2 hidden md:flex items-center">
-                          {project.issue_count === 0 ? (
-                            <div className="px-3 py-1 rounded-full text-xs font-medium border bg-stone-50 text-stone-400 border-stone-100">
-                              No data
-                            </div>
-                          ) : (
-                            <div className={`px-3 py-1 rounded-full text-xs font-medium border ${getHealthBadgeClass(project.health_score)}`}>
-                              {project.health_score}% Healthy
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="col-span-4 md:col-span-3">
-                          <div className="flex items-center justify-between mb-1.5">
-                            <span className="text-xs font-medium text-[#1C1917]">{progressPct}%</span>
-                            <span className="text-[10px] text-[#A8A29E]">{project.completed_count}/{project.issue_count} tasks</span>
-                          </div>
-                          <div className="h-1.5 bg-[#F5F5F4] rounded-full overflow-hidden w-full max-w-[180px]">
-                            <div
-                              className={`h-full rounded-full transition-all duration-700 ease-out ${getProgressBarClass(project.health_score)}`}
-                              style={{ width: `${progressPct}%` }}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="col-span-3 hidden md:flex items-center gap-2">
-                          {project.team_size > 0 ? (
-                            <>
-                              <div className="flex -space-x-2.5">
-                                {project.team_initials.map((initials, i) => (
-                                  <div key={i} className="w-8 h-8 rounded-full bg-white border border-[#E7E5E4] flex items-center justify-center text-[10px] text-[#57534E] font-medium shadow-sm">
-                                    {initials}
-                                  </div>
-                                ))}
-                                {project.team_size > 4 && (
-                                  <div className="w-8 h-8 rounded-full bg-[#F5F5F4] border border-[#E7E5E4] flex items-center justify-center text-[10px] text-[#57534E] font-medium shadow-sm">
-                                    +{project.team_size - 4}
-                                  </div>
-                                )}
-                              </div>
-                              <span className="text-xs text-[#A8A29E]">{project.team_size} member{project.team_size !== 1 ? 's' : ''}</span>
-                            </>
-                          ) : (
-                            <span className="text-xs text-[#A8A29E] italic pl-1">No members</span>
-                          )}
+                  {filteredProjects.map(project => (
+                    <div
+                      key={project.id}
+                      onClick={() => navigate(`/project-analytics/${project.id}`)}
+                      className="grid grid-cols-12 gap-6 px-8 py-5 border-b border-[#F5F5F4] hover:bg-[#FAFAF9] transition-all cursor-pointer items-center last:border-b-0 group"
+                    >
+                      <div className="col-span-5 md:col-span-4">
+                        <h3 className="text-sm font-medium text-[#1C1917] mb-1.5 group-hover:text-[#0F766E] transition-colors truncate pr-4">
+                          {project.title}
+                        </h3>
+                        <div className="flex items-center gap-2 text-xs text-[#78716C] font-light">
+                          <span className="font-mono bg-[#F5F5F4] text-[#57534E] border border-[#E7E5E4] px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider">
+                            {project.key}
+                          </span>
+                          <span className="text-[#D6D3D1]">•</span>
+                          <span>{new Date(project.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
                         </div>
                       </div>
-                    );
-                  })}
+
+                      <div className="col-span-2 hidden md:flex items-center">
+                        <div className="px-3 py-1 rounded-full text-xs font-medium border bg-stone-50 text-stone-400 border-stone-100">
+                          Metadata only
+                        </div>
+                      </div>
+
+                      <div className="col-span-4 md:col-span-3">
+                        <div className="h-1.5 bg-[#F5F5F4] rounded-full overflow-hidden w-full max-w-[180px]">
+                          <div className="h-full bg-[#E7E5E4] w-0" />
+                        </div>
+                      </div>
+
+                      <div className="col-span-3 hidden md:flex items-center gap-2">
+                        <span className="text-xs text-[#A8A29E] italic pl-1">Sync tasks to see team</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-[#A8A29E]">
