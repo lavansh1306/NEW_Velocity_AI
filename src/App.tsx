@@ -26,6 +26,9 @@ import SignUp from "./pages/SignUp";
 import AuthCallback from "./pages/AuthCallback";
 import NotFound from "./pages/NotFound";
 import Dashboard from "./pages/Dashboard";
+import People from "./pages/People";
+import Plan from "./pages/Plan";
+import Leave from "./pages/Leave";
 import AuditPage from "./pages/Audit";
 import OnboardingModeSelection from "./pages/onboarding/OnboardingModeSelection";
 import OnboardingJoin from "./pages/onboarding/OnboardingJoin";
@@ -79,6 +82,9 @@ const App = () => (
                 <Route path="/roi-report" element={<ROIReport />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/velocity-ai" element={<VelocityAI />} />
+                <Route path="/people" element={<People />} />
+                <Route path="/plan" element={<Plan />} />
+                <Route path="/leave" element={<Leave />} />
                 <Route path="/progress" element={<PlanMyProject />} />
                 <Route path="/projects" element={<Projects />} />
 

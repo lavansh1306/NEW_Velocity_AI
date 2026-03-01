@@ -101,29 +101,25 @@ export default function ProjectDetailNew() {
 
   if (loading) {
     return (
-      <VelocityAISidebar>
-        <div className="min-h-screen bg-[#FAFAF9] flex items-center justify-center">
-          <div className="text-center animate-pulse">
-            <div className="w-12 h-12 border-4 border-[#E7E5E4] border-t-[#1C1917] rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-[#78716C] font-light">Loading project intelligence...</p>
-          </div>
+      <div className="min-h-screen bg-[#FAFAF9] flex items-center justify-center">
+        <div className="text-center animate-pulse">
+          <div className="w-12 h-12 border-4 border-[#E7E5E4] border-t-[#1C1917] rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-[#78716C] font-light">Loading project intelligence...</p>
         </div>
-      </VelocityAISidebar>
+      </div>
     );
   }
 
   if (!project) {
     return (
-      <VelocityAISidebar>
-        <div className="min-h-screen bg-[#FAFAF9] flex items-center justify-center">
-          <div className="text-center">
-            <h2 className="text-2xl font-light text-[#1C1917]">Project not found</h2>
-            <Button onClick={() => navigate('/projects')} variant="outline" className="mt-4">
-              Return to Projects
-            </Button>
-          </div>
+      <div className="min-h-screen bg-[#FAFAF9] flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-light text-[#1C1917]">Project not found</h2>
+          <Button onClick={() => navigate('/projects')} variant="outline" className="mt-4">
+            Return to Projects
+          </Button>
         </div>
-      </VelocityAISidebar>
+      </div>
     );
   }
 
