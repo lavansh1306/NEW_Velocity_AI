@@ -109,8 +109,9 @@ export async function handleJiraCallback(req: Request, res: Response) {
     
     res.setHeader('Set-Cookie', cookiesToSet);
     
-    // Redirect to dashboard
-    res.redirect('/velocity-ai');
+    // Redirect to auth callback to establish Supabase session
+    // The callback page will create/link Supabase user and then redirect to dashboard
+    res.redirect('/auth/callback?jira=true');
   } catch (error) {
     console.error('Jira callback error:', error);
     res.status(500).json({ error: 'Callback failed' });
