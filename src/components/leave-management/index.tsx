@@ -435,7 +435,35 @@ export default function LeaveManagementTab() {
         {/* TEAM CALENDAR - MANAGER VIEW ONLY */}
         {activePersona === 'manager' && (
           <div className="bg-white/70 backdrop-blur-xl border border-white/20 rounded-2xl p-8 shadow-sm">
-            <h2 className="text-xl font-light text-[#262626] mb-6">Team Calendar</h2>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-light text-[#262626]">Team Calendar</h2>
+              <div className="flex items-center gap-2 bg-white/50 p-1 rounded-full border border-white/20">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-8 w-8 rounded-full p-0 hover:bg-white/50 hover:shadow-sm" 
+                  onClick={handlePrevOverview}
+                >
+                  <ChevronLeft className="w-4 h-4 text-[#737373]" />
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-8 px-3 text-xs font-light text-[#737373] hover:bg-white/50 hover:shadow-sm rounded-full" 
+                  onClick={handleResetOverview}
+                >
+                  {overviewStartDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-8 w-8 rounded-full p-0 hover:bg-white/50 hover:shadow-sm" 
+                  onClick={handleNextOverview}
+                >
+                  <ChevronRight className="w-4 h-4 text-[#737373]" />
+                </Button>
+              </div>
+            </div>
             
             {/* Calendar Grid */}
             <div className="grid grid-cols-7 gap-3">
@@ -513,23 +541,19 @@ export default function LeaveManagementTab() {
                       </div>
                       
                       {/* Events in Day */}
-                      <div className="space-y-1.5">
-                        {dayLeaves.slice(0, 3).map((leave) => (
+                      <div className="space-y-1">
+                        {dayLeaves.map((leave, idx) => (
                           <div 
                             key={leave.id}
-                            className="text-xs p-2 rounded-lg font-light bg-gray-200 text-gray-700"
+                            className="text-xs p-1.5 rounded-lg font-light bg-gray-200 text-gray-700 truncate hover:text-clip"
+                            title={leave.name}
                             style={{
                               backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(0,0,0,0.05) 2px, rgba(0,0,0,0.05) 4px)'
                             }}
                           >
-                            {leave.name.split(' ')[0]}
+                            {leave.name}
                           </div>
                         ))}
-                        {dayLeaves.length > 3 && (
-                          <div className="text-xs px-2 py-1 text-[#737373] font-light">
-                            +{dayLeaves.length - 3} more
-                          </div>
-                        )}
                       </div>
                     </div>
                   );
