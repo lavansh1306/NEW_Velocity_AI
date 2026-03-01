@@ -74,32 +74,32 @@ const App = () => (
                 <Route path="/invite/email" element={<InviteEmail />} />
                 <Route path="/invite/accept" element={<SetPassword />} />
 
-                {/* Public Routes */}
+                {/* Public Routes (Marketing/Info) */}
                 <Route path="/" element={<Index />} />
                 <Route path="/demo" element={<Demo />} />
                 <Route path="/roi-calculator" element={<ROICalculator />} />
                 <Route path="/use-cases" element={<UseCases />} />
                 <Route path="/roi-report" element={<ROIReport />} />
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/velocity-ai" element={<VelocityAI />} />
-                <Route path="/people" element={<People />} />
-                <Route path="/plan" element={<Plan />} />
-                <Route path="/leave" element={<Leave />} />
-                <Route path="/progress" element={<PlanMyProject />} />
-                <Route path="/projects" element={<Projects />} />
 
-                {/* 2. Specific/Static Project Routes (MUST be before :id) */}
-                <Route path="/projects/create" element={<CreateProject />} />
-                <Route path="/projects/global-gantt" element={<GlobalGanttDashboard />} />
-                <Route path="/projects/jira-dashboard" element={<JiraDashboard />} />
+                {/* Protected Dashboard Routes (require authentication) */}
+                <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                <Route path="/velocity-ai" element={<ProtectedRoute><VelocityAI /></ProtectedRoute>} />
+                <Route path="/people" element={<ProtectedRoute><People /></ProtectedRoute>} />
+                <Route path="/plan" element={<ProtectedRoute><Plan /></ProtectedRoute>} />
+                <Route path="/leave" element={<ProtectedRoute><Leave /></ProtectedRoute>} />
+                <Route path="/progress" element={<ProtectedRoute><PlanMyProject /></ProtectedRoute>} />
+                <Route path="/projects" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
 
-                {/* 3. Dynamic ID Routes (Catches everything else) */}
-                <Route path="/projects/:id" element={<ProjectDetailNew />} />
-                <Route path="/project-analytics/:id" element={<ProjectAnalytics />} />
+                {/* Protected Project Routes (require authentication) */}
+                <Route path="/projects/create" element={<ProtectedRoute><CreateProject /></ProtectedRoute>} />
+                <Route path="/projects/global-gantt" element={<ProtectedRoute><GlobalGanttDashboard /></ProtectedRoute>} />
+                <Route path="/projects/jira-dashboard" element={<ProtectedRoute><JiraDashboard /></ProtectedRoute>} />
+                <Route path="/projects/:id" element={<ProtectedRoute><ProjectDetailNew /></ProtectedRoute>} />
+                <Route path="/project-analytics/:id" element={<ProtectedRoute><ProjectAnalytics /></ProtectedRoute>} />
 
-                {/* Utilities */}
-                <Route path="/debug-normalization" element={<DebugNormalization />} />
-                <Route path="/audit" element={<AuditPage />} />
+                {/* Protected Utility Routes (require authentication) */}
+                <Route path="/debug-normalization" element={<ProtectedRoute><DebugNormalization /></ProtectedRoute>} />
+                <Route path="/audit" element={<ProtectedRoute><AuditPage /></ProtectedRoute>} />
 
                 {/* Catch-all - 404 */}
                 <Route path="*" element={<NotFound />} />
