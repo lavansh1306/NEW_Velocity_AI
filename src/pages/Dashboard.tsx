@@ -9,7 +9,7 @@ const DashboardPage = () => {
   return (
     <VelocityAISidebar>
       <div className="min-h-screen bg-[#FAFAF9]">
-        <Tabs defaultValue="overview" className="w-full" onValueChange={setActiveTab}>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="border-b border-[#E7E5E4] bg-[#FAFAF9]">
             <div className="max-w-[1600px] mx-auto px-12 py-4">
               <TabsList className="grid w-full max-w-md grid-cols-2 bg-white rounded-lg border border-[#E7E5E4]">
@@ -17,7 +17,7 @@ const DashboardPage = () => {
                   Overview
                 </TabsTrigger>
                 <TabsTrigger value="project" className="rounded-md">
-                  Project Details
+                  Projects
                 </TabsTrigger>
               </TabsList>
             </div>
