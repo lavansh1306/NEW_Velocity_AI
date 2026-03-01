@@ -4,7 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ToastProvider } from "@/contexts/ToastContext";
 import { ToastContainer } from "@/components/ToastContainer";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Analytics } from "@vercel/analytics/react";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -41,6 +41,13 @@ import { OnboardingProvider } from "@/contexts/OnboardingContext";
 import InviteEmail from "./pages/InviteEmail";
 import SetPassword from "./pages/SetPassword";
 import CreateProject from "./pages/CreateProject";
+import { EmployeeLayout } from "@/components/employee/EmployeeLayout";
+import EmployeeDashboard from "./pages/employee/EmployeeDashboard";
+import EmployeeProjects from "./pages/employee/EmployeeProjects";
+import EmployeeProjectDetail from "./pages/employee/EmployeeProjectDetail";
+import EmployeeCapacity from "./pages/employee/EmployeeCapacity";
+import EmployeeLeave from "./pages/employee/EmployeeLeave";
+import EmployeeProfile from "./pages/employee/EmployeeProfile";
 
 const queryClient = new QueryClient();
 
@@ -73,6 +80,17 @@ const App = () => (
                 {/* Invite Routes */}
                 <Route path="/invite/email" element={<InviteEmail />} />
                 <Route path="/invite/accept" element={<SetPassword />} />
+
+                {/* Employee Routes (require Supabase auth) */}
+                <Route path="/app/employee" element={<ProtectedRoute requireSupabaseAuth><EmployeeLayout /></ProtectedRoute>}>
+                  <Route index element={<Navigate to="/app/employee/dashboard" replace />} />
+                  <Route path="dashboard" element={<EmployeeDashboard />} />
+                  <Route path="my-projects" element={<EmployeeProjects />} />
+                  <Route path="projects/:id" element={<EmployeeProjectDetail />} />
+                  <Route path="my-capacity" element={<EmployeeCapacity />} />
+                  <Route path="leave" element={<EmployeeLeave />} />
+                  <Route path="profile" element={<EmployeeProfile />} />
+                </Route>
 
                 {/* Public Routes (Marketing/Info) */}
                 <Route path="/" element={<Index />} />
