@@ -29,6 +29,7 @@ import Dashboard from "./pages/Dashboard";
 import People from "./pages/People";
 import Plan from "./pages/Plan";
 import Leave from "./pages/Leave";
+import Settings from "./pages/Settings";
 import AuditPage from "./pages/Audit";
 import OnboardingModeSelection from "./pages/onboarding/OnboardingModeSelection";
 import OnboardingJoin from "./pages/onboarding/OnboardingJoin";
@@ -87,6 +88,7 @@ const App = () => (
                 <Route path="/people" element={<ProtectedRoute><People /></ProtectedRoute>} />
                 <Route path="/plan" element={<ProtectedRoute><Plan /></ProtectedRoute>} />
                 <Route path="/leave" element={<ProtectedRoute><Leave /></ProtectedRoute>} />
+                <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
                 <Route path="/progress" element={<ProtectedRoute><PlanMyProject /></ProtectedRoute>} />
                 <Route path="/projects" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
 
