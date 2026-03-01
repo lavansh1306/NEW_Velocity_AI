@@ -78,6 +78,51 @@ router.get('/auth/status', async (req: Request, res: Response) => {
   res.json(responseData);
 });
 
+// Get current JIRA user info (for JIRA auth callback)
+router.get('/me', async (req: Request, res: Response) => {
+  try {
+    console.log('[Jira Me] Fetching current user info...');
+    
+    const accessToken = await jiraAuth.getAccessToken(req);
+    const cloudId = await jiraAuth.getCloudId(req);
+    
+    if (!accessToken || !cloudId) {
+      console.log('[Jira Me] Not authenticated');
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    // Fetch user info from JIRA /me endpoint
+    const meRes = await fetch('https://api.atlassian.com/me', {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!meRes.ok) {
+      console.warn('[Jira Me] Failed to fetch from /me endpoint:', meRes.status);
+      return res.status(meRes.status).json({ error: 'Failed to fetch user info' });
+    }
+
+    const userData = await meRes.json() as any;
+    console.log('[Jira Me] User data:', { 
+      email: userData.email,
+      name: userData.name,
+      account_id: userData.account_id
+    });
+
+    res.json({
+      email: userData.email,
+      name: userData.name,
+      account_id: userData.account_id,
+      picture: userData.picture
+    });
+  } catch (error) {
+    console.error('[Jira Me] Error:', error);
+    res.status(500).json({ error: 'Failed to fetch user info' });
+  }
+});
+
 // Switch to a different Jira site
 router.post('/auth/switch-site/:siteId', async (req: Request, res: Response) => {
   const { siteId } = req.params;

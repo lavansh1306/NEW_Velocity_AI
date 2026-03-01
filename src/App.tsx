@@ -61,14 +61,14 @@ const App = () => (
                 <Route path="/signup" element={<SignUp />} />
                 <Route path="/auth/callback" element={<AuthCallback />} />
 
-                {/* Onboarding Routes (protected - require auth) */}
-                <Route path="/onboarding/mode" element={<ProtectedRoute><OnboardingModeSelection /></ProtectedRoute>} />
-                <Route path="/onboarding/join" element={<ProtectedRoute><OnboardingJoin /></ProtectedRoute>} />
-                <Route path="/onboarding/welcome" element={<ProtectedRoute><OnboardingWelcome /></ProtectedRoute>} />
-                <Route path="/onboarding/team" element={<ProtectedRoute><OnboardingTeam /></ProtectedRoute>} />
-                <Route path="/onboarding/settings" element={<ProtectedRoute><OnboardingSettings /></ProtectedRoute>} />
-                <Route path="/onboarding/holidays" element={<ProtectedRoute><OnboardingHolidays /></ProtectedRoute>} />
-                <Route path="/onboarding/complete" element={<ProtectedRoute><OnboardingComplete /></ProtectedRoute>} />
+                {/* Onboarding Routes (protected - require Supabase auth) */}
+                <Route path="/onboarding/mode" element={<ProtectedRoute requireSupabaseAuth><OnboardingModeSelection /></ProtectedRoute>} />
+                <Route path="/onboarding/join" element={<ProtectedRoute requireSupabaseAuth><OnboardingJoin /></ProtectedRoute>} />
+                <Route path="/onboarding/welcome" element={<ProtectedRoute requireSupabaseAuth><OnboardingWelcome /></ProtectedRoute>} />
+                <Route path="/onboarding/team" element={<ProtectedRoute requireSupabaseAuth><OnboardingTeam /></ProtectedRoute>} />
+                <Route path="/onboarding/settings" element={<ProtectedRoute requireSupabaseAuth><OnboardingSettings /></ProtectedRoute>} />
+                <Route path="/onboarding/holidays" element={<ProtectedRoute requireSupabaseAuth><OnboardingHolidays /></ProtectedRoute>} />
+                <Route path="/onboarding/complete" element={<ProtectedRoute requireSupabaseAuth><OnboardingComplete /></ProtectedRoute>} />
 
                 {/* Invite Routes */}
                 <Route path="/invite/email" element={<InviteEmail />} />
@@ -81,12 +81,12 @@ const App = () => (
                 <Route path="/use-cases" element={<UseCases />} />
                 <Route path="/roi-report" element={<ROIReport />} />
 
-                {/* Protected Dashboard Routes (require authentication) */}
+                {/* Protected Dashboard Routes (require authentication - JIRA or Supabase) */}
                 <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                 <Route path="/velocity-ai" element={<ProtectedRoute><VelocityAI /></ProtectedRoute>} />
-                <Route path="/people" element={<ProtectedRoute><People /></ProtectedRoute>} />
+                <Route path="/people" element={<ProtectedRoute requireSupabaseAuth><People /></ProtectedRoute>} />
                 <Route path="/plan" element={<ProtectedRoute><Plan /></ProtectedRoute>} />
-                <Route path="/leave" element={<ProtectedRoute><Leave /></ProtectedRoute>} />
+                <Route path="/leave" element={<ProtectedRoute requireSupabaseAuth><Leave /></ProtectedRoute>} />
                 <Route path="/progress" element={<ProtectedRoute><PlanMyProject /></ProtectedRoute>} />
                 <Route path="/projects" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
 
