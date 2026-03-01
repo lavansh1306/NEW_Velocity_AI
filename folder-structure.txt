@@ -1,7 +1,6 @@
 NEW_Velocity_AI
 ├── .env
 ├── .env.example
-├── .env.local
 ├── .env.production
 ├── .git/
 ├── .gitignore
@@ -35,7 +34,6 @@ NEW_Velocity_AI
 ├── JIRA_DASHBOARD_QUICK_REFERENCE.md
 ├── JIRA_DEDUPLICATION_FIX.md
 ├── JIRA_OIDC_PKCE_MULTIDOMAIN_FIX.md
-├── krish.txt
 ├── LICENSE
 ├── node_modules/
 ├── package-lock.json
@@ -97,6 +95,7 @@ NEW_Velocity_AI
 │   │   │   ├── EXAMPLES.tsx
 │   │   │   ├── index.ts
 │   │   │   ├── JiraPoweredDashboard.tsx
+│   │   │   ├── JiraSyncLoading.tsx
 │   │   │   ├── MainDashboard.tsx
 │   │   │   ├── ProjectDashboardWithInsights.tsx
 │   │   │   └── VelocityAISidebar.tsx
@@ -173,6 +172,7 @@ NEW_Velocity_AI
 │   │   │   ├── RecommendationEngine.ts
 │   │   │   └── types.ts
 │   │   ├── NavLink.tsx
+│   │   ├── PeopleScreens.tsx
 │   │   ├── projects
 │   │   │   ├── ProjectLeaveManagement.tsx
 │   │   │   └── ProjectManagementDashboard.tsx
@@ -269,12 +269,15 @@ NEW_Velocity_AI
 │   │   ├── use-mobile.tsx
 │   │   ├── use-toast.ts
 │   │   ├── useJiraData.ts
+│   │   ├── useJiraDataSync.ts
+│   │   ├── useLeaveManagementData.ts
 │   │   └── useNotification.ts
 │   ├── index.css
 │   ├── lib
 │   │   ├── api.ts
 │   │   ├── csvLoader.ts
 │   │   ├── dataService.ts
+│   │   ├── jiraDataService.ts
 │   │   ├── jiraDbClient.ts
 │   │   ├── leaveApprovalAgent.ts
 │   │   ├── metrics.ts
