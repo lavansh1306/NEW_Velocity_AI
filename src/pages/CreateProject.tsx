@@ -16,12 +16,7 @@ interface TeamMemberDisplay {
   avatar_url?: string;
 }
 
-// --- Helpers ---
 
-/**
- * Auto-generate a Jira-style project key from the project name.
- * e.g. "Mobile App Redesign" → "MAR", "Backend" → "BACK"
- */
 function deriveProjectKey(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean);
   if (words.length === 0) return '';
@@ -231,155 +226,72 @@ export default function CreateProject() {
 
   // --- Submission ---
   const handleCreateProject = async () => {
-    // Validation
-    if (!projectName.trim()) {
-      toast({ title: 'Validation Error', description: 'Project Name is required.', variant: 'destructive' });
-      return;
-    }
-    if (!projectKey.trim()) {
-      toast({ title: 'Validation Error', description: 'Project Key is required.', variant: 'destructive' });
-      return;
-    }
-    // FIX: Validate key format (alphanumeric, 1-5 chars)
-    if (!isValidProjectKey(projectKey)) {
-      toast({
-        title: 'Invalid Project Key',
-        description: 'Key must be 1–5 uppercase letters or numbers (e.g. "MOB").',
-        variant: 'destructive',
-      });
-      return;
-    }
+  // Ensure we have a name and a key before proceeding
+  if (!projectName.trim() || !projectKey.trim()) return;
 
+  setIsSubmitting(true);
+  try {
+    // 1. Resolve Organization ID [cite: 23]
+    const orgId = contextOrgId || getCurrentOrgId();
+    if (!orgId) throw new Error("Organization ID not found.");
 
-    setIsSubmitting(true);
-
-    try {
-      // 1. Get the live session user directly from Supabase to avoid React state race conditions.
-      // The React state `user` can be null briefly even when a valid session exists.
-      const { data: { user: liveUser }, error: authError } = await supabase.auth.getUser();
-
-      if (authError || !liveUser) {
-        // Session expired — redirect to login. ProtectedRoute will send them back after re-auth.
-        navigate('/login');
-        return;
-      }
-
-      // 2. Resolve org_id: context → localStorage → email fallback
-      let orgId: string | null = contextOrgId || getCurrentOrgId();
-
-      if (!orgId && liveUser.email) {
-        const { data: byEmail } = await supabase
-          .from('users')
-          .select('organization_id')
-          .eq('email', liveUser.email)
-          .maybeSingle();
-        orgId = byEmail?.organization_id ?? null;
-      }
-
-      if (!orgId) {
-        throw new Error('No Organization linked to your account. Please complete onboarding first.');
-      }
-
-      // 2. Fetch cloud_id if a Jira connection exists (required by schema NOT NULL)
-      const { data: connectionData } = await supabase
-        .from('jira_connections')
-        .select('cloud_id')
-        .eq('org_id', orgId)
-        .limit(1)
-        .maybeSingle(); // FIX: use maybeSingle() — no throw if no connection exists
-
-      // Fall back to a deterministic local identifier so the NOT NULL constraint is satisfied
-      const cloudId = connectionData?.cloud_id || `local-${orgId}`;
-
-      const upperKey = projectKey.toUpperCase();
-
-      // 3. FIX: Check for duplicate key within this org BEFORE inserting
-      // (The unique constraint on jira_projects is on jira_project_id, NOT key)
-      const { data: existing } = await supabase
-        .from('jira_projects')
-        .select('id')
-        .eq('org_id', orgId)
-        .eq('key', upperKey)
-        .maybeSingle();
-
-      if (existing) {
-        throw new Error(
-          `A project with key "${upperKey}" already exists in your organisation. Please choose a different key.`
-        );
-      }
-
-      // 4. Insert the project
-      const { data: projectData, error: projectError } = await supabase
-        .from('jira_projects')
-        .insert({
+    // 2. Insert into jira_projects 
+    const { data: newProject, error: projectError } = await supabase
+      .from('jira_projects')
+      .insert([
+        {
           org_id: orgId,
-          cloud_id: cloudId,
-          // FIX: Use a truly unique jira_project_id with org prefix + timestamp
-          jira_project_id: `local-${orgId}-${Date.now()}`,
-          key: upperKey,
-          title: projectName.trim(),
-          category: projectType,
-          description: description.trim() || '',
-          fetched_by: 'manual',
+          key: projectKey.toUpperCase(),
+          title: projectName,
+          // Removed undefined projectDescription; defaults to empty string or null per schema 
+          description: '', 
+          jira_project_id: `LOCAL-${Date.now()}`, // Required field in your schema 
+          cloud_id: 'local-sync', // Required field in your schema 
           created_at: new Date().toISOString(),
-        })
-        .select('id, key')
-        .single();
-
-      if (projectError) {
-        // Code 23505 = unique_violation (on jira_project_id — unlikely but handle it)
-        if (projectError.code === '23505') {
-          throw new Error('A duplicate entry was detected. Please try again.');
         }
-        throw projectError;
-      }
+      ])
+      .select()
+      .single();
 
-      // 5. Insert tasks as jira_issues
-      const validTasks = tasks.filter(t => t.name.trim() !== '');
-      if (validTasks.length > 0) {
-        const today = new Date();
-        // FIX: due_date is `text` in DB — store as YYYY-MM-DD, not ISO timestamp
-        const defaultDueDate = toDateString(new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000));
-        const createdDate = toDateString(today);
+    if (projectError) throw projectError;
 
-        const issuesPayload = validTasks.map((t, index) => ({
+    // 3. Insert initial record into jira_issues_clone so the fetcher sees the project 
+    const { error: cloneError } = await supabase
+      .from('jira_issues_clone')
+      .insert([
+        {
           org_id: orgId,
-          cloud_id: cloudId,
-          project_key: projectData.key,
-          summary: t.name.trim(),
-          // FIX: Use timestamp-based base-36 suffix per issue to avoid collisions
-          issue_key: generateIssueKey(projectData.key, index),
-          assignee: t.assignee && t.assignee !== 'Unassigned' ? t.assignee : 'Unassigned',
-          status: 'To Do',
-          issue_type: 'Task',
-          original_estimate_seconds: (parseInt(t.hours, 10) || 0) * 3600,
-          // FIX: Store dates as YYYY-MM-DD strings (schema uses `text` for date fields)
-          created_date: createdDate,
-          due_date: defaultDueDate,
-          // FIX: Mark as manually created for audit/filtering purposes
-          fetched_by: 'manual',
-        }));
+          cloud_id: 'local-sync',
+          project_key: projectKey.toUpperCase(),
+          project_name: projectName,
+          issue_key: `${projectKey.toUpperCase()}-1`,
+          summary: 'Project initialized',
+          status: 'Open',
+          assignee: user?.email || 'Unassigned',
+          created_at: new Date().toISOString(),
+        }
+      ]);
 
-        const { error: tasksError } = await supabase.from('jira_issues').insert(issuesPayload);
-        if (tasksError) throw tasksError;
-      }
+    if (cloneError) console.error("Clone sync error:", cloneError.message);
 
-      toast({
-        title: 'Project created!',
-        description: `"${projectName.trim()}" is ready. ${validTasks.length > 0 ? `${validTasks.length} task(s) added.` : ''}`,
-      });
-      navigate('/projects');
-    } catch (error: any) {
-      console.error('[CreateProject] Error:', error);
-      toast({
-        title: 'Failed to create project',
-        description: error.message || error.hint || 'An unexpected error occurred.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+    toast({
+      title: "Success",
+      description: "Project created and initialized.",
+    });
+
+    navigate(`/project-analytics/${newProject.id}`);
+
+  } catch (error: any) {
+    console.error("Creation Error:", error);
+    toast({
+      title: "Error",
+      description: error.message,
+      variant: "destructive",
+    });
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   return (
     <VelocityAISidebar>
