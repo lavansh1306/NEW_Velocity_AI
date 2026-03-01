@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useLocation } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { VelocityAISidebar } from '@/components/dashboard/VelocityAISidebar'
 import { IssuesTable, GanttChart, ManagerGantt, ManagerSummary } from '@/components/jira'
 import { Issue } from '@/components/jira/types'
 import { apiUrl } from '@/lib/api'
@@ -333,165 +334,167 @@ export default function JiraDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-2 md:px-4">
-      {/* Loading Overlay */}
-      {addingProject && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-8 text-center">
-            <div className="text-lg font-semibold text-gray-700 mb-4">Fetching Project Data...</div>
-            <div className="inline-block">
-              <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full"></div>
+    <VelocityAISidebar>
+      <div className="min-h-screen bg-[#FAFAF9] py-8 px-2 md:px-4">
+        {/* Loading Overlay */}
+        {addingProject && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-8 text-center">
+              <div className="text-lg font-semibold text-gray-700 mb-4">Fetching Project Data...</div>
+              <div className="inline-block">
+                <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full"></div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      <div className="w-full mx-auto max-w-full px-4 md:px-6 lg:px-8">
-        {/* Back Button */}
-        <div className="mb-4">
-          <Button asChild variant="ghost" size="sm">
-            <Link to="/projects" className="flex items-center gap-2">
-              <ArrowLeft className="h-4 w-4" />
-              Back to Projects
-            </Link>
-          </Button>
-        </div>
-
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-light text-gray-800 mb-2">
-            📊 Jira Issues Dashboard
-          </h1>
-          <p className="text-gray-600">Created vs Due Date Analysis - Integrated with Velocity AI</p>
-        </div>
-
-        {/* Controls */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          {/* Site Selector or Re-connect Button */}
-          {projectsLoaded && availableSites.length > 0 ? (
-            <div className="mb-6 pb-6 border-b border-gray-200">
-              <label className="block text-sm font-semibold text-gray-700 mb-3">
-                Select Jira Site:
-              </label>
-              <select
-                value={currentSiteId || ''}
-                onChange={(e) => {
-                  const siteId = e.target.value
-                  if (siteId) {
-                    handleSwitchSite(siteId)
-                  }
-                }}
-                className="w-full md:w-96 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-              >
-                <option value="">Choose a site...</option>
-                {availableSites.map((site) => (
-                  <option key={site.id} value={site.id}>
-                    {site.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : projectsLoaded ? (
-            <div className="mb-6 pb-6 border-b border-gray-200 bg-yellow-50 p-4 rounded-lg">
-              <p className="text-sm text-yellow-800 mb-4">No Jira sites loaded. You may need to re-connect.</p>
-              <Button 
-                onClick={() => window.location.href = apiUrl('/api/jira/auth/connect')}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                Re-connect to Jira
-              </Button>
-            </div>
-          ) : null}
-
-          {/* Project Selector */}
-          {projectsLoaded && availableProjects.length > 0 && (
-            <div className="mb-6">
-              <label className="block text-sm font-semibold text-gray-700 mb-3">
-                Select Project:
-              </label>
-              <select
-                value={currentProject || ''}
-                onChange={(e) => {
-                  const projectKey = e.target.value
-                  if (projectKey) {
-                    handleSwitchProject(projectKey)
-                  }
-                }}
-                disabled={refreshing}
-                className="w-full md:w-96 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition disabled:bg-gray-100"
-              >
-                <option value="">Choose a project...</option>
-                {availableProjects.map((project) => (
-                  <option key={project.key} value={project.key}>
-                    {project.title} ({project.key})
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-          
-          {/* Controls area (Add Project UI removed) */}
-          <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <p className="text-sm text-gray-600">Manage Jira project loading via the Projects page. Project auto-loads when provided via the Projects list.</p>
+        <div className="w-full mx-auto max-w-full px-4 md:px-6 lg:px-8">
+          {/* Back Button */}
+          <div className="mb-4">
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/projects" className="flex items-center gap-2">
+                <ArrowLeft className="h-4 w-4" />
+                Back to Projects
+              </Link>
+            </Button>
           </div>
 
-          {currentProject && (
-            <>
-              <label className="block text-sm font-semibold text-gray-700 mb-3">Select Assignee for Gantt Chart:</label>
-              <select
-                value={selectedAssignee}
-                onChange={(e) => setSelectedAssignee(e.target.value)}
-                disabled={refreshing}
-                className="w-full md:w-64 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition disabled:bg-gray-100"
-              >
-                <option value="">-- Choose Assignee --</option>
-                {assignees.map((assignee) => (
-                  <option key={assignee} value={assignee}>
-                    {assignee}
-                  </option>
-                ))}
-              </select>
+          {/* Header */}
+          <div className="mb-8">
+            <h1 className="text-4xl font-light text-[#1C1917] mb-2">
+              📊 Jira Issues Dashboard
+            </h1>
+            <p className="text-[#78716C]">Created vs Due Date Analysis - Integrated with Velocity AI</p>
+          </div>
 
-              <div className="mt-4 flex items-center gap-4">
-                <label className="inline-flex items-center gap-2">
-                  <input type="checkbox" className="rounded" checked={false} onChange={() => {}} disabled/>
-                  <span className="text-sm text-gray-600">(Tip) Toggle Manager view below to see aggregated lanes</span>
+          {/* Controls */}
+          <div className="bg-white rounded-lg shadow-md p-6 mb-8 border border-[#E7E5E4]">
+            {/* Site Selector or Re-connect Button */}
+            {projectsLoaded && availableSites.length > 0 ? (
+              <div className="mb-6 pb-6 border-b border-[#E7E5E4]">
+                <label className="block text-sm font-semibold text-[#1C1917] mb-3">
+                  Select Jira Site:
                 </label>
+                <select
+                  value={currentSiteId || ''}
+                  onChange={(e) => {
+                    const siteId = e.target.value
+                    if (siteId) {
+                      handleSwitchSite(siteId)
+                    }
+                  }}
+                  className="w-full md:w-96 px-4 py-2 border border-[#E7E5E4] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1C1917] transition bg-white"
+                >
+                  <option value="">Choose a site...</option>
+                  {availableSites.map((site) => (
+                    <option key={site.id} value={site.id}>
+                      {site.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : projectsLoaded ? (
+              <div className="mb-6 pb-6 border-b border-[#E7E5E4] bg-amber-50 p-4 rounded-lg">
+                <p className="text-sm text-amber-800 mb-4">No Jira sites loaded. You may need to re-connect.</p>
+                <Button 
+                  onClick={() => window.location.href = apiUrl('/api/jira/auth/connect')}
+                  className="bg-[#1C1917] hover:bg-[#292524] text-white"
+                >
+                  Re-connect to Jira
+                </Button>
+              </div>
+            ) : null}
+
+            {/* Project Selector */}
+            {projectsLoaded && availableProjects.length > 0 && (
+              <div className="mb-6">
+                <label className="block text-sm font-semibold text-[#1C1917] mb-3">
+                  Select Project:
+                </label>
+                <select
+                  value={currentProject || ''}
+                  onChange={(e) => {
+                    const projectKey = e.target.value
+                    if (projectKey) {
+                      handleSwitchProject(projectKey)
+                    }
+                  }}
+                  disabled={refreshing}
+                  className="w-full md:w-96 px-4 py-2 border border-[#E7E5E4] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1C1917] transition disabled:bg-[#FAFAF9] bg-white"
+                >
+                  <option value="">Choose a project...</option>
+                  {availableProjects.map((project) => (
+                    <option key={project.key} value={project.key}>
+                      {project.title} ({project.key})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            
+            {/* Controls area */}
+            <div className="mb-6 p-4 bg-[#FAFAF9] rounded-lg border border-[#E7E5E4]">
+              <p className="text-sm text-[#78716C]">Manage Jira project loading via the Projects page. Project auto-loads when provided via the Projects list.</p>
+            </div>
+
+            {currentProject && (
+              <>
+                <label className="block text-sm font-semibold text-[#1C1917] mb-3">Select Assignee for Gantt Chart:</label>
+                <select
+                  value={selectedAssignee}
+                  onChange={(e) => setSelectedAssignee(e.target.value)}
+                  disabled={refreshing}
+                  className="w-full md:w-64 px-4 py-2 border border-[#E7E5E4] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1C1917] transition disabled:bg-[#FAFAF9] bg-white"
+                >
+                  <option value="">-- Choose Assignee --</option>
+                  {assignees.map((assignee) => (
+                    <option key={assignee} value={assignee}>
+                      {assignee}
+                    </option>
+                  ))}
+                </select>
+
+                <div className="mt-4 flex items-center gap-4">
+                  <label className="inline-flex items-center gap-2">
+                    <input type="checkbox" className="rounded" checked={false} onChange={() => {}} disabled/>
+                    <span className="text-sm text-[#78716C]">(Tip) Toggle Manager view below to see aggregated lanes</span>
+                  </label>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Empty State - No Project Loaded */}
+          {!currentProject ? (
+            <div className="bg-white rounded-lg shadow-md p-12 text-center border border-[#E7E5E4]">
+              <div className="text-6xl mb-4">📁</div>
+              <h3 className="text-2xl font-semibold text-[#1C1917] mb-2">No Project Loaded</h3>
+              <p className="text-[#78716C] mb-4">Enter a project key above to load issues from Jira.</p>
+              <p className="text-sm text-[#A8A29E]">Example: Enter "TEST" to fetch all issues from that project</p>
+            </div>
+          ) : (
+            <>
+              {/* Issues Table */}
+              <div className="mb-8">
+                <IssuesTable issues={allIssues} />
+              </div>
+
+              {/* Gantt Chart */}
+              <div className="mb-8">
+                {selectedAssignee ? (
+                  <GanttChart tasks={selectedTasks} assignee={selectedAssignee} />
+                ) : (
+                  <div>
+                    <h3 className="text-lg font-medium mb-4">Manager View</h3>
+                    <ManagerSummary tasks={allIssues} />
+                    <ManagerGantt tasks={allIssues} />
+                  </div>
+                )}
               </div>
             </>
           )}
         </div>
-
-        {/* Empty State - No Project Loaded */}
-        {!currentProject ? (
-          <div className="bg-white rounded-lg shadow-md p-12 text-center">
-            <div className="text-6xl mb-4">📁</div>
-            <h3 className="text-2xl font-semibold text-gray-800 mb-2">No Project Loaded</h3>
-            <p className="text-gray-600 mb-4">Enter a project key above to load issues from Jira.</p>
-            <p className="text-sm text-gray-500">Example: Enter "TEST" to fetch all issues from that project</p>
-          </div>
-        ) : (
-          <>
-            {/* Issues Table */}
-            <div className="mb-8">
-              <IssuesTable issues={allIssues} />
-            </div>
-
-            {/* Gantt Chart */}
-            <div className="mb-8">
-              {selectedAssignee ? (
-                <GanttChart tasks={selectedTasks} assignee={selectedAssignee} />
-              ) : (
-                <div>
-                  <h3 className="text-lg font-medium mb-4">Manager View</h3>
-                  <ManagerSummary tasks={allIssues} />
-                  <ManagerGantt tasks={allIssues} />
-                </div>
-              )}
-            </div>
-          </>
-        )}
       </div>
-    </div>
+    </VelocityAISidebar>
   )
 }

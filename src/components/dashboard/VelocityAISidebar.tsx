@@ -65,9 +65,9 @@ export const VelocityAISidebar = ({ children }: VelocityAISidebarProps) => {
   const navItems = [
     { id: 'dashboard', path: '/velocity-ai', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
     { id: 'projects', path: '/projects', label: 'Projects', icon: <Briefcase className="w-5 h-5" /> },
-    { id: 'plan', path: '/velocity-ai?tab=deployment', label: 'Plan', icon: <Sparkles className="w-5 h-5" /> },
-    { id: 'people', path: '/velocity-ai?tab=people', label: 'People', icon: <Users className="w-5 h-5" /> },
-    { id: 'leave', path: '/velocity-ai?tab=leave', label: 'Leave', icon: <Calendar className="w-5 h-5" /> },
+    { id: 'plan', path: '/plan', label: 'Plan', icon: <Sparkles className="w-5 h-5" /> },
+    { id: 'people', path: '/people', label: 'People', icon: <Users className="w-5 h-5" /> },
+    { id: 'leave', path: '/leave', label: 'Leave', icon: <Calendar className="w-5 h-5" /> },
   ];
 
   // Sync active section with URL
@@ -77,20 +77,18 @@ export const VelocityAISidebar = ({ children }: VelocityAISidebarProps) => {
       return;
     }
 
-    // Check for query parameters first
-    const params = new URLSearchParams(location.search);
-    const tabParam = params.get('tab');
-    
-    if (tabParam === 'leave') {
-      setActiveSection('leave');
+    if (location.pathname === '/people') {
+      setActiveSection('people');
       return;
     }
-    if (tabParam === 'deployment') {
+
+    if (location.pathname === '/plan') {
       setActiveSection('plan');
       return;
     }
-    if (tabParam === 'people') {
-      setActiveSection('people');
+
+    if (location.pathname === '/leave') {
+      setActiveSection('leave');
       return;
     }
 
@@ -98,10 +96,12 @@ export const VelocityAISidebar = ({ children }: VelocityAISidebarProps) => {
       setActiveSection('dashboard');
       return;
     }
+
     if (location.pathname.startsWith('/projects')) {
       setActiveSection('projects');
       return;
     }
+
     if (location.pathname === '/progress') {
       setActiveSection('plan');
       return;
@@ -124,7 +124,6 @@ export const VelocityAISidebar = ({ children }: VelocityAISidebarProps) => {
 
   const handleNavClick = (item: any) => {
     // If clicking the same nav item, toggle sidebar
-    // If clicking a different nav item, just navigate without toggling
     if (activeSection === item.id) {
       setSidebarOpen(!sidebarOpen);
     }
