@@ -24,7 +24,7 @@ export default function OnboardingJoin() {
     clearError();
     try {
       await joinWithInviteCode(code.trim());
-      navigate('/velocity-ai');
+      navigate('/app/employee/dashboard');
     } catch {
       // error shown via context
     }

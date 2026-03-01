@@ -9,7 +9,7 @@ import { FormError, validators } from '@/components/shared/FormError';
 
 export default function SetPassword() {
   const navigate = useNavigate();
-  const { updatePassword } = useAuth();
+  const { updatePassword, orgRole } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -36,7 +36,7 @@ export default function SetPassword() {
     setLoading(true);
     try {
       await updatePassword(password);
-      navigate('/velocity-ai');
+      navigate(orgRole === 'employee' ? '/app/employee/dashboard' : '/velocity-ai');
     } catch (err: any) {
       setErrors(prev => ({ ...prev, password: err.message || 'Failed to set password' }));
     } finally {
