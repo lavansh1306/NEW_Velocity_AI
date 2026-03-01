@@ -53,8 +53,6 @@ export default function Projects() {
     setIsLoading(true);
 
     try {
-      console.log('[Projects] 🔐 Fetching from jira_issues_clone...');
-
       // 1. Resolve Organization ID
       let orgId: string | null = contextOrgId || getCurrentOrgId();
 
@@ -82,71 +80,66 @@ export default function Projects() {
         return;
       }
 
-      // 2. Fetch all issues for this org from the clone table
-      const { data: allIssues, error } = await supabase
-        .from('jira_issues_clone')
-        .select('id, project_key, project_name, status, assignee, created_at')
-        .eq('org_id', orgId);
-
-      if (error) throw error;
-
-      // 3. Transform flat issues into Project Summaries
-      const projectMap = new Map<string, ProjectSummary>();
-
-      (allIssues || []).forEach((issue) => {
-        const pKey = issue.project_key;
+      // 2. PARALLEL FETCH: Primary Projects + Associated Issues (Clone)
+      const [projectsResponse, issuesResponse] = await Promise.all([
+        supabase
+          .from('jira_projects')
+          .select('id, key, title, description, created_at')
+          .eq('org_id', orgId)
+          .order('created_at', { ascending: false }),
         
-        if (!projectMap.has(pKey)) {
-          projectMap.set(pKey, {
-            id: issue.id, // Using first issue ID as a temporary key
-            key: pKey,
-            title: issue.project_name || pKey,
-            description: '',
-            created_at: issue.created_at || new Date().toISOString(),
-            issue_count: 0,
-            completed_count: 0,
-            health_score: 0,
-            team_size: 0,
-            team_initials: [],
-            // Internal helper for unique team tracking
-            _raw_assignees: new Set<string>() 
-          } as any);
-        }
+        supabase
+          .from('jira_issues_clone')
+          .select('project_key, status, assignee')
+          .eq('org_id', orgId)
+      ]);
 
-        const p = projectMap.get(pKey)!;
-        p.issue_count++;
+      if (projectsResponse.error) throw projectsResponse.error;
+      const rawProjects = projectsResponse.data || [];
+      const allIssues = issuesResponse.data || [];
 
-        // Status Check
-        const s = (issue.status || '').toLowerCase();
-        if (['done', 'closed', 'resolved', 'complete'].includes(s)) {
-          p.completed_count++;
-        }
+      // 3. Map Issues to Projects to calculate stats
+      const processedProjects: ProjectSummary[] = rawProjects.map(project => {
+        const projectIssues = allIssues.filter(i => i.project_key === project.key);
+        const total = projectIssues.length;
 
-        // Team Tracking
-        if (issue.assignee && issue.assignee !== 'Unassigned') {
-          (p as any)._raw_assignees.add(issue.assignee);
-        }
-      });
+        const completed = projectIssues.filter(i => {
+          const s = (i.status || '').toLowerCase();
+          return ['done', 'closed', 'resolved', 'complete'].includes(s);
+        }).length;
 
-      // 4. Final Formatting
-      const processedProjects: ProjectSummary[] = Array.from(projectMap.values()).map(p => {
-        const assignees = Array.from((p as any)._raw_assignees) as string[];
-        const health = p.issue_count === 0 ? 0 : Math.round((p.completed_count / p.issue_count) * 100);
-        
-        return {
-          ...p,
-          health_score: health,
-          team_size: assignees.length,
-          team_initials: assignees.slice(0, 4).map(name =>
-            name.trim().split(' ').map(part => part[0]?.toUpperCase() ?? '').slice(0, 2).join('')
+        const uniqueAssignees = Array.from(
+          new Set(
+            projectIssues
+              .filter(i => i.assignee && i.assignee !== 'Unassigned')
+              .map(i => i.assignee as string)
           )
+        );
+
+        const health = total === 0 ? 0 : Math.round((completed / total) * 100);
+
+        const team_initials = uniqueAssignees.slice(0, 4).map(name =>
+          name.trim().split(' ').map(part => part[0]?.toUpperCase() ?? '').slice(0, 2).join('')
+        );
+
+        return {
+          id: project.id,
+          key: project.key,
+          title: project.title,
+          description: project.description || '',
+          created_at: project.created_at || new Date().toISOString(),
+          issue_count: total,
+          completed_count: completed,
+          health_score: health,
+          team_size: uniqueAssignees.length,
+          team_initials,
         };
       });
 
       setProjects(processedProjects);
       setLastRefreshed(new Date());
     } catch (error: any) {
-      console.error('[Projects] Clone Fetch Error:', error);
+      console.error('[Projects] Fetch Error:', error);
       toast({
         title: 'Data Sync Failed',
         description: error.message,
@@ -176,7 +169,6 @@ export default function Projects() {
     <VelocityAISidebar>
       <div className="bg-[#FAFAF9] min-h-screen p-8 md:p-12 font-['Inter',sans-serif]">
         <div className="max-w-[1600px] mx-auto">
-          {/* Header UI remains the same as your previous code */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
             <div>
               <h1 className="text-4xl font-light text-[#1C1917] tracking-tight">Projects</h1>
@@ -220,10 +212,32 @@ export default function Projects() {
             </div>
           </div>
 
-          {/* Table / Content View */}
           <div className="bg-white rounded-[24px] border border-[#E7E5E4] overflow-hidden shadow-sm min-h-[500px] flex flex-col">
-            {/* Table layout logic remains the same as your original snippet */}
-            {isLoading && projects.length === 0 ? (
+            <div className="grid grid-cols-12 gap-6 px-8 py-5 border-b border-[#E7E5E4] bg-[#FAFAF9]">
+              <div className="col-span-5 md:col-span-4">
+                <p className="text-[11px] font-bold text-[#A8A29E] uppercase tracking-wider flex items-center gap-2">
+                  <FolderOpen className="w-3 h-3" /> Project
+                </p>
+              </div>
+              <div className="col-span-2 hidden md:block">
+                <p className="text-[11px] font-bold text-[#A8A29E] uppercase tracking-wider flex items-center gap-2">
+                  <BarChart3 className="w-3 h-3" /> Health
+                </p>
+              </div>
+              <div className="col-span-4 md:col-span-3">
+                <p className="text-[11px] font-bold text-[#A8A29E] uppercase tracking-wider flex items-center gap-2">
+                  <Calendar className="w-3 h-3" /> Progress
+                </p>
+              </div>
+              <div className="col-span-3 hidden md:block">
+                <p className="text-[11px] font-bold text-[#A8A29E] uppercase tracking-wider flex items-center gap-2">
+                  <Users className="w-3 h-3" /> Team
+                </p>
+              </div>
+            </div>
+
+            <div className="flex-1">
+              {isLoading && projects.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-[#A8A29E]">
                   <Loader2 className="w-8 h-8 animate-spin mb-4 text-[#1C1917]" />
                   <p className="font-light">Syncing your workspace...</p>
@@ -277,7 +291,7 @@ export default function Projects() {
                         </div>
 
                         <div className="col-span-3 hidden md:flex items-center gap-2">
-                           {project.team_size > 0 ? (
+                          {project.team_size > 0 ? (
                             <>
                               <div className="flex -space-x-2.5">
                                 {project.team_initials.map((initials, i) => (
@@ -285,6 +299,11 @@ export default function Projects() {
                                     {initials}
                                   </div>
                                 ))}
+                                {project.team_size > 4 && (
+                                  <div className="w-8 h-8 rounded-full bg-[#F5F5F4] border border-[#E7E5E4] flex items-center justify-center text-[10px] text-[#57534E] font-medium shadow-sm">
+                                    +{project.team_size - 4}
+                                  </div>
+                                )}
                               </div>
                               <span className="text-xs text-[#A8A29E]">{project.team_size} member{project.team_size !== 1 ? 's' : ''}</span>
                             </>
@@ -302,6 +321,7 @@ export default function Projects() {
                   <h3 className="text-lg font-medium text-[#1C1917] mb-2">No projects yet</h3>
                 </div>
               )}
+            </div>
           </div>
         </div>
       </div>
