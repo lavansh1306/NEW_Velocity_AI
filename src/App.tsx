@@ -84,9 +84,9 @@ const App = () => (
                 {/* Protected Dashboard Routes (require authentication - JIRA or Supabase) */}
                 <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                 <Route path="/velocity-ai" element={<ProtectedRoute><VelocityAI /></ProtectedRoute>} />
-                <Route path="/people" element={<ProtectedRoute requireSupabaseAuth><People /></ProtectedRoute>} />
+                <Route path="/people" element={<ProtectedRoute><People /></ProtectedRoute>} />
                 <Route path="/plan" element={<ProtectedRoute><Plan /></ProtectedRoute>} />
-                <Route path="/leave" element={<ProtectedRoute requireSupabaseAuth><Leave /></ProtectedRoute>} />
+                <Route path="/leave" element={<ProtectedRoute><Leave /></ProtectedRoute>} />
                 <Route path="/progress" element={<ProtectedRoute><PlanMyProject /></ProtectedRoute>} />
                 <Route path="/projects" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
 
