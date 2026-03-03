@@ -30,7 +30,7 @@ import People from "./pages/People";
 import Plan from "./pages/Plan";
 import Leave from "./pages/Leave";
 import Settings from "./pages/Settings";
-import AuditPage from "./pages/Audit";
+// import AuditPage from "./pages/Audit";
 import OnboardingModeSelection from "./pages/onboarding/OnboardingModeSelection";
 import OnboardingJoin from "./pages/onboarding/OnboardingJoin";
 import OnboardingWelcome from "./pages/onboarding/OnboardingWelcome";
@@ -119,7 +119,7 @@ const App = () => (
 
                 {/* Protected Utility Routes (require authentication) */}
                 <Route path="/debug-normalization" element={<ProtectedRoute><DebugNormalization /></ProtectedRoute>} />
-                <Route path="/audit" element={<ProtectedRoute><AuditPage /></ProtectedRoute>} />
+                {/* <Route path="/audit" element={<ProtectedRoute><AuditPage /></ProtectedRoute>} /> */}
 
                 {/* Catch-all - 404 */}
                 <Route path="*" element={<NotFound />} />
