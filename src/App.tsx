@@ -10,9 +10,9 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Demo from "./pages/Demo";
-import ROICalculator from "./pages/ROICalculator";
-import ROIReport from "./pages/ROIReport";
-import UseCases from "./pages/UseCases";
+// import ROICalculator from "./pages/ROICalculator";
+// import ROIReport from "./pages/ROIReport";
+// import UseCases from "./pages/UseCases";
 import VelocityAI from "./pages/VelocityAI";
 import Projects from "./components/projects/Projects";
 import ProjectAnalytics from "./components/projects/ProjectAnalytics";
@@ -96,9 +96,9 @@ const App = () => (
                 {/* Public Routes (Marketing/Info) */}
                 <Route path="/" element={<Index />} />
                 <Route path="/demo" element={<Demo />} />
-                <Route path="/roi-calculator" element={<ROICalculator />} />
-                <Route path="/use-cases" element={<UseCases />} />
-                <Route path="/roi-report" element={<ROIReport />} />
+                {/* <Route path="/roi-calculator" element={<ROICalculator />} /> */}
+                {/* <Route path="/use-cases" element={<UseCases />} /> */}
+                {/* <Route path="/roi-report" element={<ROIReport />} /> */}
 
                 {/* Protected Dashboard Routes (require authentication - JIRA or Supabase) */}
                 <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
