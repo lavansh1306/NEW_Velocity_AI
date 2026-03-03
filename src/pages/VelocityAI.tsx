@@ -30,7 +30,7 @@ import CapacityLedgerTab from '../components/demo2/CapacityLedgerTab';
 import ROIVerificationTab from '../components/demo2/ROIVerificationTab';
 import ProjectActivityTab from '../components/demo2/ProjectActivityTab';
 import SecurityAuditTab from '../components/demo2/SecurityAuditTab';
-import Projects from './Projects';
+import Projects from '../components/projects/Projects';
 import LeaveManagementTab from '../components/leave-management'; 
 import ProjectCheckView from '@/components/ml-model';
 import ManagerGantt from '@/components/ManagerGantt';
