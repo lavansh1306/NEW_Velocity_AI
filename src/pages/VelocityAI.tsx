@@ -20,9 +20,9 @@ import {
 } from 'recharts';
 
 // Layout Components
-import VeloHeader from '../components/demo2/VeloHeader';
-import VeloNavTabs from '../components/demo2/VeloNavTabs';
-import VPDashboard from '../components/demo2/VPDashboard';
+import VeloHeader from '../../archives/VeloHeader';
+import VeloNavTabs from '../../archives/VeloNavTabs';
+import VPDashboard from '../../archives/VPDashboard';
 
 // Feature Components
 import StandardTimeCatalogTab from '../components/demo2/StandardTimeCatalogTab';

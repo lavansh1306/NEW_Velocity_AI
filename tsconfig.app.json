@@ -26,5 +26,5 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src", "archives/EXAMPLES.tsx", "archives/EXAMPLES.tsx"]
+  "include": ["src", "archives/EXAMPLES.tsx", "archives/EXAMPLES.tsx", "archives/Architecture.tsx", "archives/VeloHeader.tsx", "archives/VeloNavTabs.tsx", "archives/VPDashboard.tsx"]
 }
