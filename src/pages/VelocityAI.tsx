@@ -200,8 +200,6 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
   const [csvLoading, setCsvLoading] = useState(true);
   const { issues: jiraIssues, loading: jiraLoading } = useJiraData();
   const [capacityBreakdown, setCapacityBreakdown] = useState<any>(null);
-  const [selectedProject, setSelectedProject] = useState<string>('');
-  const [selectedEmployee, setSelectedEmployee] = useState<string>('all');
   const [fromDate, setFromDate] = useState({ month: '01', year: '2025' });
   const [toDate, setToDate] = useState({ month: '03', year: '2025' });
   
@@ -551,50 +549,7 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
     };
   }, [jiraIssues, dateFrom, dateTo]);
 
-  // Calculate filtered available capacity based on selected project and employee
-  const filteredCapacity = useMemo(() => {
-    if (!capacityBreakdown || !capacityBreakdown.assigneeData) return { hours: 0, days: 0 };
 
-    let totalIdleHours = 0;
-    let totalIdleDays = 0;
-
-    Object.entries(capacityBreakdown.assigneeData).forEach(([assignee, projects]: [string, any]) => {
-      // Filter by employee
-      if (selectedEmployee !== 'all' && assignee !== selectedEmployee) return;
-
-      // Filter by project
-      projects.forEach((proj: any) => {
-        if (selectedProject !== '' && proj.projectKey !== selectedProject) return;
-        totalIdleHours += proj.idleHours;
-        totalIdleDays += proj.idleDays;
-      });
-    });
-
-    return { hours: totalIdleHours, days: totalIdleDays };
-  }, [capacityBreakdown, selectedProject, selectedEmployee]);
-
-  // Get available projects and employees for filter dropdowns
-  const availableProjects = useMemo(() => {
-    if (!capacityBreakdown || !capacityBreakdown.assigneeData) return [];
-    return Array.from(
-      new Set(
-        Object.values(capacityBreakdown.assigneeData)
-          .flatMap((projects: any) => projects.map((p: any) => p.projectKey))
-      )
-    ).sort();
-  }, [capacityBreakdown]);
-
-  const availableEmployees = useMemo(() => {
-    if (!capacityBreakdown || !capacityBreakdown.assigneeData) return [];
-    return Object.keys(capacityBreakdown.assigneeData).sort();
-  }, [capacityBreakdown]);
-
-  // Set default project to first available project
-  useEffect(() => {
-    if (availableProjects.length > 0 && !selectedProject) {
-      setSelectedProject(availableProjects[0]);
-    }
-  }, [availableProjects, selectedProject]);
 
   // Get upcoming deadlines (next 2 weeks)
   const upcomingDeadlines = useMemo(() => {
@@ -699,154 +654,6 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
           <h3 className="text-xs font-light text-gray-500 uppercase tracking-wider mb-3">Team Members</h3>
           <div className="text-4xl font-light text-gray-900 mb-2">{dashboardMetrics.teamMembers}</div>
           <p className="text-xs text-gray-500 font-light">Active across all projects</p>
-        </div>
-      </div>
-
-      {/* Available Capacity Card with Filters */}
-      <div className="bg-white rounded-2xl shadow-sm p-10 border border-gray-100">
-        <div className="flex items-center justify-between mb-8">
-          <h3 className="text-xl font-light text-gray-900">Available Capacity</h3>
-        </div>
-        
-        {/* Filters */}
-        <div className="grid grid-cols-3 gap-6 mb-6">
-          <div>
-            <label className="text-xs font-light text-gray-600 mb-2 block">Filter by Project</label>
-            <select
-              value={selectedProject}
-              onChange={(e) => setSelectedProject(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm font-light focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-            >
-              {availableProjects.map((project) => (
-                <option key={project} value={project}>{project}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="text-xs font-light text-gray-600 mb-2 block">Filter by Employee</label>
-            <select
-              value={selectedEmployee}
-              onChange={(e) => setSelectedEmployee(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm font-light focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-            >
-              <option value="all">All Employees</option>
-              {availableEmployees.map((employee) => (
-                <option key={employee} value={employee}>{employee}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Display filtered capacity */}
-        <div className="grid grid-cols-3 gap-6">
-          <div className="space-y-2">
-            <p className="text-xs font-light text-gray-600 uppercase tracking-wider">Available Capacity</p>
-            <div className="text-4xl font-light text-gray-900">
-              {filteredCapacity.hours}h
-              <span className="text-lg text-gray-500 ml-2 font-light">({filteredCapacity.days}d)</span>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <p className="text-xs font-light text-gray-600 uppercase tracking-wider">Total Tasks</p>
-            <div className="text-4xl font-light text-gray-900">{dashboardMetrics.totalTasks}</div>
-          </div>
-          <div className="space-y-2">
-            <p className="text-xs font-light text-gray-600 uppercase tracking-wider">Total Allocated</p>
-            <div className="text-4xl font-light text-gray-900">{dashboardMetrics.totalAllocated}h</div>
-          </div>
-        </div>
-        <p className="text-xs text-gray-500 mt-4 font-light">
-          {selectedEmployee !== 'all' 
-            ? `Filtered: ${selectedProject}${selectedEmployee !== 'all' ? ` - ${selectedEmployee}` : ''}` 
-            : 'Showing capacity data'}
-        </p>
-      </div>
-
-      {/* 8-Week Capacity Graph */}
-      <div className="bg-white rounded-2xl shadow-sm p-10 border border-gray-100">
-        <div className="flex items-center justify-between mb-8">
-          <h2 className="text-xl font-light text-gray-900">8-Week Capacity Progress</h2>
-          <div className="flex gap-4">
-            <div>
-              <label className="text-xs font-light text-gray-600 block mb-2">Month</label>
-              <select
-                value={fromDate.month}
-                onChange={(e) => setFromDate({ ...fromDate, month: e.target.value })}
-                className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-light focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-              >
-                {['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'].map(m => (
-                  <option key={m} value={m}>{new Date(2024, parseInt(m) - 1).toLocaleString('default', { month: 'long' })}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs font-light text-gray-600 block mb-2">Year</label>
-              <select
-                value={fromDate.year}
-                onChange={(e) => setFromDate({ ...fromDate, year: e.target.value })}
-                className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-light focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-              >
-                {[2024, 2025, 2026, 2027].map(y => (
-                  <option key={y} value={y}>{y}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Chart */}
-        <div className="w-full h-80">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={generateCapacityData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis 
-                dataKey="week" 
-                stroke="#6b7280"
-                tick={{ fontSize: 12, fill: '#6b7280' }}
-              />
-              <YAxis 
-                stroke="#6b7280"
-                tick={{ fontSize: 12, fill: '#6b7280' }}
-              />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: '#fff', 
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '8px'
-                }}
-                formatter={(value: any) => `${value}h`}
-              />
-              <Bar 
-                dataKey="worked" 
-                fill="#3b82f6" 
-                name="Hours Worked"
-                radius={[8, 8, 0, 0]}
-              />
-              <Bar 
-                dataKey="notWorked" 
-                fill="#9ca3af" 
-                name="Hours Not Worked"
-                radius={[8, 8, 0, 0]}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div className="mt-6 grid grid-cols-2 gap-6">
-          <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg">
-            <div className="w-4 h-4 bg-blue-500 rounded"></div>
-            <div>
-              <p className="text-xs text-blue-700 font-medium">Hours Worked (Completed)</p>
-              <p className="text-sm text-blue-600 font-light">All employees - Issues marked as done or completed</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-            <div className="w-4 h-4 bg-gray-400 rounded"></div>
-            <div>
-              <p className="text-xs text-gray-700 font-medium">Hours Not Worked (Pending)</p>
-              <p className="text-sm text-gray-600 font-light">All employees - Issues still in progress or not started</p>
-            </div>
-          </div>
         </div>
       </div>
 

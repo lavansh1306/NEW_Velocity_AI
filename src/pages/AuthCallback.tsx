@@ -1,13 +1,17 @@
 import { useEffect, useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 
 export default function AuthCallback() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, loading, orgId } = useAuth();
   const [error, setError] = useState('');
   const hasRedirectedRef = useRef(false);
+
+  // Check if JIRA just authenticated
+  const isJiraCallback = searchParams.get('jira') === 'true';
 
   useEffect(() => {
     if (loading) return; // Don't do anything while loading
@@ -18,6 +22,15 @@ export default function AuthCallback() {
     console.log('[AuthCallback] Auth check complete');
     console.log('[AuthCallback] User:', user ? 'authenticated' : 'not authenticated');
     console.log('[AuthCallback] OrgId:', orgId);
+    console.log('[AuthCallback] Is JIRA callback:', isJiraCallback);
+
+    // For JIRA callbacks, redirect to dashboard since ProtectedRoute now allows JIRA auth
+    if (isJiraCallback) {
+      hasRedirectedRef.current = true;
+      console.log('[AuthCallback] JIRA authentication detected, redirecting to dashboard');
+      navigate('/velocity-ai', { replace: true });
+      return;
+    }
 
     if (user) {
       // Check if user has an org — if not, they need onboarding
@@ -49,13 +62,16 @@ export default function AuthCallback() {
       };
       checkOrgAndRedirect();
     } else {
-      hasRedirectedRef.current = true;
-      console.log('[AuthCallback] No user authenticated via OAuth, redirecting to login');
-      setError('Authentication failed. Please try again.');
-      // Redirect to login page
-      navigate('/login', { replace: true });
+      // No user and not JIRA - let them know
+      if (!isJiraCallback) {
+        hasRedirectedRef.current = true;
+        console.log('[AuthCallback] No user authenticated via OAuth, redirecting to login');
+        setError('Authentication failed. Please try again.');
+        // Redirect to login page
+        navigate('/login', { replace: true });
+      }
     }
-  }, [loading, user, orgId, navigate]);
+  }, [loading, user, orgId, navigate, isJiraCallback]);
 
   return (
     <div className="flex items-center justify-center min-h-screen">

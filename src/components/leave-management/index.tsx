@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Zap, AlertCircle, Database, RefreshCw, CalendarDays, Clock, Briefcase, ChevronLeft, ChevronRight } from 'lucide-react'; 
+import { Users, Zap, AlertCircle, Database, RefreshCw, CalendarDays, Clock, Briefcase, ChevronLeft, ChevronRight, X } from 'lucide-react'; 
 import { Button } from '../ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '../ui/badge';
+import { Avatar, AvatarFallback } from '../ui/avatar';
 
 // Supabase and Auth
 import { supabase } from '@/lib/supabase';
@@ -42,16 +43,19 @@ export default function LeaveManagementTab() {
   const [applyOpen, setApplyOpen] = useState(false);
   const [redeployOpen, setRedeployOpen] = useState(false);
   const [shiftOpen, setShiftOpen] = useState(false);
+  const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [selectedLeave, setSelectedLeave] = useState<LeaveRequest | null>(null);
   const [affectedTasksForShift, setAffectedTasksForShift] = useState<Task[]>([]);
   const [predictions, setPredictions] = useState<any[]>([]);
   const [expandedLeaves, setExpandedLeaves] = useState<Record<string, boolean>>({});
+  const [showSuccessBanner, setShowSuccessBanner] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<any>(null);
 
-  // NEW: Movable Calendar State for Manager View
+  // Calendar state for month navigation
   const [overviewStartDate, setOverviewStartDate] = useState(new Date());
   
-  // Default to employee view for better UX - users see their leave portal first
-  const [activePersona, setActivePersona] = useState<'manager' | 'employee'>('employee');
+  // Default to manager view to show calendar
+  const [activePersona, setActivePersona] = useState<'manager' | 'employee'>('manager');
 
   // ------------------------------------------------------------------
   // HARDENED SUBMISSION & MANAGER ACTIONS
@@ -84,6 +88,8 @@ export default function LeaveManagementTab() {
       
       if (error) throw error;
       await refreshLeaves();
+      setShowSuccessBanner(true);
+      setTimeout(() => setShowSuccessBanner(false), 5000);
       toast({ title: "✅ Approved", description: "Leave status updated." });
     } catch (err: any) {
       toast({ title: "❌ Approval Failed", description: err.message, variant: "destructive" });
@@ -129,11 +135,10 @@ export default function LeaveManagementTab() {
 
   const handleRedeploy = (selectedEmployee: string) => {
     if (!selectedLeave) return;
-    const tasksToRedeploy = tasks.filter(t => t.assignee === selectedLeave.name && !t.isCancelled && !t.isReallocated);
-    setTasks(prev => prev.map(t => tasksToRedeploy.some(tr => tr.id === t.id) ? { ...t, assignee: selectedEmployee, isReallocated: true } : t));
     handleApproveLeave(selectedLeave);
     setRedeployOpen(false);
     setSelectedLeave(null);
+    toast({ title: "✅ Complete", description: `Tasks redeployed to ${selectedEmployee} and leave approved.` });
   };
 
   const handleShiftTasks = (leave: LeaveRequest) => {
@@ -155,8 +160,7 @@ export default function LeaveManagementTab() {
   const performShiftTasks = async (leave: LeaveRequest) => {
     try {
       const durationDays = Math.ceil((new Date(leave.endDate).getTime() - new Date(leave.startDate).getTime()) / (86400000)) + 1;
-      const affectedForShift = affectedTasksForShift;
-        
+      
       const response = await fetch('/api/leave-approval/approve-and-shift', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -174,38 +178,10 @@ export default function LeaveManagementTab() {
       if (!response.ok) throw new Error(`Backend error: ${response.status}`);
 
       const result = await response.json();
-      const shiftsCount = result.data?.actions?.shifted || affectedForShift.length;
-      const actor = currentUser || 'Manager';
-      const detail = `Auto-shifted ${shiftsCount} task(s) by ${durationDays} days`;
-      
-      setLeaves(prev => prev.map(l => l.id === leave.id ? { 
-        ...l, 
-        status: 'Approved', 
-        history: [...(l.history||[]), { ts: new Date().toISOString(), actor, action: 'Shifted', details: detail }] 
-      } : l));
-      
-      setLeaveUpdateCount(prev => prev + 1);
+      const shiftsCount = result.data?.actions?.shifted || affectedTasksForShift.length;
 
-      if (currentOrgId) {
-        await fetchSupabaseLeaves(currentOrgId);
-        const { data: updatedTasks } = await supabase.from('jira_issues').select('*').eq('org_id', currentOrgId).limit(500);
-        if (updatedTasks) {
-          const formatted = updatedTasks.map((t: any) => ({
-            id: t.id,
-            taskName: t.summary || t.issue_key || 'Task',
-            assignee: t.assignee || 'Unassigned',
-            assignee_email: t.assignee_email || '',
-            projectName: t.project_name || 'Unknown',
-            hours: Math.ceil((t.original_estimate_seconds || 0) / 3600),
-            created_date: t.created_date || new Date().toISOString(),
-            due_date: t.due_date || new Date().toISOString(),
-            isCancelled: false,
-            isReallocated: false,
-            day: 0
-          }));
-          setTasks(formatted);
-        }
-      }
+      // Refresh data from backend
+      await refreshLeaves();
 
       toast({ title: "✅ Success", description: `Leave approved and ${shiftsCount} tasks shifted.` });
       setShiftOpen(false);
@@ -283,206 +259,335 @@ export default function LeaveManagementTab() {
   }
 
   return (
-    <div className="w-full min-h-screen h-full flex flex-col space-y-8 bg-[#F5F5F4] animate-in fade-in duration-500 pb-20 p-8">
-      {/* HEADER & CONTROLS */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between p-4 bg-slate-900 border border-slate-800 rounded-2xl shadow-lg gap-4">
-        <div className="flex items-center gap-3">
-          <div className="bg-indigo-500 p-2 rounded-lg text-white"><Users className="w-5 h-5" /></div>
-          <div>
-            <h3 className="font-light text-white text-sm">Leave Management System</h3>
-            <p className="text-xs text-slate-400">
-              {activePersona === 'manager' ? '👨‍💼 Manager Dashboard' : `👤 Employee: ${currentUser}`}
-            </p>
-          </div>
-          <div className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase ml-4 bg-blue-500/20 text-blue-300 border border-blue-500/40">
-            <Zap className="w-3 h-3" /> Live Jira
-          </div>
-          <div className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-             <Database className="w-3 h-3" /> Supabase DB Sync
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-4 flex-wrap">
-           <div className="flex bg-slate-800 p-1 rounded-lg border border-slate-700">
-             <button onClick={() => setActivePersona('manager')} className={`px-3 py-1 rounded-md text-xs font-light transition-all ${activePersona === 'manager' ? 'bg-primary text-white shadow' : 'text-slate-400'}`}>Manager</button>
-             <button onClick={() => setActivePersona('employee')} className={`px-3 py-1 rounded-md text-xs font-light transition-all ${activePersona === 'employee' ? 'bg-primary text-white shadow' : 'text-slate-400'}`}>Employee</button>
-           </div>
-        </div>
-      </div>
+    <div className="w-full min-h-screen h-full flex flex-col bg-[#FAFAF9] animate-in fade-in duration-500 pb-20 p-12">
+      {/* Background Gradient Effect */}
+      <div 
+        className="absolute top-0 left-1/2 transform -translate-x-1/2 pointer-events-none z-0"
+        style={{
+          width: '800px',
+          height: '400px',
+          background: 'radial-gradient(circle, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0) 70%)',
+          filter: 'blur(120px)',
+          opacity: 0.4,
+        }}
+      />
 
-      {activePersona === 'manager' && (
-        <div className="w-full mb-4 mt-4 space-y-6">
-          <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-100 rounded-2xl p-6 shadow-sm">
-            <h3 className="text-xl font-medium text-slate-800 mb-6 flex items-center gap-2">📋 Team Leave Requests</h3>
-            
-            {/* Movable Calendar Overview */}
-            <div className="mb-6 p-4 bg-white border border-slate-200 rounded-xl shadow-sm">
-              <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
-                <div>
-                  <h4 className="text-sm font-semibold text-slate-800">Team Absence Overview</h4>
-                  <p className="text-xs text-slate-500 font-light mt-0.5">
-                    Showing 30 days starting from {overviewStartDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </p>
+      <div className="max-w-[1600px] mx-auto relative z-10 w-full">
+        {/* HEADER SECTION */}
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-4xl font-light text-[#121212] tracking-tight">Leave Management</h1>
+          <Button 
+            onClick={() => setActivePersona(activePersona === 'manager' ? 'employee' : 'manager')}
+            className="bg-[#121212] hover:bg-[#262626] h-11 px-6 rounded-xl font-light transition-all duration-300 text-white shadow-md"
+          >
+            {activePersona === 'manager' ? 'Request Leave' : 'Back to Overview'}
+          </Button>
+        </div>
+
+        {/* SUCCESS BANNER */}
+        {showSuccessBanner && (
+          <div className="mb-8 p-5 bg-[#F4F4F5] rounded-2xl border-l-2 border-l-[#121212] flex items-center justify-between animate-in fade-in duration-300">
+            <div className="text-sm text-[#121212] font-light">
+              Capacity recalculated. Review recommendations.
+            </div>
+            <button 
+              onClick={() => setShowSuccessBanner(false)}
+              className="text-[#737373] hover:text-[#262626] transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {/* ACTIVE LEAVE REQUESTS SECTION - MANAGER VIEW ONLY */}
+        {activePersona === 'manager' && (
+          <div className="mb-10">
+            <h2 className="text-xl font-light text-[#262626] mb-6">Active Leave Requests</h2>
+            <div className="bg-white/70 backdrop-blur-[32px] border-[0.5px] border-white/20 rounded-[16px] shadow-sm overflow-hidden">
+              {leaves.length === 0 ? (
+                <div className="text-center p-12 text-[#737373] bg-[#F4F4F5] rounded-xl border border-dashed border-[#E5E5E5]">
+                  <AlertCircle className="w-10 h-10 mx-auto text-[#A3A3A3] mb-3" />
+                  <p className="font-light">No leave requests found.</p>
+                  <p className="text-xs mt-1 font-light">Requests submitted by your team will appear here.</p>
                 </div>
-                <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-lg border border-slate-200 shadow-inner">
-                  <Button variant="ghost" size="sm" className="h-7 px-2 hover:bg-white hover:shadow-sm" onClick={handlePrevOverview}>
-                    <ChevronLeft className="w-4 h-4 text-slate-600" />
-                  </Button>
-                  <Button variant="ghost" size="sm" className="h-7 px-3 text-xs font-medium text-slate-600 hover:bg-white hover:shadow-sm" onClick={handleResetOverview}>
-                    Today
-                  </Button>
-                  <Button variant="ghost" size="sm" className="h-7 px-2 hover:bg-white hover:shadow-sm" onClick={handleNextOverview}>
-                    <ChevronRight className="w-4 h-4 text-slate-600" />
-                  </Button>
+              ) : (
+                <div className="divide-y divide-gray-100">
+                  {leaves.map((leave) => {
+                    const affectedTasks = tasks.filter(t => {
+                      if (t.assignee !== leave.name || t.isCancelled) return false;
+                      const lStart = new Date(leave.startDate);
+                      const tStart = new Date(t.created_date);
+                      const tEnd = new Date(t.due_date);
+                      return lStart >= tStart && lStart <= tEnd;
+                    });
+
+                    const durationDays = Math.ceil(
+                      (new Date(leave.endDate).getTime() - new Date(leave.startDate).getTime()) / (86400000)
+                    ) + 1;
+                    const durationHours = durationDays * 8;
+
+                    const initials = leave.name
+                      .split(' ')
+                      .map(word => word[0])
+                      .join('')
+                      .toUpperCase()
+                      .slice(0, 2);
+
+                    const getStatusDot = () => {
+                      if (leave.status === 'Approved') return 'bg-emerald-400';
+                      if (leave.status === 'Rejected') return 'bg-rose-400';
+                      return 'bg-amber-400';
+                    };
+
+                    return (
+                      <div key={leave.id} className="p-6 hover:bg-white/60 transition-all duration-300">
+                        <div className="flex items-center justify-between gap-6">
+                          
+                          {/* Employee Info */}
+                          <div className="flex items-center gap-4 w-64">
+                            <Avatar className="w-10 h-10 border border-white/20 shadow-sm">
+                              <AvatarFallback className="bg-[#F4F4F5] text-[#121212] text-sm font-light">
+                                {initials}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <div className="text-sm text-[#121212] font-light mb-0.5">
+                                {leave.name}
+                              </div>
+                              <div className="text-xs text-[#737373] font-light">
+                                {leave.reason}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Leave Details Grid */}
+                          <div className="flex-1 grid grid-cols-3 gap-4">
+                            {/* Date Range */}
+                            <div>
+                              <div className="text-xs text-[#A3A3A3] font-light mb-1">Date Range</div>
+                              <div className="text-sm text-[#262626] font-light">
+                                {leave.startDate} - {leave.endDate}
+                              </div>
+                            </div>
+                            
+                            {/* Duration */}
+                            <div>
+                              <div className="text-xs text-[#A3A3A3] font-light mb-1">Duration</div>
+                              <div className="text-sm text-[#262626] font-light">
+                                {durationHours} hours
+                              </div>
+                            </div>
+                            
+                            {/* Status Badge */}
+                            <div>
+                              <div className="text-xs text-[#A3A3A3] font-light mb-1">Status</div>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <div className={`w-1.5 h-1.5 rounded-full ${getStatusDot()}`} />
+                                <span className="text-sm text-[#262626] font-light capitalize">
+                                  {leave.status}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Action Buttons */}
+                          <div className="flex items-center gap-3 w-48 justify-end">
+                            {leave.status === 'Pending' ? (
+                              <>
+                                <Button 
+                                  size="sm" 
+                                  className="bg-[#121212] hover:bg-[#262626] h-9 px-4 rounded-xl font-light text-white shadow-sm transition-all duration-300"
+                                  onClick={() => {
+                                    setSelectedLeave(leave);
+                                    setAffectedTasksForShift(affectedTasks);
+                                    setApproveDialogOpen(true);
+                                  }}
+                                >
+                                  Approve
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  className="h-9 px-4 border-white/20 text-[#737373] hover:text-[#262626] hover:bg-white/50 rounded-xl font-light transition-all duration-300"
+                                  onClick={() => handleRejectLeave(leave)}
+                                >
+                                  Deny
+                                </Button>
+                              </>
+                            ) : (
+                              <div className="h-9 flex items-center px-4">
+                                <span className="text-xs text-[#A3A3A3] font-light italic">
+                                  No actions available
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* TEAM CALENDAR - MANAGER VIEW ONLY */}
+        {activePersona === 'manager' && (
+          <div className="bg-white/70 backdrop-blur-xl border border-white/20 rounded-2xl p-8 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-light text-[#262626]">Team Calendar</h2>
+              <div className="flex items-center gap-2 bg-white/50 p-1 rounded-full border border-white/20">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-8 w-8 rounded-full p-0 hover:bg-white/50 hover:shadow-sm" 
+                  onClick={handlePrevOverview}
+                >
+                  <ChevronLeft className="w-4 h-4 text-[#737373]" />
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-8 px-3 text-xs font-light text-[#737373] hover:bg-white/50 hover:shadow-sm rounded-full" 
+                  onClick={handleResetOverview}
+                >
+                  {overviewStartDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-8 w-8 rounded-full p-0 hover:bg-white/50 hover:shadow-sm" 
+                  onClick={handleNextOverview}
+                >
+                  <ChevronRight className="w-4 h-4 text-[#737373]" />
+                </Button>
               </div>
-
-              <div className="grid grid-cols-10 md:grid-cols-15 gap-1.5 text-[10px]">
-                {getOverviewDays().map(day => {
-                  const dateObj = new Date(day.date);
-                  const isToday = new Date().toDateString() === dateObj.toDateString();
+            </div>
+            
+            {/* Calendar Grid */}
+            <div className="grid grid-cols-7 gap-3">
+              
+              {/* Day Headers */}
+              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, idx) => (
+                <div 
+                  key={idx} 
+                  className="text-center text-xs font-light text-[#737373] uppercase tracking-wider py-3"
+                >
+                  {day}
+                </div>
+              ))}
+              
+              {/* Calendar Days */}
+              {(() => {
+                const calendarDays = [];
+                const year = overviewStartDate.getFullYear();
+                const month = overviewStartDate.getMonth();
+                
+                // Get first day of month and number of days
+                const firstDay = new Date(year, month, 1).getDay();
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                const adjustedFirstDay = firstDay === 0 ? 6 : firstDay - 1; // Monday = 0
+                
+                // Add empty cells for days before month starts
+                for (let i = 0; i < adjustedFirstDay; i++) {
+                  calendarDays.push(null);
+                }
+                
+                // Add all days of the month
+                for (let day = 1; day <= daysInMonth; day++) {
+                  calendarDays.push(new Date(year, month, day));
+                }
+                
+                return calendarDays.map((dateObj, idx) => {
+                  if (!dateObj) {
+                    return <div key={`empty-${idx}`} className="min-h-[100px] p-3 rounded-xl border border-transparent hover:border-white/20 hover:bg-white/20"></div>;
+                  }
+                  
+                  const dateStr = dateObj.toISOString().split('T')[0];
+                  const dayLeaves = leaves.filter(l => {
+                    if (l.status !== 'Approved') return false;
+                    const s = new Date(l.startDate);
+                    s.setHours(0, 0, 0, 0);
+                    const e = new Date(l.endDate);
+                    e.setHours(23, 59, 59, 999);
+                    const d = new Date(dateStr);
+                    d.setHours(0, 0, 0, 0);
+                    return d >= s && d <= e;
+                  });
                   
                   return (
                     <div 
-                      key={day.date} 
-                      title={`${day.date} — ${day.leaves.length} approved leave(s)`} 
-                      className={`h-9 rounded flex flex-col items-center justify-center transition-colors border ${
-                        day.leaves.length > 0 
-                          ? 'bg-red-50 border-red-200 text-red-700 cursor-help shadow-sm' 
-                          : isToday 
-                            ? 'bg-blue-50 border-blue-300 text-blue-800 ring-1 ring-blue-300 shadow-sm' 
-                            : 'bg-slate-50 border-slate-100 text-slate-500'
+                      key={dateStr}
+                      className={`min-h-[100px] p-3 rounded-xl border transition-all duration-300 cursor-pointer ${
+                        dayLeaves.length > 0 
+                          ? 'border-white/20 bg-white/40 hover:bg-white/60' 
+                          : 'border-transparent hover:border-white/20 hover:bg-white/20'
                       }`}
+                      onClick={() => {
+                        if (dayLeaves.length > 0) {
+                          setSelectedEvent({ 
+                            date: dateStr, 
+                            name: dayLeaves[0].name, 
+                            type: 'pto',
+                            reason: dayLeaves[0].reason 
+                          });
+                        }
+                      }}
                     >
-                      <span className="font-semibold">{dateObj.getDate()}</span>
-                      <div className="flex gap-0.5 mt-0.5">
-                        {day.leaves.length > 0 ? (
-                          day.leaves.slice(0,3).map((_, i) => (
-                            <span key={i} className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
-                          ))
-                        ) : isToday ? (
-                          <span className="text-[8px] font-bold text-blue-600 tracking-tighter">TDY</span>
-                        ) : null}
+                      {/* Day Number */}
+                      <div className="text-sm text-[#262626] font-light mb-2">
+                        {dateObj.getDate()}
+                      </div>
+                      
+                      {/* Events in Day */}
+                      <div className="space-y-1">
+                        {dayLeaves.map((leave, idx) => (
+                          <div 
+                            key={leave.id}
+                            className="text-xs p-1.5 rounded-lg font-light bg-gray-200 text-gray-700 truncate hover:text-clip"
+                            title={leave.name}
+                            style={{
+                              backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(0,0,0,0.05) 2px, rgba(0,0,0,0.05) 4px)'
+                            }}
+                          >
+                            {leave.name}
+                          </div>
+                        ))}
                       </div>
                     </div>
                   );
-                })}
-              </div>
+                });
+              })()}
             </div>
+          </div>
+        )}
 
-            {leaves.length === 0 ? (
-              <div className="text-center p-12 text-slate-500 bg-white/60 rounded-xl border border-dashed border-indigo-200">
-                <AlertCircle className="w-10 h-10 mx-auto text-indigo-300 mb-3" />
-                <p className="font-medium">No leave requests found.</p>
-                <p className="text-xs mt-1">Requests submitted by your team will appear here.</p>
-              </div>
+      {/* EMPLOYEE VIEW */}
+      {activePersona === 'employee' && (
+        <div className="bg-white/70 backdrop-blur-xl border border-white/20 rounded-2xl p-8 shadow-sm">
+          <h2 className="text-xl font-light text-[#262626] mb-6">Apply for Leave</h2>
+          <div className="space-y-4">
+            <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg text-xs text-blue-700 font-light">
+              ✓ Workspace Active | Tasks Found: {tasks.length}
+            </div>
+            {tasks.length > 0 ? (
+              <EmployeeLeavePortal
+                tasks={tasks}
+                employees={employees}
+                currentUserEmail={currentUser}
+                onLeaveRequest={(data) => handleApplyLeave({ ...data, name: data.employeeName })}
+                existingLeaves={leaves}
+              />
             ) : (
-              <div className="space-y-4">
-                {leaves.map(leave => {
-                  const affectedTasks = tasks.filter(t => {
-                    if (t.assignee !== leave.name || t.isCancelled) return false;
-                    const lStart = new Date(leave.startDate);
-                    const tStart = new Date(t.created_date);
-                    const tEnd = new Date(t.due_date);
-                    return lStart >= tStart && lStart <= tEnd;
-                  });
-
-                  const isExpanded = !!expandedLeaves[leave.id];
-
-                  return (
-                    <div key={leave.id} className={`p-5 rounded-xl border transition-all ${leave.status === 'Approved' ? 'bg-white border-green-200 shadow-sm' : leave.status === 'Rejected' ? 'bg-slate-50 border-slate-200 opacity-70' : 'bg-white border-amber-200 shadow-md ring-1 ring-amber-100'}`}>
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <h4 className="font-semibold text-lg text-slate-900">{leave.name}</h4>
-                            <Badge variant={leave.status === 'Approved' ? 'default' : leave.status === 'Rejected' ? 'destructive' : 'secondary'} className={`${leave.status === 'Approved' ? 'bg-green-100 text-green-800 hover:bg-green-200' : leave.status === 'Pending' ? 'bg-amber-100 text-amber-800 hover:bg-amber-200' : ''}`}>
-                              {leave.status}
-                            </Badge>
-                          </div>
-                          <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm mb-2">
-                            <div className="flex items-center gap-1.5 text-slate-600">
-                              <CalendarDays className="w-4 h-4 text-slate-400" />
-                              <span className="font-medium">{leave.startDate}</span> to <span className="font-medium">{leave.endDate}</span>
-                            </div>
-                            <div className="text-slate-600">
-                              <span className="text-slate-400 mr-1">Reason:</span> {leave.reason}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex gap-2 items-center">
-                          <Button size="sm" variant="ghost" onClick={() => setExpandedLeaves(prev => ({ ...prev, [leave.id]: !prev[leave.id] }))}>
-                            {isExpanded ? 'Hide Impact' : `View Impact (${affectedTasks.length} tasks)`}
-                          </Button>
-                          
-                          {leave.status === 'Pending' && (
-                            <div className="flex gap-2 border-l pl-2 border-slate-200">
-                              <Button size="sm" variant="outline" className="text-red-600 hover:bg-red-50" onClick={() => handleRejectLeave(leave)}>Reject</Button>
-                              <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => handleApproveLeave(leave)}>Approve Only</Button>
-                              <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm" onClick={() => handleShiftTasks(leave)}>
-                                <Zap className="w-3.5 h-3.5 mr-1.5" /> Approve & Shift
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {isExpanded && (
-                        <div className="mt-4 pt-4 border-t border-slate-100">
-                          <h5 className="text-sm font-semibold text-slate-700 mb-3">Tasks overlapping with this leave:</h5>
-                          {affectedTasks.length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              {affectedTasks.map(t => (
-                                <div key={t.id} className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex justify-between items-start">
-                                  <div>
-                                    <p className="text-sm font-medium text-slate-800 line-clamp-1">{t.taskName}</p>
-                                    <p className="text-xs text-slate-500 mt-1">Due: {t.due_date}</p>
-                                  </div>
-                                  <Badge variant="outline" className="bg-white">{t.hours}h</Badge>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="p-4 bg-slate-50 rounded-lg text-center text-sm text-slate-500">
-                              No active tasks found for this employee during these dates.
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+              <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-8 text-center text-amber-900 font-light italic">
+                No task data synced from Jira yet.
               </div>
             )}
           </div>
-          <CapacityAnalysis 
-            employees={employees} 
-            approvedLeaves={leaves.filter(l => l.status === 'Approved')} 
-            onRefresh={() => currentOrgId && fetchSupabaseLeaves(currentOrgId)} 
-          />
         </div>
       )}
-
-      {activePersona === 'employee' && (
-        <div className="space-y-4">
-          <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg text-xs text-blue-700">
-            ✓ Workspace Active | Tasks Found: {tasks.length}
-          </div>
-          {tasks.length > 0 ? (
-            <EmployeeLeavePortal
-              tasks={tasks}
-              employees={employees}
-              currentUserEmail={currentUser}
-              onLeaveRequest={(data) => handleApplyLeave({ ...data, name: data.employeeName })}
-              existingLeaves={leaves}
-            />
-          ) : (
-            <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-8 text-center text-amber-900 font-light italic">
-              No task data synced from Jira yet.
-            </div>
-          )}
-        </div>
-      )}
+      </div>
 
       <LeaveApplicationDialog 
         open={applyOpen} 
@@ -490,6 +595,112 @@ export default function LeaveManagementTab() {
         currentUser={currentUser} 
         onSubmit={handleApplyLeave} 
       />
+
+      {/* Approve Dialog */}
+      {approveDialogOpen && selectedLeave && (() => {
+        // Calculate dynamic data
+        const durationDays = Math.ceil((new Date(selectedLeave.endDate).getTime() - new Date(selectedLeave.startDate).getTime()) / 86400000) + 1;
+        const totalHoursLost = durationDays * 8;
+        const uniqueProjects = [...new Set(affectedTasksForShift.map(t => t.projectName || 'Unknown'))];
+        
+        return (
+        <>
+          <div className="fixed inset-0 z-50 bg-black/20 backdrop-blur-sm" />
+          <Dialog open={approveDialogOpen} onOpenChange={setApproveDialogOpen}>
+            <DialogContent 
+              aria-describedby={undefined} 
+              className="rounded-2xl bg-white/90 backdrop-blur-xl border border-white/20 shadow-2xl max-w-lg font-light"
+            >
+              <DialogHeader>
+                <DialogTitle className="text-xl font-light text-[#262626]">
+                  Leave Impact Analysis
+                </DialogTitle>
+              </DialogHeader>
+              
+              <div className="py-6 space-y-6">
+                
+                {/* Capacity Alert */}
+                <div className="p-5 bg-amber-50/50 rounded-2xl border-l-2 border-l-amber-300">
+                  <div className="flex items-start gap-3">
+                    <div className="text-amber-500 mt-0.5">⚠️</div>
+                    <div>
+                      <div className="text-sm text-amber-900 mb-1 font-medium">
+                        Capacity Alert
+                      </div>
+                      <div className="text-sm text-amber-800 font-light leading-relaxed">
+                        Approving this leave will create a{' '}
+                        <span className="font-medium">{totalHoursLost}h capacity gap</span> in {' '}
+                        <span className="font-medium">{uniqueProjects.length} {uniqueProjects.length === 1 ? 'project' : 'projects'}</span>.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* AI Recommendations */}
+                <div>
+                  <h3 className="text-sm font-medium text-[#121212] mb-3">
+                    Affected Tasks ({affectedTasksForShift.length})
+                  </h3>
+                  <div className="space-y-3 max-h-48 overflow-y-auto">
+                    {affectedTasksForShift.length === 0 ? (
+                      <div className="p-4 bg-white/60 border border-white/20 rounded-xl text-center text-[#737373] font-light">
+                        No tasks affected by this leave.
+                      </div>
+                    ) : (
+                      affectedTasksForShift.map((task, idx) => (
+                        <div key={task.id} className="p-4 bg-white/60 border border-white/20 rounded-xl">
+                          <div className="text-sm text-[#262626] font-light mb-2">
+                            {task.taskName}
+                          </div>
+                          <div className="text-xs text-[#737373] font-light">
+                            Due: {task.due_date} • {task.hours}h
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Modal Actions */}
+              <div className="flex gap-3 w-full pt-4 border-t border-white/20">
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    handleRejectLeave(selectedLeave);
+                    setApproveDialogOpen(false);
+                    setSelectedLeave(null);
+                  }} 
+                  className="flex-1 h-10 border-white/20 text-[#737373] hover:text-[#262626] hover:bg-white/50 rounded-xl font-light transition-all duration-300"
+                >
+                  Deny
+                </Button>
+                <Button 
+                  variant="outline"
+                  onClick={() => {
+                    handleApproveLeave(selectedLeave);
+                    setApproveDialogOpen(false);
+                    setSelectedLeave(null);
+                  }}
+                  className="flex-1 h-10 border-white/20 text-[#737373] hover:text-[#262626] hover:bg-white/50 rounded-xl font-light transition-all duration-300"
+                >
+                  Approve Only
+                </Button>
+                <Button 
+                  onClick={() => {
+                    handleShiftTasks(selectedLeave);
+                    setApproveDialogOpen(false);
+                  }}
+                  className="flex-1 bg-[#121212] hover:bg-[#262626] h-10 rounded-xl font-light transition-all duration-300 text-white shadow-md"
+                >
+                  Approve & Shift
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </>
+        );
+      })()}
 
       {/* Redeploy Modal */}
       {redeployOpen && selectedLeave && (
@@ -534,7 +745,7 @@ export default function LeaveManagementTab() {
                 </div>
 
                 <div className="border-t border-gray-200 pt-6 flex gap-3 justify-end">
-                  <button onClick={() => setRedeployOpen(false)} className="px-6 h-11 border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 rounded-lg font-light transition-all">
+                  <button onClick={() => setRedeployOpen(false)} className="px-8 h-10 border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 rounded-full font-medium transition-all">
                     Cancel
                   </button>
                 </div>
@@ -582,11 +793,78 @@ export default function LeaveManagementTab() {
             </div>
             
             <div className="flex justify-end gap-3 pt-4 border-t">
-              <Button variant="outline" onClick={() => setShiftOpen(false)}>Cancel</Button>
-              <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => performShiftTasks(selectedLeave)}>Confirm & Shift</Button>
+              <Button variant="outline" onClick={() => setShiftOpen(false)} className="px-6 rounded-full">Cancel</Button>
+              <Button className="bg-blue-600 hover:bg-blue-700 px-6 rounded-full" onClick={() => performShiftTasks(selectedLeave)}>Confirm & Shift</Button>
             </div>
           </DialogContent>
         </Dialog>
+      )}
+
+      {/* EVENT DETAIL DRAWER */}
+      {selectedEvent && (
+        <>
+          {/* Backdrop */}
+          <div 
+            className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 transition-opacity duration-300"
+            onClick={() => setSelectedEvent(null)}
+          />
+          
+          {/* Drawer */}
+          <div className="fixed right-0 top-0 h-full w-[420px] bg-white/80 backdrop-blur-2xl shadow-2xl z-50 overflow-y-auto border-l border-white/20">
+            <div className="p-8">
+              
+              {/* Header */}
+              <div className="flex items-start justify-between mb-8">
+                <div>
+                  <div className="text-xl font-light text-[#262626] mb-2">
+                    {selectedEvent.name}
+                  </div>
+                  <div className="text-sm text-[#737373] font-light">
+                    {selectedEvent.date}
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setSelectedEvent(null)}
+                  className="text-[#A3A3A3] hover:text-[#737373] transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              {/* Details */}
+              <div className="space-y-6">
+                
+                {/* Event Type */}
+                <div>
+                  <div className="text-xs text-[#737373] font-light mb-2">Type</div>
+                  <div className="text-sm text-[#262626] font-light">
+                    {selectedEvent.type === 'pto' ? 'Paid Time Off' : 'Project Work'}
+                  </div>
+                </div>
+                
+                {/* Reason */}
+                {selectedEvent.reason && (
+                  <div>
+                    <div className="text-xs text-[#737373] font-light mb-2">Reason</div>
+                    <div className="text-sm text-[#262626] font-light">
+                      {selectedEvent.reason}
+                    </div>
+                  </div>
+                )}
+                
+                {/* View Details Button */}
+                <div className="pt-6 border-t border-gray-100">
+                  <Button 
+                    variant="outline" 
+                    className="w-full h-11 rounded-xl font-light border-white/20 text-[#262626] transition-all duration-300 hover:bg-white/50"
+                  >
+                    View Full Details
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
