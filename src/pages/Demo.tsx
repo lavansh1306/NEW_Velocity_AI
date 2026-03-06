@@ -4,10 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
-import { TimeTracking } from "@/components/demo/TimeTracking";
 import { DeploymentView } from "@/components/demo/DeploymentView";
-import { ROIMetrics } from "@/components/demo/ROIMetrics";
-import { LiveFeed } from "@/components/demo/LiveFeed";
 
 const Demo = () => {
   const [activeTab, setActiveTab] = useState("integrations");
@@ -80,10 +77,16 @@ const Demo = () => {
 
             <div className="grid gap-6 lg:grid-cols-3">
               <div className="lg:col-span-2">
-                <TimeTracking />
+                <Card className="p-6">
+                  <h3 className="text-lg font-semibold mb-4">Activity Timeline</h3>
+                  <div className="text-muted-foreground">Time tracking and detailed analytics coming soon</div>
+                </Card>
               </div>
               <div>
-                <LiveFeed />
+                <Card className="p-6">
+                  <h3 className="text-lg font-semibold mb-4">Live Updates</h3>
+                  <div className="text-muted-foreground">Activity feed coming soon</div>
+                </Card>
               </div>
             </div>
           </TabsContent>
@@ -102,7 +105,10 @@ const Demo = () => {
           </TabsContent>
 
           <TabsContent value="timesaved">
-            <TimeTracking detailed />
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold mb-4">Time Saved Analytics</h3>
+              <p className="text-muted-foreground">Detailed time tracking and analytics coming soon</p>
+            </Card>
           </TabsContent>
 
           <TabsContent value="deployment">
@@ -110,7 +116,10 @@ const Demo = () => {
           </TabsContent>
 
           <TabsContent value="roi">
-            <ROIMetrics />
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold mb-4">ROI Metrics</h3>
+              <p className="text-muted-foreground">ROI analysis and calculations coming soon</p>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
