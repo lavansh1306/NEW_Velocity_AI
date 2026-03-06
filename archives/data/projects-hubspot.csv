@@ -1,7 +1,0 @@
-project_id,project_name,category,data
-1,RetailFlow Analytics,Retail Operations,"{""contacts_enriched"":45,""deals_automated"":6,""hubspot_time_saved_hours"":5,""examples"":""Auto-filled contact profiles; Deal stage automation"",""last_sync"":""2025-12-18T10:05:00Z""}"
-2,CloudSync Enterprise,Infrastructure Platform,"{""contacts_enriched"":12,""deals_automated"":2,""hubspot_time_saved_hours"":3,""examples"":""Template-based deal creation"",""last_sync"":""2025-12-18T10:05:00Z""}"
-3,MedTrack Pro,Healthcare SaaS,"{""contacts_enriched"":60,""deals_automated"":5,""hubspot_time_saved_hours"":8,""examples"":""Automated outreach sequences; Lead scoring by AI"",""last_sync"":""2025-12-18T10:05:00Z""}"
-4,QuantVault Analytics,Fintech Solutions,"{""contacts_enriched"":18,""deals_automated"":3,""hubspot_time_saved_hours"":2,""examples"":""Prospect enrichment"",""last_sync"":""2025-12-18T10:05:00Z""}"
-5,LogiChain Optimizer,Supply Chain Tech,"{""contacts_enriched"":25,""deals_automated"":4,""hubspot_time_saved_hours"":6,""examples"":""Automated lead routing"",""last_sync"":""2025-12-18T10:05:00Z""}"
-6,InsightHR Suite,Enterprise HR Tech,"{""contacts_enriched"":85,""deals_automated"":9,""hubspot_time_saved_hours"":12,""examples"":""Candidate profile enrichment; Automated outreach"",""last_sync"":""2025-12-18T10:05:00Z""}"

@@ -10,9 +10,6 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Demo from "./pages/Demo";
-// import ROICalculator from "./pages/ROICalculator";
-// import ROIReport from "./pages/ROIReport";
-// import UseCases from "./pages/UseCases";
 import VelocityAI from "./pages/VelocityAI";
 import Projects from "./components/projects/Projects";
 import ProjectAnalytics from "./components/projects/ProjectAnalytics";
@@ -30,7 +27,6 @@ import People from "./pages/People";
 import Plan from "./pages/Plan";
 import Leave from "./pages/Leave";
 import Settings from "./pages/Settings";
-// import AuditPage from "./pages/Audit";
 import OnboardingModeSelection from "./pages/onboarding/OnboardingModeSelection";
 import OnboardingJoin from "./pages/onboarding/OnboardingJoin";
 import OnboardingWelcome from "./pages/onboarding/OnboardingWelcome";
@@ -96,9 +92,6 @@ const App = () => (
                 {/* Public Routes (Marketing/Info) */}
                 <Route path="/" element={<Index />} />
                 <Route path="/demo" element={<Demo />} />
-                {/* <Route path="/roi-calculator" element={<ROICalculator />} /> */}
-                {/* <Route path="/use-cases" element={<UseCases />} /> */}
-                {/* <Route path="/roi-report" element={<ROIReport />} /> */}
 
                 {/* Protected Dashboard Routes (require authentication - JIRA or Supabase) */}
                 <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
@@ -119,7 +112,6 @@ const App = () => (
 
                 {/* Protected Utility Routes (require authentication) */}
                 <Route path="/debug-normalization" element={<ProtectedRoute><DebugNormalization /></ProtectedRoute>} />
-                {/* <Route path="/audit" element={<ProtectedRoute><AuditPage /></ProtectedRoute>} /> */}
 
                 {/* Catch-all - 404 */}
                 <Route path="*" element={<NotFound />} />

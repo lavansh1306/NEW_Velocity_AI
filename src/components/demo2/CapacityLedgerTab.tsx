@@ -83,7 +83,6 @@ export default function CapacityLedgerTab({ projectId, asanaTasks = [], teamMemb
   const [endpointDebug, setEndpointDebug] = useState<Array<{url: string; ok?: boolean; status?: number; body?: string; tag?: string}>>([])
   const [perProjectBlocked, setPerProjectBlocked] = useState<Array<{ key: string; title?: string; source: 'jira'|'asana'; hours: number }>>([])
   const [perAssigneeBlocked, setPerAssigneeBlocked] = useState<Array<{ assignee: string; hours: number }>>([])
-  const [hubspotAiSavedHours, setHubspotAiSavedHours] = useState<number | null>(null)
   // If no specific project is selected (or you want a global total), fetch all projects
   // from Jira and Asana, then sum their estimated blocked hours.
   useEffect(() => {
@@ -320,24 +319,6 @@ export default function CapacityLedgerTab({ projectId, asanaTasks = [], teamMemb
 
     return () => { cancelled = true }
   }, [projectId])
-
-  // Fetch HubSpot AI metrics
-  useEffect(() => {
-    let cancelled = false
-    async function fetchHubSpotMetrics() {
-      try {
-        const response = await hubspotFetch(apiUrl('/api/hubspot/ai-metrics'))
-        if (!cancelled && response.ok) {
-          const data = await response.json()
-          setHubspotAiSavedHours(data.totalTimeSavedHours ?? null)
-        }
-      } catch (err) {
-        console.error('[CapacityLedger] Failed to fetch HubSpot AI metrics:', err)
-      }
-    }
-    fetchHubSpotMetrics()
-    return () => { cancelled = true }
-  }, [])
 
   // When a specific projectId is provided and no asanaTasks prop passed,
   // fetch project tasks from both Jira and Asana so per-project totals include Jira data.
@@ -808,7 +789,7 @@ export default function CapacityLedgerTab({ projectId, asanaTasks = [], teamMemb
         </div>
         <div className="bg-primary rounded-xl p-4 sm:p-6 text-white shadow-md">
           <div className="text-xs sm:text-sm opacity-90 mb-1">AI-SAVED TIME (This Project)</div>
-          <div className="text-3xl sm:text-4xl font-light">{hubspotAiSavedHours !== null ? `${hubspotAiSavedHours} hrs` : `${totals.fractional.toFixed(1)} hrs`}</div>
+          <div className="text-3xl sm:text-4xl font-light">{`${totals.fractional.toFixed(1)} hrs`}</div>
           <div className="text-xs sm:text-sm mt-2 opacity-75">Estimated where automation reduces per-task human time</div>
         </div>
       </div>

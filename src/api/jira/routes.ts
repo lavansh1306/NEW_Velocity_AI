@@ -7,22 +7,6 @@ import * as db from './db.js';
 
 const router = express.Router();
 
-// ==== DEBUG: Test DB write (remove in production) ====
-router.get('/test-db-write', async (req: Request, res: Response) => {
-  console.log('[TEST] Testing DB write...');
-  try {
-    const testOrgName = 'Test-Org-' + Date.now();
-    const orgId = await db.createOrganization(testOrgName, null);
-    if (orgId) {
-      res.json({ success: true, message: 'DB write works!', orgId, testOrgName });
-    } else {
-      res.json({ success: false, message: 'createOrganization returned null - check server logs' });
-    }
-  } catch (e) {
-    console.error('[TEST] DB write error:', e);
-    res.json({ success: false, error: e instanceof Error ? e.message : String(e) });
-  }
-});
 
 // Debug middleware - log all requests to this router
 router.use((req, res, next) => {
@@ -411,47 +395,6 @@ router.get('/issues', async (req: Request, res: Response) => {
   }
 });
 
-// Check if authentication is working
-router.get('/test-auth', async (req: Request, res: Response) => {
-  try {
-    console.log('[Jira Test Auth] Testing authentication...');
-    const accessToken = await jiraAuth.getAccessToken(req);
-    const cloudId = await jiraAuth.getCloudId(req);
-    
-    console.log('[Jira Test Auth] accessToken exists:', !!accessToken);
-    console.log('[Jira Test Auth] cloudId:', cloudId);
-    
-    if (!accessToken || !cloudId) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-    
-    // Use the correct Jira Cloud API format with cloudId
-    const url = `https://api.atlassian.com/ex/jira/${cloudId}/rest/api/3/myself`;
-    
-    console.log('[Jira Test Auth] Calling:', url);
-    
-    const response = await fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Accept': 'application/json',
-      },
-    });
-    
-    console.log('[Jira Test Auth] Response status:', response.status);
-    const data = await response.json();
-    
-    if (!response.ok) {
-      console.error('[Jira Test Auth] Failed:', response.status, data);
-      return res.status(response.status).json({ error: 'Auth token invalid', details: data });
-    }
-    
-    console.log('[Jira Test Auth] Success! User:', data.displayName);
-    res.json({ success: true, user: data.displayName, accountId: data.accountId });
-  } catch (err) {
-    console.error('[Jira Test Auth] Error:', err);
-    res.status(500).json({ error: String(err) });
-  }
-});
 
 // Fetch list of projects (multi-tenant)
 router.get('/projects', async (req: Request, res: Response) => {
