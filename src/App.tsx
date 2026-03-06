@@ -13,7 +13,7 @@ import Demo from "./pages/Demo";
 import VelocityAI from "./pages/VelocityAI";
 import Projects from "./components/projects/Projects";
 import ProjectAnalytics from "./components/projects/ProjectAnalytics";
-// import ProjectDetailNew from "../archives/ProjectDetailNew";
+import ProjectDetailNew from "../archives/ProjectDetailNew";
 import DebugNormalization from "./pages/DebugNormalization";
 import JiraDashboard from "./pages/JiraDashboard";
 import GlobalGanttDashboard from "./pages/GlobalGanttDashboard";
@@ -107,7 +107,7 @@ const App = () => (
                 <Route path="/projects/create" element={<ProtectedRoute><CreateProject /></ProtectedRoute>} />
                 <Route path="/projects/global-gantt" element={<ProtectedRoute><GlobalGanttDashboard /></ProtectedRoute>} />
                 <Route path="/projects/jira-dashboard" element={<ProtectedRoute><JiraDashboard /></ProtectedRoute>} />
-                {/* <Route path="/projects/:id" element={<ProtectedRoute><ProjectDetailNew /></ProtectedRoute>} /> */}
+                <Route path="/projects/:id" element={<ProtectedRoute><ProjectDetailNew /></ProtectedRoute>} />
                 <Route path="/project-analytics/:id" element={<ProtectedRoute><ProjectAnalytics /></ProtectedRoute>} />
 
                 {/* Protected Utility Routes (require authentication) */}
