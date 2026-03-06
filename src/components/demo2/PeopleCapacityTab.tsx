@@ -17,7 +17,7 @@ import {
   SelectTrigger, 
   SelectValue 
 } from '@/components/ui/select';
-import { Plus, X, AlertCircle } from 'lucide-react';
+import { Plus, X, AlertCircle, RefreshCw } from 'lucide-react';
 import { fetchAllIssuesHybrid } from '@/lib/jiraDbClient';
 import { supabase } from '@/lib/supabase';
 import { getCurrentOrgId } from '@/lib/orgContext';
@@ -150,6 +150,7 @@ const AddTeamMemberModal = ({ open, onOpenChange }: { open: boolean; onOpenChang
 export default function PeopleCapacityTab() {
   const { user, loading: authLoading, orgId } = useAuth();
   const [team, setTeam] = useState<TeamMember[]>([]);
+  const [allTeam, setAllTeam] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedPerson, setSelectedPerson] = useState<TeamMember | null>(null);
@@ -159,6 +160,13 @@ export default function PeopleCapacityTab() {
     const today = new Date();
     return today.toISOString().split('T')[0];
   });
+  const [analyticsStartDate, setAnalyticsStartDate] = useState<string>(() => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  });
+  const [allIssues, setAllIssues] = useState<any[]>([]);
+  const [memberMap, setMemberMap] = useState<Map<string, any>>(new Map());
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   const [metrics, setMetrics] = useState({
     totalMembers: 0,
@@ -166,6 +174,142 @@ export default function PeopleCapacityTab() {
     overloadedCount: 0,
     availableCapacity: 0
   });
+
+  // Helper function to check if an issue falls within a 2-week window
+  const issueFallsInRange = (issue: any, startDate: string): boolean => {
+    // Try to get a valid date from the issue
+    let dateStr = issue.dueDate || issue.due_date || issue.created || issue.created_date;
+    
+    // If no date found, include it anyway (all issues)
+    if (!dateStr) {
+      return true;
+    }
+
+    try {
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      
+      const end = new Date(start);
+      end.setDate(end.getDate() + 14);
+      end.setHours(23, 59, 59, 999);
+      
+      // Parse issue date - handle different formats
+      let issueDate = new Date(dateStr);
+      
+      // If date parsing failed, include it by default
+      if (isNaN(issueDate.getTime())) {
+        console.warn('[PeopleCapacity] Invalid date:', dateStr);
+        return true;
+      }
+      
+      issueDate.setHours(0, 0, 0, 0);
+      
+      const isInRange = issueDate >= start && issueDate <= end;
+      
+      // Log first few issues to debug date range filtering
+      if (window.__debugIssuesLogged === undefined) window.__debugIssuesLogged = 0;
+      if (window.__debugIssuesLogged < 15) {
+        console.log('[PeopleCapacity] Checking issue date:', {
+          issue: issue.key || issue.issue_key || 'unknown',
+          rawDate: dateStr,
+          issueDate: issueDate.toISOString().split('T')[0],
+          rangeStart: start.toISOString().split('T')[0],
+          rangeEnd: end.toISOString().split('T')[0],
+          inRange: isInRange
+        });
+        window.__debugIssuesLogged++;
+      }
+      
+      return isInRange;
+    } catch (error) {
+      console.warn('[PeopleCapacity] Error checking date range:', {
+        dateStr,
+        error: error instanceof Error ? error.message : String(error)
+      });
+      return true; // Include by default if there's an error
+    }
+  };
+
+  // Recalculate team data based on date range
+  const recalculateTeamForDateRange = (startDate: string) => {
+    console.log('[PeopleCapacity] recalculateTeamForDateRange called with:', {
+      startDate,
+      allIssuesCount: allIssues.length,
+      allTeamCount: allTeam.length
+    });
+
+    // If we have no team members at all, return
+    if (allTeam.length === 0) {
+      console.log('[PeopleCapacity] No team members to calculate');
+      return;
+    }
+
+    const CAPACITY_PER_PERSON = 160;
+    
+    // Calculate hours for each team member based on issues in the selected date range
+    const filteredTeam = allTeam.map(member => {
+      let hoursInRange = 0;
+      let issueCountInRange = 0;
+      const projectsSet = new Set<string>();
+
+      // Sum up hours only for issues within the selected date range
+      allIssues.forEach((issue: any) => {
+        const assignee = issue.assigneeEmail || issue.assignee || 'Unassigned';
+        
+        // Check if this issue is assigned to this team member AND falls in the date range
+        if (assignee === member.email && issueFallsInRange(issue, startDate)) {
+          issueCountInRange += 1;
+          
+          if (issue.projectName) {
+            projectsSet.add(issue.projectName);
+          }
+
+          const estimate = issue.timeestimate_seconds
+            ? Math.round(issue.timeestimate_seconds / 3600)
+            : issue.story_points
+            ? issue.story_points * 4
+            : 4;
+
+          hoursInRange += estimate;
+        }
+      });
+
+      const utilization = (hoursInRange / CAPACITY_PER_PERSON) * 100;
+      let status: 'healthy' | 'overloaded' | 'at-risk' = 'healthy';
+      
+      if (utilization > 110) {
+        status = 'overloaded';
+      } else if (utilization > 90) {
+        status = 'at-risk';
+      }
+
+      console.log(`[PeopleCapacity] ${member.name}: ${hoursInRange}h in range, utilization: ${Math.round(utilization)}%`);
+
+      return {
+        ...member,
+        totalHours: hoursInRange,
+        utilization: Math.round(utilization),
+        availableCapacity: Math.max(0, CAPACITY_PER_PERSON - hoursInRange),
+        issueCount: issueCountInRange,
+        projects: projectsSet.size > 0 ? projectsSet.size : member.projects,
+        status
+      };
+    });
+
+    console.log('[PeopleCapacity] Final filtered team for date', startDate, ':', filteredTeam.map(m => ({
+      name: m.name,
+      utilization: m.utilization,
+      availableCapacity: m.availableCapacity,
+      totalHours: m.totalHours
+    })));
+    
+    const sortedTeam = filteredTeam.sort((a, b) => b.utilization - a.utilization);
+    setTeam(sortedTeam);
+    
+    const newMetrics = calculateMetrics(sortedTeam);
+    console.log('[PeopleCapacity] Updated metrics for date', startDate, ':', newMetrics);
+    setMetrics(newMetrics);
+  };
 
   // Helper function to get initials for avatar
   const getInitials = (name: string) => {
@@ -263,15 +407,202 @@ export default function PeopleCapacityTab() {
     }
   }, [selectedPerson, capacityStartDate]);
 
-  useEffect(() => {
-    // SECURITY: Don't fetch data without auth and org
-    if (authLoading || !user || !orgId) {
-      if (!authLoading && user && !orgId) {
-        setError('Organization not found. Please log in again.');
-      }
-      return;
-    }
+  // Helper function to calculate metrics for a filtered team list
+  const calculateMetrics = (teamData: TeamMember[]) => {
+    const CAPACITY_PER_PERSON = 160;
+    let totalUtilization = 0;
+    let overloadedCount = 0;
+    let totalAvailableCapacity = 0;
 
+    teamData.forEach((person) => {
+      totalUtilization += person.utilization;
+      if (person.utilization > 100) overloadedCount++;
+      totalAvailableCapacity += person.availableCapacity;
+    });
+
+    const avgUtilization = teamData.length > 0 ? Math.round(totalUtilization / teamData.length) : 0;
+    return {
+      totalMembers: teamData.length,
+      avgUtilization,
+      overloadedCount,
+      availableCapacity: Math.round(totalAvailableCapacity)
+    };
+  };
+
+  // Function to refresh data when date changes
+  const refreshDataForDate = async () => {
+    setIsRefreshing(true);
+    try {
+      const orgId = getCurrentOrgId();
+      if (!orgId) return;
+
+      console.log('[PeopleCapacity] Refreshing data for date:', analyticsStartDate);
+
+      // First, try to fetch issues from database
+      const { data: dbIssues, error: dbError } = await supabase
+        .from('jira_issues')
+        .select('*')
+        .not('assignee', 'is', null);
+
+      let freshIssues: any[] = [];
+      if (!dbError && dbIssues && dbIssues.length > 0) {
+        console.log('[PeopleCapacity] Loaded', dbIssues.length, 'issues from database');
+        // Transform database issues to match the expected format
+        freshIssues = dbIssues.map((issue: any) => ({
+          key: issue.issue_key,
+          summary: issue.summary,
+          assignee: issue.assignee,
+          assigneeEmail: issue.assignee,
+          assigneeName: issue.assignee,
+          projectName: issue.project_key,
+          status: issue.status,
+          dueDate: issue.due_date,
+          created: issue.created_date,
+          timeestimate_seconds: 0,
+          story_points: 0
+        }));
+      } else {
+        // Fallback to Jira API
+        console.log('[PeopleCapacity] Database query failed or empty, falling back to Jira API');
+        const { issues: jiraIssues, source } = await fetchAllIssuesHybrid();
+        console.log(`[PeopleCapacity] Loaded ${jiraIssues.length} issues from ${source}`);
+        freshIssues = jiraIssues;
+      }
+
+      // Fetch team members from database
+      const { data: memberData, error: memberError } = await supabase
+        .from('organization_members')
+        .select('id, email, display_name, role, skills')
+        .eq('org_id', orgId);
+
+      if (memberError) {
+        console.warn('[PeopleCapacity] Error fetching members:', memberError);
+      }
+
+      const newMemberMap = new Map<string, any>();
+      (memberData || []).forEach((member: any) => {
+        newMemberMap.set(member.email, {
+          dbId: member.id,
+          displayName: member.display_name || member.email.split('@')[0],
+          dbRole: member.role || 'employee',
+          dbSkills: Array.isArray(member.skills) ? member.skills : []
+        });
+      });
+
+      console.log('[PeopleCapacity] Updating state with', freshIssues.length, 'issues and', newMemberMap.size, 'members');
+      setAllIssues(freshIssues);
+      setMemberMap(newMemberMap);
+      
+      // The useEffect will automatically trigger recalculation when allIssues/allTeam changes
+    } catch (error) {
+      console.error('[PeopleCapacity] Error refreshing data:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Recalculate team data when analytics date changes or team/issues data updates
+  useEffect(() => {
+    console.log('[PeopleCapacity] useEffect triggered for date change/data update');
+    recalculateTeamForDateRange(analyticsStartDate);
+  }, [analyticsStartDate, allTeam, allIssues]);
+
+  // Helper function to calculate metrics for a filtered team list
+  const calculateMetrics = (teamData: TeamMember[]) => {
+    const CAPACITY_PER_PERSON = 160;
+    let totalUtilization = 0;
+    let overloadedCount = 0;
+    let totalAvailableCapacity = 0;
+
+    teamData.forEach((person) => {
+      totalUtilization += person.utilization;
+      if (person.utilization > 100) overloadedCount++;
+      totalAvailableCapacity += person.availableCapacity;
+    });
+
+    const avgUtilization = teamData.length > 0 ? Math.round(totalUtilization / teamData.length) : 0;
+    return {
+      totalMembers: teamData.length,
+      avgUtilization,
+      overloadedCount,
+      availableCapacity: Math.round(totalAvailableCapacity)
+    };
+  };
+
+  // Function to refresh data when date changes
+  const refreshDataForDate = async () => {
+    setIsRefreshing(true);
+    try {
+      const orgId = getCurrentOrgId();
+      if (!orgId) return;
+
+      console.log('[PeopleCapacity] Refreshing data for date:', analyticsStartDate);
+
+      // First, try to fetch issues from database
+      const { data: dbIssues, error: dbError } = await supabase
+        .from('jira_issues')
+        .select('*')
+        .not('assignee', 'is', null);
+
+      let freshIssues: any[] = [];
+      if (!dbError && dbIssues && dbIssues.length > 0) {
+        console.log('[PeopleCapacity] Loaded', dbIssues.length, 'issues from database');
+        // Transform database issues to match the expected format
+        freshIssues = dbIssues.map((issue: any) => ({
+          key: issue.issue_key,
+          summary: issue.summary,
+          assignee: issue.assignee,
+          assigneeEmail: issue.assignee,
+          assigneeName: issue.assignee,
+          projectName: issue.project_key,
+          status: issue.status,
+          dueDate: issue.due_date,
+          created: issue.created_date,
+          timeestimate_seconds: 0,
+          story_points: 0
+        }));
+      } else {
+        // Fallback to Jira API
+        console.log('[PeopleCapacity] Database query failed or empty, falling back to Jira API');
+        const { issues: jiraIssues, source } = await fetchAllIssuesHybrid();
+        console.log(`[PeopleCapacity] Loaded ${jiraIssues.length} issues from ${source}`);
+        freshIssues = jiraIssues;
+      }
+
+      // Fetch team members from database
+      const { data: memberData, error: memberError } = await supabase
+        .from('organization_members')
+        .select('id, email, display_name, role, skills')
+        .eq('org_id', orgId);
+
+      if (memberError) {
+        console.warn('[PeopleCapacity] Error fetching members:', memberError);
+      }
+
+      const newMemberMap = new Map<string, any>();
+      (memberData || []).forEach((member: any) => {
+        newMemberMap.set(member.email, {
+          dbId: member.id,
+          displayName: member.display_name || member.email.split('@')[0],
+          dbRole: member.role || 'employee',
+          dbSkills: Array.isArray(member.skills) ? member.skills : []
+        });
+      });
+
+      console.log('[PeopleCapacity] Updating state with', freshIssues.length, 'issues and', newMemberMap.size, 'members');
+      setAllIssues(freshIssues);
+      setMemberMap(newMemberMap);
+      
+      // The useEffect will automatically trigger recalculation when allIssues/allTeam changes
+    } catch (error) {
+      console.error('[PeopleCapacity] Error refreshing data:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Recalculate team data when analytics date changes or team/issues data updates
+  useEffect(() => {
     const loadPeopleCapacityData = async () => {
       try {
         setLoading(true);
@@ -280,14 +611,44 @@ export default function PeopleCapacityTab() {
         const orgId = getCurrentOrgId();
         if (!orgId) {
           console.warn('[PeopleCapacity] No org_id set');
+          setAllTeam([]);
           setTeam([]);
           setLoading(false);
           return;
         }
 
-        console.log('[PeopleCapacity] Fetching from DB with hybrid approach');
-        const { issues: allIssues, source } = await fetchAllIssuesHybrid();
-        console.log(`[PeopleCapacity] Received ${allIssues.length} issues from ${source}`);
+        console.log('[PeopleCapacity] Fetching from DB with database-first approach');
+        
+        // First, try to fetch issues from database
+        const { data: dbIssues, error: dbError } = await supabase
+          .from('jira_issues')
+          .select('*')
+          .not('assignee', 'is', null);
+
+        let allIssuesData: any[] = [];
+        if (!dbError && dbIssues && dbIssues.length > 0) {
+          console.log('[PeopleCapacity] Loaded', dbIssues.length, 'issues from database');
+          // Transform database issues to match the expected format
+          allIssuesData = dbIssues.map((issue: any) => ({
+            key: issue.issue_key,
+            summary: issue.summary,
+            assignee: issue.assignee,
+            assigneeEmail: issue.assignee,
+            assigneeName: issue.assignee,
+            projectName: issue.project_key,
+            status: issue.status,
+            dueDate: issue.due_date,
+            created: issue.created_date,
+            timeestimate_seconds: 0,
+            story_points: 0
+          }));
+        } else {
+          // Fallback to Jira API
+          console.log('[PeopleCapacity] Database query failed or empty, falling back to Jira API');
+          const { issues: jiraIssues, source } = await fetchAllIssuesHybrid();
+          console.log(`[PeopleCapacity] Received ${jiraIssues.length} issues from ${source}`);
+          allIssuesData = jiraIssues;
+        }
 
         // Fetch team members with their skills from organization_members table
         const { data: memberData, error: memberError } = await supabase
@@ -299,18 +660,20 @@ export default function PeopleCapacityTab() {
           console.warn('[PeopleCapacity] Error fetching members:', memberError);
         }
 
-        const memberMap = new Map<string, any>();
+        const newMemberMap = new Map<string, any>();
         (memberData || []).forEach((member: any) => {
-          memberMap.set(member.email, {
+          newMemberMap.set(member.email, {
             dbId: member.id,
             displayName: member.display_name || member.email.split('@')[0],
             dbRole: member.role || 'employee',
             dbSkills: Array.isArray(member.skills) ? member.skills : []
           });
         });
+        setMemberMap(newMemberMap);
 
-        if (!Array.isArray(allIssues) || allIssues.length === 0) {
-          console.warn('[PeopleCapacity] No Jira issues found');
+        if (!Array.isArray(allIssuesData) || allIssuesData.length === 0) {
+          console.warn('[PeopleCapacity] No issues found');
+          setAllTeam([]);
           setTeam([]);
           setMetrics({
             totalMembers: 0,
@@ -328,12 +691,12 @@ export default function PeopleCapacityTab() {
         const projectMap = new Map<string, Set<string>>();
         const CAPACITY_PER_PERSON = 160;
 
-        allIssues.forEach((issue: any) => {
+        allIssuesData.forEach((issue: any) => {
           const assignee = issue.assigneeEmail || issue.assignee || 'Unassigned';
           if (assignee === 'Unassigned') return;
 
           // Get member data from DB, fallback to Jira data
-          const memberData = memberMap.get(assignee);
+          const memberData = newMemberMap.get(assignee);
           const displayName = memberData?.displayName || issue.assigneeName || assignee.split('@')[0] || 'Unknown';
           const skills = memberData?.dbSkills?.length > 0 ? memberData.dbSkills : ['—'];
           const dbRole = memberData?.dbRole || 'employee';
@@ -377,10 +740,6 @@ export default function PeopleCapacityTab() {
 
         console.log(`[PeopleCapacity] Processed ${totalMembers} team members`);
 
-        let totalUtilization = 0;
-        let overloadedCount = 0;
-        let totalAvailableCapacity = 0;
-
         teamArray.forEach((person) => {
           const utilization = (person.totalHours / CAPACITY_PER_PERSON) * 100;
           person.utilization = Math.round(utilization);
@@ -395,28 +754,12 @@ export default function PeopleCapacityTab() {
           } else {
             person.status = 'healthy';
           }
-
-          totalUtilization += person.utilization;
-          if (person.utilization > 100) overloadedCount++;
-          totalAvailableCapacity += person.availableCapacity;
         });
 
-        const avgUtilization = totalMembers > 0 ? Math.round(totalUtilization / totalMembers) : 0;
-
-        // Sort by utilization and get top DISPLAY_LIMIT for the UI
-        const sortedTeam = teamArray.sort((a, b) => b.utilization - a.utilization);
-        const displayedTeam = sortedTeam.slice(0, DISPLAY_LIMIT);
-        const displayedMembers = displayedTeam.length;
-
-        setMetrics({
-          totalMembers,        // How many team members exist
-          avgUtilization,
-          overloadedCount,
-          availableCapacity: Math.round(totalAvailableCapacity),
-          displayedMembers,    // How many we're showing (max 12)
-        });
-
+        setAllIssues(allIssuesData);
+        setAllTeam(teamArray.sort((a, b) => b.utilization - a.utilization));
         setTeam(teamArray.sort((a, b) => b.utilization - a.utilization));
+        setMetrics(calculateMetrics(teamArray));
         setLoading(false);
       } catch (error) {
         console.error('[PeopleCapacity] Error loading data:', error);
@@ -496,6 +839,59 @@ export default function PeopleCapacityTab() {
           <div className="flex-1 py-8 pl-8">
             <div className="text-4xl font-light text-[#1C1917] mb-2">{metrics.availableCapacity}h</div>
             <div className="text-sm text-[#78716C] font-light">Available Capacity</div>
+          </div>
+        </div>
+
+        {/* ===== DATE FILTER SECTION ===== */}
+        <div className="mb-8 p-6 bg-white/70 backdrop-blur-[32px] border-[0.5px] border-white/20 rounded-2xl shadow-sm">
+          <div className="flex items-center justify-between gap-6">
+            <div>
+              <div className="text-sm font-light text-[#292524] mb-1">Filter by Date Range</div>
+              <div className="text-xs text-[#78716C]">Select a start date to view analytics for the next 2 weeks</div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div>
+                <Label className="text-xs font-light text-[#78716C] uppercase tracking-wide mb-2 block">Start Date</Label>
+                <div className="flex gap-2">
+                  <input
+                    type="date"
+                    value={analyticsStartDate}
+                    onChange={(e) => {
+                      setAnalyticsStartDate(e.target.value);
+                      refreshDataForDate();
+                    }}
+                    className="px-3 py-2 border border-[#E7E5E4] rounded-lg bg-white text-sm font-light text-[#292524] hover:border-[#D6D3D1] focus:outline-none focus:ring-2 focus:ring-[#2DD4BF]/20 focus:border-[#2DD4BF]"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const today = new Date();
+                      setAnalyticsStartDate(today.toISOString().split('T')[0]);
+                      setTimeout(() => refreshDataForDate(), 0);
+                    }}
+                    className="border-[#E7E5E4] text-[#78716C] hover:text-[#292524] font-light h-10 px-3"
+                  >
+                    Today
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={refreshDataForDate}
+                    disabled={isRefreshing}
+                    className="border-[#E7E5E4] text-[#78716C] hover:text-[#292524] font-light h-10 px-3 disabled:opacity-60"
+                    title="Refresh data"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  </Button>
+                </div>
+              </div>
+              <div className="pt-6">
+                <span className="text-xs text-[#78716C] font-light">
+                  to {new Date(new Date(analyticsStartDate).getTime() + 14 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
         
