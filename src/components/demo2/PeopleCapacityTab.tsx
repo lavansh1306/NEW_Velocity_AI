@@ -148,6 +148,7 @@ const AddTeamMemberModal = ({ open, onOpenChange }: { open: boolean; onOpenChang
 // ==================== MAIN PEOPLE CAPACITY SCREEN ====================
 
 export default function PeopleCapacityTab() {
+  const { user, loading: authLoading, orgId } = useAuth();
   const [team, setTeam] = useState<TeamMember[]>([]);
   const [allTeam, setAllTeam] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
@@ -506,6 +507,101 @@ export default function PeopleCapacityTab() {
     recalculateTeamForDateRange(analyticsStartDate);
   }, [analyticsStartDate, allTeam, allIssues]);
 
+  // Helper function to calculate metrics for a filtered team list
+  const calculateMetrics = (teamData: TeamMember[]) => {
+    const CAPACITY_PER_PERSON = 160;
+    let totalUtilization = 0;
+    let overloadedCount = 0;
+    let totalAvailableCapacity = 0;
+
+    teamData.forEach((person) => {
+      totalUtilization += person.utilization;
+      if (person.utilization > 100) overloadedCount++;
+      totalAvailableCapacity += person.availableCapacity;
+    });
+
+    const avgUtilization = teamData.length > 0 ? Math.round(totalUtilization / teamData.length) : 0;
+    return {
+      totalMembers: teamData.length,
+      avgUtilization,
+      overloadedCount,
+      availableCapacity: Math.round(totalAvailableCapacity)
+    };
+  };
+
+  // Function to refresh data when date changes
+  const refreshDataForDate = async () => {
+    setIsRefreshing(true);
+    try {
+      const orgId = getCurrentOrgId();
+      if (!orgId) return;
+
+      console.log('[PeopleCapacity] Refreshing data for date:', analyticsStartDate);
+
+      // First, try to fetch issues from database
+      const { data: dbIssues, error: dbError } = await supabase
+        .from('jira_issues')
+        .select('*')
+        .not('assignee', 'is', null);
+
+      let freshIssues: any[] = [];
+      if (!dbError && dbIssues && dbIssues.length > 0) {
+        console.log('[PeopleCapacity] Loaded', dbIssues.length, 'issues from database');
+        // Transform database issues to match the expected format
+        freshIssues = dbIssues.map((issue: any) => ({
+          key: issue.issue_key,
+          summary: issue.summary,
+          assignee: issue.assignee,
+          assigneeEmail: issue.assignee,
+          assigneeName: issue.assignee,
+          projectName: issue.project_key,
+          status: issue.status,
+          dueDate: issue.due_date,
+          created: issue.created_date,
+          timeestimate_seconds: 0,
+          story_points: 0
+        }));
+      } else {
+        // Fallback to Jira API
+        console.log('[PeopleCapacity] Database query failed or empty, falling back to Jira API');
+        const { issues: jiraIssues, source } = await fetchAllIssuesHybrid();
+        console.log(`[PeopleCapacity] Loaded ${jiraIssues.length} issues from ${source}`);
+        freshIssues = jiraIssues;
+      }
+
+      // Fetch team members from database
+      const { data: memberData, error: memberError } = await supabase
+        .from('organization_members')
+        .select('id, email, display_name, role, skills')
+        .eq('org_id', orgId);
+
+      if (memberError) {
+        console.warn('[PeopleCapacity] Error fetching members:', memberError);
+      }
+
+      const newMemberMap = new Map<string, any>();
+      (memberData || []).forEach((member: any) => {
+        newMemberMap.set(member.email, {
+          dbId: member.id,
+          displayName: member.display_name || member.email.split('@')[0],
+          dbRole: member.role || 'employee',
+          dbSkills: Array.isArray(member.skills) ? member.skills : []
+        });
+      });
+
+      console.log('[PeopleCapacity] Updating state with', freshIssues.length, 'issues and', newMemberMap.size, 'members');
+      setAllIssues(freshIssues);
+      setMemberMap(newMemberMap);
+      
+      // The useEffect will automatically trigger recalculation when allIssues/allTeam changes
+    } catch (error) {
+      console.error('[PeopleCapacity] Error refreshing data:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Recalculate team data when analytics date changes or team/issues data updates
   useEffect(() => {
     const loadPeopleCapacityData = async () => {
       try {
@@ -579,6 +675,13 @@ export default function PeopleCapacityTab() {
           console.warn('[PeopleCapacity] No issues found');
           setAllTeam([]);
           setTeam([]);
+          setMetrics({
+            totalMembers: 0,
+            avgUtilization: 0,
+            overloadedCount: 0,
+            availableCapacity: 0,
+            displayedMembers: 0,
+          });
           setLoading(false);
           return;
         }
