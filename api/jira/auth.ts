@@ -57,7 +57,6 @@ export async function handleJiraCallback(req: Request, res: Response) {
     const jiraCodeVerifier = cookies.split(';').find(c => c.trim().startsWith('jira_code_verifier='))?.split('=')[1];
 
     if (!code || !state || state !== jiraState) {
-      console.error('[Jira Auth] Invalid state parameter in callback');
       return res.status(400).json({ error: 'Invalid state parameter' });
     }
 
@@ -78,7 +77,6 @@ export async function handleJiraCallback(req: Request, res: Response) {
     });
 
     if (!tokenResponse.ok) {
-      console.error('[Jira Auth] Token exchange failed:', tokenResponse.statusText);
       throw new Error(`Token exchange failed: ${tokenResponse.statusText}`);
     }
 
@@ -111,12 +109,11 @@ export async function handleJiraCallback(req: Request, res: Response) {
     
     res.setHeader('Set-Cookie', cookiesToSet);
     
-    // CRITICAL FIX: Redirect to auth callback to establish Supabase session
-    // Don't just store the token - actually authenticate the user!
-    console.log('[Jira Auth] Successfully authenticated with Jira, redirecting to auth callback');
+    // Redirect to auth callback to establish Supabase session
+    // The callback page will create/link Supabase user and then redirect to dashboard
     res.redirect('/auth/callback?jira=true');
   } catch (error) {
-    console.error('[Jira Auth] Callback error:', error);
+    console.error('Jira callback error:', error);
     res.status(500).json({ error: 'Callback failed' });
   }
 }
