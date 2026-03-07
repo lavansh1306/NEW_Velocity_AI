@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  Briefcase, 
-  Sparkles, 
-  Users, 
-  Calendar, 
-  Settings, 
+import {
+  LayoutDashboard,
+  Briefcase,
+  Sparkles,
+  Users,
+  Calendar,
+  Settings,
   LogOut,
   Zap
 } from 'lucide-react';
@@ -21,13 +21,13 @@ export const VelocityAISidebar = ({ children }: VelocityAISidebarProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { signOut, user } = useAuth();
-  
+
   // Initialize sidebarOpen from localStorage, default to true
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     const stored = localStorage.getItem('sidebarOpen');
     return stored !== null ? JSON.parse(stored) : true;
   });
-  
+
   const [loggingOut, setLoggingOut] = useState(false);
   const [activeSection, setActiveSection] = useState('dashboard');
 
@@ -39,16 +39,16 @@ export const VelocityAISidebar = ({ children }: VelocityAISidebarProps) => {
   // Get user display name
   const getUserDisplayName = () => {
     if (!user) return 'User';
-    
+
     if (user.user_metadata?.full_name) {
       return user.user_metadata.full_name;
     }
-    
+
     if (user.email) {
       const namePart = user.email.split('@')[0];
       return namePart.charAt(0).toUpperCase() + namePart.slice(1);
     }
-    
+
     return 'User';
   };
 
@@ -63,7 +63,7 @@ export const VelocityAISidebar = ({ children }: VelocityAISidebarProps) => {
   };
 
   const navItems = [
-    { id: 'dashboard', path: '/velocity-ai', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
+    { id: 'dashboard', path: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
     { id: 'projects', path: '/projects', label: 'Projects', icon: <Briefcase className="w-5 h-5" /> },
     { id: 'plan', path: '/plan', label: 'Plan', icon: <Sparkles className="w-5 h-5" /> },
     { id: 'people', path: '/people', label: 'People', icon: <Users className="w-5 h-5" /> },
@@ -134,7 +134,7 @@ export const VelocityAISidebar = ({ children }: VelocityAISidebarProps) => {
   return (
     <div className="flex h-screen bg-[#F5F5F4] font-['Inter',sans-serif] overflow-hidden">
       {/* Sidebar */}
-      <div 
+      <div
         className={`${sidebarOpen ? 'w-[260px]' : 'w-[70px]'} bg-[#1C1917] flex flex-col py-6 z-40 flex-shrink-0 transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] border-r border-[#292524] shadow-2xl shadow-black/20`}
       >
         {/* Logo Section */}
@@ -157,9 +157,8 @@ export const VelocityAISidebar = ({ children }: VelocityAISidebarProps) => {
               <button
                 key={item.id}
                 onClick={() => handleNavClick(item)}
-                className={`w-full relative px-3 py-3 flex items-center ${sidebarOpen ? 'gap-3' : 'justify-center'} rounded-xl group transition-all duration-200 outline-none hover-scale ${
-                  isActive ? 'bg-[#292524] text-white shadow-md' : 'text-[#A8A29E] hover:text-[#E7E5E4] hover:bg-[#292524]/50'
-                }`}
+                className={`w-full relative px-3 py-3 flex items-center ${sidebarOpen ? 'gap-3' : 'justify-center'} rounded-xl group transition-all duration-200 outline-none hover-scale ${isActive ? 'bg-[#292524] text-white shadow-md' : 'text-[#A8A29E] hover:text-[#E7E5E4] hover:bg-[#292524]/50'
+                  }`}
                 title={item.label}
                 style={{
                   animationDelay: `${(idx + 1) * 50}ms`
@@ -188,9 +187,8 @@ export const VelocityAISidebar = ({ children }: VelocityAISidebarProps) => {
               setActiveSection('settings');
               navigate('/settings');
             }}
-            className={`w-full relative px-3 py-3 flex items-center ${sidebarOpen ? 'gap-3' : 'justify-center'} rounded-xl group transition-all duration-200 outline-none hover-scale ${
-              activeSection === 'settings' ? 'bg-[#292524] text-white shadow-md' : 'text-[#A8A29E] hover:text-[#E7E5E4] hover:bg-[#292524]/50'
-            }`}
+            className={`w-full relative px-3 py-3 flex items-center ${sidebarOpen ? 'gap-3' : 'justify-center'} rounded-xl group transition-all duration-200 outline-none hover-scale ${activeSection === 'settings' ? 'bg-[#292524] text-white shadow-md' : 'text-[#A8A29E] hover:text-[#E7E5E4] hover:bg-[#292524]/50'
+              }`}
             title="Settings"
           >
             <Settings className={`w-5 h-5 flex-shrink-0 transition-all duration-200 group-hover:rotate-90 ${activeSection === 'settings' ? 'text-[#2DD4BF]' : 'text-[#78716C] group-hover:text-[#D6D3D1]'}`} />
@@ -240,13 +238,13 @@ export const VelocityAISidebar = ({ children }: VelocityAISidebarProps) => {
         {/* Content */}
         <main className="flex-1 flex flex-col min-w-0 bg-[#F5F5F4] relative overflow-auto">
           {/* Texture Overlay */}
-          <div 
+          <div
             className="absolute inset-0 pointer-events-none z-0 opacity-[0.03]"
             style={{
               backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
             }}
           />
-          
+
           {/* Children Content */}
           <div className="flex-1 relative z-10 overflow-auto">
             {children}

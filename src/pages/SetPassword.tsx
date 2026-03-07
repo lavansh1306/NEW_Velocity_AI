@@ -36,7 +36,7 @@ export default function SetPassword() {
     setLoading(true);
     try {
       await updatePassword(password);
-      navigate(orgRole === 'employee' ? '/app/employee/dashboard' : '/velocity-ai');
+      navigate(orgRole === 'employee' ? '/app/employee/dashboard' : '/dashboard');
     } catch (err: any) {
       setErrors(prev => ({ ...prev, password: err.message || 'Failed to set password' }));
     } finally {
@@ -82,13 +82,13 @@ export default function SetPassword() {
           <div>
             <Label className="text-xs text-[#78716C] uppercase font-normal mb-2 block">Create Password</Label>
             <div className="relative">
-              <Input 
+              <Input
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); if (attempted) { const err = validators.password(e.target.value, 12); setErrors(prev => ({ ...prev, password: err })); } }}
                 className={`h-[44px] rounded-lg bg-white text-[15px] focus:ring-1 focus:ring-[#1C1917] focus:border-[#1C1917] pr-10 font-light ${errors.password ? 'border-[#BE123C] focus:ring-[#BE123C]/10' : 'border-[#E7E5E4]'}`}
               />
-              <button 
+              <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-[#A8A29E] hover:text-[#78716C]"
@@ -102,7 +102,7 @@ export default function SetPassword() {
 
           <div>
             <Label className="text-xs text-[#78716C] uppercase font-normal mb-2 block">Confirm Password</Label>
-            <Input 
+            <Input
               type="password"
               value={confirmPassword}
               onChange={(e) => { setConfirmPassword(e.target.value); if (attempted) { const err = validators.passwordMatch(password, e.target.value); setErrors(prev => ({ ...prev, confirm: err })); } }}
@@ -113,7 +113,7 @@ export default function SetPassword() {
         </div>
 
         <div className="mb-8">
-          <button 
+          <button
             className="flex items-center gap-3 cursor-pointer"
             onClick={() => { setAgreed(!agreed); if (attempted) setErrors(prev => ({ ...prev, terms: !agreed ? '' : 'You must accept the Terms of Service' })); }}
           >
@@ -125,7 +125,7 @@ export default function SetPassword() {
           <FormError message={errors.terms} />
         </div>
 
-        <Button 
+        <Button
           onClick={handleSubmit}
           disabled={loading}
           className="w-full h-[48px] bg-[#1C1917] hover:bg-[#292524] text-white rounded-lg text-base font-normal transition-all duration-300 shadow-md"

@@ -14,6 +14,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { StatusBadge } from '@/components/shared/StatusBadge';
 
 // ==================== PROJECT DASHBOARD WITH AI INSIGHTS ====================
 
@@ -70,21 +71,7 @@ export const ProjectDashboardWithInsights = ({ projectId, projectName }: { proje
     { name: 'Design', value: 10, fill: '#0ea5e9' },
   ];
 
-  const StatusBadge = ({ status }: { status: string }) => {
-    const variants: Record<string, string> = {
-      'Completed': 'bg-emerald-50 text-emerald-700',
-      'In Progress': 'bg-blue-50 text-blue-700',
-      'Not Started': 'bg-gray-50 text-gray-600',
-      'At Risk': 'bg-rose-50 text-rose-700',
-      'On Track': 'bg-emerald-50 text-emerald-700',
-    };
 
-    return (
-      <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-light ${variants[status] || 'bg-gray-50 text-gray-700'}`}>
-        {status}
-      </span>
-    );
-  };
 
   return (
     <div className="p-12 bg-gray-50 min-h-screen">
@@ -104,13 +91,12 @@ export const ProjectDashboardWithInsights = ({ projectId, projectName }: { proje
                 <div className="text-sm text-gray-500 font-light mb-4">Project Health</div>
                 <div className="flex items-center gap-5">
                   <div
-                    className={`w-14 h-14 rounded-2xl flex items-center justify-center ${
-                      projectData.health >= 80
+                    className={`w-14 h-14 rounded-2xl flex items-center justify-center ${projectData.health >= 80
                         ? 'bg-emerald-50 text-emerald-700'
                         : projectData.health >= 60
                           ? 'bg-amber-50 text-amber-700'
                           : 'bg-rose-50 text-rose-700'
-                    }`}
+                      }`}
                   >
                     <span className="text-2xl font-light">{projectData.health}</span>
                   </div>

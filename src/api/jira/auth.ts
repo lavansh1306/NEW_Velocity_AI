@@ -31,11 +31,11 @@ const getClientSecret = () => process.env.JIRA_OAUTH_CLIENT_SECRET || '';
 const getRedirectUri = (req?: Request) => {
   // Check if we're on production based on multiple signals
   const isVercel = process.env.VERCEL === '1';
-  const isProduction = 
-    process.env.NODE_ENV === 'production' || 
+  const isProduction =
+    process.env.NODE_ENV === 'production' ||
     isVercel ||
     (req && (req.hostname === 'joinvelocity.co' || req.hostname === 'www.joinvelocity.co'));
-  
+
   if (isProduction) {
     // Always use production redirect URI when in production
     return 'https://www.joinvelocity.co/api/jira/auth/callback';
@@ -103,12 +103,12 @@ function getSupabaseClient() {
   if (!supabase) {
     const supabaseUrl = process.env.SUPABASE_URL || '';
     const supabaseKey = process.env.SUPABASE_ANON_KEY || '';
-    
+
     if (!supabaseUrl || !supabaseKey) {
       console.warn('[Supabase] Missing SUPABASE_URL or SUPABASE_ANON_KEY environment variables');
       return null;
     }
-    
+
     supabase = createClient(supabaseUrl, supabaseKey);
     console.log('[Supabase] Client initialized');
   }
@@ -133,7 +133,7 @@ const jiraPKCEStore: Map<string, { codeVerifier: string; timestamp: number }> = 
 function cleanupExpiredPKCE() {
   const now = Date.now();
   const maxAge = 15 * 60 * 1000; // 15 minutes
-  
+
   for (const [state, data] of jiraPKCEStore.entries()) {
     if (now - data.timestamp > maxAge) {
       jiraPKCEStore.delete(state);
@@ -214,7 +214,7 @@ async function retrievePKCEFromDatabase(state: string): Promise<{ codeVerifier: 
       } catch (cleanupErr) {
         console.warn('[Jira OAuth] Failed to cleanup PKCE:', cleanupErr);
       }
-      
+
       return { codeVerifier: data.code_verifier, supabaseUserId: data.supabase_user_id || null };
     }
 
@@ -235,7 +235,7 @@ function decodeIdToken(idToken: string): any {
     if (parts.length !== 3) {
       throw new Error('Invalid token format');
     }
-    
+
     // Decode payload (add padding if needed)
     const payload = parts[1];
     const padded = payload + '='.repeat((4 - payload.length % 4) % 4);
@@ -260,10 +260,10 @@ async function getJiraUserInfo(accessToken: string, tokenData?: any): Promise<an
 
     if (response.ok) {
       const userData = await response.json() as any;
-      console.log('[Jira] User info fetched from /me endpoint:', { 
-        account_id: userData.account_id, 
+      console.log('[Jira] User info fetched from /me endpoint:', {
+        account_id: userData.account_id,
         email: userData.email,
-        name: userData.name 
+        name: userData.name
       });
       return userData;
     }
@@ -274,9 +274,9 @@ async function getJiraUserInfo(accessToken: string, tokenData?: any): Promise<an
     if (tokenData?.id_token) {
       console.log('[Jira] Extracting user info from ID token...');
       const idTokenPayload = decodeIdToken(tokenData.id_token);
-      
+
       if (idTokenPayload) {
-        console.log('[Jira] User info extracted from ID token:', { 
+        console.log('[Jira] User info extracted from ID token:', {
           email: idTokenPayload.email,
           name: idTokenPayload.name,
           sub: idTokenPayload.sub
@@ -361,10 +361,10 @@ async function login(req: Request, res: Response): Promise<void> {
 
     // Generate PKCE parameters
     const { codeVerifier, codeChallenge } = generatePKCE();
-    
+
     // Generate unique state for this OAuth flow
     const state = crypto.randomBytes(32).toString('hex');
-    
+
     console.log('[Jira OAuth Login] Starting OAuth flow:', {
       sessionID: req.sessionID,
       state,
@@ -377,7 +377,7 @@ async function login(req: Request, res: Response): Promise<void> {
 
     // Also store PKCE data in session as backup
     req.session.jiraCodeVerifier = codeVerifier;
-    
+
     // Save session before redirect
     await new Promise<void>((resolve, reject) => {
       req.session.save((err) => {
@@ -404,7 +404,7 @@ async function login(req: Request, res: Response): Promise<void> {
     });
 
     const authUrl = `${AUTHORIZE_URL}?${params.toString()}`;
-    
+
     console.log('[Jira OAuth] Redirecting to Jira:', authUrl);
     res.redirect(authUrl);
   } catch (error) {
@@ -418,7 +418,7 @@ async function exchangeCodeForToken(code: string, codeVerifier: string, req?: Re
   const clientId = getClientId();
   const clientSecret = getClientSecret();
   const redirectUri = getRedirectUri(req);
-  
+
   console.log('[Jira OAuth] Token exchange params:', {
     grant_type: 'authorization_code',
     client_id: clientId ? '***' : 'MISSING',
@@ -438,7 +438,7 @@ async function exchangeCodeForToken(code: string, codeVerifier: string, req?: Re
   });
 
   console.log('[Jira OAuth] Exchanging code for token...');
-  
+
   const response = await fetch(TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -468,7 +468,7 @@ async function exchangeCodeForToken(code: string, codeVerifier: string, req?: Re
 // Get accessible Jira resources (sites)
 async function getAccessibleResources(accessToken: string): Promise<JiraResource[]> {
   console.log('[Jira OAuth] Fetching accessible resources...');
-  
+
   const response = await fetch(ACCESSIBLE_RESOURCES_URL, {
     headers: {
       'Authorization': `Bearer ${accessToken}`,
@@ -489,10 +489,10 @@ async function getAccessibleResources(accessToken: string): Promise<JiraResource
 
 // OAuth callback handler
 async function callback(req: Request, res: Response): Promise<any> {
-  const { code, state, error, error_description } = req.query as { 
+  const { code, state, error, error_description } = req.query as {
     code?: string;
     state?: string;
-    error?: string; 
+    error?: string;
     error_description?: string;
   };
 
@@ -505,9 +505,9 @@ async function callback(req: Request, res: Response): Promise<any> {
 
   if (error) {
     console.error('[Jira OAuth Callback] OAuth error from Jira:', error, error_description);
-    res.status(400).json({ 
+    res.status(400).json({
       error: `OAuth error: ${error}`,
-      description: error_description 
+      description: error_description
     });
     return;
   }
@@ -526,14 +526,14 @@ async function callback(req: Request, res: Response): Promise<any> {
 
   try {
     console.log('[Jira OAuth Callback] Retrieving PKCE with state:', `${state.substring(0, 20)}...`);
-    
+
     // Retrieve PKCE code verifier + supabaseUserId from database
     const pkceResult = await retrievePKCEFromDatabase(state);
-    
+
     if (!pkceResult) {
       console.error('[Jira OAuth Callback] ✗ Code verifier not found in database or session');
       console.error('[Jira OAuth Callback] DEBUG: State was:', state);
-      res.status(400).json({ 
+      res.status(400).json({
         error: 'PKCE verification failed',
         details: 'State parameter not found. Session may have expired.',
         state: state.substring(0, 20) + '...'
@@ -546,18 +546,18 @@ async function callback(req: Request, res: Response): Promise<any> {
     const supabaseUserId = pkceUserId || req.session?.supabaseUserId || null;
 
     console.log('[Jira OAuth Callback] ✓ Code verifier retrieved, supabaseUserId:', supabaseUserId || 'none');
-    
+
     // Exchange code for tokens
     try {
       const tokenResp = await exchangeCodeForToken(code, codeVerifier, req);
       console.log('[Jira OAuth Callback] ✓ Token exchange successful');
-      
+
       // Clear the code_verifier from session after use
       delete req.session.jiraCodeVerifier;
 
       // Get accessible Jira resources (sites)
       const resources = await getAccessibleResources(tokenResp.access_token);
-      
+
       if (resources.length === 0) {
         throw new Error('No Jira sites accessible with this account');
       }
@@ -570,7 +570,7 @@ async function callback(req: Request, res: Response): Promise<any> {
       // Use the first accessible resource by default
       const primaryResource = resources[0];
       const cloudId = primaryResource.id;
-      
+
       // --- Multi-tenant: create/find org and store connection in DB ---
       // Import DB helpers (dynamic to avoid circular deps at module level)
       console.log('[Jira OAuth Callback] Loading db module...');
@@ -689,24 +689,24 @@ async function callback(req: Request, res: Response): Promise<any> {
       });
 
       console.log('[Jira OAuth Callback] ✓ Authentication complete! orgId:', orgId);
-      
+
       // FIX: Define isProduction in this scope
       const isVercel = process.env.VERCEL === '1';
       const isProduction = process.env.NODE_ENV === 'production' || isVercel;
 
       // Determine redirect URL based on environment and request origin
-      let redirectUrl = 'http://localhost:5173/velocity-ai';
-      
+      let redirectUrl = 'http://localhost:5173/dashboard';
+
       if (req.hostname === 'velocitydevelopment.vercel.app') {
-        redirectUrl = 'https://velocitydevelopment.vercel.app/velocity-ai';
+        redirectUrl = 'https://velocitydevelopment.vercel.app/dashboard';
       } else if (req.hostname === 'www.joinvelocity.co' || req.hostname === 'joinvelocity.co') {
-        redirectUrl = 'https://www.joinvelocity.co/velocity-ai';
+        redirectUrl = 'https://www.joinvelocity.co/dashboard';
       } else if (isProduction) {
-        redirectUrl = (process.env.FRONTEND_URL_PROD || 'https://www.joinvelocity.co') + '/velocity-ai';
+        redirectUrl = (process.env.FRONTEND_URL_PROD || 'https://www.joinvelocity.co') + '/dashboard';
       } else if (process.env.FRONTEND_URL) {
-        redirectUrl = process.env.FRONTEND_URL + '/velocity-ai';
+        redirectUrl = process.env.FRONTEND_URL + '/dashboard';
       }
-      
+
       console.log('[Jira OAuth Callback] Determining redirect URL:', {
         isProduction,
         nodeEnv: process.env.NODE_ENV,
@@ -714,7 +714,7 @@ async function callback(req: Request, res: Response): Promise<any> {
         hostname: req.hostname,
         redirectUrl
       });
-      
+
       res.redirect(redirectUrl);
     } catch (tokenErr) {
       console.error('[Jira OAuth Callback] Token exchange or resource fetch failed:', tokenErr instanceof Error ? tokenErr.message : String(tokenErr));
@@ -725,10 +725,10 @@ async function callback(req: Request, res: Response): Promise<any> {
       });
       return;
     }
-    
+
   } catch (err) {
     console.error('[Jira OAuth Callback] ✗ Error:', err instanceof Error ? err.message : String(err));
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'OAuth callback failed',
       details: err instanceof Error ? err.message : 'Unknown error',
       debug: process.env.NODE_ENV === 'development' ? { stack: err instanceof Error ? err.stack : undefined } : undefined
@@ -746,7 +746,7 @@ async function refreshAccessToken(refreshToken: string): Promise<TokenResponse> 
   });
 
   console.log('[Jira OAuth] Refreshing access token...');
-  
+
   const response = await fetch(TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },

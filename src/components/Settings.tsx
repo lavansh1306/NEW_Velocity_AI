@@ -4,16 +4,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Plus, X } from 'lucide-react';
-
-/**
- * StatusBadge Component
- * Simple badge component to display integration status
- */
-const StatusBadge = ({ status }: { status: string }) => (
-  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
-    {status}
-  </span>
-);
+import { StatusBadge } from '@/components/shared/StatusBadge';
 
 /**
  * Main Settings Screen Component
@@ -26,10 +17,10 @@ const StatusBadge = ({ status }: { status: string }) => (
  */
 const SettingsScreen = () => {
   return (
-    <div className="p-12 relative min-h-screen">      
+    <div className="p-12 relative min-h-screen">
       <div className="max-w-[1200px] mx-auto relative z-10">
         <h1 className="text-4xl font-light text-[#1C1917] mb-12 tracking-tight">Settings</h1>
-        
+
         <Tabs defaultValue="organization" className="w-full">
           {/* Tab Navigation */}
           <TabsList className="mb-10 bg-white/70 backdrop-blur-xl border border-white/20 p-1.5 rounded-xl shadow-sm">
@@ -39,7 +30,7 @@ const SettingsScreen = () => {
             <TabsTrigger value="ai-thresholds" className="rounded-lg font-light data-[state=active]:bg-white/80 data-[state=active]:shadow-sm">AI Thresholds</TabsTrigger>
             <TabsTrigger value="integrations" className="rounded-lg font-light data-[state=active]:bg-white/80 data-[state=active]:shadow-sm">Integrations</TabsTrigger>
           </TabsList>
-          
+
           {/* ===== TAB 1: ORGANIZATION SETTINGS ===== */}
           <TabsContent value="organization">
             <div className="bg-white/70 backdrop-blur-[32px] border-[0.5px] border-white/20 rounded-2xl p-10 shadow-sm">
@@ -48,29 +39,29 @@ const SettingsScreen = () => {
                 {/* Organization Name */}
                 <div>
                   <Label className="text-sm font-light text-[#78716C] mb-2 block">Organization Name</Label>
-                  <Input 
-                    placeholder="Acme Inc." 
-                    className="h-11 rounded-xl border-white/20 bg-white/50 font-light" 
+                  <Input
+                    placeholder="Acme Inc."
+                    className="h-11 rounded-xl border-white/20 bg-white/50 font-light"
                   />
                 </div>
 
                 {/* Default Work Hours Per Week */}
                 <div>
                   <Label className="text-sm font-light text-[#78716C] mb-2 block">Default Work Hours Per Week</Label>
-                  <Input 
-                    type="number" 
-                    placeholder="40" 
-                    className="h-11 rounded-xl border-white/20 bg-white/50 font-light" 
+                  <Input
+                    type="number"
+                    placeholder="40"
+                    className="h-11 rounded-xl border-white/20 bg-white/50 font-light"
                   />
                 </div>
 
                 {/* Default Work Days Per Week */}
                 <div>
                   <Label className="text-sm font-light text-[#78716C] mb-2 block">Default Work Days Per Week</Label>
-                  <Input 
-                    type="number" 
-                    placeholder="5" 
-                    className="h-11 rounded-xl border-white/20 bg-white/50 font-light" 
+                  <Input
+                    type="number"
+                    placeholder="5"
+                    className="h-11 rounded-xl border-white/20 bg-white/50 font-light"
                   />
                 </div>
 
@@ -92,7 +83,7 @@ const SettingsScreen = () => {
               </div>
             </div>
           </TabsContent>
-          
+
           {/* ===== TAB 2: TEAM SETTINGS ===== */}
           <TabsContent value="team">
             <div className="bg-white/70 backdrop-blur-[32px] border-[0.5px] border-white/20 rounded-2xl p-10 shadow-sm">
@@ -101,10 +92,10 @@ const SettingsScreen = () => {
                 {/* Default Utilization Target */}
                 <div>
                   <Label className="text-sm font-light text-[#78716C] mb-2 block">Default Utilization Target</Label>
-                  <Input 
-                    type="number" 
-                    placeholder="85" 
-                    className="h-11 rounded-xl border-white/20 bg-white/50 font-light" 
+                  <Input
+                    type="number"
+                    placeholder="85"
+                    className="h-11 rounded-xl border-white/20 bg-white/50 font-light"
                   />
                   <div className="text-xs text-[#A8A29E] font-light mt-2">
                     Target utilization percentage for team members
@@ -114,10 +105,10 @@ const SettingsScreen = () => {
                 {/* Overload Threshold */}
                 <div>
                   <Label className="text-sm font-light text-[#78716C] mb-2 block">Overload Threshold</Label>
-                  <Input 
-                    type="number" 
-                    placeholder="110" 
-                    className="h-11 rounded-xl border-white/20 bg-white/50 font-light" 
+                  <Input
+                    type="number"
+                    placeholder="110"
+                    className="h-11 rounded-xl border-white/20 bg-white/50 font-light"
                   />
                   <div className="text-xs text-[#A8A29E] font-light mt-2">
                     Alert when utilization exceeds this percentage
@@ -131,15 +122,15 @@ const SettingsScreen = () => {
               </div>
             </div>
           </TabsContent>
-          
+
           {/* ===== TAB 3: COMPANY HOLIDAYS ===== */}
           <TabsContent value="holidays">
             <div className="bg-white/70 backdrop-blur-[32px] border-[0.5px] border-white/20 rounded-2xl p-10 shadow-sm">
               {/* Header with Add Button */}
               <div className="flex items-center justify-between mb-8">
                 <h2 className="text-xl font-light text-[#1C1917]">Company Holidays</h2>
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   className="bg-[#1C1917] hover:bg-[#292524] h-10 px-5 rounded-xl font-light transition-all duration-300 text-white shadow-md"
                 >
                   <Plus className="w-4 h-4 mr-2" />
@@ -155,8 +146,8 @@ const SettingsScreen = () => {
                   "Independence Day - Jul 4, 2026",
                   "Thanksgiving - Nov 26, 2026"
                 ].map((holiday, idx) => (
-                  <div 
-                    key={idx} 
+                  <div
+                    key={idx}
                     className="flex items-center justify-between py-4 px-5 bg-white/40 border-[0.5px] border-white/20 rounded-2xl"
                   >
                     <span className="text-sm text-[#1C1917] font-light">{holiday}</span>
@@ -168,7 +159,7 @@ const SettingsScreen = () => {
               </div>
             </div>
           </TabsContent>
-          
+
           {/* ===== TAB 4: AI THRESHOLD SETTINGS ===== */}
           <TabsContent value="ai-thresholds">
             <div className="bg-white/70 backdrop-blur-[32px] border-[0.5px] border-white/20 rounded-2xl p-10 shadow-sm">
@@ -177,10 +168,10 @@ const SettingsScreen = () => {
                 {/* Low Confidence Threshold */}
                 <div>
                   <Label className="text-sm font-light text-[#78716C] mb-2 block">Low Confidence Threshold</Label>
-                  <Input 
-                    type="number" 
-                    placeholder="70" 
-                    className="h-11 rounded-xl border-white/20 bg-white/50 font-light" 
+                  <Input
+                    type="number"
+                    placeholder="70"
+                    className="h-11 rounded-xl border-white/20 bg-white/50 font-light"
                   />
                   <div className="text-xs text-[#A8A29E] font-light mt-2">
                     Alert for tasks with confidence below this %
@@ -190,10 +181,10 @@ const SettingsScreen = () => {
                 {/* Health Score Warning */}
                 <div>
                   <Label className="text-sm font-light text-[#78716C] mb-2 block">Health Score Warning</Label>
-                  <Input 
-                    type="number" 
-                    placeholder="60" 
-                    className="h-11 rounded-xl border-white/20 bg-white/50 font-light" 
+                  <Input
+                    type="number"
+                    placeholder="60"
+                    className="h-11 rounded-xl border-white/20 bg-white/50 font-light"
                   />
                   <div className="text-xs text-[#A8A29E] font-light mt-2">
                     Projects below this score show warnings
@@ -203,10 +194,10 @@ const SettingsScreen = () => {
                 {/* Timeline Risk Days */}
                 <div>
                   <Label className="text-sm font-light text-[#78716C] mb-2 block">Timeline Risk Days</Label>
-                  <Input 
-                    type="number" 
-                    placeholder="7" 
-                    className="h-11 rounded-xl border-white/20 bg-white/50 font-light" 
+                  <Input
+                    type="number"
+                    placeholder="7"
+                    className="h-11 rounded-xl border-white/20 bg-white/50 font-light"
                   />
                   <div className="text-xs text-[#A8A29E] font-light mt-2">
                     Alert when predicted delay exceeds this many days
@@ -220,38 +211,38 @@ const SettingsScreen = () => {
               </div>
             </div>
           </TabsContent>
-          
+
           {/* ===== TAB 5: INTEGRATIONS ===== */}
           <TabsContent value="integrations">
             <div className="bg-white/70 backdrop-blur-[32px] border-[0.5px] border-white/20 rounded-2xl p-10 shadow-sm">
               <h2 className="text-xl font-light text-[#1C1917] mb-8">Integrations</h2>
-              
+
               {/* Integration List */}
               <div className="space-y-4">
                 {[
-                  { 
-                    name: 'Jira', 
-                    description: 'Import projects and track tasks', 
-                    connected: true 
+                  {
+                    name: 'Jira',
+                    description: 'Import projects and track tasks',
+                    connected: true
                   },
-                  { 
-                    name: 'Asana', 
-                    description: 'Sync project management data', 
-                    connected: false 
+                  {
+                    name: 'Asana',
+                    description: 'Sync project management data',
+                    connected: false
                   },
-                  { 
-                    name: 'Slack', 
-                    description: 'Get notifications and updates', 
-                    connected: true 
+                  {
+                    name: 'Slack',
+                    description: 'Get notifications and updates',
+                    connected: true
                   },
-                  { 
-                    name: 'Google Calendar', 
-                    description: 'Sync team schedules', 
-                    connected: false 
+                  {
+                    name: 'Google Calendar',
+                    description: 'Sync team schedules',
+                    connected: false
                   },
                 ].map((integration, idx) => (
-                  <div 
-                    key={idx} 
+                  <div
+                    key={idx}
                     className="flex items-center justify-between py-5 px-6 bg-white/40 border border-white/20 rounded-2xl"
                   >
                     {/* Integration Info */}
@@ -264,17 +255,17 @@ const SettingsScreen = () => {
                     {integration.connected ? (
                       <div className="flex items-center gap-4">
                         <StatusBadge status="Active" />
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
+                        <Button
+                          size="sm"
+                          variant="outline"
                           className="text-xs h-9 px-4 rounded-xl font-light border-white/20 hover:bg-white transition-all duration-300"
                         >
                           Configure
                         </Button>
                       </div>
                     ) : (
-                      <Button 
-                        size="sm" 
+                      <Button
+                        size="sm"
                         className="bg-[#1C1917] hover:bg-[#292524] h-9 px-5 rounded-xl font-light transition-all duration-300 text-white shadow-md"
                       >
                         Connect

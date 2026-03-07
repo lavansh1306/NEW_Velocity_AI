@@ -10,9 +10,9 @@ export default function OnboardingComplete() {
   const { inviteCode, orgName, orgId } = useOnboarding();
   const { refreshOrg } = useAuth();
   const [copied, setCopied] = useState(false);
-  
+
   // Build invite link from actual code
-  const inviteLink = inviteCode 
+  const inviteLink = inviteCode
     ? `${window.location.origin}/onboarding/join?code=${inviteCode}`
     : '';
 
@@ -69,29 +69,29 @@ export default function OnboardingComplete() {
       </div>
 
       <div className="relative z-10 w-full max-w-5xl px-8 flex flex-col lg:flex-row items-center gap-12 lg:gap-20">
-        
+
         {/* Left Column: Welcome & Actions */}
         <div className="flex-1 text-center lg:text-left">
           <div className="text-6xl mb-6">🎉</div>
-          
+
           <h1 className="text-4xl font-light text-[#1C1917] mb-4 tracking-tight">
             You're All Set Up!
           </h1>
-          
+
           <p className="text-lg text-[#78716C] mb-8 font-light leading-relaxed">
             {orgName ? `Your "${orgName}" workspace is ready.` : 'Your workspace is ready.'} Start by planning your first project with AI or head to the dashboard.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-            <Button 
+            <Button
               onClick={() => navigate('/projects')}
               className="h-12 px-8 bg-[#1C1917] hover:bg-[#292524] text-white rounded-lg font-normal text-base transition-all duration-200 shadow-md"
             >
               ✨ Plan First Project
             </Button>
-            
-            <Button 
-              onClick={() => navigate('/velocity-ai')}
+
+            <Button
+              onClick={() => navigate('/dashboard')}
               variant="outline"
               className="h-12 px-8 border-[#E7E5E4] hover:bg-[#FAFAF9] text-[#57534E] rounded-lg font-normal text-base transition-all duration-200"
             >
@@ -116,15 +116,15 @@ export default function OnboardingComplete() {
             <p className="text-sm text-[#78716C] mb-4 font-light leading-relaxed">
               Share this invite code with your team members so they can join your workspace.
             </p>
-            
+
             {inviteCode ? (
               <>
                 <div className="flex gap-2 mb-2">
                   <div className="flex-1 bg-[#FAFAF9] border border-[#E7E5E4] rounded-lg px-3 py-2 text-center text-lg font-mono tracking-widest text-[#1C1917] select-all">
                     {inviteCode}
                   </div>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     onClick={handleCopy}
                     className="bg-white hover:bg-[#FAFAF9] border-[#E7E5E4] text-[#57534E]"
                     title="Copy Code"
@@ -139,9 +139,9 @@ export default function OnboardingComplete() {
             ) : (
               <p className="text-sm text-[#A8A29E] font-light mb-3">Invite code will be generated once your workspace is created.</p>
             )}
-            
-            <Button 
-              variant="ghost" 
+
+            <Button
+              variant="ghost"
               className="w-full text-xs text-[#78716C] hover:text-[#1C1917] hover:bg-[#FAFAF9] h-8 justify-start px-2 font-normal"
               onClick={() => window.location.href = `mailto:?subject=Join me on Velocity AI&body=Hey team, join our workspace using invite code: ${inviteCode || ''} — or use this link: ${inviteLink}`}
             >
@@ -159,11 +159,11 @@ export default function OnboardingComplete() {
               {[
                 { icon: "✨", title: "AI Project Plan", desc: "Generate a plan instantly", action: "/progress" },
                 { icon: "📋", title: "Manual Project", desc: "Build from scratch", action: "/projects" },
-                { icon: "👥", title: "Team Capacity", desc: "View bandwidth", action: "/velocity-ai" },
+                { icon: "👥", title: "Team Capacity", desc: "View bandwidth", action: "/dashboard" },
                 { icon: "📚", title: "Tutorial", desc: "Learn the basics", action: null }
               ].map((item, idx) => (
-                <div 
-                  key={idx} 
+                <div
+                  key={idx}
                   className="bg-white border border-[#E7E5E4] rounded-xl p-4 hover:border-[#0F766E]/50 hover:shadow-sm transition-all cursor-pointer group"
                   onClick={() => item.action && navigate(item.action)}
                 >

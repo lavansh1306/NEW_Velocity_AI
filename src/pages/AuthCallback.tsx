@@ -28,7 +28,7 @@ export default function AuthCallback() {
     if (isJiraCallback) {
       hasRedirectedRef.current = true;
       console.log('[AuthCallback] JIRA authentication detected, redirecting to dashboard');
-      navigate('/velocity-ai', { replace: true });
+      navigate('/dashboard', { replace: true });
       return;
     }
 
@@ -53,8 +53,8 @@ export default function AuthCallback() {
         hasRedirectedRef.current = true;
 
         if (hasOrg) {
-          console.log('[AuthCallback] User has org, redirecting to velocity-ai');
-          navigate('/velocity-ai', { replace: true });
+          console.log('[AuthCallback] User has org, redirecting to dashboard');
+          navigate('/dashboard', { replace: true });
         } else {
           console.log('[AuthCallback] New user (no org), redirecting to onboarding');
           navigate('/onboarding/mode', { replace: true });

@@ -29,38 +29,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { KPICard } from '@/components/shared/KPICard';
+import { StatusBadge } from '@/components/shared/StatusBadge';
 
 // ==================== SHARED COMPONENTS ====================
-
-const KPICard = ({ label, value, sublabel, icon, trend }: any) => (
-  <div className="bg-white rounded-2xl p-8 shadow-sm hover:shadow-md transition-shadow duration-400 border border-gray-100">
-    <div className="text-4xl font-light text-gray-900 mb-3 tracking-tight">{value}</div>
-    <div className="text-sm text-gray-500 font-light mb-1">{label}</div>
-    {sublabel && <div className="text-xs text-gray-400 font-light">{sublabel}</div>}
-  </div>
-);
-
-const StatusBadge = ({ status }: { status: string }) => {
-  const variants: Record<string, string> = {
-    'Active': 'bg-blue-50 text-blue-700',
-    'At Risk': 'bg-amber-50 text-amber-700',
-    'Delayed': 'bg-rose-50 text-rose-700',
-    'Completed': 'bg-emerald-50 text-emerald-700',
-    'Healthy': 'bg-emerald-50 text-emerald-700',
-    'Overloaded': 'bg-rose-50 text-rose-700',
-    'Not Started': 'bg-gray-50 text-gray-600',
-    'In Progress': 'bg-blue-50 text-blue-700',
-    'Pending': 'bg-amber-50 text-amber-700',
-    'Approved': 'bg-emerald-50 text-emerald-700',
-    'Denied': 'bg-rose-50 text-rose-700',
-  };
-
-  return (
-    <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-light ${variants[status] || 'bg-gray-50 text-gray-700'}`}>
-      {status}
-    </span>
-  );
-};
 
 const UtilizationBar = ({ value }: { value: number }) => {
   const color = value > 110 ? 'bg-rose-400' : value > 90 ? 'bg-amber-400' : 'bg-blue-400';
@@ -175,11 +147,10 @@ export const AIInsightsDashboard = () => {
                     <button
                       key={weeks}
                       onClick={() => setTimeframe(weeks)}
-                      className={`px-4 py-2 rounded-lg text-sm font-light transition-all ${
-                        timeframe === weeks
+                      className={`px-4 py-2 rounded-lg text-sm font-light transition-all ${timeframe === weeks
                           ? 'bg-blue-600 text-white shadow-sm'
                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
+                        }`}
                     >
                       {weeks}W
                     </button>
