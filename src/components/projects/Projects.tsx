@@ -109,8 +109,8 @@ export default function Projects() {
   const filteredProjects = useMemo(() => {
     if (!searchQuery.trim()) return projects;
     const lowerQuery = searchQuery.toLowerCase();
-    return projects.filter(p => 
-      p.title.toLowerCase().includes(lowerQuery) || 
+    return projects.filter(p =>
+      p.title.toLowerCase().includes(lowerQuery) ||
       p.key.toLowerCase().includes(lowerQuery)
     );
   }, [projects, searchQuery]);
@@ -121,7 +121,7 @@ export default function Projects() {
         <div className="max-w-[1600px] mx-auto">
           <div className="flex justify-between items-center mb-10">
             <div>
-              <h1 className="text-4xl font-light text-[#1C1917]">Projects</h1>
+              <h2 className="text-2xl font-medium text-[#1C1917]">All Projects</h2>
               <p className="text-[#78716C] text-sm mt-1">{filteredProjects.length} Projects found</p>
             </div>
             <div className="flex gap-3">
@@ -143,8 +143,8 @@ export default function Projects() {
             ) : filteredProjects.length > 0 ? (
               <div className="divide-y divide-[#F5F5F4]">
                 {filteredProjects.map(project => (
-                  <div 
-                    key={project.id} 
+                  <div
+                    key={project.id}
                     className="p-6 hover:bg-[#FAFAF9] cursor-pointer transition-colors"
                     onClick={() => navigate(`/project-analytics/${project.id}`)}
                   >

@@ -13,8 +13,8 @@ import { fetchProjectsHybrid } from '@/lib/jiraDbClient';
 export default function ProjectCheckView() {
   const [dataset, setDataset] = useState<EmployeeRecord[]>([]);
   const [results, setResults] = useState<PredictionResult[]>([]);
-  const [projectDesc, setProjectDesc] = useState(''); 
-  
+  const [projectDesc, setProjectDesc] = useState('');
+
   // UI States
   const [viewMode, setViewMode] = useState<'input' | 'dashboard'>('input');
   const [isLoadingData, setIsLoadingData] = useState(true);
@@ -36,7 +36,7 @@ export default function ProjectCheckView() {
         // First, try to load from Jira if connected
         const jiraStatusResponse = await fetch('/api/jira/auth/status', { credentials: 'include' });
         const jiraStatus = await jiraStatusResponse.json();
-        
+
         console.log('[ProjectCheckView] Jira status:', jiraStatus);
 
         if (jiraStatus.connected) {
@@ -45,7 +45,7 @@ export default function ProjectCheckView() {
             const { projects: projectsData } = await fetchProjectsHybrid();
             if (projectsData.length > 0) {
               console.log('[ProjectCheckView] Loaded from Jira projects:', projectsData);
-              
+
               // For now, we'll use the projects as-is
               // The ML integration will use project information when shared
               setIsLoadingData(false);
@@ -82,21 +82,21 @@ export default function ProjectCheckView() {
       console.error('[ProjectCheckView] No data available');
       return;
     }
-    
+
     setIsAnalyzing(true);
-    setProjectDesc(description); 
+    setProjectDesc(description);
 
     setTimeout(async () => {
       try {
         // Get team members - either from Jira or use existing dataset
         let teamMembers = dataset;
-        
+
         try {
           const teamResponse = await fetch('/api/jira/team-members', { credentials: 'include' });
           if (teamResponse.ok) {
             const teamData = await teamResponse.json();
             console.log('[ProjectCheckView] Fetched team members from Jira:', teamData);
-            
+
             // If successfully fetched from Jira, use only that data
             if (teamData.teamMembers && teamData.teamMembers.length > 0) {
               // Convert Jira team format to EmployeeRecord format for local model
@@ -213,7 +213,7 @@ export default function ProjectCheckView() {
       try {
         // Use first selected employee as the recommendation
         const selectedEmployeeId = selectedEmployees[0].id;
-        
+
         // Calculate reward: 1 = perfect assignment (low load, high skill match)
         // 0 = poor assignment (high load, low skill match)
         const avgLoad = selectedEmployees.reduce((sum, emp) => {
@@ -224,7 +224,7 @@ export default function ProjectCheckView() {
 
         const trainResponse = await mlService.trainModel(
           `recommendation-${Date.now()}`, // Generate unique recommendation ID
-          selectedEmployeeId,
+          String(selectedEmployeeId),
           reward
         );
         console.log('[ProjectCheckView] Model training response:', trainResponse);
@@ -237,7 +237,7 @@ export default function ProjectCheckView() {
     // 3. Set Data and Open Dialog
     setFinalPayload(payload);
     setOutputOpen(true);
-    
+
     // Optional: Log to console as backup
     console.log("JIRA PAYLOAD:", payload);
   };
@@ -251,43 +251,42 @@ export default function ProjectCheckView() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
-      
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+          <h2 className="text-xl font-medium text-gray-900 flex items-center gap-3">
             <div className="p-2 bg-indigo-600 rounded-lg shadow-lg shadow-indigo-200">
               <Bot className="w-6 h-6 text-white" />
             </div>
             Project Check AI
-          </h1>
+          </h2>
           <p className="text-gray-500 mt-1 ml-1">
             Upload SRS documents to predict delivery risks and resource gaps.
           </p>
         </div>
-        
+
         <div className="flex items-center gap-4">
           {/* ML Engine Health Indicator */}
           {mlEngineOnline !== null && (
-            <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${
-              mlEngineOnline 
-                ? 'bg-green-50 border border-green-200' 
-                : 'bg-yellow-50 border border-yellow-200'
-            }`}>
+            <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${mlEngineOnline
+              ? 'bg-green-50 border border-green-200'
+              : 'bg-yellow-50 border border-yellow-200'
+              }`}>
               <div className={`w-2 h-2 rounded-full ${mlEngineOnline ? 'bg-green-500' : 'bg-yellow-500'}`} />
               <span className={`text-xs font-medium ${mlEngineOnline ? 'text-green-700' : 'text-yellow-700'}`}>
                 ML Engine {mlEngineOnline ? 'Online' : 'Offline'}
               </span>
             </div>
           )}
-        
+
           {viewMode === 'dashboard' && (
-             <button 
-               onClick={handleReset}
-               className="text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-indigo-50"
-             >
-               <Sparkles className="w-4 h-4" /> New Analysis
-             </button>
+            <button
+              onClick={handleReset}
+              className="text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-indigo-50"
+            >
+              <Sparkles className="w-4 h-4" /> New Analysis
+            </button>
           )}
         </div>
       </div>
@@ -297,7 +296,7 @@ export default function ProjectCheckView() {
         <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-blue-50/50 rounded-full blur-3xl -ml-20 -mb-20 pointer-events-none" />
 
         <div className="relative z-10 p-6 md:p-8">
-          
+
           {dataError && (
             <div className="flex flex-col items-center justify-center h-[400px] text-red-600">
               <FileX className="w-12 h-12 mb-4" />
@@ -314,10 +313,10 @@ export default function ProjectCheckView() {
 
           {!isLoadingData && !isAnalyzing && !dataError && viewMode === 'dashboard' && (
             <div className="animate-in slide-in-from-bottom-4 duration-500 space-y-6">
-              <ProjectCheckDashboard 
-                results={results} 
-                fullDataset={dataset} 
-                onConfirmProject={handleConfirmProject} 
+              <ProjectCheckDashboard
+                results={results}
+                fullDataset={dataset}
+                onConfirmProject={handleConfirmProject}
               />
 
               {/* ML Predictions Section */}
@@ -329,9 +328,8 @@ export default function ProjectCheckView() {
                   </div>
                   <div className="space-y-3">
                     {mlPredictions.slice(0, 5).map((employee: any, idx: number) => (
-                      <div key={idx} className={`rounded-lg p-3 flex items-center justify-between ${
-                        employee.is_eligible ? 'bg-white border-l-4 border-green-500' : 'bg-gray-50 border-l-4 border-gray-300'
-                      }`}>
+                      <div key={idx} className={`rounded-lg p-3 flex items-center justify-between ${employee.is_eligible ? 'bg-white border-l-4 border-green-500' : 'bg-gray-50 border-l-4 border-gray-300'
+                        }`}>
                         <div className="flex-1">
                           <p className="font-medium text-gray-900">{employee.employee_id}</p>
                           <p className="text-xs text-gray-500">{employee.match_reason}</p>
@@ -374,11 +372,10 @@ export default function ProjectCheckView() {
                       <p className="text-xs text-gray-600">Overloaded Skills</p>
                     </div>
                     <div className="bg-white rounded-lg p-3 text-center">
-                      <p className={`text-lg font-bold ${
-                        bottleneckAnalysis.health_status === 'healthy' ? 'text-green-600' :
+                      <p className={`text-lg font-bold ${bottleneckAnalysis.health_status === 'healthy' ? 'text-green-600' :
                         bottleneckAnalysis.health_status === 'warning' ? 'text-yellow-600' :
-                        'text-red-600'
-                      }`}>{bottleneckAnalysis.health_status?.toUpperCase()}</p>
+                          'text-red-600'
+                        }`}>{bottleneckAnalysis.health_status?.toUpperCase()}</p>
                       <p className="text-xs text-gray-600">Health Status</p>
                     </div>
                   </div>
@@ -402,10 +399,10 @@ export default function ProjectCheckView() {
       </div>
 
       {/* --- NEW: JSON OUTPUT DIALOG --- */}
-      <JsonOutputDialog 
-        open={outputOpen} 
-        onOpenChange={setOutputOpen} 
-        data={finalPayload} 
+      <JsonOutputDialog
+        open={outputOpen}
+        onOpenChange={setOutputOpen}
+        data={finalPayload}
       />
 
     </div>

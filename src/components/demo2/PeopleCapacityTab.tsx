@@ -3,19 +3,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogFooter 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter
 } from '@/components/ui/dialog';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
 } from '@/components/ui/select';
 import { Plus, X, AlertCircle, RefreshCw } from 'lucide-react';
 import { fetchAllIssuesHybrid } from '@/lib/jiraDbClient';
@@ -56,10 +56,10 @@ interface PersonDetails {
 const UtilizationBar = ({ value }: { value: number }) => {
   const color = value > 110 ? 'bg-[#E27052]' : value > 90 ? 'bg-[#E27052]' : 'bg-[#88A67E]';
   const width = Math.min(value, 150);
-  
+
   return (
     <div className="w-full bg-[#FAFAF9] rounded-full h-1.5 overflow-hidden">
-      <div 
+      <div
         className={`h-full ${color} transition-all duration-500`}
         style={{ width: `${width}%` }}
       />
@@ -82,20 +82,20 @@ const AddTeamMemberModal = ({ open, onOpenChange }: { open: boolean; onOpenChang
         <DialogHeader className="px-8 py-6 border-b border-[#E5E5E5] bg-white">
           <DialogTitle className="text-xl font-medium text-[#121212]">Add Team Member</DialogTitle>
         </DialogHeader>
-        
+
         <div className="p-8 grid grid-cols-2 gap-8">
           <div className="space-y-4">
-             <div className="space-y-2">
+            <div className="space-y-2">
               <Label className="text-xs font-medium text-[#737373] uppercase tracking-wide">Full Name</Label>
               <Input value={name} onChange={(e) => setName(e.target.value)} className="h-10 border-[#E5E5E5] bg-white" placeholder="e.g. Jane Doe" />
             </div>
-            
+
             <div className="space-y-2">
               <Label className="text-xs font-medium text-[#737373] uppercase tracking-wide">Email</Label>
               <Input value={email} onChange={(e) => setEmail(e.target.value)} className="h-10 border-[#E5E5E5] bg-white" placeholder="jane@example.com" />
             </div>
           </div>
-          
+
           <div className="space-y-4">
             <div className="space-y-2">
               <Label className="text-xs font-medium text-[#737373] uppercase tracking-wide">Role</Label>
@@ -113,26 +113,26 @@ const AddTeamMemberModal = ({ open, onOpenChange }: { open: boolean; onOpenChang
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div className="space-y-2">
               <Label className="text-xs font-medium text-[#737373] uppercase tracking-wide">Skills (comma separated)</Label>
               <Input value={skills} onChange={(e) => setSkills(e.target.value)} className="h-10 border-[#E5E5E5] bg-white" placeholder="React, Node.js, etc." />
             </div>
           </div>
-          
+
           <div className="col-span-2 space-y-2">
-             <div className="flex justify-between">
-                <Label className="text-xs font-medium text-[#737373] uppercase tracking-wide">Target Utilization</Label>
-                <span className="text-xs font-medium text-[#121212]">{utilization}%</span>
-             </div>
-             <input 
-               type="range" 
-               min="0" 
-               max="120" 
-               value={utilization} 
-               onChange={(e) => setUtilization(parseInt(e.target.value))}
-               className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
-             />
+            <div className="flex justify-between">
+              <Label className="text-xs font-medium text-[#737373] uppercase tracking-wide">Target Utilization</Label>
+              <span className="text-xs font-medium text-[#121212]">{utilization}%</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="120"
+              value={utilization}
+              onChange={(e) => setUtilization(parseInt(e.target.value))}
+              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
+            />
           </div>
         </div>
 
@@ -166,7 +166,7 @@ export default function PeopleCapacityTab() {
   const [allIssues, setAllIssues] = useState<any[]>([]);
   const [memberMap, setMemberMap] = useState<Map<string, any>>(new Map());
   const [isRefreshing, setIsRefreshing] = useState(false);
-  
+
   const [metrics, setMetrics] = useState({
     totalMembers: 0,
     avgUtilization: 0,
@@ -178,7 +178,7 @@ export default function PeopleCapacityTab() {
   const issueFallsInRange = (issue: any, startDate: string): boolean => {
     // Try to get a valid date from the issue
     let dateStr = issue.dueDate || issue.due_date || issue.created || issue.created_date;
-    
+
     // If no date found, include it anyway (all issues)
     if (!dateStr) {
       return true;
@@ -187,27 +187,27 @@ export default function PeopleCapacityTab() {
     try {
       const start = new Date(startDate);
       start.setHours(0, 0, 0, 0);
-      
+
       const end = new Date(start);
       end.setDate(end.getDate() + 14);
       end.setHours(23, 59, 59, 999);
-      
+
       // Parse issue date - handle different formats
       let issueDate = new Date(dateStr);
-      
+
       // If date parsing failed, include it by default
       if (isNaN(issueDate.getTime())) {
         console.warn('[PeopleCapacity] Invalid date:', dateStr);
         return true;
       }
-      
+
       issueDate.setHours(0, 0, 0, 0);
-      
+
       const isInRange = issueDate >= start && issueDate <= end;
-      
+
       // Log first few issues to debug date range filtering
-      if (window.__debugIssuesLogged === undefined) window.__debugIssuesLogged = 0;
-      if (window.__debugIssuesLogged < 15) {
+      if ((window as any).__debugIssuesLogged === undefined) (window as any).__debugIssuesLogged = 0;
+      if ((window as any).__debugIssuesLogged < 15) {
         console.log('[PeopleCapacity] Checking issue date:', {
           issue: issue.key || issue.issue_key || 'unknown',
           rawDate: dateStr,
@@ -216,9 +216,9 @@ export default function PeopleCapacityTab() {
           rangeEnd: end.toISOString().split('T')[0],
           inRange: isInRange
         });
-        window.__debugIssuesLogged++;
+        (window as any).__debugIssuesLogged++;
       }
-      
+
       return isInRange;
     } catch (error) {
       console.warn('[PeopleCapacity] Error checking date range:', {
@@ -244,7 +244,7 @@ export default function PeopleCapacityTab() {
     }
 
     const CAPACITY_PER_PERSON = 160;
-    
+
     // Calculate hours for each team member based on issues in the selected date range
     const filteredTeam = allTeam.map(member => {
       let hoursInRange = 0;
@@ -254,11 +254,11 @@ export default function PeopleCapacityTab() {
       // Sum up hours only for issues within the selected date range
       allIssues.forEach((issue: any) => {
         const assignee = issue.assigneeEmail || issue.assignee || 'Unassigned';
-        
+
         // Check if this issue is assigned to this team member AND falls in the date range
         if (assignee === member.email && issueFallsInRange(issue, startDate)) {
           issueCountInRange += 1;
-          
+
           if (issue.projectName) {
             projectsSet.add(issue.projectName);
           }
@@ -266,8 +266,8 @@ export default function PeopleCapacityTab() {
           const estimate = issue.timeestimate_seconds
             ? Math.round(issue.timeestimate_seconds / 3600)
             : issue.story_points
-            ? issue.story_points * 4
-            : 4;
+              ? issue.story_points * 4
+              : 4;
 
           hoursInRange += estimate;
         }
@@ -275,7 +275,7 @@ export default function PeopleCapacityTab() {
 
       const utilization = (hoursInRange / CAPACITY_PER_PERSON) * 100;
       let status: 'healthy' | 'overloaded' | 'at-risk' = 'healthy';
-      
+
       if (utilization > 110) {
         status = 'overloaded';
       } else if (utilization > 90) {
@@ -301,10 +301,10 @@ export default function PeopleCapacityTab() {
       availableCapacity: m.availableCapacity,
       totalHours: m.totalHours
     })));
-    
+
     const sortedTeam = filteredTeam.sort((a, b) => b.utilization - a.utilization);
     setTeam(sortedTeam);
-    
+
     const newMetrics = calculateMetrics(sortedTeam);
     console.log('[PeopleCapacity] Updated metrics for date', startDate, ':', newMetrics);
     setMetrics(newMetrics);
@@ -324,23 +324,23 @@ export default function PeopleCapacityTab() {
   const getCapacityTimeline = (startDate: string, totalHours: number) => {
     const start = new Date(startDate);
     const timeline = [];
-    
+
     for (let i = 0; i < 2; i++) {
       const weekStart = new Date(start);
       weekStart.setDate(weekStart.getDate() + i * 7);
       const weekEnd = new Date(weekStart);
       weekEnd.setDate(weekEnd.getDate() + 6);
-      
+
       const weekLabel = `${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
       const allocated = Math.round(totalHours * (i === 0 ? 0.5 : 0.5));
-      
+
       timeline.push({
         week: weekLabel,
         allocated,
         available: 40
       });
     }
-    
+
     return timeline;
   };
 
@@ -356,20 +356,20 @@ export default function PeopleCapacityTab() {
         utilization: selectedPerson.utilization,
         capacityTimeline: getCapacityTimeline(capacityStartDate, selectedPerson.totalHours),
         projects: [], // Will be populated from actual Jira data
-        skills: selectedPerson.skills.length > 0 && selectedPerson.skills[0] !== '—' 
+        skills: selectedPerson.skills.length > 0 && selectedPerson.skills[0] !== '—'
           ? selectedPerson.skills.map((skill) => ({
-              name: skill,
-              proficiency: 85
-            }))
+            name: skill,
+            proficiency: 85
+          }))
           : [{ name: '—', proficiency: 0 }],
-        recommendations: selectedPerson.utilization > 100 
+        recommendations: selectedPerson.utilization > 100
           ? [
-              { text: `Redistribute 8-10 hours to other team members`, action: 'Apply' },
-              { text: `Consider task prioritization for ${selectedPerson.name}`, action: 'Apply' },
-            ]
+            { text: `Redistribute 8-10 hours to other team members`, action: 'Apply' },
+            { text: `Consider task prioritization for ${selectedPerson.name}`, action: 'Apply' },
+          ]
           : [
-              { text: `${selectedPerson.name} has capacity for 1-2 additional tasks`, action: 'Apply' },
-            ]
+            { text: `${selectedPerson.name} has capacity for 1-2 additional tasks`, action: 'Apply' },
+          ]
       };
 
       // Fetch actual project assignments from Jira
@@ -381,8 +381,8 @@ export default function PeopleCapacityTab() {
             const estimate = issue.timeestimate_seconds
               ? Math.round(issue.timeestimate_seconds / 3600)
               : issue.story_points
-              ? issue.story_points * 4
-              : 4;
+                ? issue.story_points * 4
+                : 4;
             projectHoursMap.set(issue.projectName, hours + estimate);
           }
         });
@@ -491,7 +491,7 @@ export default function PeopleCapacityTab() {
       console.log('[PeopleCapacity] Updating state with', freshIssues.length, 'issues and', newMemberMap.size, 'members');
       setAllIssues(freshIssues);
       setMemberMap(newMemberMap);
-      
+
       // The useEffect will automatically trigger recalculation when allIssues/allTeam changes
     } catch (error) {
       console.error('[PeopleCapacity] Error refreshing data:', error);
@@ -511,7 +511,7 @@ export default function PeopleCapacityTab() {
       try {
         setLoading(true);
         setError(null);
-        
+
         const orgId = getCurrentOrgId();
         if (!orgId) {
           console.warn('[PeopleCapacity] No org_id set');
@@ -522,7 +522,7 @@ export default function PeopleCapacityTab() {
         }
 
         console.log('[PeopleCapacity] Fetching from DB with database-first approach');
-        
+
         // First, try to fetch issues from database
         const { data: dbIssues, error: dbError } = await supabase
           .from('jira_issues')
@@ -626,8 +626,8 @@ export default function PeopleCapacityTab() {
           const estimate = issue.timeestimate_seconds
             ? Math.round(issue.timeestimate_seconds / 3600)
             : issue.story_points
-            ? issue.story_points * 4
-            : 4;
+              ? issue.story_points * 4
+              : 4;
 
           person.totalHours += estimate;
         });
@@ -689,7 +689,7 @@ export default function PeopleCapacityTab() {
   return (
     <div className="p-12 relative min-h-screen bg-[#FAFAF9]">
       {/* Gradient Background */}
-      <div 
+      <div
         className="absolute top-0 left-1/2 transform -translate-x-1/2 pointer-events-none"
         style={{
           width: '800px',
@@ -699,13 +699,13 @@ export default function PeopleCapacityTab() {
           opacity: 0.4,
         }}
       />
-      
+
       <div className="max-w-[1600px] mx-auto relative z-10">
-        
+
         {/* ===== HEADER SECTION ===== */}
         <div className="flex items-center justify-between mb-8">
-          <h1 className="text-4xl font-light text-[#1C1917] tracking-tight">People & Capacity</h1>
-          <Button 
+          <h2 className="text-2xl font-medium text-[#1C1917] tracking-tight">People & Capacity</h2>
+          <Button
             className="bg-[#1C1917] hover:bg-[#292524] h-11 px-6 rounded-xl font-light transition-all duration-300 text-white shadow-md"
             onClick={() => setIsAddMemberOpen(true)}
           >
@@ -713,9 +713,9 @@ export default function PeopleCapacityTab() {
             Add Team Member
           </Button>
         </div>
-        
+
         <AddTeamMemberModal open={isAddMemberOpen} onOpenChange={setIsAddMemberOpen} />
-        
+
         {/* ===== CAPACITY SUMMARY STRIP ===== */}
         <div className="flex items-center gap-0 mb-10">
           <div className="flex-1 py-8">
@@ -791,7 +791,7 @@ export default function PeopleCapacityTab() {
             </div>
           </div>
         </div>
-        
+
         {/* ===== TEAM TABLE ===== */}
         {loading ? (
           <div className="text-center py-16 bg-white/70 backdrop-blur-[32px] border-[0.5px] border-white/20 rounded-2xl">
@@ -813,8 +813,8 @@ export default function PeopleCapacityTab() {
               </thead>
               <tbody>
                 {team.map((member, idx) => (
-                  <tr 
-                    key={idx} 
+                  <tr
+                    key={idx}
                     className="border-b border-white/10 hover:bg-[#FAFAF9]/40 cursor-pointer transition-all duration-300"
                     onClick={() => setSelectedPerson(member)}
                   >
@@ -856,11 +856,10 @@ export default function PeopleCapacityTab() {
                     <td className="py-5 px-4 text-center text-sm text-[#292524] font-light">{member.projects}</td>
                     <td className="py-5 px-4 text-center">
                       <div className="flex justify-center">
-                        <div className={`w-2 h-2 rounded-full ${
-                          member.status === 'overloaded' ? 'bg-rose-400' :
+                        <div className={`w-2 h-2 rounded-full ${member.status === 'overloaded' ? 'bg-rose-400' :
                           member.status === 'at-risk' ? 'bg-yellow-400' :
-                          'bg-emerald-400'
-                        }`} />
+                            'bg-emerald-400'
+                          }`} />
                       </div>
                     </td>
                     <td className="py-5 px-4 text-right text-sm text-[#292524] font-light">{Math.round(member.availableCapacity / 2)}h</td>
@@ -877,11 +876,11 @@ export default function PeopleCapacityTab() {
           </div>
         )}
       </div>
-      
+
       {/* ===== RIGHT DRAWER (PERSON DETAILS) ===== */}
       {selectedPerson && personDetails && (
         <>
-          <div 
+          <div
             className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 transition-opacity duration-300"
             onClick={() => setSelectedPerson(null)}
           />
@@ -899,14 +898,14 @@ export default function PeopleCapacityTab() {
                     <div className="text-sm text-[#78716C] font-light">{personDetails.role}</div>
                   </div>
                 </div>
-                <button 
+                <button
                   onClick={() => setSelectedPerson(null)}
                   className="text-[#A8A29E] hover:text-[#78716C] transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              
+
               {/* Date Picker for Capacity Timeline */}
               <div className="mb-8">
                 <Label className="text-xs font-light text-[#78716C] uppercase tracking-wide mb-3 block">Timeline Start Date</Label>
@@ -930,7 +929,7 @@ export default function PeopleCapacityTab() {
                   </Button>
                 </div>
               </div>
-              
+
               {/* Utilization Section */}
               <div className="mb-8">
                 <div className="text-xs text-[#78716C] font-light mb-2">Current Utilization</div>
@@ -943,7 +942,7 @@ export default function PeopleCapacityTab() {
                   </span>
                 </div>
               </div>
-              
+
               {/* Capacity Timeline Section */}
               <div className="mb-8">
                 <div className="text-sm font-light text-[#292524] mb-4">Next 2 Weeks Capacity</div>
@@ -955,10 +954,9 @@ export default function PeopleCapacityTab() {
                         <span>{week.allocated}h / {week.available}h</span>
                       </div>
                       <div className="w-full bg-[#F5F5F4] rounded-full h-1.5 overflow-hidden">
-                        <div 
-                          className={`h-full transition-all duration-500 ${
-                            week.allocated > week.available ? 'bg-rose-400' : 'bg-[#2DD4BF]'
-                          }`}
+                        <div
+                          className={`h-full transition-all duration-500 ${week.allocated > week.available ? 'bg-rose-400' : 'bg-[#2DD4BF]'
+                            }`}
                           style={{ width: `${Math.min((week.allocated / week.available) * 100, 100)}%` }}
                         />
                       </div>
@@ -966,7 +964,7 @@ export default function PeopleCapacityTab() {
                   ))}
                 </div>
               </div>
-              
+
               {/* Assigned Projects Section */}
               <div className="mb-8">
                 <div className="text-sm font-light text-[#292524] mb-4">Assigned Projects</div>
@@ -985,7 +983,7 @@ export default function PeopleCapacityTab() {
                   )}
                 </div>
               </div>
-              
+
               {/* Skills Section */}
               <div className="mb-8">
                 <div className="text-sm font-light text-[#292524] mb-4">Skills</div>
@@ -999,7 +997,7 @@ export default function PeopleCapacityTab() {
                             <span>{skill.proficiency}%</span>
                           </div>
                           <div className="w-full bg-[#F5F5F4] rounded-full h-1.5 overflow-hidden">
-                            <div 
+                            <div
                               className="h-full bg-[#2DD4BF] transition-all duration-500"
                               style={{ width: `${skill.proficiency}%` }}
                             />
@@ -1014,7 +1012,7 @@ export default function PeopleCapacityTab() {
                   )}
                 </div>
               </div>
-              
+
               {/* AI Recommendations Section */}
               <div>
                 <div className="text-sm font-light text-[#1C1917] font-semibold italic mb-4">AI Recommendations</div>

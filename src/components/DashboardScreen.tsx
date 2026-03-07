@@ -175,65 +175,65 @@ export const DashboardScreen = () => {
 
     return (
         <div className="p-10 relative max-w-[1600px] mx-auto">
-            <PageHeader
-                title="Dashboard"
-                subtitle="Overview of your team's capacity and project health."
-                actions={
-                    <div className="flex items-center gap-3">
-                        <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-                            <PopoverAnchor asChild>
-                                <div>
-                                    <Select value={dateRangeParam} onValueChange={(val) => {
-                                        setDateRangeParam(val);
-                                        if (val === 'custom') {
-                                            setIsCalendarOpen(true);
-                                        }
-                                    }}>
-                                        <SelectTrigger className="w-[220px] h-10 bg-white border-[#E7E5E4] text-[#1C1917] hover:border-[#D6D3D1] transition-all focus:ring-0 shadow-sm font-medium rounded-md">
-                                            <div className="flex items-center">
-                                                <CalendarToday style={{ fontSize: 16 }} className="mr-2 text-[#78716C]" />
-                                                {dateRangeParam === 'custom' && customRange?.from ? (
-                                                    <span className="truncate">
-                                                        {format(customRange.from, "MMM d")} {customRange.to ? `- ${format(customRange.to, "MMM d")}` : ''}
-                                                    </span>
-                                                ) : (
-                                                    <SelectValue placeholder="Select Range" />
-                                                )}
-                                            </div>
-                                        </SelectTrigger>
-                                        <SelectContent className="bg-white border-[#E7E5E4] shadow-lg rounded-xl overflow-hidden p-1 z-50">
-                                            <SelectItem value="30" className="rounded-md focus:bg-[#F5F5F4] cursor-pointer">Last 30 Days</SelectItem>
-                                            <SelectItem value="60" className="rounded-md focus:bg-[#F5F5F4] cursor-pointer">Last 60 Days</SelectItem>
-                                            <SelectItem value="90" className="rounded-md focus:bg-[#F5F5F4] cursor-pointer">Last 90 Days</SelectItem>
-                                            <div className="h-px bg-[#E7E5E4] my-1 mx-2" />
-                                            <SelectItem value="custom" className="rounded-md focus:bg-[#F5F5F4] cursor-pointer">Custom Date Range</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </PopoverAnchor>
+            <div className="flex items-center justify-between mb-8">
+                <div>
+                    <h2 className="text-2xl font-medium text-[#1C1917]">Overview</h2>
+                    <p className="text-[#78716C] text-sm mt-1">Summary of your team's capacity and project health.</p>
+                </div>
+                <div className="flex items-center gap-3">
+                    <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                        <PopoverAnchor asChild>
+                            <div>
+                                <Select value={dateRangeParam} onValueChange={(val) => {
+                                    setDateRangeParam(val);
+                                    if (val === 'custom') {
+                                        setIsCalendarOpen(true);
+                                    }
+                                }}>
+                                    <SelectTrigger className="w-[220px] h-10 bg-white border-[#E7E5E4] text-[#1C1917] hover:border-[#D6D3D1] transition-all focus:ring-0 shadow-sm font-medium rounded-md">
+                                        <div className="flex items-center">
+                                            <CalendarToday style={{ fontSize: 16 }} className="mr-2 text-[#78716C]" />
+                                            {dateRangeParam === 'custom' && customRange?.from ? (
+                                                <span className="truncate">
+                                                    {format(customRange.from, "MMM d")} {customRange.to ? `- ${format(customRange.to, "MMM d")}` : ''}
+                                                </span>
+                                            ) : (
+                                                <SelectValue placeholder="Select Range" />
+                                            )}
+                                        </div>
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-white border-[#E7E5E4] shadow-lg rounded-xl overflow-hidden p-1 z-50">
+                                        <SelectItem value="30" className="rounded-md focus:bg-[#F5F5F4] cursor-pointer">Last 30 Days</SelectItem>
+                                        <SelectItem value="60" className="rounded-md focus:bg-[#F5F5F4] cursor-pointer">Last 60 Days</SelectItem>
+                                        <SelectItem value="90" className="rounded-md focus:bg-[#F5F5F4] cursor-pointer">Last 90 Days</SelectItem>
+                                        <div className="h-px bg-[#E7E5E4] my-1 mx-2" />
+                                        <SelectItem value="custom" className="rounded-md focus:bg-[#F5F5F4] cursor-pointer">Custom Date Range</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </PopoverAnchor>
 
-                            <PopoverContent className="w-auto p-0 bg-white border-[#E7E5E4] rounded-xl shadow-xl z-50 mt-1" align="start" sideOffset={8}>
-                                <Calendar
-                                    initialFocus
-                                    mode="range"
-                                    defaultMonth={customRange?.from}
-                                    selected={customRange}
-                                    onSelect={(range) => setCustomRange(range)}
-                                    numberOfMonths={2}
-                                />
-                            </PopoverContent>
-                        </Popover>
+                        <PopoverContent className="w-auto p-0 bg-white border-[#E7E5E4] rounded-xl shadow-xl z-50 mt-1" align="start" sideOffset={8}>
+                            <Calendar
+                                initialFocus
+                                mode="range"
+                                defaultMonth={customRange?.from}
+                                selected={customRange}
+                                onSelect={(range) => setCustomRange(range)}
+                                numberOfMonths={2}
+                            />
+                        </PopoverContent>
+                    </Popover>
 
-                        <Button
-                            className="bg-[#1C1917] text-white hover:bg-[#292524] shadow-md hover:shadow-lg transition-all h-10"
-                            onClick={() => navigate('/projects/create')}
-                        >
-                            <Add style={{ fontSize: 16 }} className="mr-2" />
-                            New Project
-                        </Button>
-                    </div>
-                }
-            />
+                    <Button
+                        className="bg-[#1C1917] text-white hover:bg-[#292524] shadow-md hover:shadow-lg transition-all h-10"
+                        onClick={() => navigate('/projects/create')}
+                    >
+                        <Add style={{ fontSize: 16 }} className="mr-2" />
+                        New Project
+                    </Button>
+                </div>
+            </div>
 
             <div className="grid grid-cols-12 gap-8">
                 {/* Main Content */}

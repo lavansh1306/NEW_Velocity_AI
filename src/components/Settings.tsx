@@ -19,7 +19,7 @@ const SettingsScreen = () => {
   return (
     <div className="p-12 relative min-h-screen">
       <div className="max-w-[1200px] mx-auto relative z-10">
-        <h1 className="text-4xl font-light text-[#1C1917] mb-12 tracking-tight">Settings</h1>
+
 
         <Tabs defaultValue="organization" className="w-full">
           {/* Tab Navigation */}

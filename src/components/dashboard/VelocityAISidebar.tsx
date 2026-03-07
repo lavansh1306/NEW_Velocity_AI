@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
+import { TopHeader } from '@/components/shared/top-header/TopHeader';
+
 
 interface VelocityAISidebarProps {
   children: React.ReactNode;
@@ -235,6 +237,10 @@ export const VelocityAISidebar = ({ children }: VelocityAISidebarProps) => {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 bg-[#F5F5F4]">
+        <TopHeader
+          activeLabel={navItems.find(n => n.id === activeSection)?.label || (activeSection === 'settings' ? 'Settings' : 'Dashboard')}
+        />
+
         {/* Content */}
         <main className="flex-1 flex flex-col min-w-0 bg-[#F5F5F4] relative overflow-auto">
           {/* Texture Overlay */}
