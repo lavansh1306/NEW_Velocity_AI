@@ -1,46 +1,73 @@
+// src/components/leave-management/types.ts
+
 export interface TimeLog {
-  id: number;
+  id: string; // Changed to string for UUID compatibility
   hours: number;
   checkpoint: string;
   timestamp: string;
 }
 
 export interface Task {
-  id: number;
+  id: string | number;
   projectName: string;
   taskName: string;
   assignee: string;
-  hours: number; // Planned hours
-  day: number; // 0-4 (Mon-Fri)
+  hours: number; 
+  day: number;
   requiredSkills: string[];
   isReallocated?: boolean;
   isCancelled?: boolean;
   originalAssignee?: string;
   logs?: TimeLog[];
   totalLogged?: number;
-  created_date?: string; // ISO date string
-  due_date?: string; // ISO date string
+  created_date?: string;
+  due_date?: string;
+}
+
+export interface LeaveType {
+  id: string;
+  name: string;
+  annual_quota: number;
+}
+
+export interface LeaveBalance {
+  id: string;
+  leave_type_id: string;
+  total_allocated: number;
+  used_days: number;
+  pending_days: number;
+  leave_type?: LeaveType; // For joined data
 }
 
 export interface LeaveRequest {
-  id: number;
-  name: string;
+  id: string;
+  organization_id: string;
+  user_id: string;
+  leave_type_id: string;
+  name: string; // From joined users table
   startDate: string;
   endDate: string;
   reason: string;
-  status: 'Pending' | 'Approved' | 'Rejected' | 'Shifted';
+  status: 'pending' | 'approved' | 'rejected';
+  leave_type_name?: string; // From joined leave_types table
 }
 
 export interface EmployeeProfile {
+  id?: string;
   name: string;
   role: string;
   skills: string[];
 }
 
-export const SCHEMA_MAP = {
-  assignee: ['employee', 'name', 'staff', 'resource', 'user', 'member'],
-  projectName: ['project', 'project name', 'job', 'client', 'account'],
-  taskName: ['task', 'task name', 'description', 'activity', 'detail'],
-  hours: ['hours', 'hr', 'duration', 'time spent', 'effort'],
-  day: ['day', 'date', 'weekday', 'timestamp']
-};
+export interface LeaveRequest {
+  id: string;
+  organization_id: string;
+  user_id: string;
+  leave_type_id: string; // Ensure this matches the DB UUID
+  name: string;
+  startDate: string;
+  endDate: string;
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected';
+  leave_type_name?: string; 
+}
