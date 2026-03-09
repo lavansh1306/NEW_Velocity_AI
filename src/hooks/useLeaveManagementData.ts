@@ -1,14 +1,19 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { Task, LeaveRequest, EmployeeProfile, LeaveBalance } from '@/components/leave-management/types';
+import { 
+  Task, 
+  LeaveRequest, 
+  EmployeeProfile, 
+  LeaveBalance 
+} from '@/components/leave-management/types';
 
 interface LeaveDataState {
   tasks: Task[];
   employees: EmployeeProfile[];
   leaves: LeaveRequest[];
   balances: LeaveBalance[];
-  currentUser: string;
+  currentUser: EmployeeProfile | null;
   currentOrgId: string | null;
   isLoading: boolean;
   error: string | null;
@@ -22,143 +27,166 @@ export function useLeaveManagementData() {
     employees: [],
     leaves: [],
     balances: [],
-    currentUser: 'Loading...',
+    currentUser: null,
     currentOrgId: null,
     isLoading: true,
     error: null,
     lastRefreshTime: 0,
   });
 
-  const isMountedRef = useRef(true);
-
   /**
-   * Fetch Leave Balances & Requests
+   * Core Fetch Function
+   * Strictly pulls from Supabase tables based on authenticated organization_id
    */
-  const fetchLeaveSystemData = useCallback(async (orgId: string, userId: string) => {
+  const fetchData = useCallback(async () => {
+    if (!user?.id) return;
+
     try {
-      // 1. Fetch Requests with Joins
-      const { data: requestData, error: reqError } = await supabase
-        .from('leave_requests')
-        .select(`
-          id, organization_id, user_id, leave_type_id, start_date, end_date, reason, status,
-          users ( name ),
-          leave_types ( name )
-        `)
-        .eq('organization_id', orgId)
-        .order('created_at', { ascending: false });
+      setState(prev => ({ ...prev, isLoading: true, error: null }));
 
-      if (reqError) throw reqError;
+      // 1. Get the current user's profile and organization context
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id, organization_id, email, name, role, capacity_hours_per_week, is_active')
+        .eq('id', user.id)
+        .single();
 
-      // 2. Fetch User Balances
-      const { data: balanceData, error: balError } = await supabase
-        .from('employee_leave_balances')
-        .select(`
-          id, leave_type_id, total_allocated, used_days, pending_days,
-          leave_types ( name, annual_quota )
-        `)
-        .eq('user_id', userId);
+      if (userError || !userData) {
+        throw new Error("User record not found in database. Ensure the user exists in the 'users' table.");
+      }
 
-      if (balError) throw balError;
+      const orgId = userData.organization_id;
 
-      const formattedLeaves: LeaveRequest[] = (requestData || []).map((l: any) => ({
+      // 2. Execute parallel queries for all module data
+      const [leavesRes, balancesRes, tasksRes, employeesRes] = await Promise.all([
+        // Fetch Leave Requests with related User and Leave Type names
+        supabase
+          .from('leave_requests')
+          .select(`
+            id, organization_id, user_id, leave_type_id, start_date, end_date, reason, status,
+            users ( name ),
+            leave_types ( name )
+          `)
+          .eq('organization_id', orgId)
+          .order('created_at', { ascending: false }),
+
+        // Fetch Leave Balances for the current user
+        supabase
+          .from('employee_leave_balances')
+          .select(`
+            *,
+            leave_types ( name, annual_quota )
+          `)
+          .eq('user_id', userData.id),
+
+        // Fetch Tasks (Jira Issues) linked to the organization
+        supabase
+          .from('jira_issues')
+          .select('*')
+          .eq('organization_id', orgId),
+
+        // Fetch all active employees in the organization
+        supabase
+          .from('users')
+          .select('id, organization_id, email, name, role, capacity_hours_per_week, is_active')
+          .eq('organization_id', orgId)
+          .eq('is_active', true)
+      ]);
+
+      // Check for query errors
+      if (leavesRes.error) throw leavesRes.error;
+      if (balancesRes.error) throw balancesRes.error;
+      if (tasksRes.error) throw tasksRes.error;
+      if (employeesRes.error) throw employeesRes.error;
+
+      // 3. Data Transformation / Mapping to Frontend Types
+      const formattedLeaves: LeaveRequest[] = (leavesRes.data || []).map((l: any) => ({
         id: l.id,
         organization_id: l.organization_id,
         user_id: l.user_id,
         leave_type_id: l.leave_type_id,
-        name: l.users?.name || 'Unknown',
+        name: l.users?.name || 'Unknown User',
         startDate: l.start_date,
         endDate: l.end_date,
         reason: l.reason || '',
         status: l.status,
-        leave_type_name: l.leave_types?.name
+        leave_type_name: l.leave_types?.name || 'Unspecified'
       }));
 
-      return { leaves: formattedLeaves, balances: balanceData || [] };
-    } catch (err) {
-      console.error('[LeaveData] Fetch Error:', err);
-      return { leaves: [], balances: [] };
+      const formattedTasks: Task[] = (tasksRes.data || []).map((issue: any) => ({
+        id: issue.id,
+        projectName: issue.site_url || 'Internal Project',
+        taskName: issue.summary,
+        assignee: issue.assignee_email || 'Unassigned',
+        hours: (issue.original_estimate_seconds || 0) / 3600,
+        status: issue.status || 'Open',
+        created_date: issue.created_at,
+        due_date: issue.due_date
+      }));
+
+      // 4. Update State
+      setState({
+        tasks: formattedTasks,
+        employees: employeesRes.data || [],
+        leaves: formattedLeaves,
+        balances: balancesRes.data || [],
+        currentUser: userData as EmployeeProfile,
+        currentOrgId: orgId,
+        isLoading: false,
+        error: null,
+        lastRefreshTime: Date.now(),
+      });
+
+    } catch (err: any) {
+      console.error('[LeaveManagementData Hook Error]:', err.message);
+      setState(prev => ({ 
+        ...prev, 
+        error: err.message, 
+        isLoading: false 
+      }));
     }
-  }, []);
+  }, [user]);
 
+  // Initial load when auth is ready
   useEffect(() => {
-    if (authLoading) return;
+    if (!authLoading) {
+      fetchData();
+    }
+  }, [authLoading, fetchData]);
 
-    const init = async () => {
-      setState(prev => ({ ...prev, isLoading: true }));
-      
-      try {
-        // Get current user's DB record to find their organization_id
-        const { data: dbUser, error: userError } = await supabase
-          .from('users')
-          .select('id, organization_id, name')
-          .eq('id', user?.id) // Using auth.uid()
-          .single();
-
-        if (userError || !dbUser) throw new Error('User or Organization not found');
-
-        const orgId = dbUser.organization_id;
-        
-        // Fetch Jira tasks and Leave data in parallel
-        const [tasksRes, leaveData] = await Promise.all([
-          supabase.from('jira_issues').select('*').eq('organization_id', orgId),
-          fetchLeaveSystemData(orgId, dbUser.id)
-        ]);
-
-        // Map Jira issues to Task interface
-        const loadedTasks = (tasksRes.data || []).map((issue: any) => ({
-          id: issue.id,
-          projectName: issue.site_url || 'Jira Project',
-          taskName: issue.summary,
-          assignee: issue.assignee_email,
-          hours: issue.original_estimate_seconds / 3600 || 0,
-          day: 0,
-          requiredSkills: [issue.priority],
-          isCancelled: issue.status === 'Done'
-        }));
-
-        setState(prev => ({
-          ...prev,
-          currentOrgId: orgId,
-          currentUser: dbUser.name,
-          tasks: loadedTasks,
-          leaves: leaveData.leaves,
-          balances: leaveData.balances,
-          isLoading: false,
-          lastRefreshTime: Date.now()
-        }));
-
-      } catch (err: any) {
-        setState(prev => ({ ...prev, error: err.message, isLoading: false }));
-      }
-    };
-
-    init();
-  }, [user, authLoading, fetchLeaveSystemData]);
-
+  /**
+   * Action: Add Leave Request
+   * Strictly uses active session IDs
+   */
   const addLeaveRequest = useCallback(async (request: {
     startDate: string;
     endDate: string;
     reason: string;
     leave_type_id: string;
   }) => {
-    if (!state.currentOrgId || !user?.id) return;
+    if (!state.currentOrgId || !state.currentUser?.id) {
+      throw new Error("Active organization session required.");
+    }
 
     const { error } = await supabase.from('leave_requests').insert([{
       organization_id: state.currentOrgId,
-      user_id: user.id,
+      user_id: state.currentUser.id,
       leave_type_id: request.leave_type_id,
       start_date: request.startDate,
       end_date: request.endDate,
       reason: request.reason,
-      status: 'pending'
+      status: 'pending' // Forced default for new requests
     }]);
 
     if (error) throw error;
     
-    // Refresh only the leave part of the state
-    const newData = await fetchLeaveSystemData(state.currentOrgId, user.id);
-    setState(prev => ({ ...prev, ...newData }));
-  }, [state.currentOrgId, user, fetchLeaveSystemData]);
+    // Refresh full state to reflect new request and updated 'pending' balance
+    await fetchData();
+  }, [state.currentOrgId, state.currentUser, fetchData]);
 
-  return { ...state, addLeaveRequest };
+  return { 
+    ...state, 
+    refresh: fetchData, 
+    addLeaveRequest 
+  };
 }

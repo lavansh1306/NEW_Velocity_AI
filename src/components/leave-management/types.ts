@@ -1,20 +1,24 @@
-// src/components/leave-management/types.ts
+/**
+ * src/components/leave-management/types.ts
+ * * Strictly typed interfaces for Supabase Leave Management System.
+ * All IDs are strings to accommodate PostgreSQL UUIDs.
+ */
 
 export interface TimeLog {
-  id: string; // Changed to string for UUID compatibility
+  id: string; 
   hours: number;
   checkpoint: string;
   timestamp: string;
 }
 
 export interface Task {
-  id: string | number;
+  id: string; // UUID from jira_issues or tasks table
   projectName: string;
   taskName: string;
-  assignee: string;
+  assignee: string; // Usually email from jira_issues
   hours: number; 
-  day: number;
-  requiredSkills: string[];
+  status: string;
+  requiredSkills?: string[];
   isReallocated?: boolean;
   isCancelled?: boolean;
   originalAssignee?: string;
@@ -25,49 +29,60 @@ export interface Task {
 }
 
 export interface LeaveType {
-  id: string;
+  id: string; // UUID
+  organization_id: string;
   name: string;
   annual_quota: number;
 }
 
 export interface LeaveBalance {
-  id: string;
+  id: string; // UUID
+  organization_id: string;
+  user_id: string;
   leave_type_id: string;
+  year: number;
   total_allocated: number;
   used_days: number;
   pending_days: number;
-  leave_type?: LeaveType; // For joined data
+  // Included via Supabase .select('..., leave_types(*)')
+  leave_types?: {
+    name: string;
+    annual_quota: number;
+  };
 }
 
 export interface LeaveRequest {
-  id: string;
+  id: string; // UUID
   organization_id: string;
   user_id: string;
   leave_type_id: string;
-  name: string; // From joined users table
-  startDate: string;
-  endDate: string;
+  startDate: string; // Maps from start_date (ISO string)
+  endDate: string;   // Maps from end_date (ISO string)
   reason: string;
   status: 'pending' | 'approved' | 'rejected';
-  leave_type_name?: string; // From joined leave_types table
+  // UI-specific joined fields
+  name: string;           // Joined from users.name
+  leave_type_name?: string; // Joined from leave_types.name
 }
 
 export interface EmployeeProfile {
-  id?: string;
+  id: string; // UUID from users table
+  organization_id: string;
+  email: string;
   name: string;
-  role: string;
-  skills: string[];
+  role: 'admin' | 'manager' | 'employee';
+  capacity_hours_per_week: number;
+  is_active: boolean;
+  skills?: string[]; // Often joined from user_skills table
 }
 
-export interface LeaveRequest {
-  id: string;
-  organization_id: string;
-  user_id: string;
-  leave_type_id: string; // Ensure this matches the DB UUID
-  name: string;
-  startDate: string;
-  endDate: string;
-  reason: string;
-  status: 'pending' | 'approved' | 'rejected';
-  leave_type_name?: string; 
-}
+/**
+ * Mapping helper for CSV/Jira imports if required
+ */
+export const SCHEMA_MAP = {
+  assignee: ['assignee_email', 'employee', 'name', 'user'],
+  projectName: ['project_name', 'site_url', 'project_key'],
+  taskName: ['summary', 'task', 'description'],
+  hours: ['original_estimate_seconds', 'hours', 'effort'],
+  status: ['status', 'state']
+};
