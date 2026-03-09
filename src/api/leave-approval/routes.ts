@@ -6,7 +6,7 @@ import {
   registerValidationRule,
   type LeaveRequest,
   type ApprovalResult,
-} from "../../lib/leaveApprovalAgent.js"
+} from "../../lib/leaveApprovalAgent"
 
 const router = express.Router()
 
@@ -175,9 +175,9 @@ router.post("/set-weights", async (req: Request, res: Response) => {
       })
     }
 
-    const { setScoringWeights, getScoringWeights } = await import("../../lib/leaveApprovalAgent.js")
+    const { setScoringWeights, getScoringWeights } = await import("../../lib/leaveApprovalAgent")
     setScoringWeights(weights)
-    
+
     res.json({
       success: true,
       message: "Scoring weights updated",
@@ -198,8 +198,8 @@ router.post("/set-weights", async (req: Request, res: Response) => {
  */
 router.get("/weights", async (req: Request, res: Response) => {
   try {
-    const { getScoringWeights } = await import("../../lib/leaveApprovalAgent.js")
-    
+    const { getScoringWeights } = await import("../../lib/leaveApprovalAgent")
+
     res.json({
       success: true,
       weights: getScoringWeights(),

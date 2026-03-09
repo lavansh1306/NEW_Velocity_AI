@@ -10,6 +10,7 @@ export interface Issue {
   // Jira custom field for task start date (project-specific)
   start: string | null
   due: string | null
+  created: string | null
   duration: number | string
 }
 

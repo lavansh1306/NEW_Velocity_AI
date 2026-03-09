@@ -6,9 +6,10 @@ import { NotificationDropdown } from './NotificationDropdown';
 
 interface TopHeaderProps {
     activeLabel: string;
+    actions?: React.ReactNode;
 }
 
-export const TopHeader = ({ activeLabel }: TopHeaderProps) => {
+export const TopHeader = ({ activeLabel, actions }: TopHeaderProps) => {
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
     // Mock notifications
@@ -52,12 +53,13 @@ export const TopHeader = ({ activeLabel }: TopHeaderProps) => {
 
             {/* Right Actions */}
             <div className="flex items-center gap-5 relative">
+                {actions}
                 <SystemStatus />
 
                 <button
                     className={`relative p-2 rounded-lg transition-all duration-200 border border-transparent ${isNotificationsOpen
-                            ? 'bg-white shadow-sm border-[#E7E5E4] text-[#1C1917]'
-                            : 'hover:bg-white hover:shadow-sm hover:border-[#E7E5E4] text-[#78716C]'
+                        ? 'bg-white shadow-sm border-[#E7E5E4] text-[#1C1917]'
+                        : 'hover:bg-white hover:shadow-sm hover:border-[#E7E5E4] text-[#78716C]'
                         }`}
                     onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
                 >

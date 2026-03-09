@@ -1,11 +1,11 @@
 import { VelocityAISidebar } from '@/components/dashboard/VelocityAISidebar';
-import PeopleCapacityTab from '@/components/demo2/PeopleCapacityTab';
+import { PeopleCapacityScreen } from '@/components/PeopleCapacityScreen';
 
 export default function People() {
   return (
     <VelocityAISidebar>
       <div className="min-h-screen bg-[#FAFAF9]">
-        <PeopleCapacityTab />
+        <PeopleCapacityScreen />
       </div>
     </VelocityAISidebar>
   );
