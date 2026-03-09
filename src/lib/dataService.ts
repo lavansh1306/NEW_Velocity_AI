@@ -342,7 +342,7 @@ export async function computeAllBlockedHours(): Promise<number | null> {
           try {
             const { fetchIssuesFromDB: fetchDbIssues } = await import('./jiraDbClient');
             let issues: any[] = [];
-            const dbIssues = await fetchDbIssues(p.key);
+            const dbIssues = await fetchDbIssues(p.project_key);
             if (dbIssues.length > 0) {
               issues = dbIssues.map((i: any) => ({
                 key: i.key,

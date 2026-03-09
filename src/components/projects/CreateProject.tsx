@@ -231,61 +231,192 @@ export default function CreateProject() {
 
   setIsSubmitting(true);
   try {
-    // 1. Resolve Organization ID [cite: 23]
+    // 1. Resolve Organization ID
     const orgId = contextOrgId || getCurrentOrgId();
     if (!orgId) throw new Error("Organization ID not found.");
 
-    // 2. Insert into jira_projects 
+    // 2. Get or create default team for project assignment
+    let teamId: string | null = null;
+    const { data: teams } = await supabase
+      .from('teams')
+      .select('id')
+      .eq('organization_id', orgId)
+      .limit(1);
+    
+    if (teams && teams.length > 0) {
+      teamId = teams[0].id;
+    } else {
+      // Create default team if none exists
+      const { data: newTeam, error: teamError } = await supabase
+        .from('teams')
+        .insert({
+          organization_id: orgId,
+          name: `${projectName} Team`,
+          description: `Default team for ${projectName} project`
+        })
+        .select('id')
+        .single();
+      
+      if (teamError) throw teamError;
+      teamId = newTeam?.id;
+    }
+
+    // 3. Insert into projects table (internal project tracking)
+    const { data: newInternalProject, error: internalProjectError } = await supabase
+      .from('projects')
+      .insert([
+        {
+          organization_id: orgId,
+          team_id: teamId,
+          name: projectName,
+          description: description || null,
+          source: 'internal',
+          status: 'active',
+          start_date: new Date().toISOString().split('T')[0],
+          end_date: null,
+        }
+      ])
+      .select('id')
+      .single();
+
+    if (internalProjectError) throw internalProjectError;
+    if (!newInternalProject) throw new Error('Failed to create internal project record');
+
+    const projectId = newInternalProject.id;
+
+    // 4. Insert into jira_projects (Jira tracking)
     const { data: newProject, error: projectError } = await supabase
       .from('jira_projects')
       .insert([
         {
-          org_id: orgId,
-          key: projectKey.toUpperCase(),
-          title: projectName,
-          // Removed undefined projectDescription; defaults to empty string or null per schema 
-          description: '', 
-          jira_project_id: `LOCAL-${Date.now()}`, // Required field in your schema 
-          cloud_id: 'local-sync', // Required field in your schema 
+          organization_id: orgId,
+          project_key: projectKey.toUpperCase(),
+          name: projectName,
+          description: description || '', 
+          cloud_id: 'local-sync',
           created_at: new Date().toISOString(),
         }
       ])
-      .select()
+      .select('id')
       .single();
 
     if (projectError) throw projectError;
 
-    // 3. Insert initial record into jira_issues_clone so the fetcher sees the project 
-    const { error: cloneError } = await supabase
-      .from('jira_issues_clone')
-      .insert([
-        {
-          org_id: orgId,
-          cloud_id: 'local-sync',
-          project_key: projectKey.toUpperCase(),
-          project_name: projectName,
-          issue_key: `${projectKey.toUpperCase()}-1`,
-          summary: 'Project initialized',
-          status: 'Open',
-          assignee: user?.email || 'Unassigned',
-          created_at: new Date().toISOString(),
-        }
-      ]);
+    // 5. Create tasks and task assignments from initial plan
+    if (tasks && tasks.length > 0) {
+      for (let i = 0; i < tasks.length; i++) {
+        const task = tasks[i];
+        
+        // Insert task
+        const { data: newTask, error: taskError } = await supabase
+          .from('tasks')
+          .insert([
+            {
+              project_id: projectId,
+              name: task.name || `Task ${i + 1}`,
+              description: null,
+              estimated_hours: task.hours ? parseFloat(task.hours) : 0,
+              actual_hours: 0,
+              start_date: new Date().toISOString().split('T')[0],
+              due_date: null,
+              status: 'not_started',
+            }
+          ])
+          .select('id')
+          .single();
 
-    if (cloneError) console.error("Clone sync error:", cloneError.message);
+        if (taskError) {
+          console.error(`Error creating task "${task.name}":`, taskError);
+          continue;
+        }
+
+        // If task has an assignee (team member), create assignment
+        if (newTask && task.assignee !== 'Unassigned') {
+          const assignedMember = teamMembers.find(m => m.name === task.assignee);
+          if (assignedMember) {
+            const { error: assignError } = await supabase
+              .from('task_assignments')
+              .insert([
+                {
+                  task_id: newTask.id,
+                  user_id: assignedMember.id,
+                  allocated_hours_per_week: task.hours ? parseFloat(task.hours) / 4 : 0, // Assume 1 month = 4 weeks
+                  start_date: new Date().toISOString().split('T')[0],
+                  end_date: null,
+                  is_confirmed: true,
+                }
+              ]);
+
+            if (assignError) {
+              console.warn(`Error assigning task to ${task.assignee}:`, assignError);
+            }
+          }
+        }
+      }
+    }
+
+    // 6. If specific team members were selected, create task_assignments for them on first task
+    if (selectedMembers.length > 0 && tasks.length > 0) {
+      const { data: firstTask } = await supabase
+        .from('tasks')
+        .select('id')
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .single();
+
+      if (firstTask) {
+        for (const memberId of selectedMembers) {
+          // Check if already assigned
+          const { data: existing } = await supabase
+            .from('task_assignments')
+            .select('id')
+            .eq('task_id', firstTask.id)
+            .eq('user_id', memberId)
+            .maybeSingle();
+
+          if (!existing) {
+            const { error: assignError } = await supabase
+              .from('task_assignments')
+              .insert([
+                {
+                  task_id: firstTask.id,
+                  user_id: memberId,
+                  allocated_hours_per_week: 10,
+                  start_date: new Date().toISOString().split('T')[0],
+                  end_date: null,
+                  is_confirmed: false, // Pending confirmation
+                }
+              ]);
+
+            if (assignError) {
+              console.warn(`Error assigning member to task:`, assignError);
+            }
+          }
+        }
+      }
+    }
+
+    // 7. Track project lead
+    if (projectLead && selectedMembers.length > 0) {
+      const leadMember = teamMembers.find(m => m.name === projectLead);
+      if (leadMember) {
+        console.log(`[CreateProject] Project lead set to: ${projectLead}`, leadMember);
+      }
+    }
 
     toast({
       title: "Success",
-      description: "Project created and initialized.",
+      description: `Project "${projectName}" created with ${selectedMembers.length} team members.`,
     });
 
-    navigate(`/project-analytics/${newProject.id}`);
+    navigate(`/projects`);
 
   } catch (error: any) {
     console.error("Creation Error:", error);
     toast({
       title: "Error",
-      description: error.message,
+      description: error.message || "Failed to create project",
       variant: "destructive",
     });
   } finally {
