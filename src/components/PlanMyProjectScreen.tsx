@@ -19,7 +19,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { toast } from 'sonner';
-// import { planRecommendedTeam } from '../data/mockData'; // Removed mock data
+// import { planRecommendedTeam } from '../data/mockData'; 
 import type { PlanTeamCandidate } from '../types';
 
 type EditableTask = { id: string; task: string; estimatedHours: number };
@@ -54,10 +54,9 @@ export const PlanMyProjectScreen = () => {
     const [selectedTeam, setSelectedTeam] = useState<string[]>([]);
     const [teamThoughts, setTeamThoughts] = useState<string[]>([]);
     
-    // Placeholder for recommended team until Step 2 is fully wired
     const recommendedTeam: PlanTeamCandidate[] = []; 
     
-    const baseUrl = import.meta.env.VITE_LLM_URL || '[http://127.0.0.1:8000](http://127.0.0.1:8000)';
+    const baseUrl = import.meta.env.VITE_LLM_URL || 'http://127.0.0.1:8000';
 
     // ── HEALTH CHECK LOGIC (The "Wake Up" Function) ──
     const ensureBackendActive = async () => {
