@@ -1,117 +1,37 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { VelocityAISidebar } from '@/components/dashboard/VelocityAISidebar';
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/lib/supabase';
-import { Plus, Search, RefreshCw, Loader2, FolderOpen, Calendar, Users, BarChart3 } from 'lucide-react';
+import { Plus, RefreshCw, Loader2, FolderOpen, Calendar, Users, BarChart3, Briefcase } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
+import { useProjects } from '@/hooks/useProjects'; // <--- NEW HOOK
 import { getCurrentOrgId } from '@/lib/orgContext';
-
-interface ProjectSummary {
-  id: string;
-  key: string;
-  title: string;
-  description?: string;
-  created_at: string;
-  issue_count: number;
-  completed_count: number;
-  health_score: number;
-  team_size: number;
-  team_initials: string[];
-}
 
 export default function Projects() {
   const navigate = useNavigate();
-  const { user, loading: authLoading, orgId: contextOrgId } = useAuth();
-  const { toast } = useToast();
+  const { user, loading: authLoading } = useAuth();
+  
+  // 1. Use the unified hook instead of manual Supabase calls
+  const { projects, isLoading, fetchProjects } = useProjects();
+  
+  // 2. Local search state
+  const [searchQuery, setSearchQuery] = React.useState('');
 
-  const [projects, setProjects] = useState<ProjectSummary[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
-
-  const fetchData = useCallback(async () => {
-    // Prevent fetching if auth is still processing or user is logged out
-    if (authLoading || !user) {
-      if (!authLoading) setIsLoading(false);
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      let orgId: string | null = contextOrgId || getCurrentOrgId();
-
-      if (!orgId && user) {
-        const { data: membership } = await supabase
-          .from('organization_members')
-          .select('org_id')
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        if (membership) {
-          orgId = membership.org_id;
-        } else {
-          const { data: userByEmail } = await supabase
-            .from('users')
-            .select('organization_id')
-            .eq('email', user.email)
-            .maybeSingle();
-          orgId = userByEmail?.organization_id ?? null;
-        }
-      }
-
-      if (!orgId) {
-        setIsLoading(false);
-        return;
-      }
-
-      const { data: rawProjects, error } = await supabase
-        .from('jira_projects')
-        .select('id, key, title, description, created_at')
-        .eq('org_id', orgId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      const processedProjects: ProjectSummary[] = (rawProjects || []).map(project => ({
-        id: project.id,
-        key: project.key,
-        title: project.title,
-        description: project.description || '',
-        created_at: project.created_at || new Date().toISOString(),
-        issue_count: 0,
-        completed_count: 0,
-        health_score: 0,
-        team_size: 0,
-        team_initials: [],
-      }));
-
-      setProjects(processedProjects);
-      setLastRefreshed(new Date());
-    } catch (error: any) {
-      console.error('[Projects] Fetch Error:', error);
-      toast({
-        title: 'Fetch Failed',
-        description: error.message,
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user, authLoading, contextOrgId, toast]);
-
+  // 3. Fetch on mount (Strictly linked to Org ID)
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (!authLoading && user) {
+      const orgId = getCurrentOrgId();
+      fetchProjects(orgId);
+    }
+  }, [user, authLoading, fetchProjects]);
 
+  // 4. Client-side filtering
   const filteredProjects = useMemo(() => {
     if (!searchQuery.trim()) return projects;
     const lowerQuery = searchQuery.toLowerCase();
     return projects.filter(p =>
-      p.title.toLowerCase().includes(lowerQuery) ||
-      p.key.toLowerCase().includes(lowerQuery)
+      p.name.toLowerCase().includes(lowerQuery) ||
+      p.description?.toLowerCase().includes(lowerQuery)
     );
   }, [projects, searchQuery]);
 
@@ -119,37 +39,88 @@ export default function Projects() {
     <VelocityAISidebar>
       <div className="bg-[#FAFAF9] min-h-screen p-8 md:p-12">
         <div className="max-w-[1600px] mx-auto">
+          
+          {/* Header */}
           <div className="flex justify-between items-center mb-10">
             <div>
               <h2 className="text-2xl font-medium text-[#1C1917]">All Projects</h2>
-              <p className="text-[#78716C] text-sm mt-1">{filteredProjects.length} Projects found</p>
+              <p className="text-[#78716C] text-sm mt-1">{filteredProjects.length} Active Workspaces</p>
             </div>
             <div className="flex gap-3">
-              <Button variant="outline" onClick={fetchData} disabled={isLoading}>
+              <Button 
+                variant="outline" 
+                onClick={() => fetchProjects(getCurrentOrgId())} 
+                disabled={isLoading}
+              >
                 <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
               </Button>
-              <Button onClick={() => navigate('/projects/create')} className="bg-[#1C1917] text-white gap-2">
+              <Button 
+                onClick={() => navigate('/projects/create')} 
+                className="bg-[#1C1917] text-white gap-2"
+              >
                 <Plus className="w-4 h-4" /> New Project
               </Button>
             </div>
           </div>
 
+          {/* Project List */}
           <div className="bg-white rounded-3xl border border-[#E7E5E4] overflow-hidden min-h-[400px]">
             {isLoading ? (
               <div className="flex flex-col items-center justify-center h-64">
                 <Loader2 className="w-8 h-8 animate-spin text-[#1C1917]" />
-                <p className="mt-4 text-[#A8A29E]">Loading workspace...</p>
+                <p className="mt-4 text-[#A8A29E]">Syncing workspaces...</p>
               </div>
             ) : filteredProjects.length > 0 ? (
               <div className="divide-y divide-[#F5F5F4]">
                 {filteredProjects.map(project => (
                   <div
                     key={project.id}
-                    className="p-6 hover:bg-[#FAFAF9] cursor-pointer transition-colors"
+                    className="p-6 hover:bg-[#FAFAF9] cursor-pointer transition-colors group relative"
                     onClick={() => navigate(`/project-analytics/${project.id}`)}
                   >
-                    <h3 className="font-medium text-[#1C1917]">{project.title}</h3>
-                    <p className="text-xs text-[#78716C] mt-1 uppercase font-mono">{project.key}</p>
+                    <div className="flex justify-between items-start">
+                      <div>
+                        {/* Title & Source Badge */}
+                        <div className="flex items-center gap-3">
+                          <h3 className="font-medium text-[#1C1917] text-lg">{project.name}</h3>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                            project.source === 'jira' 
+                              ? 'bg-blue-100 text-blue-700' 
+                              : 'bg-emerald-100 text-emerald-700'
+                          }`}>
+                            {project.source || 'Internal'}
+                          </span>
+                        </div>
+
+                        <p className="text-sm text-[#78716C] mt-1 max-w-2xl line-clamp-1">
+                          {project.description || 'No description provided.'}
+                        </p>
+
+                        {/* Meta Data */}
+                        <div className="flex items-center gap-6 mt-4 text-xs text-[#A8A29E]">
+                          <div className="flex items-center gap-1.5">
+                            <Calendar className="w-3.5 h-3.5" />
+                            {new Date(project.created_at).toLocaleDateString()}
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <Briefcase className="w-3.5 h-3.5" />
+                            {project.team_name || 'Unassigned Team'}
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <BarChart3 className="w-3.5 h-3.5" />
+                            {project.task_count || 0} Tasks
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Status Indicator */}
+                      <div className="flex flex-col items-end gap-2">
+                        <div className={`w-2.5 h-2.5 rounded-full ${
+                          project.status === 'active' ? 'bg-green-500' : 'bg-gray-300'
+                        }`} />
+                        <span className="text-xs text-gray-400 capitalize">{project.status}</span>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -157,6 +128,13 @@ export default function Projects() {
               <div className="flex flex-col items-center justify-center h-64 text-[#A8A29E]">
                 <FolderOpen className="w-12 h-12 opacity-10 mb-4" />
                 <p>No projects found in this organization.</p>
+                <Button 
+                  variant="link" 
+                  onClick={() => navigate('/projects/create')}
+                  className="mt-2 text-[#1C1917]"
+                >
+                  Create your first project
+                </Button>
               </div>
             )}
           </div>
