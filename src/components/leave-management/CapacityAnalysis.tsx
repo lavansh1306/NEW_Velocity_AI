@@ -1,41 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Clock, Users, AlertCircle, TrendingUp, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Users, AlertCircle, RefreshCw, BarChart3, CalendarCheck } from 'lucide-react';
 import { EmployeeProfile, LeaveRequest } from './types';
 
 interface CapacityCandidate {
   id: string;
   name: string;
-  current_load: number;
-  skills: string[];
-  role_level: string;
-  avg_completion_time: number;
-  efficiency_score: number;
-  base_productive_hours: number;
-  pto_hours_this_week: number;
-  holiday_hours_this_week: number;
-}
-
-interface CapacityResponse {
-  success: boolean;
-  timestamp: string;
-  summary: {
-    total_candidates: number;
-    total_base_hours: number;
-    total_pto_hours: number;
-    total_holiday_hours: number;
-    total_available_hours: number;
-    available_members: number;
-    utilization_rate: number;
-  };
-  data: Array<{
-    employee_id: string;
-    name: string;
-    base_productive_hours: number;
-    pto_hours_this_week: number;
-    holiday_hours_this_week: number;
-    net_available_hours: number;
-    status: 'available' | 'limited' | 'unavailable' | 'full';
-  }>;
+  role: string;
+  base_hours: number;
+  pto_hours: number;
+  net_available: number;
+  utilization: number;
+  status: 'available' | 'limited' | 'unavailable' | 'overloaded';
 }
 
 interface CapacityAnalysisProps {
@@ -44,305 +19,219 @@ interface CapacityAnalysisProps {
   onRefresh?: () => void;
 }
 
-const getStatusColor = (status: string): string => {
-  switch (status) {
-    case 'available':
-    case 'full':
-      return 'bg-green-50 border-green-200 text-green-800';
-    case 'limited':
-      return 'bg-yellow-50 border-yellow-200 text-yellow-800';
-    case 'unavailable':
-      return 'bg-red-50 border-red-200 text-red-800';
-    default:
-      return 'bg-gray-50 border-gray-200 text-gray-800';
-  }
-};
-
-const getStatusBadgeColor = (status: string): string => {
-  switch (status) {
-    case 'available':
-    case 'full':
-      return 'bg-green-100 text-green-800';
-    case 'limited':
-      return 'bg-yellow-100 text-yellow-800';
-    case 'unavailable':
-      return 'bg-red-100 text-red-800';
-    default:
-      return 'bg-gray-100 text-gray-800';
-  }
-};
-
 export const CapacityAnalysis: React.FC<CapacityAnalysisProps> = ({ 
   employees, 
   approvedLeaves, 
   onRefresh 
 }) => {
-  const [capacityData, setCapacityData] = useState<CapacityResponse | null>(null);
+  const [candidates, setCandidates] = useState<CapacityCandidate[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  useEffect(() => {
-    console.log('\n=== CAPACITY ANALYSIS UPDATE ===');
-    console.log('✓ Employees:', employees.map(e => e.name));
-    console.log('✓ Approved Leaves:', approvedLeaves.map(l => `${l.name} (${l.startDate} - ${l.endDate})`));
-    setIsRefreshing(true);
-    fetchCapacityData();
-  }, [employees, approvedLeaves]);
-
-  const fetchCapacityData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Prepare candidates data from employees and approved leaves
-      const today = new Date();
-      const weekStart = new Date(today);
-      weekStart.setDate(today.getDate() - today.getDay());
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekStart.getDate() + 6);
-
-      console.log('[CapacityAnalysis] Week range:', weekStart.toLocaleDateString(), '-', weekEnd.toLocaleDateString());
-
-      const candidates: CapacityCandidate[] = employees.map((emp) => {
-        // Calculate PTO hours for this week from approved leaves
-        let ptoHours = 0;
-        approvedLeaves.forEach((leave) => {
-          console.log('[CapacityAnalysis] Checking leave for', emp.name, '- Leave:', leave.name, 'Status:', leave.status, 'Dates:', leave.startDate, '-', leave.endDate);
-          if (leave.name === emp.name && leave.status === 'Approved') {
-            const leaveStart = new Date(leave.startDate);
-            const leaveEnd = new Date(leave.endDate);
-
-            // Check if leave overlaps with current week
-            if (leaveStart <= weekEnd && leaveEnd >= weekStart) {
-              // Calculate overlapping days
-              const overlapStart = new Date(Math.max(leaveStart.getTime(), weekStart.getTime()));
-              const overlapEnd = new Date(Math.min(leaveEnd.getTime(), weekEnd.getTime()));
-              const daysDiff = Math.ceil((overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-              ptoHours += daysDiff * 8; // Assuming 8 hour workdays
-              console.log('[CapacityAnalysis] Leave matches! PTO hours for', emp.name, ':', ptoHours);
-            }
-          }
-        });
-
-        return {
-          id: emp.name.replace(/\s+/g, '_').toLowerCase(),
-          name: emp.name,
-          current_load: 0,
-          skills: emp.skills || [],
-          role_level: emp.role || 'unknown',
-          avg_completion_time: 0,
-          efficiency_score: 1.0,
-          base_productive_hours: 40, // Default 40 hour work week
-          pto_hours_this_week: ptoHours,
-          holiday_hours_this_week: 0, // Can be updated based on company holidays
-        };
-      });
-
-      console.log('[CapacityAnalysis] Candidates:', candidates);
-
-      // LOCAL CALCULATION - No API call needed
-      const totalBaseHours = candidates.reduce((sum, c) => sum + c.base_productive_hours, 0);
-      const totalPtoHours = candidates.reduce((sum, c) => sum + c.pto_hours_this_week, 0);
-      const totalHolidayHours = candidates.reduce((sum, c) => sum + c.holiday_hours_this_week, 0);
-      const totalAvailableHours = totalBaseHours - totalPtoHours - totalHolidayHours;
-      
-      const capacityData: CapacityResponse = {
-        success: true,
-        timestamp: new Date().toISOString(),
-        summary: {
-          total_candidates: candidates.length,
-          total_base_hours: totalBaseHours,
-          total_pto_hours: totalPtoHours,
-          total_holiday_hours: totalHolidayHours,
-          total_available_hours: totalAvailableHours,
-          available_members: candidates.filter(c => c.pto_hours_this_week === 0).length,
-          utilization_rate: totalBaseHours > 0 ? Math.round(((totalBaseHours - totalAvailableHours) / totalBaseHours) * 100) : 0,
-        },
-        data: candidates.map(c => ({
-          employee_id: c.id,
-          name: c.name,
-          base_productive_hours: c.base_productive_hours,
-          pto_hours_this_week: c.pto_hours_this_week,
-          holiday_hours_this_week: c.holiday_hours_this_week,
-          net_available_hours: c.base_productive_hours - c.pto_hours_this_week - c.holiday_hours_this_week,
-          status: c.pto_hours_this_week >= 40 ? 'unavailable' : c.pto_hours_this_week > 0 ? 'limited' : 'available',
-        })),
-      };
-
-      console.log('[CapacityAnalysis] Local capacity data:', capacityData);
-      setCapacityData(capacityData);
-      setIsRefreshing(false);
-    } catch (err) {
-      console.error('[CapacityAnalysis] Error calculating data:', err);
-      setError(err instanceof Error ? err.message : 'Failed to calculate capacity data');
-      setIsRefreshing(false);
-    } finally {
-      setLoading(false);
-    }
+  // Helper: Get current week range (Mon-Sun)
+  const getWeekRange = () => {
+    const today = new Date();
+    const day = today.getDay();
+    const diff = today.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
+    const monday = new Date(today.setDate(diff));
+    monday.setHours(0, 0, 0, 0);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    sunday.setHours(23, 59, 59, 999);
+    return { start: monday, end: sunday };
   };
 
-  if (loading && !capacityData) {
-    return (
-      <div className="bg-white border-2 border-slate-200 rounded-2xl p-6 shadow-lg animate-pulse">
-        <div className="h-8 bg-slate-200 rounded w-1/3 mb-4"></div>
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-12 bg-slate-100 rounded"></div>
-          ))}
-        </div>
-      </div>
-    );
-  }
+  const calculateCapacity = () => {
+    setLoading(true);
+    const { start: weekStart, end: weekEnd } = getWeekRange();
 
-  if (error) {
-    return (
-      <div className="bg-white border-2 border-red-200 rounded-2xl p-6 shadow-lg">
-        <div className="flex items-center gap-2 text-red-800 mb-4">
-          <AlertCircle className="w-5 h-5" />
-          <h3 className="text-lg font-semibold">Capacity Analysis Error</h3>
-        </div>
-        <p className="text-sm text-red-600">{error}</p>
-        <button
-          onClick={() => {
-            fetchCapacityData();
-            onRefresh?.();
-          }}
-          className="mt-4 px-4 py-2 bg-red-100 text-red-800 rounded hover:bg-red-200 transition-colors"
-        >
-          Try Again
-        </button>
-      </div>
-    );
-  }
+    const results = employees.map(emp => {
+      // 1. Get Base Capacity from DB Profile (default to 40 if missing)
+      const baseHours = emp.capacity_hours_per_week || 40;
 
-  if (!capacityData) {
-    return null;
-  }
+      // 2. Calculate PTO Hours for this week
+      // Filter leaves that belong to this user AND are approved
+      const userLeaves = approvedLeaves.filter(l => 
+        l.user_id === emp.id && l.status === 'approved'
+      );
 
-  const { summary, data } = capacityData;
+      let ptoHours = 0;
+
+      userLeaves.forEach(leave => {
+        const leaveStart = new Date(leave.startDate);
+        const leaveEnd = new Date(leave.endDate);
+        
+        // Check for overlap
+        if (leaveStart <= weekEnd && leaveEnd >= weekStart) {
+          // Calculate intersection
+          const start = new Date(Math.max(leaveStart.getTime(), weekStart.getTime()));
+          const end = new Date(Math.min(leaveEnd.getTime(), weekEnd.getTime()));
+          
+          // Count distinct days (inclusive)
+          const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+          
+          // Assuming 8 hours per day standard deduction
+          ptoHours += days * 8;
+        }
+      });
+
+      // Cap PTO at base hours (can't have negative availability)
+      ptoHours = Math.min(ptoHours, baseHours);
+
+      const netAvailable = baseHours - ptoHours;
+      const utilization = Math.round((ptoHours / baseHours) * 100);
+
+      let status: CapacityCandidate['status'] = 'available';
+      if (netAvailable === 0) status = 'unavailable';
+      else if (netAvailable < baseHours * 0.5) status = 'limited';
+      
+      return {
+        id: emp.id,
+        name: emp.name,
+        role: emp.role || 'Member',
+        base_hours: baseHours,
+        pto_hours: ptoHours,
+        net_available: netAvailable,
+        utilization,
+        status
+      };
+    });
+
+    setCandidates(results);
+    setLoading(false);
+    setIsRefreshing(false);
+  };
+
+  useEffect(() => {
+    calculateCapacity();
+  }, [employees, approvedLeaves]);
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    if (onRefresh) onRefresh();
+    // Re-calc triggers automatically via useEffect when props change
+    // but we can force a local recalc timeout for UX
+    setTimeout(calculateCapacity, 500); 
+  };
+
+  // Aggregates
+  const totalBase = candidates.reduce((sum, c) => sum + c.base_hours, 0);
+  const totalPTO = candidates.reduce((sum, c) => sum + c.pto_hours, 0);
+  const totalAvailable = totalBase - totalPTO;
+  const teamUtilization = totalBase > 0 ? Math.round((totalPTO / totalBase) * 100) : 0;
+
+  if (loading && candidates.length === 0) {
+    return <div className="p-8 text-center text-slate-400 font-light animate-pulse">Calculating team workload...</div>;
+  }
 
   return (
-    <div className="animate-in fade-in slide-in-from-right-4 duration-500">
-      <div className="bg-white border-2 border-slate-200 rounded-2xl p-6 shadow-lg space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
+      
+      {/* Header Card */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-6">
           <div>
             <h3 className="text-xl font-light text-slate-900 flex items-center gap-2">
-              <Users className="w-6 h-6 text-blue-600" />
-              Team Capacity Check
+              <BarChart3 className="w-5 h-5 text-blue-600" />
+              Weekly Capacity Analysis
             </h3>
-            <div className="text-xs text-slate-500 mt-1 flex items-center gap-2">
-              Employees: {employees.length} | Approved Leaves: {approvedLeaves.length} | PTO Hours: {capacityData?.summary.total_pto_hours ?? '—'}h
-              {isRefreshing && (
-                <span className="flex items-center gap-1 text-blue-600">
-                  <RefreshCw className="w-3 h-3 animate-spin" />
-                  Updating...
-                </span>
-              )}
-            </div>
+            <p className="text-sm text-slate-500 font-light mt-1">
+              Real-time availability based on approved leave requests.
+            </p>
           </div>
           <button
-            onClick={() => {
-              setIsRefreshing(true);
-              fetchCapacityData();
-              onRefresh?.();
-            }}
+            onClick={handleRefresh}
             disabled={isRefreshing}
-            className={`px-3 py-1 text-sm rounded transition-colors flex items-center gap-1 ${
+            className={`flex items-center gap-2 px-4 py-2 text-sm rounded-lg border transition-all ${
               isRefreshing 
-                ? 'bg-blue-100 text-blue-700 cursor-not-allowed' 
-                : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                ? 'bg-slate-50 text-slate-400 border-slate-100 cursor-not-allowed' 
+                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
             }`}
           >
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            Refresh
+            {isRefreshing ? 'Syncing...' : 'Refresh Data'}
           </button>
         </div>
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-lg p-4">
-            <p className="text-xs text-blue-600 font-semibold mb-1">Team Members</p>
-            <p className="text-2xl font-bold text-blue-900">{summary.total_candidates}</p>
+        {/* KPI Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="p-4 rounded-xl bg-blue-50/50 border border-blue-100">
+            <div className="text-xs font-semibold text-blue-600 uppercase tracking-wider mb-1">Total Capacity</div>
+            <div className="text-2xl font-light text-slate-900">{totalBase}h</div>
           </div>
-          <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-lg p-4">
-            <p className="text-xs text-green-600 font-semibold mb-1">Available</p>
-            <p className="text-2xl font-bold text-green-900">{summary.available_members}</p>
+          <div className="p-4 rounded-xl bg-amber-50/50 border border-amber-100">
+            <div className="text-xs font-semibold text-amber-600 uppercase tracking-wider mb-1">Approved PTO</div>
+            <div className="text-2xl font-light text-slate-900">{totalPTO}h</div>
           </div>
-          <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-lg p-4">
-            <p className="text-xs text-purple-600 font-semibold mb-1">Total Hours</p>
-            <p className="text-2xl font-bold text-purple-900">{summary.total_available_hours}</p>
-            <p className="text-xs text-purple-600 mt-1">/ {summary.total_base_hours} hrs</p>
+          <div className="p-4 rounded-xl bg-emerald-50/50 border border-emerald-100">
+            <div className="text-xs font-semibold text-emerald-600 uppercase tracking-wider mb-1">Net Available</div>
+            <div className="text-2xl font-light text-slate-900">{totalAvailable}h</div>
           </div>
-          <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 border border-yellow-200 rounded-lg p-4">
-            <p className="text-xs text-yellow-600 font-semibold mb-1">PTO Hours</p>
-            <p className="text-2xl font-bold text-yellow-900">{summary.total_pto_hours}</p>
-          </div>
-          <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 border border-indigo-200 rounded-lg p-4">
-            <p className="text-xs text-indigo-600 font-semibold mb-1">Utilization</p>
-            <p className="text-2xl font-bold text-indigo-900">{summary.utilization_rate}%</p>
+          <div className="p-4 rounded-xl bg-indigo-50/50 border border-indigo-100">
+            <div className="text-xs font-semibold text-indigo-600 uppercase tracking-wider mb-1">Team Load</div>
+            <div className="text-2xl font-light text-slate-900">{teamUtilization}%</div>
           </div>
         </div>
+      </div>
 
-        {/* Employee Capacity Table */}
+      {/* Breakdown Table */}
+      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b-2 border-slate-200">
-                <th className="text-left py-3 px-4 font-semibold text-slate-700">Employee</th>
-                <th className="text-center py-3 px-4 font-semibold text-slate-700">Base Hours</th>
-                <th className="text-center py-3 px-4 font-semibold text-slate-700">PTO Hours</th>
-                <th className="text-center py-3 px-4 font-semibold text-slate-700">Holidays</th>
-                <th className="text-center py-3 px-4 font-semibold text-slate-700">Available</th>
-                <th className="text-center py-3 px-4 font-semibold text-slate-700">Status</th>
+              <tr className="bg-slate-50 border-b border-slate-200">
+                <th className="text-left py-4 px-6 font-medium text-slate-600">Employee</th>
+                <th className="text-center py-4 px-6 font-medium text-slate-600">Role</th>
+                <th className="text-center py-4 px-6 font-medium text-slate-600">Base</th>
+                <th className="text-center py-4 px-6 font-medium text-amber-600">PTO Hit</th>
+                <th className="text-center py-4 px-6 font-medium text-emerald-600">Available</th>
+                <th className="text-center py-4 px-6 font-medium text-slate-600">Status</th>
               </tr>
             </thead>
-            <tbody>
-              {data.map((employee, idx) => (
-                <tr
-                  key={employee.employee_id}
-                  className={`border-b border-slate-100 ${
-                    idx % 2 === 0 ? 'bg-slate-50' : 'bg-white'
-                  } hover:bg-slate-100 transition-colors`}
-                >
-                  <td className="py-3 px-4 font-medium text-slate-900">{employee.name}</td>
-                  <td className="text-center py-3 px-4 text-slate-600">
-                    {employee.base_productive_hours} hrs
-                  </td>
-                  <td className="text-center py-3 px-4 text-yellow-600 font-semibold">
-                    {employee.pto_hours_this_week} hrs
-                  </td>
-                  <td className="text-center py-3 px-4 text-slate-600">
-                    {employee.holiday_hours_this_week} hrs
-                  </td>
-                  <td className="text-center py-3 px-4">
-                    <span className="font-bold text-lg text-slate-900">
-                      {employee.net_available_hours} hrs
-                    </span>
-                  </td>
-                  <td className="text-center py-3 px-4">
-                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getStatusBadgeColor(employee.status)}`}>
-                      {employee.status.charAt(0).toUpperCase() + employee.status.slice(1)}
-                    </span>
+            <tbody className="divide-y divide-slate-100">
+              {candidates.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-slate-400 font-light">
+                    No active employees found in this organization.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                candidates.map((emp) => (
+                  <tr key={emp.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="py-4 px-6 font-medium text-slate-900 flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500">
+                        {emp.name.substring(0,2).toUpperCase()}
+                      </div>
+                      {emp.name}
+                    </td>
+                    <td className="text-center py-4 px-6 text-slate-500 font-light">{emp.role}</td>
+                    <td className="text-center py-4 px-6 text-slate-600">{emp.base_hours}h</td>
+                    <td className="text-center py-4 px-6 font-medium text-amber-600">
+                      {emp.pto_hours > 0 ? `-${emp.pto_hours}h` : '—'}
+                    </td>
+                    <td className="text-center py-4 px-6 font-bold text-slate-800">
+                      {emp.net_available}h
+                    </td>
+                    <td className="text-center py-4 px-6">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                        ${emp.status === 'available' ? 'bg-emerald-100 text-emerald-800' : ''}
+                        ${emp.status === 'limited' ? 'bg-yellow-100 text-yellow-800' : ''}
+                        ${emp.status === 'unavailable' ? 'bg-red-100 text-red-800' : ''}
+                      `}>
+                        {emp.status.charAt(0).toUpperCase() + emp.status.slice(1)}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
-
-        {/* Footer Note */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
-          <p className="font-semibold mb-1">💡 Capacity Note</p>
-          <p>
-            Available hours are calculated as: Base Hours - PTO - Holidays. This data updates automatically 
-            when managers approve or reject leave requests.
-          </p>
+        <div className="bg-slate-50 border-t border-slate-200 p-4 text-xs text-slate-500 flex items-center gap-2">
+           <AlertCircle className="w-4 h-4 text-slate-400" />
+           Calculations reflect the current work week. Managers can approve leaves to see instant updates.
         </div>
       </div>
     </div>
   );
 };
-
-export default CapacityAnalysis;
