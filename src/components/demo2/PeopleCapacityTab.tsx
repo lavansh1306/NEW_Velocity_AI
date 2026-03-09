@@ -234,12 +234,35 @@ export default function PeopleCapacityTab() {
     console.log('[PeopleCapacity] recalculateTeamForDateRange called with:', {
       startDate,
       allIssuesCount: allIssues.length,
-      allTeamCount: allTeam.length
+      allTeamCount: allTeam.length,
+      memberMapSize: memberMap.size
     });
 
     // If we have no team members at all, return
     if (allTeam.length === 0) {
-      console.log('[PeopleCapacity] No team members to calculate');
+      if (memberMap.size === 0) {
+        console.log('[PeopleCapacity] No team members to calculate');
+        setTeam([]);
+        setMetrics({ totalMembers: 0, avgUtilization: 0, overloadedCount: 0, availableCapacity: 0 });
+        return;
+      }
+      // If memberMap has members but allTeam is empty, rebuild from memberMap
+      console.log('[PeopleCapacity] allTeam is empty but memberMap has members, rebuilding...');
+      const rebuildTeam: TeamMember[] = Array.from(memberMap.entries()).map(([email, data]) => ({
+        email,
+        name: data.displayName,
+        role: data.dbRole,
+        skills: data.dbSkills?.length > 0 ? data.dbSkills : ['—'],
+        utilization: 0,
+        totalHours: 0,
+        availableCapacity: 160,
+        issueCount: 0,
+        projects: 0,
+        status: 'healthy',
+        avatar: getInitials(data.displayName)
+      }));
+      setTeam(rebuildTeam);
+      setMetrics(calculateMetrics(rebuildTeam));
       return;
     }
 
@@ -468,23 +491,55 @@ export default function PeopleCapacityTab() {
         freshIssues = jiraIssues;
       }
 
-      // Fetch team members from database
-      const { data: memberData, error: memberError } = await supabase
-        .from('organization_members')
-        .select('id, email, display_name, role, skills')
-        .eq('org_id', orgId);
+      // Fetch teams for this organization
+      const { data: teams, error: teamsError } = await supabase
+        .from('teams')
+        .select('id')
+        .eq('organization_id', orgId);
+
+      if (teamsError) {
+        console.warn('[PeopleCapacity] Error fetching teams:', teamsError);
+      }
+
+      const teamIds = (teams || []).map(t => t.id);
+      if (teamIds.length === 0) {
+        console.log('[PeopleCapacity] No teams found for this organization');
+        setAllIssues([]);
+        setMemberMap(new Map());
+        return;
+      }
+
+      // Fetch team members from team_members table with user info
+      const { data: teamMembersData, error: memberError } = await supabase
+        .from('team_members')
+        .select(`
+          id,
+          team_id,
+          user_id,
+          email,
+          display_name,
+          role,
+          status,
+          users!team_members_user_id_fkey (id, email, name, role)
+        `)
+        .in('team_id', teamIds);
 
       if (memberError) {
-        console.warn('[PeopleCapacity] Error fetching members:', memberError);
+        console.warn('[PeopleCapacity] Error fetching team members:', memberError);
       }
 
       const newMemberMap = new Map<string, any>();
-      (memberData || []).forEach((member: any) => {
-        newMemberMap.set(member.email, {
+      (teamMembersData || []).forEach((member: any) => {
+        // Use email from team_members first, then from users table
+        const email = member.email || member.users?.email || 'unknown';
+        const displayName = member.display_name || member.users?.name || member.email?.split('@')[0] || 'Unknown';
+        const role = member.role || member.users?.role || 'employee';
+        
+        newMemberMap.set(email, {
           dbId: member.id,
-          displayName: member.display_name || member.email.split('@')[0],
-          dbRole: member.role || 'employee',
-          dbSkills: Array.isArray(member.skills) ? member.skills : []
+          displayName: displayName,
+          dbRole: role,
+          dbSkills: [] // Skills not stored in team_members, can be extended later
         });
       });
 
@@ -554,86 +609,135 @@ export default function PeopleCapacityTab() {
           allIssuesData = jiraIssues;
         }
 
-        // Fetch team members with their skills from organization_members table
-        const { data: memberData, error: memberError } = await supabase
-          .from('organization_members')
-          .select('id, email, display_name, role, skills')
-          .eq('org_id', orgId);
+// Fetch teams for this organization
+      const { data: teams, error: teamsError } = await supabase
+        .from('teams')
+        .select('id')
+        .eq('organization_id', orgId);
 
-        if (memberError) {
-          console.warn('[PeopleCapacity] Error fetching members:', memberError);
+      if (teamsError) {
+        console.warn('[PeopleCapacity] Error fetching teams:', teamsError);
+      }
+
+      const teamIds = (teams || []).map(t => t.id);
+      if (teamIds.length === 0) {
+        console.log('[PeopleCapacity] No teams found for this organization');
+        setAllTeam([]);
+        setTeam([]);
+        setLoading(false);
+        return;
+      }
+
+      // Fetch team members from team_members table with user info
+      const { data: teamMembersData, error: memberError } = await supabase
+        .from('team_members')
+        .select(`
+          id,
+          team_id,
+          user_id,
+          email,
+          display_name,
+          role,
+          status,
+          users!team_members_user_id_fkey (id, email, name, role)
+        `)
+        .in('team_id', teamIds);
+
+      if (memberError) {
+        console.warn('[PeopleCapacity] Error fetching team members:', memberError);
+      }
+
+      const newMemberMap = new Map<string, any>();
+      (teamMembersData || []).forEach((member: any) => {
+        // Use email from team_members first, then from users table
+        const email = member.email || member.users?.email || 'unknown';
+        const displayName = member.display_name || member.users?.name || member.email?.split('@')[0] || 'Unknown';
+        const role = member.role || member.users?.role || 'employee';
+        
+        newMemberMap.set(email, {
+          dbId: member.id,
+          displayName: displayName,
+          dbRole: role,
+          dbSkills: [] // Skills not stored in team_members, can be extended later
+        });
+      });
+      setMemberMap(newMemberMap);
+
+        // Initialize team map with all team members from the org (even if no issues assigned)
+        const teamMap = new Map<string, TeamMember>();
+        const projectMap = new Map<string, Set<string>>();
+        const CAPACITY_PER_PERSON = 160;
+
+        // First, add all team members from memberMap
+        console.log('[PeopleCapacity] Initializing team with', newMemberMap.size, 'team members');
+        newMemberMap.forEach((memberData, email) => {
+          const displayName = memberData.displayName || email.split('@')[0] || 'Unknown';
+          const skills = memberData.dbSkills?.length > 0 ? memberData.dbSkills : ['—'];
+          const dbRole = memberData.dbRole || 'employee';
+
+          teamMap.set(email, {
+            email: email,
+            name: displayName,
+            role: dbRole,
+            skills: skills,
+            utilization: 0,
+            totalHours: 0,
+            availableCapacity: CAPACITY_PER_PERSON,
+            issueCount: 0,
+            projects: 0,
+            status: 'healthy',
+            avatar: getInitials(displayName)
+          });
+          projectMap.set(email, new Set<string>());
+        });
+
+        // Then add issues if available
+        if (Array.isArray(allIssuesData) && allIssuesData.length > 0) {
+          console.log('[PeopleCapacity] Processing', allIssuesData.length, 'issues');
+          allIssuesData.forEach((issue: any) => {
+            const assignee = issue.assigneeEmail || issue.assignee || 'Unassigned';
+            if (assignee === 'Unassigned') return;
+
+            // Get member data from DB
+            const memberData = newMemberMap.get(assignee);
+            
+            // Only include team members that exist in the team_members table for this org
+            if (!memberData) {
+              console.log('[PeopleCapacity] Skipping assignee not in team_members:', assignee);
+              return;
+            }
+
+            const person = teamMap.get(assignee)!;
+            person.issueCount += 1;
+
+            // Track projects assigned
+            if (issue.projectName) {
+              projectMap.get(assignee)!.add(issue.projectName);
+            }
+
+            const estimate = issue.timeestimate_seconds
+              ? Math.round(issue.timeestimate_seconds / 3600)
+              : issue.story_points
+                ? issue.story_points * 4
+                : 4;
+
+            person.totalHours += estimate;
+          });
+        } else {
+          console.warn('[PeopleCapacity] No issues found, showing team members with 0% utilization');
         }
 
-        const newMemberMap = new Map<string, any>();
-        (memberData || []).forEach((member: any) => {
-          newMemberMap.set(member.email, {
-            dbId: member.id,
-            displayName: member.display_name || member.email.split('@')[0],
-            dbRole: member.role || 'employee',
-            dbSkills: Array.isArray(member.skills) ? member.skills : []
-          });
-        });
-        setMemberMap(newMemberMap);
+        const teamArray = Array.from(teamMap.values());
+        const totalMembers = teamArray.length;
 
-        if (!Array.isArray(allIssuesData) || allIssuesData.length === 0) {
-          console.warn('[PeopleCapacity] No issues found');
+        if (totalMembers === 0) {
+          console.warn('[PeopleCapacity] No team members found in organization');
+          setAllIssues([]);
           setAllTeam([]);
           setTeam([]);
           setLoading(false);
           return;
         }
-
-        // Group issues by assignee
-        const teamMap = new Map<string, TeamMember>();
-        const projectMap = new Map<string, Set<string>>();
-        const CAPACITY_PER_PERSON = 160;
-
-        allIssuesData.forEach((issue: any) => {
-          const assignee = issue.assigneeEmail || issue.assignee || 'Unassigned';
-          if (assignee === 'Unassigned') return;
-
-          // Get member data from DB, fallback to Jira data
-          const memberData = newMemberMap.get(assignee);
-          const displayName = memberData?.displayName || issue.assigneeName || assignee.split('@')[0] || 'Unknown';
-          const skills = memberData?.dbSkills?.length > 0 ? memberData.dbSkills : ['—'];
-          const dbRole = memberData?.dbRole || 'employee';
-
-          if (!teamMap.has(assignee)) {
-            teamMap.set(assignee, {
-              email: assignee,
-              name: displayName,
-              role: dbRole,
-              skills: skills,
-              utilization: 0,
-              totalHours: 0,
-              availableCapacity: 0,
-              issueCount: 0,
-              projects: 0,
-              status: 'healthy',
-              avatar: getInitials(displayName)
-            });
-            projectMap.set(assignee, new Set<string>());
-          }
-
-          const person = teamMap.get(assignee)!;
-          person.issueCount += 1;
-
-          // Track projects assigned
-          if (issue.projectName) {
-            projectMap.get(assignee)!.add(issue.projectName);
-          }
-
-          const estimate = issue.timeestimate_seconds
-            ? Math.round(issue.timeestimate_seconds / 3600)
-            : issue.story_points
-              ? issue.story_points * 4
-              : 4;
-
-          person.totalHours += estimate;
-        });
-
-        const teamArray = Array.from(teamMap.values());
-        const totalMembers = teamArray.length;
 
         console.log(`[PeopleCapacity] Processed ${totalMembers} team members`);
 
