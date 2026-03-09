@@ -1,5 +1,5 @@
 import { fetchProjectsHybrid, fetchAllIssuesHybrid } from '@/lib/jiraDbClient';
-import type { KPIData, Deadline, GanttMember, DashboardData } from '@/types/dashboard';
+import type { KPIData, Deadline, GanttMember, DashboardData, GanttTask } from '@/types';
 
 /**
  * Main dashboard data fetcher

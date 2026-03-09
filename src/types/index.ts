@@ -1,1 +1,470 @@
-export * from './dashboard';
+// ==================== SHARED TYPESCRIPT TYPES (v1 Schema Aligned) ====================
+
+// ── Backend Data Model (Supabase) ──────────────────────────────
+
+/** Organization entity — maps to `organizations` table */
+export interface Organization {
+    id: string;
+    name: string;
+    slug: string;
+    subscription_tier: string;
+    status: string;
+    work_hours_per_week: number;
+    work_days_per_week: number;
+    week_starts_on: string;
+    fiscal_year_start: string;
+    target_utilization: number;
+}
+
+/** Core user entity — maps to `users` table */
+export interface User {
+    id: string;
+    organization_id: string;
+    email: string;
+    name: string;
+    role: string;
+    capacity_hours_per_week: number;
+    is_active: boolean;
+}
+
+/** Team entity — maps to `teams` table */
+export interface Team {
+    id: string;
+    organization_id: string;
+    name: string;
+}
+
+/** Team ↔ User mapping — maps to `team_members` table */
+export interface TeamMember {
+    id: string;
+    team_id: string;
+    user_id: string;
+    role: string;
+}
+
+/** Project entity — maps to `projects` table */
+export interface Project {
+    id: string;
+    organization_id: string;
+    team_id: string;
+    name: string;
+    source: 'internal' | 'jira';
+    status: 'active' | 'completed';
+}
+
+/** Task entity — maps to `tasks` table */
+export interface Task {
+    id: string;
+    project_id: string;
+    jira_issue_id?: string;
+    name: string;
+    estimated_hours: number;
+    actual_hours: number;
+    status: string;
+}
+
+/** Task ↔ User assignment — maps to `task_assignments` table */
+export interface TaskAssignment {
+    id: string;
+    task_id: string;
+    user_id: string;
+    allocated_hours_per_week: number;
+    start_date: string;
+    end_date: string;
+}
+
+/** User skill — maps to `user_skills` table */
+export interface UserSkill {
+    id: string;
+    user_id: string;
+    skill_name: string;
+    proficiency_level: 'beginner' | 'mid' | 'advanced';
+    experience_years: number;
+    source: 'manual' | 'llm' | 'project_derived';
+    confidence_score: number;
+}
+
+/** Holiday — maps to `holidays` table */
+export interface Holiday {
+    id: string;
+    organization_id: string;
+    name: string;
+    date: string;
+}
+
+/** Leave type — maps to `leave_types` table */
+export interface LeaveType {
+    id: string;
+    organization_id: string;
+    name: string;
+    annual_quota: number;
+}
+
+/** Leave request — maps to `leave_requests` table */
+export interface LeaveRequest {
+    id: string;
+    organization_id: string;
+    user_id: string;
+    leave_type_id: string;
+    start_date: string;
+    end_date: string;
+    status: 'approved' | 'pending';
+    // Backwards compatibility for UI
+    leave_type?: string;
+}
+
+/** Leave balance — maps to `employee_leave_balances` table */
+export interface EmployeeLeaveBalance {
+    id: string;
+    organization_id: string;
+    user_id: string;
+    leave_type_id: string;
+    year: number;
+    total_allocated: number;
+    used_days: number;
+    pending_days: number;
+}
+
+// ── Planning Data Model (pre-execution) ────────────────────────
+
+/** Project plan — maps to `project_plans` table */
+export interface ProjectPlan {
+    id: string;
+    organization_id: string;
+    created_by: string;
+    title: string;
+    status: 'draft' | 'published';
+}
+
+/** Plan task — maps to `plan_tasks` table (AI-generated decomposition) */
+export interface PlanTask {
+    id: string;
+    plan_id: string;
+    task_name: string;
+    estimated_hours: number;
+    required_skills: string[]; // JSONB in DB
+}
+
+/** Plan task match — maps to `plan_task_matches` table */
+export interface PlanTaskMatch {
+    id: string;
+    plan_task_id: string;
+    user_id: string;
+    match_percentage: number;
+    is_selected: boolean;
+}
+
+// ── Derived / View-model types (composed from backend data) ────
+
+/** Legacy Plan Team Candidate — used in PlanMyProjectScreen UI */
+export interface PlanTeamCandidate {
+    id: string;
+    plan_id: string;
+    user_id: string;
+    name: string;
+    role: string;
+    avatar: string;
+    match_percentage: number;
+    availability: number;
+    task_fit: string[];
+}
+
+/** Team member card — derived from User + TaskAssignments */
+export interface TeamMemberView {
+    id: string;
+    name: string;
+    role: string;
+    avatar: string;
+    email: string;
+    skills: string[];
+    utilization: number;
+    projects: number;
+    status: 'healthy' | 'overloaded';
+    availability: number;
+    capacity_hours_per_week: number;
+}
+
+/** Project list item — derived from Project + Tasks + TaskAssignments */
+export interface ProjectListItem {
+    id: string;
+    name: string;
+    description: string;
+    status: string;
+    deadline: string;
+    health: number;
+    progress: number;
+    team: string[];
+    alert: boolean;
+}
+
+/** Person detail — derived from User + Tasks + Skills + AI */
+export interface PersonDetailView {
+    capacityTimeline: { week: string; allocated: number; available: number }[];
+    projects: { name: string; hours: number }[];
+    skills: { name: string; proficiency: number }[];
+    recommendations: any[]; // Placeholder for Import AISuggestion
+}
+
+/** Pending skill verification — derived from UserSkill + User */
+export interface PendingSkillView {
+    id: number;
+    person: string;
+    avatar: string;
+    skill: string;
+    selfRated: string;
+    suggestedBy: 'self' | 'ai';
+    evidence: string;
+}
+
+/** Notification item (in-app) */
+export interface NotificationItem {
+    id: number;
+    type: 'alert' | 'success' | 'warning' | 'info';
+    title: string;
+    description: string;
+    time: string;
+    read: boolean;
+}
+
+/** Activity feed item */
+export interface ActivityItem {
+    user: string;
+    action: string;
+    target: string;
+    project: string | null;
+    time: string;
+    avatar: string;
+}
+
+/** Activity feed group */
+export interface ActivityGroup {
+    date: string;
+    items: ActivityItem[];
+}
+
+/** Report: capacity trend data point */
+export interface CapacityTrendPoint {
+    week: string;
+    engineering: number;
+    design: number;
+    product: number;
+}
+
+/** Report: role distribution row */
+export interface RoleDistribution {
+    role: string;
+    allocated: number;
+    available: number;
+    utilization: number;
+}
+
+/** Report: resource anomaly */
+export interface ResourceAnomaly {
+    name: string;
+    role: string;
+    issue: string;
+    impact: string;
+}
+
+/** Report: project health trend point */
+export interface HealthTrendPoint {
+    month: string;
+    health: number;
+    risks: number;
+}
+
+/** Report: project health row */
+export interface ProjectHealthRow {
+    name: string;
+    health: number;
+    trend: string;
+    issues: number;
+    budget: number;
+}
+
+/** Employee project view */
+export interface EmployeeProjectView {
+    id: number;
+    name: string;
+    dates: string;
+    remaining: string;
+    health: number;
+    healthColor: string;
+    status: string;
+    statusColor: string;
+    progress: number;
+    yourHours: string;
+    team: string[];
+    insight: { text: string; type: string } | null;
+}
+
+/** Employee weekly work row */
+export interface EmployeeWeeklyWork {
+    name: string;
+    allocated: string;
+    status: string;
+    progress: number;
+    statusColor: string;
+}
+
+/** Employee upcoming deadline */
+export interface EmployeeDeadline {
+    date: string;
+    title: string;
+    sub: string;
+    iconName: string;
+}
+
+/** Timesheet week row data */
+export interface WeekRowData {
+    id: string;
+    type: 'project' | 'adhoc';
+    project: string;
+    task: string;
+    suggested: number[];
+    hours: number[];
+}
+
+/** Timesheet week metadata */
+export interface TimesheetWeekMeta {
+    status: string;
+    rows: WeekRowData[];
+}
+
+/** Past weeks summary */
+export interface PastWeekSummary {
+    offset: number;
+    label: string;
+    hours: number;
+    status: 'Approved' | 'Pending Review';
+}
+
+/** Leave history entry */
+export interface LeaveHistoryEntry {
+    type: string;
+    start: string;
+    end: string;
+    duration: string;
+    status: string;
+    notes: string;
+}
+
+/** Manager leave request view */
+export interface ManagerLeaveRequestView {
+    employee: string;
+    dateRange: string;
+    type: string;
+    hours: number;
+    status: string;
+    avatar: string;
+    daysCount: number;
+}
+
+// ── UI-only types (not stored in DB) ───────────────────────────
+
+/** Navigation item in sidebar */
+export interface NavItem {
+    id: string;
+    path: string;
+    label: string;
+    icon: React.ReactNode;
+    badge: number;
+}
+
+/** KPI card data */
+export interface KPIData {
+    label: string;
+    value: string | number;
+    sublabel?: string;
+    trend?: 'up' | 'down';
+}
+
+/** Dashboard summary data */
+export interface DashboardData {
+    kpis: KPIData[];
+    deadlines: Deadline[];
+    gantt: GanttMember[];
+    weekDates: any[]; // Deprecated but kept for type compliance
+}
+
+/** Team member (Gantt row) */
+export interface GanttMember {
+    name: string;
+    role: string;
+    avatar: string;
+    tasks: GanttTask[];
+}
+
+export interface GanttTask {
+    name: string;
+    start?: number;
+    duration?: number;
+    status: 'track' | 'risk';
+    project: string;
+    startDate: string; // Restored for UI compatibility
+    endDate: string;   // Restored for UI compatibility
+}
+
+/** Upcoming deadline */
+export interface Deadline {
+    project: string;
+    deadline: string;
+    daysLeft: number;
+    status: string;
+}
+
+/** Notification */
+export interface AppNotification {
+    id: number;
+    title: string;
+    message: string;
+    time: string;
+    type: string;
+    path: string;
+    read: boolean;
+}
+
+/** Role configuration (Settings) */
+export interface RoleConfig {
+    id: string;
+    name: string;
+    utilizationTarget: number;
+    billableRate: number;
+    permissions: string[];
+    color: string;
+}
+
+/** Permission definition */
+export interface Permission {
+    key: string;
+    label: string;
+}
+
+/** Notification preference categories */
+export interface NotifCategory {
+    key: string;
+    label: string;
+    description: string;
+}
+
+/** Integration definition */
+export interface Integration {
+    name: string;
+    description: string;
+    connected: boolean;
+}
+
+/** Capacity data point (chart) */
+export interface CapacityDataPoint {
+    week: string;
+    utilization: number;
+    available: number;
+}
+
+/** Team member (setup screen) */
+export interface SetupTeamMember {
+    name: string;
+    email: string;
+    role: string;
+    skills: string[];
+}

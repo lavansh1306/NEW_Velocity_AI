@@ -1,11 +1,11 @@
 import { VelocityAISidebar } from '@/components/dashboard/VelocityAISidebar';
-import ProjectCheckView from '@/components/ml-model';
+import { PlanMyProjectScreen } from '@/components/PlanMyProjectScreen';
 
 export default function Plan() {
   return (
     <VelocityAISidebar>
       <div className="min-h-screen bg-[#FAFAF9]">
-        <ProjectCheckView />
+        <PlanMyProjectScreen />
       </div>
     </VelocityAISidebar>
   );

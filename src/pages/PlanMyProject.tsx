@@ -1,13 +1,12 @@
-import { Header } from '@/components/Header';
-import SmartProgressTracker from '@/components/smart-progress';
+import { PlanMyProjectScreen } from '@/components/PlanMyProjectScreen';
+import { VelocityAISidebar } from '@/components/dashboard/VelocityAISidebar';
 
 export default function PlanMyProject() {
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <SmartProgressTracker />
+    <VelocityAISidebar>
+      <div className="min-h-screen bg-[#FAFAF9]">
+        <PlanMyProjectScreen />
       </div>
-    </div>
+    </VelocityAISidebar>
   );
 }
