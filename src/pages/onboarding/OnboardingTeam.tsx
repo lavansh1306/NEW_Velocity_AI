@@ -53,12 +53,22 @@ export default function OnboardingTeam() {
     try {
       // Only save members that have an email
       const validMembers = members.filter(m => m.email.trim());
+      console.log('[OnboardingTeam] handleContinue called with', { validMembersCount: validMembers.length, members });
       if (validMembers.length > 0) {
+        console.log('[OnboardingTeam] Saving team members:', validMembers);
         await saveTeamMembers(validMembers);
+        console.log('[OnboardingTeam] Team members saved successfully');
+      } else {
+        console.log('[OnboardingTeam] No valid team members to save, skipping');
       }
       navigate('/onboarding/settings');
-    } catch {
-      // error shown via context
+    } catch (error: any) {
+      console.error('[OnboardingTeam] Error:', error);
+      console.error('[OnboardingTeam] Error details:', {
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint,
+      });
     }
   };
 

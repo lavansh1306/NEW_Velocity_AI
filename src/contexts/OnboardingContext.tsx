@@ -30,6 +30,7 @@ export interface Holiday {
 
 interface OnboardingContextType {
   orgId: string | null;
+  teamId: string | null;
   orgName: string | null;
   inviteCode: string | null;
   loading: boolean;
@@ -69,6 +70,7 @@ function slugify(name: string): string {
 export const OnboardingProvider = ({ children }: { children: React.ReactNode }) => {
   const { user, refreshOrg } = useAuth();
   const [orgId, setOrgId] = useState<string | null>(null);
+  const [teamId, setTeamId] = useState<string | null>(null);
   const [orgName, setOrgName] = useState<string | null>(null);
   const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -76,7 +78,7 @@ export const OnboardingProvider = ({ children }: { children: React.ReactNode }) 
 
   const clearError = useCallback(() => setError(null), []);
 
-  // Step 1: Create org + add current user as owner
+  // Step 1: Create org + create default team + add current user as team lead
   const createOrganization = useCallback(async (name: string): Promise<string> => {
     if (!user) throw new Error('You must be logged in');
     setLoading(true);
@@ -110,45 +112,88 @@ export const OnboardingProvider = ({ children }: { children: React.ReactNode }) 
 
       if (orgError) throw orgError;
 
-      // Add current user as owner
-      const { error: memberError } = await supabase
-        .from('organization_members')
+      // Create default team for this organization
+      const { data: team, error: teamError } = await supabase
+        .from('teams')
         .insert({
-          org_id: org.id,
+          organization_id: org.id,
+          name: `${name} Team`,
+        })
+        .select('id')
+        .single();
+
+      if (teamError) {
+        console.error('[Onboarding] Failed to create team:', teamError);
+        throw teamError;
+      }
+
+      console.log('[Onboarding] Team created:', team.id);
+
+      // Check if user record already exists
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('id')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      // Create user record in the users table (required for FK constraint) only if not exists
+      if (!existingUser) {
+        const { data: appUser, error: userError } = await supabase
+          .from('users')
+          .insert({
+            id: user.id,
+            organization_id: org.id,
+            email: user.email,
+            name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+            role: 'admin',
+            is_active: true,
+          })
+          .select('id')
+          .single();
+
+        if (userError) {
+          console.error('[Onboarding] Failed to create user record:', userError);
+          throw userError;
+        }
+
+        console.log('[Onboarding] User record created:', appUser.id);
+      } else {
+        console.log('[Onboarding] User record already exists:', existingUser.id);
+      }
+
+      // Add current user as team lead
+      const { error: memberError } = await supabase
+        .from('team_members')
+        .insert({
+          team_id: team.id,
           user_id: user.id,
-          role: 'owner',
-          email: user.email,
-          display_name: user.user_metadata?.full_name || user.email?.split('@')[0] || '',
+          role: 'lead',
         });
 
-      if (memberError) throw memberError;
+      if (memberError) {
+        console.error('[Onboarding] Failed to add user as team lead:', memberError);
+        throw memberError;
+      }
 
-      // Set org context globally
+      console.log('[Onboarding] User added as team lead');
+
+      // Set org & team context globally
       setOrgId(org.id);
+      setTeamId(team.id);
       setOrgName(org.name);
       setCurrentOrgId(org.id);
       setCurrentOrgRole('owner');
       setCurrentOrgName(org.name);
 
-      // Also generate a default invite code for this org
+      // Generate default invite code
       const code = generateCode(name);
-      const { error: inviteError } = await supabase
-        .from('org_invites')
-        .insert({
-          org_id: org.id,
-          invite_code: code,
-          created_by: user.id,
-          role: 'employee',
-        });
+      setInviteCode(code);
 
-      if (!inviteError) {
-        setInviteCode(code);
-      }
-
-      console.log(`[Onboarding] Org created: ${org.name} (${org.id}), invite: ${code}`);
+      console.log(`[Onboarding] Org created: ${org.name} (${org.id}), team: ${team.id}, invite code: ${code}`);
       return org.id;
     } catch (err: any) {
       const msg = err.message || 'Failed to create organization';
+      console.error('[Onboarding] Error in createOrganization:', err);
       setError(msg);
       throw err;
     } finally {
@@ -156,41 +201,142 @@ export const OnboardingProvider = ({ children }: { children: React.ReactNode }) 
     }
   }, [user]);
 
-  // Step 2: Save team members as pending invites
+  // Step 2: Save team member invitations to both users and team_members tables
   const saveTeamMembers = useCallback(async (members: TeamMember[]) => {
-    if (!orgId || !user) return;
+    console.log('[Onboarding] saveTeamMembers called with:', { teamId, orgId, members });
+    
+    if (!teamId || !orgId || !user) {
+      console.error('[Onboarding] Missing required data:', { teamId, orgId, userExists: !!user });
+      throw new Error('Organization or Team not created. Please create organization first.');
+    }
     setLoading(true);
     setError(null);
 
     try {
       // Filter out empty entries
       const validMembers = members.filter(m => m.email.trim());
-      if (validMembers.length === 0) return;
+      if (validMembers.length === 0) {
+        console.log('[Onboarding] No valid team members to save');
+        return;
+      }
 
-      // Upsert pending invites (on conflict with org_id + email, update)
-      const rows = validMembers.map(m => ({
-        org_id: orgId,
-        email: m.email.trim().toLowerCase(),
-        display_name: m.name.trim(),
-        role: 'employee', // all invited members start as employees
-        invited_by: user.id,
-        status: 'pending',
-      }));
+      console.log(`[Onboarding] Attempting to save ${validMembers.length} team member(s)`, validMembers);
 
-      const { error: insertError } = await supabase
-        .from('pending_member_invites')
-        .upsert(rows, { onConflict: 'org_id,email' });
+      // Check which emails already exist in users table for this org
+      const { data: existingEmailsData, error: checkError } = await supabase
+        .from('users')
+        .select('id, email')
+        .eq('organization_id', orgId)
+        .in('email', validMembers.map(m => m.email.trim().toLowerCase()));
 
-      if (insertError) throw insertError;
-      console.log(`[Onboarding] Saved ${rows.length} team member invites`);
+      if (checkError) {
+        console.error('[Onboarding] Error checking existing emails:', checkError);
+      }
+
+      const existingEmailMap = new Map(
+        (existingEmailsData || []).map(u => [u.email, u.id])
+      );
+
+      console.log('[Onboarding] Existing emails:', Array.from(existingEmailMap.keys()));
+
+      // Prepare new users to insert
+      const newUsers = validMembers
+        .filter(m => !existingEmailMap.has(m.email.trim().toLowerCase()))
+        .map(m => ({
+          organization_id: orgId,
+          email: m.email.trim().toLowerCase(),
+          name: m.name.trim(),
+          role: 'employee',
+          is_active: true,
+        }));
+
+      console.log(`[Onboarding] Inserting ${newUsers.length} new user(s)...`);
+
+      // Insert new users
+      let insertedUsers: any[] = [];
+      if (newUsers.length > 0) {
+        const { data: insertedData, error: userInsertError } = await supabase
+          .from('users')
+          .insert(newUsers)
+          .select('id, email');
+
+        if (userInsertError) {
+          console.error('[Onboarding] Failed to insert users:', userInsertError);
+          throw userInsertError;
+        }
+
+        insertedUsers = insertedData || [];
+        console.log(`[Onboarding] Successfully inserted ${insertedUsers.length} user(s)`, insertedUsers);
+      }
+
+      // Build team_members rows with both new and existing users
+      const teamMembersRows = validMembers.map(m => {
+        const email = m.email.trim().toLowerCase();
+        const userId = existingEmailMap.get(email) || insertedUsers.find(u => u.email === email)?.id;
+
+        console.log(`[Onboarding] Team member row for ${email}:`, { userId, email, role: m.role });
+
+        return {
+          team_id: teamId,
+          user_id: userId,
+          email: email,
+          display_name: m.name.trim(),
+          role: m.role?.trim() || 'member',
+          status: userId ? 'active' : 'invited',
+        };
+      });
+
+      console.log(`[Onboarding] Team members rows to insert:`, teamMembersRows);
+
+      // Check which team members already exist
+      const existingTeamMembers = await supabase
+        .from('team_members')
+        .select('user_id, email')
+        .eq('team_id', teamId)
+        .in('email', teamMembersRows.map(r => r.email));
+
+      const existingSet = new Set(
+        (existingTeamMembers.data || []).map(tm => tm.email)
+      );
+
+      // Filter out already existing team members
+      const newTeamMembers = teamMembersRows.filter(tm => !existingSet.has(tm.email));
+
+      if (newTeamMembers.length === 0) {
+        console.log('[Onboarding] All team members already exist');
+        return;
+      }
+
+      // Insert team members
+      const { error: teamMemberError, data: teamMemberData } = await supabase
+        .from('team_members')
+        .insert(newTeamMembers);
+
+      if (teamMemberError) {
+        console.error('[Onboarding] Failed to save team members:', {
+          error: teamMemberError,
+          message: teamMemberError.message,
+          details: teamMemberError.details,
+          hint: teamMemberError.hint,
+          rows: newTeamMembers,
+        });
+        throw teamMemberError;
+      }
+
+      console.log(`[Onboarding] Successfully saved ${newTeamMembers.length} team member(s)`, teamMemberData);
     } catch (err: any) {
       const msg = err.message || 'Failed to save team members';
+      console.error('[Onboarding] Error in saveTeamMembers:', {
+        error: err,
+        message: msg,
+        stack: err.stack,
+      });
       setError(msg);
       throw err;
     } finally {
       setLoading(false);
     }
-  }, [orgId, user]);
+  }, [teamId, orgId, user]);
 
   // Step 3: Save work settings
   const saveSettings = useCallback(async (settings: OrgSettings) => {
@@ -199,21 +345,28 @@ export const OnboardingProvider = ({ children }: { children: React.ReactNode }) 
     setError(null);
 
     try {
+      console.log('[Onboarding] Saving organization settings:', settings);
+      
       const { error: settingsError } = await supabase
-        .from('organization_settings')
-        .upsert({
-          org_id: orgId,
+        .from('organizations')
+        .update({
           work_hours_per_week: settings.workHoursPerWeek,
           work_days_per_week: settings.workDaysPerWeek,
-          week_start_day: settings.weekStartDay,
-          fiscal_year_start: settings.fiscalYearStart,
+          week_starts_on: settings.weekStartDay,
+          fiscal_year_start: settings.fiscalYearStart?.toLowerCase(),
           target_utilization: settings.targetUtilization,
-        }, { onConflict: 'org_id' });
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', orgId);
 
-      if (settingsError) throw settingsError;
-      console.log('[Onboarding] Settings saved');
+      if (settingsError) {
+        console.error('[Onboarding] Failed to save settings:', settingsError);
+        throw settingsError;
+      }
+      console.log('[Onboarding] Settings saved successfully');
     } catch (err: any) {
       const msg = err.message || 'Failed to save settings';
+      console.error('[Onboarding] Error in saveSettings:', err);
       setError(msg);
       throw err;
     } finally {
@@ -228,29 +381,41 @@ export const OnboardingProvider = ({ children }: { children: React.ReactNode }) 
     setError(null);
 
     try {
-      // Remove existing holidays first, then insert new
-      await supabase
-        .from('organization_holidays')
+      console.log('[Onboarding] Saving holidays:', holidays);
+      
+      // Delete existing holidays for this org
+      const { error: deleteError } = await supabase
+        .from('holidays')
         .delete()
-        .eq('org_id', orgId);
+        .eq('organization_id', orgId);
+
+      if (deleteError) {
+        console.error('[Onboarding] Failed to delete existing holidays:', deleteError);
+        throw deleteError;
+      }
 
       if (holidays.length > 0) {
         const rows = holidays.map(h => ({
-          org_id: orgId,
+          organization_id: orgId,
           name: h.name,
           date: h.date,
-          country_template: 'US',
         }));
 
+        console.log('[Onboarding] Inserting new holidays:', rows);
+
         const { error: insertError } = await supabase
-          .from('organization_holidays')
+          .from('holidays')
           .insert(rows);
 
-        if (insertError) throw insertError;
+        if (insertError) {
+          console.error('[Onboarding] Failed to insert holidays:', insertError);
+          throw insertError;
+        }
       }
-      console.log(`[Onboarding] Saved ${holidays.length} holidays`);
+      console.log(`[Onboarding] Saved ${holidays.length} holiday(s) successfully`);
     } catch (err: any) {
       const msg = err.message || 'Failed to save holidays';
+      console.error('[Onboarding] Error in saveHolidays:', err);
       setError(msg);
       throw err;
     } finally {
@@ -266,21 +431,30 @@ export const OnboardingProvider = ({ children }: { children: React.ReactNode }) 
 
     try {
       const code = generateCode(orgName || 'TEAM');
+      console.log('[Onboarding] Generating invite code:', code);
 
       const { error: inviteError } = await supabase
         .from('org_invites')
         .insert({
-          org_id: orgId,
+          organization_id: orgId,
           invite_code: code,
           created_by: user.id,
           role: 'employee',
+          is_active: true,
         });
 
-      if (inviteError) throw inviteError;
+      if (inviteError) {
+        console.error('[Onboarding] Failed to generate invite code:', inviteError);
+        throw inviteError;
+      }
+      
       setInviteCode(code);
+      console.log('[Onboarding] Invite code generated successfully:', code);
       return code;
     } catch (err: any) {
-      setError(err.message || 'Failed to generate invite code');
+      const msg = err.message || 'Failed to generate invite code';
+      console.error('[Onboarding] Error in generateInviteCode:', err);
+      setError(msg);
       throw err;
     } finally {
       setLoading(false);
@@ -294,14 +468,19 @@ export const OnboardingProvider = ({ children }: { children: React.ReactNode }) 
     setError(null);
 
     try {
+      console.log('[Onboarding] Validating invite code:', code);
+      
       // Look up the invite code
       const { data: invite, error: lookupError } = await supabase
         .from('org_invites')
-        .select('id, org_id, role, max_uses, use_count, expires_at, is_active')
+        .select('id, organization_id, role, max_uses, use_count, expires_at, is_active')
         .eq('invite_code', code.trim().toUpperCase())
         .maybeSingle();
 
-      if (lookupError) throw lookupError;
+      if (lookupError) {
+        console.error('[Onboarding] Error looking up invite code:', lookupError);
+        throw lookupError;
+      }
       if (!invite) throw new Error('Invalid invite code. Please check and try again.');
       if (!invite.is_active) throw new Error('This invite code is no longer active.');
       if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
@@ -311,30 +490,79 @@ export const OnboardingProvider = ({ children }: { children: React.ReactNode }) 
         throw new Error('This invite code has reached its maximum uses.');
       }
 
-      // Check if user is already a member
-      const { data: existingMember } = await supabase
-        .from('organization_members')
+      console.log('[Onboarding] Invite code validated:', invite);
+
+      // Look up the org and its default team
+      const { data: org } = await supabase
+        .from('organizations')
+        .select('id, name')
+        .eq('id', invite.organization_id)
+        .single();
+
+      const { data: defaultTeam } = await supabase
+        .from('teams')
         .select('id')
-        .eq('org_id', invite.org_id)
+        .eq('organization_id', invite.organization_id)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .single();
+
+      if (!defaultTeam) {
+        throw new Error('No team found for this organization');
+      }
+
+      // Ensure user record exists in the users table
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('id')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (!existingUser) {
+        console.log('[Onboarding] Creating user record for:', user.id);
+        const { error: createUserError } = await supabase
+          .from('users')
+          .insert({
+            id: user.id,
+            organization_id: invite.organization_id,
+            email: user.email,
+            name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+            role: 'employee',
+            is_active: true,
+          });
+
+        if (createUserError) {
+          console.error('[Onboarding] Failed to create user record:', createUserError);
+          throw createUserError;
+        }
+      }
+
+      // Check if user is already a team member
+      const { data: existingMember } = await supabase
+        .from('team_members')
+        .select('id')
+        .eq('team_id', defaultTeam.id)
         .eq('user_id', user.id)
         .maybeSingle();
 
       if (existingMember) {
-        // Already a member — just set context and proceed
-        console.log('[Onboarding] User already a member of this org');
+        // Already a team member — just set context and proceed
+        console.log('[Onboarding] User already a member of this team');
       } else {
-        // Add user as member
+        // Add user as team member
+        console.log('[Onboarding] Adding user as member to team:', defaultTeam.id);
         const { error: memberError } = await supabase
-          .from('organization_members')
+          .from('team_members')
           .insert({
-            org_id: invite.org_id,
+            team_id: defaultTeam.id,
             user_id: user.id,
-            role: invite.role || 'employee',
-            email: user.email,
-            display_name: user.user_metadata?.full_name || user.email?.split('@')[0] || '',
+            role: 'member',
           });
 
-        if (memberError) throw memberError;
+        if (memberError) {
+          console.error('[Onboarding] Failed to add team member:', memberError);
+          throw memberError;
+        }
 
         // Increment use_count
         await supabase
@@ -343,31 +571,31 @@ export const OnboardingProvider = ({ children }: { children: React.ReactNode }) 
           .eq('id', invite.id);
       }
 
-      // Look up the org name
-      const { data: org } = await supabase
-        .from('organizations')
-        .select('id, name')
-        .eq('id', invite.org_id)
-        .single();
-
       // Set org context
-      setOrgId(invite.org_id);
+      setOrgId(invite.organization_id);
+      setTeamId(defaultTeam.id);
       setOrgName(org?.name || '');
-      setCurrentOrgId(invite.org_id);
+      setCurrentOrgId(invite.organization_id);
       setCurrentOrgRole(invite.role || 'employee');
       setCurrentOrgName(org?.name || '');
 
-      // Also update pending invite if exists
-      await supabase
-        .from('pending_member_invites')
+      // Also update pending team invite if exists
+      const { error: updateError } = await supabase
+        .from('pending_team_members')
         .update({ status: 'accepted' })
-        .eq('org_id', invite.org_id)
+        .eq('team_id', defaultTeam.id)
         .eq('email', (user.email || '').toLowerCase());
+
+      if (updateError) {
+        console.warn('[Onboarding] Warning: Could not update pending team invite status:', updateError);
+      }
+
+      console.log('[Onboarding] User successfully joined organization and team');
 
       // Refresh AuthContext org state
       await refreshOrg();
 
-      console.log(`[Onboarding] Joined org: ${org?.name} (${invite.org_id})`);
+      console.log(`[Onboarding] Joined org: ${org?.name} (${invite.organization_id}), team: ${defaultTeam.id}`);
     } catch (err: any) {
       const msg = err.message || 'Failed to join team';
       setError(msg);
@@ -380,6 +608,7 @@ export const OnboardingProvider = ({ children }: { children: React.ReactNode }) 
   return (
     <OnboardingContext.Provider value={{
       orgId,
+      teamId,
       orgName,
       inviteCode,
       loading,
