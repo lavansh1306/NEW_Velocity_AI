@@ -17,6 +17,18 @@ export interface RawJiraRow {
   fields: string; // JSON string
 }
 
+/**
+ * Raw row from zapier_events.csv
+ */
+export interface RawZapierRow {
+  id: string;
+  timestamp: string;
+  action_name: string;
+  zap_name: string;
+  status: string;
+  user_email: string;
+}
+
 // ========================================
 // ML Candidate interface
 export interface MLCandidate {
@@ -65,36 +77,24 @@ export interface NormalizedEvent {
 }
 
 // ========================================
-// Trend / breakdown helper types used by metrics
+// ========================================
+// Project Health Metrics
 // ========================================
 
-export interface AutomationTrendPoint {
-  weekStart: string;
-  automations: number;
-}
-
-export interface ManualVsAutomatedByApp {
-  app: AppName;
-  manual: number;
-  automated: number;
+export interface ProjectHealthMetrics {
+  compositeScore: number;
+  schedule: number;
+  resource: number;
+  risk: number;
+  quality: number;
 }
 
 // ========================================
 // Aggregated metrics response
 // ========================================
 
-export interface MetricsResponse {
-  automationCoverage: number;
-  totalAutomations: number;
-  estimatedTimeSavedHours: number;
-  estimatedCostSavedUSD: number;
-  hourlyRateUsedUSD: number;
-  automationCoveragePrevious: number;
-  automationCoverageDelta: number;
-  automationTrend: AutomationTrendPoint[];
-  manualVsAutomated: ManualVsAutomatedByApp[];
-  perAppHours?: Record<string, number>;
-  perAppReturns?: Record<string, number>;
-  totalReturns?: number;
-  savingsInvestmentTrend?: { label: string; investmentUSD: number; savingsUSD: number }[];
+export interface ProjectHealthReport {
+  health: ProjectHealthMetrics;
+  lastUpdated: string;
+  projectId: string;
 }

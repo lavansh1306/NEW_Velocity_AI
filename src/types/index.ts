@@ -171,17 +171,54 @@ export interface PlanTeamCandidate {
 
 /** Team member card — derived from User + TaskAssignments */
 export interface TeamMemberView {
-    id: string;
     name: string;
     role: string;
     avatar: string;
-    email: string;
     skills: string[];
     utilization: number;
     projects: number;
-    status: 'healthy' | 'overloaded';
+    status: 'healthy' | 'overloaded' | 'at-risk';
     availability: number;
-    capacity_hours_per_week: number;
+}
+
+/** Pending skill for verification */
+export interface PendingSkillView {
+    id: number;
+    person: string;
+    avatar: string;
+    skill: string;
+    selfRated: string;
+    evidence: string;
+    suggestedBy: 'ai' | 'user';
+}
+
+/** Person detail view model */
+export interface PersonDetailView {
+    capacityTimeline: { week: string; allocated: number; available: number }[];
+    projects: { name: string; hours: number }[];
+    skills: { name: string; proficiency: number }[];
+    recommendations: AISuggestion[];
+}
+
+/** AI Suggestion types */
+export type SuggestionCategory = 'reallocation' | 'overload' | 'risk';
+
+export interface AISuggestionImpact {
+    summary: string;
+    affectedMembers?: string[];
+    affectedProjects?: string[];
+    timelineEffect?: string;
+    hoursImpact?: string;
+    riskLevel?: 'high' | 'medium' | 'low';
+}
+
+export interface AISuggestion {
+    id: string;
+    confidence: number;
+    category: SuggestionCategory;
+    title: string;
+    reasoning: string;
+    impact: AISuggestionImpact;
 }
 
 /** Project list item — derived from Project + Tasks + TaskAssignments */
@@ -197,24 +234,6 @@ export interface ProjectListItem {
     alert: boolean;
 }
 
-/** Person detail — derived from User + Tasks + Skills + AI */
-export interface PersonDetailView {
-    capacityTimeline: { week: string; allocated: number; available: number }[];
-    projects: { name: string; hours: number }[];
-    skills: { name: string; proficiency: number }[];
-    recommendations: any[]; // Placeholder for Import AISuggestion
-}
-
-/** Pending skill verification — derived from UserSkill + User */
-export interface PendingSkillView {
-    id: number;
-    person: string;
-    avatar: string;
-    skill: string;
-    selfRated: string;
-    suggestedBy: 'self' | 'ai';
-    evidence: string;
-}
 
 /** Notification item (in-app) */
 export interface NotificationItem {

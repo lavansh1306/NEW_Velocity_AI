@@ -11,7 +11,7 @@ import { StatusBadge } from './shared/StatusBadge';
 import { KPICard } from './shared/KPICard';
 import { PageHeader } from './shared/PageHeader';
 import { PageSkeleton } from './shared/SkeletonLoader';
-import { useSimulatedLoading } from '@/hooks/useDashboard';
+import { useSimulatedLoading } from '@/hooks/useSimulatedLoading';
 import { getDashboardData } from '@/services/dashboardService';
 import type { KPIData, GanttMember, Deadline } from '../types';
 import CalendarToday from '@mui/icons-material/CalendarToday';
