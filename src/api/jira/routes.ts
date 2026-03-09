@@ -1,9 +1,9 @@
 // src/api/jira/routes.ts
 // API routes for Jira multi-tenant integration — all data scoped by org_id
 import express, { Request, Response } from 'express';
-import { jiraAuth } from './auth.js';
-import { upsertProjects, upsertIssues, getProjects, getIssues, getAllIssues, getJiraConnection, findUserOrg, type DBJiraIssue } from './db.js';
-import * as db from './db.js';
+import { jiraAuth } from './auth';
+import { upsertProjects, upsertIssues, getProjects, getIssues, getAllIssues, getJiraConnection, findUserOrg, type DBJiraIssue } from './db';
+import * as db from './db';
 
 const router = express.Router();
 
@@ -29,36 +29,36 @@ router.post('/auth/disconnect', async (req: Request, res: Response) => {
 // Check connection status
 router.get('/auth/status', async (req: Request, res: Response) => {
   console.log('[Jira Auth Status] ==== STATUS CHECK ====');
-  
+
   const connected = jiraAuth.isConnected(req);
   const siteInfo = await jiraAuth.getSiteInfo(req);
   const availableSites = req.session?.jiraAccessibleResources || [];
   const orgId = req.session?.orgId || null;
-  
+
   console.log('[Jira Auth Status] Connected:', connected);
   console.log('[Jira Auth Status] Available sites in session:', availableSites.length);
   if (availableSites.length > 0) {
     console.log('[Jira Auth Status] Sites:', availableSites.map((s: any) => ({ id: s.id, name: s.name })));
   }
-  
+
   const responseData = {
     connected: connected === true,
     site: siteInfo || null,
     orgId: orgId,
-    availableSites: (availableSites || []).map((s: any) => ({ 
+    availableSites: (availableSites || []).map((s: any) => ({
       id: s.id || '',
       name: s.name || '',
       url: s.url || ''
     })),
   };
-  
+
   console.log('[Jira Auth Status] Response:', responseData);
-  
+
   // Set cache headers to prevent stale responses
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.set('Pragma', 'no-cache');
   res.set('Expires', '0');
-  
+
   res.json(responseData);
 });
 
@@ -66,10 +66,10 @@ router.get('/auth/status', async (req: Request, res: Response) => {
 router.get('/me', async (req: Request, res: Response) => {
   try {
     console.log('[Jira Me] Fetching current user info...');
-    
+
     const accessToken = await jiraAuth.getAccessToken(req);
     const cloudId = await jiraAuth.getCloudId(req);
-    
+
     if (!accessToken || !cloudId) {
       console.log('[Jira Me] Not authenticated');
       return res.status(401).json({ error: 'Not authenticated' });
@@ -89,7 +89,7 @@ router.get('/me', async (req: Request, res: Response) => {
     }
 
     const userData = await meRes.json() as any;
-    console.log('[Jira Me] User data:', { 
+    console.log('[Jira Me] User data:', {
       email: userData.email,
       name: userData.name,
       account_id: userData.account_id
@@ -112,20 +112,20 @@ router.post('/auth/switch-site/:siteId', async (req: Request, res: Response) => 
   const { siteId } = req.params;
   const availableSites = req.session?.jiraAccessibleResources || [];
   const targetSite = availableSites.find((s: any) => s.id === siteId);
-  
+
   console.log('[Jira Router] Switch site request, siteId:', siteId);
   console.log('[Jira Router] Available sites:', availableSites.map((s: any) => s.id));
   console.log('[Jira Router] Target site found:', !!targetSite, targetSite?.name);
-  
+
   if (!targetSite) {
     console.error('[Jira Router] Site not found:', siteId);
     return res.status(404).json({ error: 'Site not found or not accessible' });
   }
-  
+
   // Update session to use this site
   req.session.jiraCloudId = targetSite.id;
   console.log('[Jira Router] Updated jiraCloudId to:', req.session.jiraCloudId);
-  
+
   try {
     await new Promise<void>((resolve, reject) => {
       req.session.save((err) => {
@@ -138,8 +138,8 @@ router.post('/auth/switch-site/:siteId', async (req: Request, res: Response) => 
         }
       });
     });
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       site: { id: targetSite.id, name: targetSite.name, url: targetSite.url }
     });
   } catch (err) {
@@ -153,12 +153,12 @@ router.get('/issues', async (req: Request, res: Response) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.set('Pragma', 'no-cache');
   res.set('Expires', '0');
-  
+
   try {
     console.log('[Jira Issues] Request received, sessionID:', req.sessionID);
     const projectKey = req.query.projectKey as string;
     console.log('[Jira Issues] projectKey:', projectKey);
-    
+
     if (!projectKey) {
       console.log('[Jira Issues] Missing project key');
       return res.status(400).json({ error: 'Project key is required' });
@@ -168,10 +168,10 @@ router.get('/issues', async (req: Request, res: Response) => {
     const accessToken = await jiraAuth.getAccessToken(req);
     const cloudId = await jiraAuth.getCloudId(req);
     const orgId = (req.query.orgId as string) || req.session?.orgId;
-    
+
     if (!accessToken || !cloudId) {
       console.log('[Jira Issues] Not authenticated');
-      return res.status(401).json({ 
+      return res.status(401).json({
         error: 'Not authenticated',
         message: 'Please connect your Jira account first',
         requiresAuth: true,
@@ -193,12 +193,12 @@ router.get('/issues', async (req: Request, res: Response) => {
       'parent', 'project'
     ].join(',');
     const searchUrl = `https://api.atlassian.com/ex/jira/${cloudId}/rest/api/3/search/jql?jql=${encodeURIComponent(jql)}&maxResults=100&fields=${encodeURIComponent(fields)}&expand=names`;
-    
+
     console.log('[Jira Issues] Search URL:', searchUrl);
     console.log('[Jira Issues] JQL:', jql);
     console.log('[Jira Issues] CloudID:', cloudId);
     console.log('[Jira Issues] AccessToken exists:', !!accessToken);
-    
+
     const response = await fetch(searchUrl, {
       method: 'GET',
       headers: {
@@ -208,11 +208,11 @@ router.get('/issues', async (req: Request, res: Response) => {
     });
 
     console.log('[Jira Issues] Response status:', response.status);
-    
+
     if (!response.ok) {
       const errorText = await response.text();
       console.error('[Jira Issues] Fetch issues failed:', response.status, errorText);
-      return res.status(response.status).json({ 
+      return res.status(response.status).json({
         error: 'Failed to fetch Jira issues',
         details: errorText,
         projectKey,
@@ -223,7 +223,7 @@ router.get('/issues', async (req: Request, res: Response) => {
     const data = await response.json() as any;
     console.log('[Jira Issues] Received', data.issues?.length || 0, 'issues for project', projectKey);
     const MS_PER_DAY = 1000 * 60 * 60 * 24;
-    
+
     const issues = (data.issues || []).map((issue: any) => {
       const fields = issue.fields || {};
       const created = fields.created || null;
@@ -231,7 +231,7 @@ router.get('/issues', async (req: Request, res: Response) => {
       const due = fields.duedate || null;
       const resolved = fields.resolutiondate || null;
       const startDate = fields.customfield_10015 || created || null;
-      
+
       // Time tracking
       const timeTracking = fields.timetracking || {};
       const originalEstimate = timeTracking.originalEstimate || '';
@@ -240,11 +240,11 @@ router.get('/issues', async (req: Request, res: Response) => {
       const timeSpentSeconds = timeTracking.timeSpentSeconds || fields.timespent || 0;
       const remainingEstimate = timeTracking.remainingEstimate || '';
       const remainingEstimateSeconds = timeTracking.remainingEstimateSeconds || 0;
-      
+
       // Labels and components
       const labels = (fields.labels || []);
       const components = (fields.components || []).map((c: any) => c.name || c);
-      
+
       // Sprint (often in customfield_10018 - extract sprint name)
       let sprint = '';
       const sprintField = fields.customfield_10018;
@@ -256,21 +256,21 @@ router.get('/issues', async (req: Request, res: Response) => {
         const match = sprintField.match(/name=([^,\]]+)/);
         sprint = match ? match[1] : sprintField;
       }
-      
+
       // Story points (customfield_10016 - varies by instance)
       const storyPoints = fields.customfield_10016 || 0;
-      
+
       // Epic link (customfield_10014)
       const epicKey = fields.customfield_10014 || fields.parent?.key || '';
-      
+
       // Parent (for subtasks)
       const parentKey = fields.parent?.key || '';
-      
+
       // Project info
       const projectName = fields.project?.name || projectKey;
-      
-      const duration = startDate && due 
-        ? Math.ceil((new Date(due).getTime() - new Date(startDate).getTime()) / MS_PER_DAY) 
+
+      const duration = startDate && due
+        ? Math.ceil((new Date(due).getTime() - new Date(startDate).getTime()) / MS_PER_DAY)
         : "";
 
       return {
@@ -388,7 +388,7 @@ router.get('/issues', async (req: Request, res: Response) => {
     console.log('[Jira Issues] Response sent!');
   } catch (err) {
     console.error('[Jira Issues] Error:', err);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to fetch Jira issues',
       details: err instanceof Error ? err.message : 'Unknown error'
     });
@@ -400,19 +400,19 @@ router.get('/issues', async (req: Request, res: Response) => {
 router.get('/projects', async (req: Request, res: Response) => {
   try {
     console.log('[Jira Projects] Request received, sessionID:', req.sessionID);
-    
+
     // Get user's access token and cloudId
     const accessToken = await jiraAuth.getAccessToken(req);
     const cloudId = await jiraAuth.getCloudId(req);
     const orgId = (req.query.orgId as string) || req.session?.orgId;
-    
+
     console.log('[Jira Projects] accessToken:', accessToken ? 'EXISTS' : 'NULL');
     console.log('[Jira Projects] cloudId:', cloudId);
     console.log('[Jira Projects] accessToken value (first 20 chars):', accessToken ? accessToken.substring(0, 20) : 'null');
-    
+
     if (!accessToken || !cloudId) {
       console.log('[Jira Projects] Not authenticated');
-      return res.status(401).json({ 
+      return res.status(401).json({
         error: 'Not authenticated',
         message: 'Please connect your Jira account first',
         requiresAuth: true,
@@ -422,10 +422,10 @@ router.get('/projects', async (req: Request, res: Response) => {
     // Fetch projects from Jira Cloud API using correct OAuth format with cloudId
     // Use /rest/api/2/project which works with read:jira-work scope
     const url = `https://api.atlassian.com/ex/jira/${cloudId}/rest/api/2/project`;
-    
+
     console.log('[Jira Projects] Fetching from:', url);
     console.log('[Jira Projects] Authorization header:', `Bearer ${accessToken.substring(0, 20)}...`);
-    
+
     const response = await fetch(url, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -438,20 +438,20 @@ router.get('/projects', async (req: Request, res: Response) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('[Jira API] Fetch projects failed:', response.status, errorText);
-      return res.status(response.status).json({ 
+      return res.status(response.status).json({
         error: 'Failed to fetch Jira projects',
-        details: errorText 
+        details: errorText
       });
     }
 
     const data = await response.json() as any;
     console.log('[Jira Projects] Raw data type:', Array.isArray(data) ? 'Array' : typeof data);
     console.log('[Jira Projects] Raw data length/keys:', Array.isArray(data) ? data.length : Object.keys(data).length);
-    
+
     // API v2 /project returns direct array or paginated response
     const projectArray = Array.isArray(data) ? data : (data.values || data.projects || []);
     console.log('[Jira Projects] Project array length:', projectArray.length);
-    
+
     const projects = projectArray.map((p: any) => ({
       id: p.id,
       key: p.key,
@@ -488,7 +488,7 @@ router.get('/projects', async (req: Request, res: Response) => {
     console.log('[Jira Projects] Response sent!');
   } catch (err) {
     console.error('[Jira API] Error fetching projects:', err);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to fetch Jira projects',
       details: err instanceof Error ? err.message : 'Unknown error'
     });
@@ -537,7 +537,7 @@ router.post('/extract-employee-skills', async (req: Request, res: Response) => {
         // Get project issues
         const accessToken = await jiraAuth.getAccessToken(req);
         const cloudId = await jiraAuth.getCloudId(req);
-        
+
         if (!accessToken || !cloudId) {
           console.warn(`[Jira Extract] Missing auth for project ${projectKey}`);
           continue;
@@ -549,7 +549,7 @@ router.post('/extract-employee-skills', async (req: Request, res: Response) => {
             'Accept': 'application/json',
           },
         });
-        
+
         if (!issuesResponse.ok) {
           console.warn(`[Jira Extract] Failed to fetch issues for project ${projectKey}`);
           continue;
@@ -642,12 +642,12 @@ router.post('/extract-employee-skills', async (req: Request, res: Response) => {
 router.get('/team-members', async (req: Request, res: Response) => {
   try {
     console.log('[Jira Team Members] Request received');
-    
+
     const accessToken = await jiraAuth.getAccessToken(req);
     const cloudId = await jiraAuth.getCloudId(req);
-    
+
     if (!accessToken || !cloudId) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         error: 'Not authenticated',
         message: 'Please connect your Jira account first',
       });
@@ -688,7 +688,7 @@ router.get('/team-members', async (req: Request, res: Response) => {
       try {
         const jql = `project = ${project.key}`;
         const searchUrl = `https://api.atlassian.com/ex/jira/${cloudId}/rest/api/3/search/jql?jql=${encodeURIComponent(jql)}&maxResults=100&fields=assignee,summary,description,issuetype`;
-        
+
         const issuesResponse = await fetch(searchUrl, {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
@@ -757,15 +757,15 @@ router.get('/team-members', async (req: Request, res: Response) => {
 
     console.log(`[Jira Team Members] Extracted ${teamMembers.length} team members`);
 
-    res.json({ 
+    res.json({
       success: true,
       count: teamMembers.length,
-      teamMembers 
+      teamMembers
     });
 
   } catch (error) {
     console.error('[Jira Team Members] Error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to fetch team members',
       details: error instanceof Error ? error.message : 'Unknown error'
     });

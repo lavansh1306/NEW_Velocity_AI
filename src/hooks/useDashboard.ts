@@ -1,19 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-
-/**
- * Simulate a loading state on mount for prototype pages.
- * Returns [isLoading, setIsLoading] — loading auto-clears after `ms`.
- */
-export function useSimulatedLoading(ms = 800): [boolean, React.Dispatch<React.SetStateAction<boolean>>] {
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), ms);
-    return () => clearTimeout(timer);
-  }, [ms]);
-
-  return [isLoading, setIsLoading];
-}
+export { useSimulatedLoading } from './useSimulatedLoading';
 
 /**
  * Close a dropdown/popover when clicking outside the ref element.
