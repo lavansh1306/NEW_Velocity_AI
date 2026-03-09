@@ -14,10 +14,9 @@ import VelocityAI from "./pages/VelocityAI";
 import Projects from "./components/projects/Projects";
 import ProjectAnalytics from "./components/projects/ProjectAnalytics";
 import ProjectDetailNew from "../archives/ProjectDetailNew";
-import DebugNormalization from "./pages/DebugNormalization";
 import JiraDashboard from "./pages/JiraDashboard";
 import GlobalGanttDashboard from "./pages/GlobalGanttDashboard";
-import PlanMyProject from "./pages/PlanMyProject";
+//import PlanMyProject from "./pages/PlanMyProject";
 import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
 import AuthCallback from "./pages/AuthCallback";
@@ -100,7 +99,7 @@ const App = () => (
                 <Route path="/plan" element={<ProtectedRoute><Plan /></ProtectedRoute>} />
                 <Route path="/leave" element={<ProtectedRoute><Leave /></ProtectedRoute>} />
                 <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-                <Route path="/progress" element={<ProtectedRoute><PlanMyProject /></ProtectedRoute>} />
+                {/* <Route path="/progress" element={<ProtectedRoute><PlanMyProject /></ProtectedRoute>} /> */}
                 <Route path="/projects" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
 
                 {/* Protected Project Routes (require authentication) */}
@@ -110,10 +109,6 @@ const App = () => (
                 <Route path="/projects/:id" element={<ProtectedRoute><ProjectDetailNew /></ProtectedRoute>} />
                 <Route path="/project-analytics/:id" element={<ProtectedRoute><ProjectAnalytics /></ProtectedRoute>} />
 
-                {/* Protected Utility Routes (require authentication) */}
-                <Route path="/debug-normalization" element={<ProtectedRoute><DebugNormalization /></ProtectedRoute>} />
-
-                {/* Catch-all - 404 */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </OnboardingProvider>

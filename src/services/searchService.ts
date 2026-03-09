@@ -22,9 +22,9 @@ export const searchService = {
             // 1. Search Projects
             const { data: projects } = await supabase
                 .from('jira_projects')
-                .select('key, title, jira_project_id')
-                .eq('org_id', orgId)
-                .or(`title.ilike.${searchTerm},key.ilike.${searchTerm}`)
+                .select('id, project_key, name')
+                .eq('organization_id', orgId)
+                .or(`name.ilike.${searchTerm},project_key.ilike.${searchTerm}`)
                 .limit(5);
 
             // 2. Search People (Organization Members + Jira Assignees)
@@ -60,11 +60,11 @@ export const searchService = {
             // Map Projects
             projects?.forEach(p => {
                 results.push({
-                    id: p.jira_project_id || p.key,
+                    id: p.jira_project_id || p.project_key,
                     type: 'project',
-                    title: p.title || p.key,
-                    subtitle: p.key,
-                    path: `/projects/${p.key}` // Adjust based on routing
+                    title: p.name || p.project_key,
+                    subtitle: p.project_key,
+                    path: `/projects/${p.project_key}` // Adjust based on routing
                 });
             });
 

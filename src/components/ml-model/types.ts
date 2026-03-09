@@ -14,10 +14,15 @@ export interface PredictionResult {
   employeeId: number;
   name: string;
   role: string;
-  matchScore: number; // Internal precise score
-  score: number;      // Display score (0-100)
+  matchScore: number;
+  score: number;
   skills: string[];
+  topSkill: string;
   predictedVelocity: number;
   riskLevel: 'Low' | 'Medium' | 'High';
   reason: string;
+  isAvailable: boolean;
+  currentLoad: number;
+  efficiency: number;
+  absenceProbability: number;
 }

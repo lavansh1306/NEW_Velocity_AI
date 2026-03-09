@@ -1,196 +1,61 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { VelocityAISidebar } from '@/components/dashboard/VelocityAISidebar';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Plus, ChevronDown, Check, Trash2, Loader2 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrentOrgId } from '@/lib/orgContext';
 
-interface TeamMemberDisplay {
-  id: string;
-  name: string;
-  role: string;
-  initials: string;
-  avatar_url?: string;
-}
+// Logic Hooks
+import { useProjects } from '@/hooks/useProjects';
+import { useLeaveManagementData } from '@/hooks/useLeaveManagementData';
 
-
+// --- Visual Helpers ---
 function deriveProjectKey(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean);
   if (words.length === 0) return '';
-
-  let key = '';
-  if (words.length === 1) {
-    // Take up to 5 chars of the single word
-    key = words[0].substring(0, 5).toUpperCase();
-  } else {
-    // Take first letter of each word, up to 5 chars
-    key = words
-      .map(w => w[0])
-      .join('')
-      .substring(0, 5)
-      .toUpperCase();
-  }
-  // Strip non-alphanumeric characters
-  return key.replace(/[^A-Z0-9]/g, '');
+  let key = words.length === 1 ? words[0].substring(0, 5) : words.map(w => w[0]).join('').substring(0, 5);
+  return key.toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
 
-/** Validate project key: 1–5 uppercase alphanumeric chars */
 function isValidProjectKey(key: string): boolean {
   return /^[A-Z0-9]{1,5}$/.test(key);
-}
-
-/**
- * Generate a unique-enough sequential issue key for manually created tasks.
- * Uses a timestamp base-36 suffix to minimise collisions.
- */
-function generateIssueKey(projectKey: string, index: number): string {
-  const suffix = (Date.now() + index).toString(36).toUpperCase().slice(-5);
-  return `${projectKey}-${suffix}`;
-}
-
-/** Format a Date as YYYY-MM-DD (text field in jira_issues) */
-function toDateString(date: Date): string {
-  return date.toISOString().split('T')[0];
 }
 
 export default function CreateProject() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, orgId: contextOrgId } = useAuth();
+  const { user } = useAuth();
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoadingMembers, setIsLoadingMembers] = useState(true);
+  // 1. Data & Logic Hooks (The Engine)
+  const { commitProject, isLoading: isSubmitting } = useProjects();
+  const { employees, isLoading: loadingMembers } = useLeaveManagementData();
 
-  // Form state
+  // 2. UI State (The Look)
   const [projectName, setProjectName] = useState('');
   const [projectKey, setProjectKey] = useState('');
-  // Track whether user has manually overridden the auto-generated key
   const [keyManuallyEdited, setKeyManuallyEdited] = useState(false);
   const [projectType, setProjectType] = useState('Scrum Software Development');
-  const [projectLead, setProjectLead] = useState('');
+  const [projectLead, setProjectLead] = useState(''); // ID of the lead
   const [description, setDescription] = useState('');
-
-  const [teamMembers, setTeamMembers] = useState<TeamMemberDisplay[]>([]);
+  
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [tasks, setTasks] = useState([
-    { id: 1, name: 'Database Setup', assignee: 'Unassigned', hours: '0', timeline: 'Week 1' },
+    { id: 1, name: 'Database Setup', assignee: 'Unassigned', hours: '4', timeline: 'Week 1' },
   ]);
 
-  // --- Fetch org members ---
-  const fetchMembers = useCallback(async () => {
-    try {
-      // Get live session — avoids React state race condition
-      const { data: { user: liveUser } } = await supabase.auth.getUser();
-      if (!liveUser) {
-        setIsLoadingMembers(false);
-        return;
-      }
-
-      // ── Org ID resolution (4 tiers) ──────────────────────────────────────
-      // Tier 1: AuthContext state (resolved from organization_members on login)
-      let orgId: string | null = contextOrgId || getCurrentOrgId();
-
-      // Tier 2: public.users email lookup
-      if (!orgId && liveUser.email) {
-        const { data: byEmail } = await supabase
-          .from('users')
-          .select('organization_id')
-          .eq('email', liveUser.email)
-          .maybeSingle();
-        orgId = byEmail?.organization_id ?? null;
-      }
-
-      // Tier 3: organization_members lookup via auth UID
-      if (!orgId) {
-        const { data: byMembership } = await supabase
-          .from('organization_members')
-          .select('org_id')
-          .eq('user_id', liveUser.id)
-          .maybeSingle();
-        orgId = byMembership?.org_id ?? null;
-      }
-
-      // Tier 4: graceful degradation — show current user as solo member
-      if (!orgId) {
-        console.warn('[CreateProject] Could not resolve org ID — showing current user as fallback.');
-        const fallbackName = liveUser.email?.split('@')[0] || 'Me';
-        const fallback: TeamMemberDisplay = {
-          id: liveUser.id,
-          name: fallbackName,
-          role: 'Owner',
-          initials: fallbackName.substring(0, 2).toUpperCase(),
-          avatar_url: undefined,
-        };
-        setTeamMembers([fallback]);
-        setSelectedMembers([fallback.id]);
-        setProjectLead(fallback.name);
-        setIsLoadingMembers(false);
-        return;
-      }
-
-      // ── Fetch users in the org ───────────────────────────────────────────
-      // Note: no server-side is_active filter — rows with is_active=null would
-      // be excluded by .eq('is_active', true). Filter client-side instead.
-      const { data: orgUsers, error } = await supabase
-        .from('users')
-        .select('id, name, email, role, avatar_url, is_active')
-        .eq('organization_id', orgId);
-
-      if (error) throw error;
-
-      // Exclude only explicitly deactivated users (is_active = false)
-      const activeUsers = (orgUsers || []).filter((u: any) => u.is_active !== false);
-
-      let formattedMembers: TeamMemberDisplay[] = activeUsers.map((u: any) => {
-        const displayName = u.name || u.email?.split('@')[0] || 'Unknown';
-        return {
-          id: u.id,
-          name: displayName,
-          role: u.role ? u.role.charAt(0).toUpperCase() + u.role.slice(1) : 'Member',
-          initials: displayName
-            .trim()
-            .split(' ')
-            .map((p: string) => p[0]?.toUpperCase() ?? '')
-            .slice(0, 2)
-            .join(''),
-          avatar_url: u.avatar_url,
-        };
-      });
-
-      // Fallback: show the logged-in user themselves if org has no users yet
-      if (formattedMembers.length === 0) {
-        const fallbackName = liveUser.email?.split('@')[0] || 'Me';
-        formattedMembers.push({
-          id: liveUser.id,
-          name: fallbackName,
-          role: 'Owner',
-          initials: fallbackName.substring(0, 2).toUpperCase(),
-          avatar_url: undefined,
-        });
-      }
-
-      setTeamMembers(formattedMembers);
-      if (formattedMembers.length > 0) {
-        setSelectedMembers([formattedMembers[0].id]);
-        setProjectLead(formattedMembers[0].name);
-      }
-    } catch (err) {
-      console.error('[CreateProject] Error fetching members:', err);
-    } finally {
-      setIsLoadingMembers(false);
-    }
-  }, [contextOrgId]);
-
-  // Re-runs when contextOrgId populates (auth resolves asynchronously after mount)
+  // Auto-set Project Lead to current user if available
   useEffect(() => {
-    fetchMembers();
-  }, [fetchMembers]);
+    if (employees.length > 0 && !projectLead && user?.id) {
+        // Try to find the user in the employee list to select them by default
+        const me = employees.find(e => e.id === user.id);
+        if (me) setProjectLead(me.id);
+    }
+  }, [employees, user, projectLead]);
 
+  // --- Handlers ---
 
-  // --- Auto-generate project key from name (unless user has manually edited it) ---
   const handleProjectNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const name = e.target.value;
     setProjectName(name);
@@ -202,10 +67,9 @@ export default function CreateProject() {
   const handleProjectKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
     setProjectKey(raw);
-    setKeyManuallyEdited(true); // User has taken ownership of the key
+    setKeyManuallyEdited(true);
   };
 
-  // --- Task handlers ---
   const handleAddTask = () =>
     setTasks(prev => [
       ...prev,
@@ -224,74 +88,31 @@ export default function CreateProject() {
       prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]
     );
 
-  // --- Submission ---
+  // --- Unified Submission ---
   const handleCreateProject = async () => {
-  // Ensure we have a name and a key before proceeding
-  if (!projectName.trim() || !projectKey.trim()) return;
+    if (!projectName.trim() || !projectKey.trim()) return;
 
-  setIsSubmitting(true);
-  try {
-    // 1. Resolve Organization ID [cite: 23]
-    const orgId = contextOrgId || getCurrentOrgId();
-    if (!orgId) throw new Error("Organization ID not found.");
+    const orgId = getCurrentOrgId();
+    if (!orgId) {
+        toast({ title: "Error", description: "Organization not found.", variant: "destructive" });
+        return;
+    }
 
-    // 2. Insert into jira_projects 
-    const { data: newProject, error: projectError } = await supabase
-      .from('jira_projects')
-      .insert([
-        {
-          org_id: orgId,
-          key: projectKey.toUpperCase(),
-          title: projectName,
-          // Removed undefined projectDescription; defaults to empty string or null per schema 
-          description: '', 
-          jira_project_id: `LOCAL-${Date.now()}`, // Required field in your schema 
-          cloud_id: 'local-sync', // Required field in your schema 
-          created_at: new Date().toISOString(),
-        }
-      ])
-      .select()
-      .single();
-
-    if (projectError) throw projectError;
-
-    // 3. Insert initial record into jira_issues_clone so the fetcher sees the project 
-    const { error: cloneError } = await supabase
-      .from('jira_issues_clone')
-      .insert([
-        {
-          org_id: orgId,
-          cloud_id: 'local-sync',
-          project_key: projectKey.toUpperCase(),
-          project_name: projectName,
-          issue_key: `${projectKey.toUpperCase()}-1`,
-          summary: 'Project initialized',
-          status: 'Open',
-          assignee: user?.email || 'Unassigned',
-          created_at: new Date().toISOString(),
-        }
-      ]);
-
-    if (cloneError) console.error("Clone sync error:", cloneError.message);
-
-    toast({
-      title: "Success",
-      description: "Project created and initialized.",
+    // Call the unified hook logic
+    const successProjectId = await commitProject(orgId, {
+        description: description || `Project Key: ${projectKey}`, // Storing Key in description since DB has no col
+        selectedTeamIds: selectedMembers,
+        tasks: tasks.filter(t => t.name.trim()).map(t => ({
+            id: String(t.id),
+            task: t.name,
+            estimatedHours: Number(t.hours) || 0
+        }))
     });
 
-    navigate(`/project-analytics/${newProject.id}`);
-
-  } catch (error: any) {
-    console.error("Creation Error:", error);
-    toast({
-      title: "Error",
-      description: error.message,
-      variant: "destructive",
-    });
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+    if (successProjectId) {
+        navigate('/projects');
+    }
+  };
 
   return (
     <VelocityAISidebar>
@@ -339,17 +160,10 @@ export default function CreateProject() {
                       onChange={handleProjectKeyChange}
                       placeholder="MOB"
                       maxLength={5}
-                      // FIX: Visual feedback for invalid key
-                      className={`w-full h-11 px-4 bg-[#FAFAF9] border rounded-xl focus:outline-none focus:ring-1 focus:ring-[#1C1917] text-[#1C1917] transition-all ${projectKey && !isValidProjectKey(projectKey)
-                        ? 'border-rose-300 bg-rose-50'
-                        : 'border-[#E7E5E4]'
-                        }`}
+                      className={`w-full h-11 px-4 bg-[#FAFAF9] border rounded-xl focus:outline-none focus:ring-1 focus:ring-[#1C1917] text-[#1C1917] transition-all ${
+                        projectKey && !isValidProjectKey(projectKey) ? 'border-rose-300 bg-rose-50' : 'border-[#E7E5E4]'
+                      }`}
                     />
-                    {projectKey && !isValidProjectKey(projectKey) && (
-                      <p className="text-xs text-rose-500 mt-1">
-                        1–5 uppercase letters/numbers only
-                      </p>
-                    )}
                   </div>
                 </div>
 
@@ -380,8 +194,8 @@ export default function CreateProject() {
                       className="w-full h-11 px-4 bg-[#FAFAF9] border border-[#E7E5E4] rounded-xl appearance-none focus:outline-none focus:ring-1 focus:ring-[#1C1917] text-[#78716C] transition-all cursor-pointer"
                     >
                       <option value="" disabled>Select a lead</option>
-                      {teamMembers.map(m => (
-                        <option key={m.id} value={m.name}>{m.name}</option>
+                      {employees.map(m => (
+                        <option key={m.id} value={m.id}>{m.name}</option>
                       ))}
                     </select>
                     <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#78716C] pointer-events-none" />
@@ -410,30 +224,35 @@ export default function CreateProject() {
                 </div>
 
                 <div className="space-y-3 max-h-[450px] overflow-y-auto pr-2">
-                  {isLoadingMembers ? (
+                  {loadingMembers ? (
                     <div className="text-center py-8 text-[#A8A29E] text-sm">
                       <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" />
                       Loading team...
                     </div>
                   ) : (
-                    teamMembers.map(member => {
+                    employees.map(member => {
                       const isSelected = selectedMembers.includes(member.id);
+                      // Fallback logic for initials if not in DB
+                      const initials = member.name.substring(0,2).toUpperCase();
+                      
                       return (
                         <div
                           key={member.id}
                           onClick={() => toggleMember(member.id)}
-                          className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all border ${isSelected
-                            ? 'bg-[#FAFAF9] border-[#1C1917] shadow-sm'
-                            : 'bg-white border-transparent hover:bg-[#FAFAF9]'
-                            }`}
+                          className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all border ${
+                            isSelected
+                              ? 'bg-[#FAFAF9] border-[#1C1917] shadow-sm'
+                              : 'bg-white border-transparent hover:bg-[#FAFAF9]'
+                          }`}
                         >
                           <div
-                            className={`w-10 h-10 rounded-full border flex items-center justify-center text-xs font-medium shadow-sm transition-colors ${isSelected
-                              ? 'bg-white border-[#E7E5E4] text-[#1C1917]'
-                              : 'bg-[#F5F5F4] border-transparent text-[#78716C]'
-                              }`}
+                            className={`w-10 h-10 rounded-full border flex items-center justify-center text-xs font-medium shadow-sm transition-colors ${
+                              isSelected
+                                ? 'bg-white border-[#E7E5E4] text-[#1C1917]'
+                                : 'bg-[#F5F5F4] border-transparent text-[#78716C]'
+                            }`}
                           >
-                            {member.initials}
+                            {initials}
                           </div>
                           <div className="flex-1">
                             <p className={`text-sm font-medium ${isSelected ? 'text-[#1C1917]' : 'text-[#78716C]'}`}>
@@ -460,7 +279,7 @@ export default function CreateProject() {
                 <div>
                   <h3 className="text-lg font-medium text-[#1C1917]">Initial Project Plan</h3>
                   <p className="text-xs text-[#A8A29E] mt-1">
-                    These tasks will be created as Jira issues under your new project.
+                    These tasks will be created under your new project instantly.
                   </p>
                 </div>
                 <Button
@@ -500,7 +319,7 @@ export default function CreateProject() {
                           className="w-full text-sm bg-transparent focus:outline-none text-[#78716C]"
                         >
                           <option value="Unassigned">Unassigned</option>
-                          {teamMembers.map(m => (
+                          {employees.map(m => (
                             <option key={m.id} value={m.name}>{m.name}</option>
                           ))}
                         </select>

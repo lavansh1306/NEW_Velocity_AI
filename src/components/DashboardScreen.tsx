@@ -11,7 +11,7 @@ import { StatusBadge } from './shared/StatusBadge';
 import { KPICard } from './shared/KPICard';
 import { PageHeader } from './shared/PageHeader';
 import { PageSkeleton } from './shared/SkeletonLoader';
-import { useSimulatedLoading } from '@/hooks/useDashboard';
+import { useSimulatedLoading } from '@/hooks/useSimulatedLoading';
 import { getDashboardData } from '@/services/dashboardService';
 import type { KPIData, GanttMember, Deadline } from '../types';
 import CalendarToday from '@mui/icons-material/CalendarToday';
@@ -249,7 +249,7 @@ export const DashboardScreen = () => {
                     <div className="bg-white border border-[#E7E5E4] rounded-xl p-8 shadow-sm">
                         <div className="flex flex-col gap-6 mb-8">
                             <div className="flex justify-between items-center">
-                                <h2 className="text-lg font-medium text-[#1C1917]">Team Capacity & Allocation</h2>
+                                <h2 className="text-lg font-medium text-[#1C1917]">Capacity Overview</h2>
                                 <div className="flex items-center gap-3">
                                     <Select value={ganttFilterProject} onValueChange={setGanttFilterProject}>
                                         <SelectTrigger className="h-8 w-[140px] text-xs border-[#E7E5E4] text-[#78716C] hover:text-[#1C1917] hover:bg-white transition-colors bg-white focus:ring-0">
