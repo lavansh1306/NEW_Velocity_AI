@@ -33,6 +33,7 @@ import { FormError, validators } from './shared/FormError';
 import { LoadingButton } from './shared/LoadingButton';
 import { PageSkeleton } from './shared/SkeletonLoader';
 import { useSimulatedLoading } from '@/hooks/useSimulatedLoading';
+import { peopleService } from '../services/peopleService';
 import { teamMembersView, pendingSkillsView, personDetailsMap } from '../data/mockData';
 import type { TeamMemberView, PendingSkillView, PersonDetailView } from '../types';
 
@@ -152,12 +153,54 @@ const AddTeamMemberModal = ({ open, onOpenChange }: { open: boolean; onOpenChang
     );
 };
 
-export const PeopleCapacityScreen = ({ teamMembers = teamMembersView, pendingSkills = pendingSkillsView, allPersonDetails = personDetailsMap }: { teamMembers?: TeamMemberView[]; pendingSkills?: PendingSkillView[]; allPersonDetails?: Record<string, PersonDetailView> }) => {
+export const PeopleCapacityScreen = () => {
     const [selectedPerson, setSelectedPerson] = useState<TeamMemberView | null>(null);
     const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
     const [showSkillsVerification, setShowSkillsVerification] = useState(false);
     const detailPanelRef = useRef<HTMLDivElement>(null);
-    const [isLoading] = useSimulatedLoading(600);
+
+    const [teamMembers, setTeamMembers] = useState<TeamMemberView[]>([]);
+    const [pendingSkills, setPendingSkills] = useState<PendingSkillView[]>([]);
+    const [allPersonDetails, setAllPersonDetails] = useState<Record<string, PersonDetailView>>({});
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const loadData = async () => {
+            try {
+                const [members, skills] = await Promise.all([
+                    peopleService.fetchAllTeamMembers(),
+                    peopleService.fetchPendingSkills()
+                ]);
+                setTeamMembers(members);
+                setPendingSkills(skills);
+            } catch (error) {
+                toast.error('Failed to load live data. Falling back to mock data.');
+                setTeamMembers(teamMembersView);
+                setPendingSkills(pendingSkillsView);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        loadData();
+    }, []);
+
+    const fetchDetail = async (name: string) => {
+        if (allPersonDetails[name]) return;
+        try {
+            const detail = await peopleService.fetchPersonDetails(name);
+            setAllPersonDetails(prev => ({ ...prev, [name]: detail }));
+        } catch (error) {
+            console.error('Error fetching detail:', error);
+            // Fallback
+            setAllPersonDetails(prev => ({ ...prev, [name]: personDetailsMap[name] || personDetailsMap[Object.keys(personDetailsMap)[0]] }));
+        }
+    };
+
+    useEffect(() => {
+        if (selectedPerson) {
+            fetchDetail(selectedPerson.name);
+        }
+    }, [selectedPerson]);
 
     // Smooth scroll-to-top when detail panel opens
     useEffect(() => {
@@ -177,6 +220,13 @@ export const PeopleCapacityScreen = ({ teamMembers = teamMembersView, pendingSki
         utilization: selectedPerson.utilization,
         ...(allPersonDetails[selectedPerson.name] || allPersonDetails[Object.keys(allPersonDetails)[0]]),
     } : null;
+
+    const totalMembers = teamMembers.length;
+    const avgUtilization = totalMembers > 0
+        ? Math.round(teamMembers.reduce((acc, m) => acc + m.utilization, 0) / totalMembers)
+        : 0;
+    const overloadedCount = teamMembers.filter(m => m.status === 'overloaded').length;
+    const totalAvailableCapacity = teamMembers.reduce((acc, m) => acc + m.availability, 0);
 
     if (isLoading) return <PageSkeleton />;
 
@@ -211,22 +261,22 @@ export const PeopleCapacityScreen = ({ teamMembers = teamMembersView, pendingSki
                 {/* Capacity Summary Strip */}
                 <div className="flex items-center gap-0 mb-10">
                     <div className="flex-1 py-8">
-                        <div className="text-4xl font-light text-[#1C1917] mb-2">24</div>
+                        <div className="text-4xl font-light text-[#1C1917] mb-2">{totalMembers}</div>
                         <div className="text-sm text-[#78716C] font-light">Total Members</div>
                     </div>
                     <div className="w-px h-16 bg-[#E7E5E4]"></div>
                     <div className="flex-1 py-8 px-8">
-                        <div className="text-4xl font-light text-[#1C1917] mb-2">91%</div>
+                        <div className="text-4xl font-light text-[#1C1917] mb-2">{avgUtilization}%</div>
                         <div className="text-sm text-[#78716C] font-light">Avg Utilization</div>
                     </div>
                     <div className="w-px h-16 bg-[#E7E5E4]"></div>
                     <div className="flex-1 py-8 px-8">
-                        <div className="text-4xl font-light text-[#1C1917] mb-2">5</div>
+                        <div className="text-4xl font-light text-[#1C1917] mb-2">{overloadedCount}</div>
                         <div className="text-sm text-[#78716C] font-light">Overloaded Count</div>
                     </div>
                     <div className="w-px h-16 bg-[#E7E5E4]"></div>
                     <div className="flex-1 py-8 pl-8">
-                        <div className="text-4xl font-light text-[#1C1917] mb-2">224h</div>
+                        <div className="text-4xl font-light text-[#1C1917] mb-2">{totalAvailableCapacity}h</div>
                         <div className="text-sm text-[#78716C] font-light">Available Capacity</div>
                     </div>
                 </div>
