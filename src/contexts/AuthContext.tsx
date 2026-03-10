@@ -38,120 +38,129 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [orgRole, setOrgRoleState] = useState<string | null>(getCurrentOrgRole());
   const [orgName, setOrgNameState] = useState<string | null>(getCurrentOrgName());
 
-  // Look up the user's org membership from Supabase
+  /**
+   * Look up the user's org membership from the 'users' table.
+   * Based on your schema: users table has organization_id and links to organizations(name).
+   */
   const lookupOrg = async (userId: string) => {
     try {
+      console.log('[Auth] Looking up org for user:', userId);
       const { data, error } = await supabase
-        .from('organization_members')
-        .select('org_id, role, organizations(name)')
-        .eq('user_id', userId)
-        .limit(1)
-        .single();
+        .from('users')
+        .select('organization_id, role, organizations(name)')
+        .eq('id', userId)
+        .maybeSingle();
 
-      if (error || !data) {
-        console.log('[Auth] No org membership found for user', userId);
+      if (error) {
+        console.error('[Auth] lookupOrg database error:', error.message);
         return;
       }
 
-      const name = (data as any).organizations?.name || '';
-      setCurrentOrgId(data.org_id);
-      setCurrentOrgRole(data.role);
+      if (!data || !data.organization_id) {
+        console.log('[Auth] No organization_id found in users table for:', userId);
+        return;
+      }
+
+      const name = (data as any).organizations?.name || 'My Organization';
+      
+      // Update local storage/context helpers
+      setCurrentOrgId(data.organization_id);
+      setCurrentOrgRole(data.role || 'employee');
       setCurrentOrgName(name);
-      setOrgIdState(data.org_id);
-      setOrgRoleState(data.role);
+      
+      // Update state
+      setOrgIdState(data.organization_id);
+      setOrgRoleState(data.role || 'employee');
       setOrgNameState(name);
-      console.log(`[Auth] Org resolved: ${name} (${data.org_id}), role=${data.role}`);
+      
+      console.log(`[Auth] Org resolved: ${name} (${data.organization_id})`);
     } catch (err) {
-      console.warn('[Auth] lookupOrg error:', err);
+      console.warn('[Auth] lookupOrg unexpected error:', err);
     }
   };
 
-  /** Re-fetch org membership (e.g. after Jira connect completes) */
-  const refreshOrg = async () => {
-    if (user?.id) await lookupOrg(user.id);
-  };
-
-  // Save Google user email to database
-  const saveGoogleUserEmail = async (userEmail: string) => {
+  /**
+   * Syncs the Google Auth user data into your 'public.users' table.
+   * This prevents 404/406 errors by ensuring a record exists where the app expects it.
+   */
+  const saveGoogleUserEmail = async (userEmail: string, userId: string, fullName?: string) => {
     try {
+      console.log('[Auth] Syncing Google user to public.users table...');
       const { data, error } = await supabase
-        .from('oauth_users')
-        .insert([{
+        .from('users')
+        .upsert({
+          id: userId,
           email: userEmail.toLowerCase().trim(),
-          provider: 'google',
-          authenticated_at: new Date().toISOString()
-        }])
+          name: fullName || '',
+          role: 'employee',
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'id' })
         .select();
 
       if (error) {
-        // Check if it's a duplicate email error (that's fine, user already saved)
-        if (error.code === '23505' || error.message?.includes('unique')) {
-          console.log('[OAuth Email] User already in database');
-          return true;
-        }
-        console.error('[OAuth Email] Error saving email:', error);
+        console.error('[Auth Save] Error saving to users table:', error.message);
         return false;
       }
-      console.log('[OAuth Email] Email saved successfully:', data);
+      
+      console.log('[Auth Save] Success:', data);
       return true;
     } catch (err) {
-      console.error('[OAuth Email] Unexpected error:', err);
+      console.error('[Auth Save] Unexpected error:', err);
       return false;
     }
   };
 
+  const refreshOrg = async () => {
+    if (user?.id) await lookupOrg(user.id);
+  };
+
   useEffect(() => {
-    // Use onAuthStateChange as the SOLE session source.
-    // Supabase v2 fires INITIAL_SESSION synchronously on subscribe,
-    // so we never need a separate getSession() call (which can race & hang).
     let initialDone = false;
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log('[Auth] State changed:', event, session ? 'authenticated' : 'not authenticated');
+        console.log('[Auth] State changed:', event);
 
-        // Set session and user state immediately (synchronous — safe inside callback)
         setSession(session);
         setUser(session?.user ?? null);
 
-        // On the very first callback, mark loading as done
         if (!initialDone) {
           initialDone = true;
           setLoading(false);
         }
 
-        // IMPORTANT: Never await async DB operations inside onAuthStateChange.
-        // Supabase v2 uses navigator.locks internally; awaiting here deadlocks
-        // the lock and causes AbortError on subsequent DB queries.
-        // Instead, defer async work outside the callback.
-        if (event === 'SIGNED_IN' && session?.user?.email) {
+        if (event === 'SIGNED_IN' && session?.user) {
           const userId = session.user.id;
-          const userEmail = session.user.email;
+          const userEmail = session.user.email!;
+          const fullName = session.user.user_metadata?.full_name;
           const isGoogleAuth = session.user.app_metadata?.provider === 'google';
 
+          // Use setTimeout to move async DB work outside the synchronous auth callback
           setTimeout(async () => {
             try {
               if (isGoogleAuth) {
-                console.log('[Auth] Saving Google user email:', userEmail);
-                await saveGoogleUserEmail(userEmail);
+                await saveGoogleUserEmail(userEmail, userId, fullName);
               }
-              // Look up org membership
               await lookupOrg(userId);
             } catch (err) {
-              console.warn('[Auth] Deferred auth work failed:', err);
+              console.warn('[Auth] Background sync failed:', err);
             }
           }, 0);
         }
 
-        // Ensure loading is false after any auth state change
+        if (event === 'SIGNED_OUT') {
+          clearCurrentOrg();
+          setOrgIdState(null);
+          setOrgRoleState(null);
+          setOrgNameState(null);
+        }
+
         setLoading(false);
       }
     );
 
-    // Safety net: if onAuthStateChange never fires (e.g. no stored session), unblock loading
     const safetyTimeout = setTimeout(() => {
       if (!initialDone) {
-        console.warn('[Auth] Safety timeout: no auth event after 4s, unblocking');
         initialDone = true;
         setLoading(false);
       }
@@ -167,40 +176,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        // No email verification — user is ready to go immediately
-      },
     });
     if (error) throw error;
-
-    console.log('[Auth] Sign-up response:', {
-      userId: data?.user?.id,
-      emailConfirmedAt: data?.user?.email_confirmed_at,
-      identities: data?.user?.identities?.length,
-      session: !!data?.session,
-    });
-
-    // If user already exists (identities is empty), throw a helpful error
     if (data?.user?.identities?.length === 0) {
-      throw new Error('An account with this email already exists. Please sign in instead.');
-    }
-
-    // When "Confirm email" is OFF in Supabase, signUp() already returns a session.
-    // Only call signInWithPassword as a fallback if no session was returned.
-    if (!data?.session) {
-      console.log('[Auth] No session from signUp, attempting signInWithPassword...');
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      if (signInError) {
-        console.warn('[Auth] Auto sign-in after signup failed:', signInError.message);
-      }
-    } else {
-      console.log('[Auth] Session created directly from signUp, skipping redundant signIn');
-      // Manually update state since onAuthStateChange may lag
-      setSession(data.session);
-      setUser(data.session.user);
+      throw new Error('An account with this email already exists.');
     }
   };
 
@@ -213,25 +192,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const signInWithGoogle = async () => {
-    // Use environment-specific redirect URL
-    // This is the URL users will be redirected to after authenticating with Google
-    // IMPORTANT: This must match the URL configured in Google OAuth Console and Supabase
-    let redirectUrl: string;
-    
-    if (import.meta.env.DEV) {
-      redirectUrl = `${window.location.origin}/auth/callback`;
-    } else {
-      // In production, use the actual domain from window.location.origin
-      // This ensures it works regardless of the deployment domain
-      redirectUrl = window.location.origin + '/auth/callback';
-    }
-
-    console.log('[OAuth] Signing in with Google, redirect to:', redirectUrl);
+    const redirectUrl = `${window.location.origin}/auth/callback`;
+    console.log('[OAuth] Redirecting to Google, target callback:', redirectUrl);
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        // CRITICAL: This redirectTo must match Google Console AND Supabase URL config
         redirectTo: redirectUrl,
         queryParams: {
           access_type: 'offline',
@@ -239,36 +205,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         },
       },
     });
-    
-    if (error) {
-      console.error('[Google OAuth Error]', error);
-      throw error;
-    }
-    // Note: This function will redirect the page to Google
-    // The actual authentication happens after Google redirects back
+    if (error) throw error;
   };
 
   const signInWithJira = () => {
-    // Jira OAuth flow - redirects to backend which handles Atlassian OAuth
-    // Pass supabaseUserId so the backend can create/link the org
-    console.log('[OAuth] Signing in with Jira');
-    
-    // Store flag indicating user initiated Jira login
     if (typeof window !== 'undefined') {
       sessionStorage.setItem('jiraLoginInitiated', 'true');
-      sessionStorage.setItem('jiraLoginStartTime', Date.now().toString());
     }
-    
     const userId = user?.id;
     const qs = userId ? `?supabaseUserId=${encodeURIComponent(userId)}` : '';
     window.location.href = `${window.location.origin}/api/jira/auth/connect${qs}`;
   };
 
   const signOut = async () => {
-    clearCurrentOrg();
-    setOrgIdState(null);
-    setOrgRoleState(null);
-    setOrgNameState(null);
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
   };
@@ -285,7 +234,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (error) throw error;
   };
 
-  // Memoize the context value to prevent unnecessary re-renders
   const value = useMemo(() => ({
     user,
     session,
@@ -312,8 +260,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within AuthProvider');
   return context;
 };
