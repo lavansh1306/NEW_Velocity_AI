@@ -8,6 +8,8 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Analytics } from "@vercel/analytics/react";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+
+// Page Imports
 import Index from "./pages/Index";
 import Demo from "./pages/Demo";
 import VelocityAI from "./pages/VelocityAI";
@@ -16,7 +18,6 @@ import ProjectAnalytics from "./components/projects/ProjectAnalytics";
 import ProjectDetailNew from "../archives/ProjectDetailNew";
 import JiraDashboard from "./pages/JiraDashboard";
 import GlobalGanttDashboard from "./pages/GlobalGanttDashboard";
-//import PlanMyProject from "./pages/PlanMyProject";
 import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
 import AuthCallback from "./pages/AuthCallback";
@@ -59,27 +60,29 @@ const App = () => (
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <OnboardingProvider>
               <Routes>
-                {/* Authentication Routes */}
+                {/* 1. Public Marketing Routes */}
+                <Route path="/" element={<Index />} />
+                <Route path="/demo" element={<Demo />} />
+
+                {/* 2. Authentication Routes (Must stay outside ProtectedRoute) */}
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<SignUp />} />
                 <Route path="/auth/callback" element={<AuthCallback />} />
-
-                {/* Onboarding Routes (protected - require Supabase auth) */}
-                <Route path="/onboarding/mode" element={<ProtectedRoute requireSupabaseAuth><OnboardingModeSelection /></ProtectedRoute>} />
-                <Route path="/onboarding/join" element={<ProtectedRoute requireSupabaseAuth><OnboardingJoin /></ProtectedRoute>} />
-                <Route path="/onboarding/welcome" element={<ProtectedRoute requireSupabaseAuth><OnboardingWelcome /></ProtectedRoute>} />
-                <Route path="/onboarding/team" element={<ProtectedRoute requireSupabaseAuth><OnboardingTeam /></ProtectedRoute>} />
-                <Route path="/onboarding/settings" element={<ProtectedRoute requireSupabaseAuth><OnboardingSettings /></ProtectedRoute>} />
-                <Route path="/onboarding/holidays" element={<ProtectedRoute requireSupabaseAuth><OnboardingHolidays /></ProtectedRoute>} />
-                <Route path="/onboarding/complete" element={<ProtectedRoute requireSupabaseAuth><OnboardingComplete /></ProtectedRoute>} />
-
-                {/* Invite Routes */}
                 <Route path="/invite/email" element={<InviteEmail />} />
                 <Route path="/invite/accept" element={<SetPassword />} />
 
-                {/* Employee Routes (require Supabase auth) */}
-                <Route path="/app/employee" element={<ProtectedRoute requireSupabaseAuth><EmployeeLayout /></ProtectedRoute>}>
-                  <Route index element={<Navigate to="/app/employee/dashboard" replace />} />
+                {/* 3. Onboarding Flow (Requires Auth, but no Org yet) */}
+                <Route path="/onboarding/mode" element={<ProtectedRoute><OnboardingModeSelection /></ProtectedRoute>} />
+                <Route path="/onboarding/join" element={<ProtectedRoute><OnboardingJoin /></ProtectedRoute>} />
+                <Route path="/onboarding/welcome" element={<ProtectedRoute><OnboardingWelcome /></ProtectedRoute>} />
+                <Route path="/onboarding/team" element={<ProtectedRoute><OnboardingTeam /></ProtectedRoute>} />
+                <Route path="/onboarding/settings" element={<ProtectedRoute><OnboardingSettings /></ProtectedRoute>} />
+                <Route path="/onboarding/holidays" element={<ProtectedRoute><OnboardingHolidays /></ProtectedRoute>} />
+                <Route path="/onboarding/complete" element={<ProtectedRoute><OnboardingComplete /></ProtectedRoute>} />
+
+                {/* 4. Employee/App Sub-routes */}
+                <Route path="/app/employee" element={<ProtectedRoute><EmployeeLayout /></ProtectedRoute>}>
+                  <Route index element={<Navigate to="dashboard" replace />} />
                   <Route path="dashboard" element={<EmployeeDashboard />} />
                   <Route path="my-projects" element={<EmployeeProjects />} />
                   <Route path="projects/:id" element={<EmployeeProjectDetail />} />
@@ -88,27 +91,21 @@ const App = () => (
                   <Route path="profile" element={<EmployeeProfile />} />
                 </Route>
 
-                {/* Public Routes (Marketing/Info) */}
-                <Route path="/" element={<Index />} />
-                <Route path="/demo" element={<Demo />} />
-
-                {/* Protected Dashboard Routes (require authentication - JIRA or Supabase) */}
+                {/* 5. Main Protected Dashboard Routes */}
                 <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                 <Route path="/velocity-ai" element={<ProtectedRoute><VelocityAI /></ProtectedRoute>} />
                 <Route path="/people" element={<ProtectedRoute><People /></ProtectedRoute>} />
                 <Route path="/plan" element={<ProtectedRoute><Plan /></ProtectedRoute>} />
                 <Route path="/leave" element={<ProtectedRoute><Leave /></ProtectedRoute>} />
                 <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-                {/* <Route path="/progress" element={<ProtectedRoute><PlanMyProject /></ProtectedRoute>} /> */}
                 <Route path="/projects" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
-
-                {/* Protected Project Routes (require authentication) */}
                 <Route path="/projects/create" element={<ProtectedRoute><CreateProject /></ProtectedRoute>} />
                 <Route path="/projects/global-gantt" element={<ProtectedRoute><GlobalGanttDashboard /></ProtectedRoute>} />
                 <Route path="/projects/jira-dashboard" element={<ProtectedRoute><JiraDashboard /></ProtectedRoute>} />
                 <Route path="/projects/:id" element={<ProtectedRoute><ProjectDetailNew /></ProtectedRoute>} />
                 <Route path="/project-analytics/:id" element={<ProtectedRoute><ProjectAnalytics /></ProtectedRoute>} />
 
+                {/* 6. Fallback */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </OnboardingProvider>
