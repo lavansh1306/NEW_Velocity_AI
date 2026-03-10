@@ -68,16 +68,29 @@ export default function SignUp() {
 
   const handleGoogleSignUp = async () => {
     try {
+      console.log('[SignUp] 1. Google signup button clicked');
       setLoading(true);
       setError('');
+
       // Save email to Supabase if provided
       if (email.trim()) {
+        console.log('[SignUp] 2. Saving email interest:', email);
         await saveEmailInterest(email);
+        console.log('[SignUp] 3. Email interest saved');
       }
+
+      console.log('[SignUp] 4. Calling signInWithGoogle()...');
       // signInWithGoogle() redirects to Google, which redirects back to /auth/callback
       // AuthCallback will handle the redirect to /velocity-ai
       await signInWithGoogle();
+      console.log('[SignUp] 5. signInWithGoogle completed (should not reach here if redirected)');
     } catch (err: any) {
+      console.error('[SignUp] ERROR in handleGoogleSignUp:', {
+        message: err.message,
+        status: err.status,
+        errorDetails: err,
+        timestamp: new Date().toISOString()
+      });
       setError(err.message || 'Failed to sign up with Google');
       setLoading(false);
     }

@@ -19,7 +19,6 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { toast } from 'sonner';
-// import { planRecommendedTeam } from '../data/mockData'; 
 import type { PlanTeamCandidate } from '../types';
 
 type EditableTask = { id: string; task: string; estimatedHours: number };
@@ -58,14 +57,13 @@ export const PlanMyProjectScreen = () => {
     
     const baseUrl = import.meta.env.VITE_LLM_URL || 'http://127.0.0.1:8000';
 
-    // ── HEALTH CHECK LOGIC (The "Wake Up" Function) ──
+    // ── HEALTH CHECK LOGIC ──
     const ensureBackendActive = async () => {
         let attempts = 0;
-        const maxAttempts = 15; // Try for ~30 seconds
+        const maxAttempts = 15;
         
         while (attempts < maxAttempts) {
             try {
-                // Ping the root "/" endpoint
                 const res = await fetch(`${baseUrl}/`, { method: 'GET' });
                 if (res.ok) return true; 
             } catch (e) {
@@ -91,7 +89,6 @@ export const PlanMyProjectScreen = () => {
         setThoughtLines([]);
         setAnalysisStatus("Analyzing project requirements...");
 
-        // Start visual loop
         const analyzeThoughts = ['Analyzing requirements...', 'Structuring tasks...', 'Estimating hours...', 'Finalizing plan...'];
         let tIdx = 0;
         const tInterval = setInterval(() => {
@@ -102,13 +99,11 @@ export const PlanMyProjectScreen = () => {
         }, 800);
 
         try {
-            // 1. WAKE UP CHECK
             const isAwake = await ensureBackendActive();
             if (!isAwake) {
                 throw new Error("Server failed to wake up. Please try again in 30s.");
             }
 
-            // 2. REAL REQUEST
             setAnalysisStatus("Generating breakdown...");
             const response = await fetch(`${baseUrl}/api/v1/planner/decompose`, {
                 method: 'POST',
@@ -155,18 +150,31 @@ export const PlanMyProjectScreen = () => {
             setProjectDescription(`[Extracted from ${file.name}] Build an enterprise SaaS platform...`);
         }
     };
-    const handleRemoveTask = (id: string) => { setTasks(p => p.filter(t => t.id !== id)); };
-    const startEdit = (t: EditableTask) => { setEditingTaskId(t.id); setEditForm({ task: t.task, estimatedHours: t.estimatedHours }); };
+
+    // ── TASK EDITING HANDLERS ──
+    const handleRemoveTask = (id: string) => { 
+        setTasks(p => p.filter(t => t.id !== id)); 
+        toast.success('Task removed');
+    };
+    
+    const startEdit = (t: EditableTask) => { 
+        setEditingTaskId(t.id); 
+        setEditForm({ task: t.task, estimatedHours: t.estimatedHours }); 
+    };
+    
     const saveEdit = () => {
         if (!editForm.task.trim()) return;
         setTasks(p => p.map(t => t.id === editingTaskId ? { ...t, task: editForm.task, estimatedHours: editForm.estimatedHours } : t));
         setEditingTaskId(null);
     };
+    
     const handleAddTask = () => {
-        if (!addForm.task.trim()) return;
+        if (!addForm.task.trim() || addForm.estimatedHours <= 0) return;
         setTasks(p => [...p, { id: `new-${Date.now()}`, task: addForm.task, estimatedHours: addForm.estimatedHours }]);
+        setAddForm({ task: '', estimatedHours: 0 });
         setShowAddRow(false);
     };
+
     const teamMatchThoughts = ['Scanning skills...', 'Checking availability...', 'Optimizing match...'];
     const goToStep2 = () => {
         if (tasks.length === 0) return toast.error('Add a task first');
@@ -241,7 +249,7 @@ export const PlanMyProjectScreen = () => {
                     </div>
                 </div>
 
-                {hasAnalyzed && (
+                {hasAnalyzed && currentStep === 1 && (
                     <div className="space-y-6">
                         <div className="grid grid-cols-3 gap-6">
                             <div className="p-6 bg-white rounded-2xl border border-[#E7E5E4]">
@@ -258,19 +266,103 @@ export const PlanMyProjectScreen = () => {
                             </div>
                         </div>
 
-                        <div className="bg-white rounded-2xl border border-[#E7E5E4] p-8">
-                            <h2 className="text-xl font-light mb-6">Task Breakdown</h2>
-                            {tasks.map(t => (
-                                <div key={t.id} className="flex justify-between py-3 border-b border-[#F5F5F4]">
-                                    <span>{t.task}</span>
-                                    <span className="text-[#78716C]">{t.estimatedHours}h</span>
+                        {/* ── EDITABLE TASK BREAKDOWN CARD ── */}
+                        <div className="relative rounded-2xl mb-10 p-[1px]" style={{ background: 'linear-gradient(135deg, rgba(231,229,228,0.6), rgba(204,251,241,0.3), rgba(231,229,228,0.6))' }}>
+                            <div className="bg-white/85 backdrop-blur-[40px] rounded-2xl p-10" style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.03)' }}>
+                                
+                                {/* Header & Add Button */}
+                                <div className="flex items-center justify-between mb-8">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #F0FDFA, #CCFBF1)' }}>
+                                            <AutoAwesomeOutlined style={{ fontSize: 16 }} className="text-[#0F766E]" />
+                                        </div>
+                                        <h2 className="text-xl font-light text-[#1C1917]">Generated Task Breakdown</h2>
+                                    </div>
+                                    <Button
+                                        variant="outline"
+                                        className="h-9 px-4 rounded-lg border-[#E7E5E4] bg-white/50 hover:bg-white text-[#78716C] hover:text-[#1C1917] font-light text-xs"
+                                        onClick={() => setShowAddRow(true)}
+                                    >
+                                        <AddOutlined style={{ fontSize: 14 }} className="mr-1.5" /> Add Task
+                                    </Button>
                                 </div>
-                            ))}
-                            <div className="mt-6 flex justify-end">
-                                <Button onClick={goToStep2} className="bg-[#0F766E] text-white">
-                                    Proceed to Allocation <ChevronRightOutlined className="ml-2" />
-                                </Button>
+
+                                <div className="w-full">
+                                    {/* Table Headers */}
+                                    <div className="flex items-center pb-4 border-b border-[#E7E5E4] mb-2">
+                                        <div className="flex-1 text-xs text-[#78716C] uppercase tracking-wider font-light">Task Name</div>
+                                        <div className="w-28 text-right text-xs text-[#78716C] uppercase tracking-wider font-light">Est. Hours</div>
+                                        <div className="w-24 text-right text-xs text-[#78716C] uppercase tracking-wider font-light">Actions</div>
+                                    </div>
+
+                                    {/* Task List */}
+                                    <div className="space-y-0.5">
+                                        {tasks.map((task) => (
+                                            <div key={task.id} className="flex items-center py-4 border-b border-[#F5F5F4] last:border-0 hover:bg-[#F0FDFA]/30 transition-all px-2 -mx-2 rounded-lg group">
+                                                {editingTaskId === task.id ? (
+                                                    // Inline Edit Mode
+                                                    <div className="contents">
+                                                        <div className="flex-1 pr-4">
+                                                            <Input className="h-8 text-sm font-light border-[#E7E5E4] bg-white rounded-lg" value={editForm.task} onChange={e => setEditForm(f => ({ ...f, task: e.target.value }))} autoFocus />
+                                                        </div>
+                                                        <div className="w-28 flex justify-end pr-4">
+                                                            <Input type="number" className="h-8 w-20 text-sm font-light border-[#E7E5E4] bg-white rounded-lg text-right" value={editForm.estimatedHours} onChange={e => setEditForm(f => ({ ...f, estimatedHours: Number(e.target.value) }))} />
+                                                        </div>
+                                                        <div className="w-24 flex justify-end gap-1">
+                                                            <button type="button" onClick={saveEdit} className="p-1.5 rounded-md text-[#0F766E] hover:bg-[#CCFBF1] transition-colors"><CheckOutlined style={{ fontSize: 14 }} /></button>
+                                                            <button type="button" onClick={() => setEditingTaskId(null)} className="p-1.5 rounded-md bg-[#F5F5F4] text-[#78716C] hover:bg-[#E7E5E4] transition-colors"><CloseOutlined style={{ fontSize: 14 }} /></button>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    // View Mode
+                                                    <div className="contents">
+                                                        <div className="flex-1 text-sm text-[#1C1917] font-light">{task.task}</div>
+                                                        <div className="w-28 text-right text-sm text-[#78716C] font-light">{task.estimatedHours}h</div>
+                                                        <div className="w-24 flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <button type="button" onClick={() => startEdit(task)} className="p-1.5 rounded-md text-[#78716C] hover:bg-[#F5F5F4] hover:text-[#1C1917] transition-colors"><AutoAwesomeOutlined style={{ fontSize: 14 }} /></button>
+                                                            <button type="button" onClick={() => handleRemoveTask(task.id)} className="p-1.5 rounded-md text-[#78716C] hover:bg-[#FFF1F2] hover:text-[#BE123C] transition-colors"><CloseOutlined style={{ fontSize: 14 }} /></button>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+
+                                        {/* Add New Task Row */}
+                                        {showAddRow && (
+                                            <div className="flex items-center py-4 border-b border-[#F5F5F4] px-2 -mx-2 rounded-lg" style={{ background: 'linear-gradient(135deg, #FAFAF9, #F0FDFA)' }}>
+                                                <div className="flex-1 pr-4">
+                                                    <Input placeholder="New task name..." className="h-8 text-sm font-light border-[#E7E5E4] bg-white rounded-lg" value={addForm.task} onChange={e => setAddForm(f => ({ ...f, task: e.target.value }))} autoFocus />
+                                                </div>
+                                                <div className="w-28 flex justify-end pr-4">
+                                                    <Input type="number" placeholder="Hrs" className="h-8 w-20 text-sm font-light border-[#E7E5E4] bg-white rounded-lg text-right" value={addForm.estimatedHours || ''} onChange={e => setAddForm(f => ({ ...f, estimatedHours: Number(e.target.value) }))} />
+                                                </div>
+                                                <div className="w-24 flex justify-end gap-1">
+                                                    <button type="button" onClick={handleAddTask} className="p-1.5 rounded-md text-[#0F766E] hover:bg-[#CCFBF1] transition-colors"><CheckOutlined style={{ fontSize: 14 }} /></button>
+                                                    <button type="button" onClick={() => { setShowAddRow(false); setAddForm({ task: '', estimatedHours: 0 }); }} className="p-1.5 rounded-md bg-[#F5F5F4] text-[#78716C] hover:bg-[#E7E5E4] transition-colors"><CloseOutlined style={{ fontSize: 14 }} /></button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex gap-4">
+                            <Button variant="outline" className="flex-1 h-11 rounded-xl font-light border-[#E7E5E4] bg-white/70 hover:bg-white text-[#292524]" onClick={() => toast.success('Draft saved')}>
+                                Save Draft
+                            </Button>
+                            <button
+                                type="button"
+                                className="flex-1 h-11 rounded-xl font-light text-white inline-flex items-center justify-center relative overflow-hidden"
+                                style={{ background: 'linear-gradient(135deg, #1C1917 0%, #292524 50%, #0F766E 100%)', boxShadow: '0 4px 14px rgba(15,118,110,0.2)' }}
+                                onClick={goToStep2}
+                            >
+                                <span className="relative z-10 inline-flex items-center">
+                                    Continue to Team Allocation
+                                    <ChevronRightOutlined style={{ fontSize: 18 }} className="ml-1" />
+                                </span>
+                            </button>
                         </div>
                     </div>
                 )}
