@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from './ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { Input } from './ui/input';
@@ -217,39 +217,40 @@ export const PeopleCapacityScreen = () => {
     const [allPersonDetails, setAllPersonDetails] = useState<Record<string, PersonDetailView>>({});
     const [isLoading, setIsLoading] = useState(true);
 
-    useEffect(() => {
-        const loadData = async () => {
-            if (!orgId || !user) return;
+    const loadTeamData = useCallback(async () => {
+        if (!orgId || !user) return;
 
-            try {
-                let teamIds: string[] | undefined = undefined;
+        try {
+            let teamIds: string[] | undefined = undefined;
 
-                // If manager, only show their teams
-                if (orgRole === 'manager') {
-                    teamIds = await peopleService.fetchUserTeams(user.id);
-                }
-
-                const [members, skills] = await Promise.all([
-                    peopleService.fetchAllTeamMembers(orgId, teamIds),
-                    peopleService.fetchPendingSkills(orgId, teamIds)
-                ]);
-
-                // Exclude current user (manager) from the list
-                const filteredMembers = members.filter(m => m.id !== user.id);
-                const filteredSkills = skills.filter(s => s.userId !== user.id);
-
-                setTeamMembers(filteredMembers);
-                setPendingSkills(filteredSkills);
-            } catch (error) {
-                toast.error('Failed to load live data. Falling back to mock data.');
-                setTeamMembers(teamMembersView);
-                setPendingSkills(pendingSkillsView);
-            } finally {
-                setIsLoading(false);
+            // If manager, only show their teams
+            if (orgRole === 'manager') {
+                teamIds = await peopleService.fetchUserTeams(user.id);
             }
-        };
-        loadData();
+
+            const [members, skills] = await Promise.all([
+                peopleService.fetchAllTeamMembers(orgId, teamIds),
+                peopleService.fetchPendingSkills(orgId, teamIds)
+            ]);
+
+            // Exclude current user (manager) from the list
+            const filteredMembers = members.filter(m => m.id !== user.id);
+            const filteredSkills = skills.filter(s => s.userId !== user.id);
+
+            setTeamMembers(filteredMembers);
+            setPendingSkills(filteredSkills);
+        } catch (error) {
+            toast.error('Failed to load live data. Falling back to mock data.');
+            setTeamMembers(teamMembersView);
+            setPendingSkills(pendingSkillsView);
+        } finally {
+            setIsLoading(false);
+        }
     }, [orgId, user, orgRole]);
+
+    useEffect(() => {
+        loadTeamData();
+    }, [loadTeamData]);
 
     const fetchDetail = async (name: string) => {
         if (allPersonDetails[name]) return;
