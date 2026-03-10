@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useToast } from '@/contexts/ToastContext'
+import { supabase } from '@/lib/supabase'
+import { getCurrentOrgId } from '@/lib/orgContext'
 import { fetchAllIssuesHybrid, fetchProjectsHybrid, type JiraIssueFromDB } from '@/lib/jiraDbClient'
 
 export interface JiraIssue {
@@ -99,6 +101,57 @@ export function useJiraData(): UseJiraDataReturn {
 
   useEffect(() => {
     fetchJiraIssues()
+  }, [])
+
+  // Set up real-time subscriptions to auto-refetch when projects/issues change
+  useEffect(() => {
+    const orgId = getCurrentOrgId()
+    if (!orgId) return
+
+    console.log('[useJiraData] Setting up real-time subscriptions for org:', orgId)
+
+    // Subscribe to changes in jira_projects table
+    const projectSubscription = supabase
+      .channel(`jira_projects_hook:org_id=eq.${orgId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'jira_projects',
+          filter: `org_id=eq.${orgId}`,
+        },
+        (payload) => {
+          console.log('[useJiraData] Detected project change:', payload)
+          fetchJiraIssues()
+        }
+      )
+      .subscribe()
+
+    // Subscribe to changes in jira_issues table
+    const issueSubscription = supabase
+      .channel(`jira_issues_hook:org_id=eq.${orgId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'jira_issues',
+          filter: `org_id=eq.${orgId}`,
+        },
+        (payload) => {
+          console.log('[useJiraData] Detected issue change:', payload)
+          fetchJiraIssues()
+        }
+      )
+      .subscribe()
+
+    // Cleanup subscriptions on unmount
+    return () => {
+      console.log('[useJiraData] Cleaning up real-time subscriptions')
+      projectSubscription.unsubscribe()
+      issueSubscription.unsubscribe()
+    }
   }, [])
 
   return {

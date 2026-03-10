@@ -95,5 +95,91 @@ export const peopleService = {
         }
 
         return normalizePersonDetail(details, details.task_assignments || [], details.user_skills || []);
+    },
+
+    async addTeamMember(organizationId: string, teamId: string, member: { name: string; email: string; role: string; skills?: string; utilizationPercent?: number }): Promise<{ userId: string; teamMemberId: string }> {
+        if (!organizationId || !teamId) {
+            throw new Error('Organization ID and Team ID are required');
+        }
+
+        // 1. Create user record
+        const { data: newUser, error: userError } = await supabase
+            .from('users')
+            .insert([
+                {
+                    organization_id: organizationId,
+                    email: member.email,
+                    name: member.name,
+                    role: 'employee',
+                    capacity_hours_per_week: 40,
+                    is_active: true,
+                }
+            ])
+            .select('id')
+            .single();
+
+        if (userError || !newUser) {
+            console.error('Error creating user:', userError);
+            throw userError || new Error('Failed to create user');
+        }
+
+        console.log('[peopleService] Created user:', newUser.id);
+
+        // 2. Create team member record
+        const { data: newTeamMember, error: teamMemberError } = await supabase
+            .from('team_members')
+            .insert([
+                {
+                    team_id: teamId,
+                    user_id: newUser.id,
+                    role: member.role || 'member',
+                    email: member.email,
+                    display_name: member.name,
+                    status: 'active',
+                }
+            ])
+            .select('id')
+            .single();
+
+        if (teamMemberError || !newTeamMember) {
+            console.error('Error creating team member:', teamMemberError);
+            // Clean up the user record if team member creation fails
+            try {
+                await supabase.from('users').delete().eq('id', newUser.id);
+            } catch (cleanupError) {
+                console.warn('[peopleService] Cleanup error:', cleanupError);
+            }
+            throw teamMemberError || new Error('Failed to create team member');
+        }
+
+        console.log('[peopleService] Created team member:', newTeamMember.id);
+
+        // 3. Add skills if provided
+        if (member.skills) {
+            const skillList = member.skills.split(',').map(s => s.trim()).filter(Boolean);
+            if (skillList.length > 0) {
+                const skillsToInsert = skillList.map(skill => ({
+                    user_id: newUser.id,
+                    skill_name: skill,
+                    proficiency_level: 'mid',
+                    source: 'manual',
+                    confidence_score: 1.0,
+                }));
+
+                const { error: skillsError } = await supabase
+                    .from('user_skills')
+                    .insert(skillsToInsert);
+
+                if (skillsError) {
+                    console.warn('[peopleService] Warning: Failed to add skills:', skillsError);
+                    // Don't throw error, user and team member are already created
+                }
+            }
+        }
+
+        return {
+            userId: newUser.id,
+            teamMemberId: newTeamMember.id,
+        };
     }
 };
