@@ -3,22 +3,32 @@ import { normalizeTeamMember, normalizePersonDetail } from '../lib/normalizers/p
 import { TeamMemberView, PendingSkillView, PersonDetailView } from '../types';
 
 export const peopleService = {
-    async fetchAllTeamMembers(): Promise<TeamMemberView[]> {
-        const { data: users, error: userError } = await supabase
+    async fetchAllTeamMembers(orgId: string, teamIds?: string[]): Promise<TeamMemberView[]> {
+        let query = supabase
             .from('users')
             .select(`
-        *,
-        task_assignments (
-          allocated_hours_per_week,
-          tasks (
-            project_id
-          )
-        ),
-        user_skills (
-          skill_name
-        )
-      `)
+                *,
+                task_assignments (
+                    allocated_hours_per_week,
+                    tasks (
+                        project_id
+                    )
+                ),
+                user_skills (
+                    skill_name
+                ),
+                team_members!inner (
+                    team_id
+                )
+            `)
+            .eq('organization_id', orgId)
             .eq('is_active', true);
+
+        if (teamIds && teamIds.length > 0) {
+            query = query.in('team_members.team_id', teamIds);
+        }
+
+        const { data: users, error: userError } = await query;
 
         if (userError) {
             console.error('Error fetching team members:', userError);
@@ -28,17 +38,42 @@ export const peopleService = {
         return (users || []).map(u => normalizeTeamMember(u, u.task_assignments || [], u.user_skills || []));
     },
 
-    async fetchPendingSkills(): Promise<PendingSkillView[]> {
-        const { data: skills, error } = await supabase
+    async fetchUserTeams(userId: string): Promise<string[]> {
+        const { data, error } = await supabase
+            .from('team_members')
+            .select('team_id')
+            .eq('user_id', userId);
+
+        if (error) {
+            console.error('Error fetching user teams:', error);
+            throw error;
+        }
+
+        return (data || []).map(tm => tm.team_id);
+    },
+
+    async fetchPendingSkills(orgId: string, teamIds?: string[]): Promise<PendingSkillView[]> {
+        let query = supabase
             .from('user_skills')
             .select(`
-        *,
-        users (
-          name,
-          email
-        )
-      `)
+                *,
+                users!inner (
+                    name,
+                    email,
+                    organization_id,
+                    team_members!inner (
+                        team_id
+                    )
+                )
+            `)
+            .eq('users.organization_id', orgId)
             .neq('source', 'manual');
+
+        if (teamIds && teamIds.length > 0) {
+            query = query.in('users.team_members.team_id', teamIds);
+        }
+
+        const { data: skills, error } = await query;
 
         if (error) {
             console.error('Error fetching pending skills:', error);
@@ -47,6 +82,7 @@ export const peopleService = {
 
         return (skills || []).map((s, idx) => ({
             id: idx,
+            userId: s.user_id,
             person: s.users?.name || s.users?.email || 'Unknown',
             avatar: (s.users?.name || s.users?.email || 'U').substring(0, 1).toUpperCase(),
             skill: s.skill_name,

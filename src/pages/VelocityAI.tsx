@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { VelocityAISidebar } from '../components/dashboard/VelocityAISidebar';
-import PeopleCapacityTab from '../components/demo2/PeopleCapacityTab';
+import { PeopleCapacityScreen } from '../components/PeopleCapacityScreen';
 import {
   BarChart3,
   Users,
@@ -899,7 +899,7 @@ export default function VelocityAI() {
         <div className="tab-transition">
           {activeTab === 'dashboard' && <ModernDashboard jiraData={jiraData} />}
           {activeTab === 'projects' && <Projects />}
-          {activeTab === 'people' && <PeopleCapacityTab />}
+          {activeTab === 'people' && <PeopleCapacityScreen />}
           {activeTab === 'stc' && <StandardTimeCatalogTab />}
           {activeTab === 'ledger' && <CapacityLedgerTab />}
           {activeTab === 'deployment' && <ProjectCheckView />}

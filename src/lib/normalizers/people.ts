@@ -10,6 +10,7 @@ export const normalizeTeamMember = (
     const utilizationPercentage = Math.round((utilization / totalCapacity) * 100);
 
     return {
+        id: user.id,
         name: user.name || user.email,
         role: user.role || 'Member',
         avatar: (user.name || user.email).substring(0, 2).toUpperCase(),

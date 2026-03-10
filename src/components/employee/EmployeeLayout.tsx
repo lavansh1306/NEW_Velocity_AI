@@ -54,15 +54,13 @@ export function EmployeeLayout() {
     <div className="flex h-screen bg-[#F5F5F4] font-['Inter',sans-serif] overflow-hidden">
       {/* Sidebar */}
       <div
-        className={`${
-          collapsed ? 'w-[70px]' : 'w-[260px]'
-        } bg-[#1C1917] flex flex-col py-6 z-40 flex-shrink-0 transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] border-r border-[#292524] shadow-2xl shadow-black/20`}
+        className={`${collapsed ? 'w-[70px]' : 'w-[260px]'
+          } bg-[#1C1917] flex flex-col py-6 z-40 flex-shrink-0 transition-all duration-300 [transition-timing-function:cubic-bezier(0.25,1,0.5,1)] border-r border-[#292524] shadow-2xl shadow-black/20`}
       >
         {/* Logo */}
         <div
-          className={`mb-8 px-4 flex items-center ${
-            collapsed ? 'justify-center' : 'gap-3 px-6'
-          }`}
+          className={`mb-8 px-4 flex items-center ${collapsed ? 'justify-center' : 'gap-3 px-6'
+            }`}
         >
           <div className="bg-[#2DD4BF] rounded-lg p-1.5 flex-shrink-0 shadow-[0_0_15px_rgba(45,212,191,0.2)]">
             <Zap className="h-5 w-5 text-[#1C1917]" strokeWidth={2.5} />
@@ -83,27 +81,23 @@ export function EmployeeLayout() {
                 key={path}
                 onClick={() => navigate(path)}
                 title={label}
-                className={`w-full relative px-3 py-3 flex items-center ${
-                  collapsed ? 'justify-center' : 'gap-3'
-                } rounded-lg transition-all duration-200 outline-none ${
-                  isActive
+                className={`w-full relative px-3 py-3 flex items-center ${collapsed ? 'justify-center' : 'gap-3'
+                  } rounded-lg transition-all duration-200 outline-none ${isActive
                     ? 'bg-[#292524] text-white'
                     : 'text-[#A8A29E] hover:text-[#E7E5E4] hover:bg-[#292524]/50'
-                }`}
+                  }`}
               >
                 <Icon
-                  className={`h-5 w-5 flex-shrink-0 transition-colors ${
-                    isActive
+                  className={`h-5 w-5 flex-shrink-0 transition-colors ${isActive
                       ? 'text-[#2DD4BF]'
                       : 'text-[#78716C] group-hover:text-[#D6D3D1]'
-                  }`}
+                    }`}
                   strokeWidth={1.75}
                 />
                 {!collapsed && (
                   <span
-                    className={`text-sm whitespace-nowrap overflow-hidden animate-in fade-in duration-300 ${
-                      isActive ? 'font-medium' : 'font-normal'
-                    }`}
+                    className={`text-sm whitespace-nowrap overflow-hidden animate-in fade-in duration-300 ${isActive ? 'font-medium' : 'font-normal'
+                      }`}
                   >
                     {label}
                   </span>
@@ -122,9 +116,8 @@ export function EmployeeLayout() {
           <button
             onClick={() => setCollapsed(!collapsed)}
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            className={`w-full relative px-3 py-3 flex items-center ${
-              collapsed ? 'justify-center' : 'gap-3'
-            } rounded-lg text-[#78716C] hover:text-[#E7E5E4] hover:bg-[#292524]/50 transition-colors`}
+            className={`w-full relative px-3 py-3 flex items-center ${collapsed ? 'justify-center' : 'gap-3'
+              } rounded-lg text-[#78716C] hover:text-[#E7E5E4] hover:bg-[#292524]/50 transition-colors`}
           >
             {collapsed ? (
               <ChevronsRight className="h-5 w-5 flex-shrink-0" strokeWidth={1.75} />
@@ -136,9 +129,8 @@ export function EmployeeLayout() {
 
           {/* Logout */}
           <button
-            className={`w-full relative px-3 py-3 flex items-center ${
-              collapsed ? 'justify-center' : 'gap-3'
-            } rounded-lg text-[#F43F5E] hover:bg-[#F43F5E]/10 transition-colors`}
+            className={`w-full relative px-3 py-3 flex items-center ${collapsed ? 'justify-center' : 'gap-3'
+              } rounded-lg text-[#F43F5E] hover:bg-[#F43F5E]/10 transition-colors`}
             onClick={() => setShowLogout(true)}
             title="Log Out"
           >
@@ -152,9 +144,8 @@ export function EmployeeLayout() {
 
           {/* User chip */}
           <div
-            className={`flex items-center ${
-              collapsed ? 'justify-center' : 'gap-3'
-            } px-2 py-4 mt-2 border-t border-[#292524]`}
+            className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'
+              } px-2 py-4 mt-2 border-t border-[#292524]`}
           >
             <div className="w-9 h-9 rounded-full bg-[#2DD4BF] flex items-center justify-center text-[#1C1917] font-medium text-xs flex-shrink-0 shadow-[0_0_10px_rgba(45,212,191,0.2)]">
               {initials}
