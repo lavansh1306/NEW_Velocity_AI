@@ -49,48 +49,25 @@ export default function Login() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const script = document.createElement('script');
-    script.src = 'https://accounts.google.com/gsi/client';
-    script.async = true;
-    script.defer = true;
-    document.body.appendChild(script);
-
-    script.onload = () => {
-      if (window.google) {
-        window.google.accounts.id.initialize({
-          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-          callback: handleGoogleResponse,
-        });
-      }
-    };
-
-    return () => {
-      if (document.body.contains(script)) {
-        document.body.removeChild(script);
-      }
-    };
+    // Google Sign-In script is not needed - we use Supabase OAuth instead
+    // If you need Google Sign-In button UI, render it manually without the library
   }, []);
-
-  const handleGoogleResponse = async (response: any) => {
-    try {
-      setLoading(true);
-      setError('');
-      if (response.credential) {
-        await signInWithGoogle();
-        navigate('/');
-      }
-    } catch (err: any) {
-      setError(err.message || 'Failed to sign in with Google');
-      setLoading(false);
-    }
-  };
 
   const handleGoogleSignIn = async () => {
     try {
+      console.log('[Login] 1. Google sign-in button clicked');
       setLoading(true);
       setError('');
+      console.log('[Login] 2. Calling signInWithGoogle()...');
       await signInWithGoogle();
+      console.log('[Login] 3. signInWithGoogle completed (should not reach here if redirected)');
     } catch (err: any) {
+      console.error('[Login] ERROR in handleGoogleSignIn:', {
+        message: err.message,
+        status: err.status,
+        errorDetails: err,
+        timestamp: new Date().toISOString()
+      });
       setError(err.message || 'Failed to sign in with Google');
       setLoading(false);
     }
