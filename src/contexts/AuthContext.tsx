@@ -80,32 +80,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   /**
-   * Syncs the Google Auth user data into your 'public.users' table.
-   * This prevents 404/406 errors by ensuring a record exists where the app expects it.
+   * Syncs the Google Auth user to public.users table
+   * NOTE: The Supabase auth trigger automatically creates the user with a default organization
+   * This function just logs the result for debugging
    */
   const saveGoogleUserEmail = async (userEmail: string, userId: string, fullName?: string) => {
     try {
-      console.log('[Auth] Syncing Google user to public.users table...');
-      const { data, error } = await supabase
-        .from('users')
-        .upsert({
-          id: userId,
-          email: userEmail.toLowerCase().trim(),
-          name: fullName || '',
-          role: 'employee',
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'id' })
-        .select();
-
-      if (error) {
-        console.error('[Auth Save] Error saving to users table:', error.message);
-        return false;
-      }
-      
-      console.log('[Auth Save] Success:', data);
+      console.log('[Auth] Google user created by database trigger:',  { userId, userEmail, fullName });
+      console.log('[Auth] Organization auto-created by trigger');
       return true;
-    } catch (err) {
-      console.error('[Auth Save] Unexpected error:', err);
+    } catch (err: any) {
+      console.error('[Auth] ❌ Error in saveGoogleUserEmail:', err.message);
       return false;
     }
   };
@@ -192,20 +177,44 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const signInWithGoogle = async () => {
-    const redirectUrl = `${window.location.origin}/auth/callback`;
-    console.log('[OAuth] Redirecting to Google, target callback:', redirectUrl);
+    try {
+      const redirectUrl = `${window.location.origin}/auth/callback`;
+      console.log('[OAuth] 1. Starting Google OAuth flow');
+      console.log('[OAuth] 2. Redirect URL:', redirectUrl);
+      console.log('[OAuth] 3. Supabase URL:', import.meta.env.VITE_SUPABASE_URL);
 
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: redirectUrl,
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectUrl,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         },
-      },
-    });
-    if (error) throw error;
+      });
+
+      if (error) {
+        console.error('[OAuth] Error during signInWithOAuth:', {
+          code: error.status,
+          message: error.message,
+          cause: (error as any).cause,
+          details: error
+        });
+        throw error;
+      }
+
+      console.log('[OAuth] 4. OAuth call successful, redirecting to:', data?.url);
+      console.log('[OAuth] 5. User should be redirected now...');
+    } catch (err: any) {
+      console.error('[OAuth] CRITICAL ERROR in signInWithGoogle:', {
+        message: err.message,
+        status: err.status,
+        details: err,
+        timestamp: new Date().toISOString()
+      });
+      throw err;
+    }
   };
 
   const signInWithJira = () => {
