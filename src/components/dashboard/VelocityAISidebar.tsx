@@ -137,7 +137,7 @@ export const VelocityAISidebar = ({ children }: VelocityAISidebarProps) => {
     <div className="flex h-screen bg-[#F5F5F4] font-['Inter',sans-serif] overflow-hidden">
       {/* Sidebar */}
       <div
-        className={`${sidebarOpen ? 'w-[260px]' : 'w-[70px]'} bg-[#1C1917] flex flex-col py-6 z-40 flex-shrink-0 transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] border-r border-[#292524] shadow-2xl shadow-black/20`}
+        className={`${sidebarOpen ? 'w-[260px]' : 'w-[70px]'} bg-[#1C1917] flex flex-col py-6 z-40 flex-shrink-0 transition-all duration-300 [transition-timing-function:cubic-bezier(0.25,1,0.5,1)] border-r border-[#292524] shadow-2xl shadow-black/20`}
       >
         {/* Logo Section */}
         <div className={`mb-8 px-6 flex items-center ${sidebarOpen ? 'gap-3' : 'justify-center'}`}>

@@ -9,9 +9,9 @@ export interface Project {
   start_date?: string;
   end_date?: string;
   created_at: string;
-  
+
   // Virtual / Joined Fields
-  team_name?: string; 
+  team_name?: string;
   task_count?: number; // <--- This was the missing property
 }
 
@@ -34,6 +34,8 @@ export interface PlanTask {
 }
 
 export interface DraftProjectState {
+  name: string;
+  key: string;
   description: string;
   tasks: {
     id: string;

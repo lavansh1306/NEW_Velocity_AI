@@ -17,7 +17,8 @@ export function useProjects() {
         .from('projects')
         .select(`
           *,
-          teams ( name )
+          teams ( name ),
+          tasks ( id )
         `)
         .eq('organization_id', orgId)
         .order('created_at', { ascending: false });
@@ -26,7 +27,8 @@ export function useProjects() {
 
       setProjects(data.map((p: any) => ({
         ...p,
-        team_name: p.teams?.name
+        team_name: p.teams?.name,
+        task_count: p.tasks?.length || 0
       })));
     } catch (err: any) {
       toast.error('Failed to load projects: ' + err.message);
@@ -37,7 +39,7 @@ export function useProjects() {
 
   // 2. Commit Logic: The "Auto-Magic" Button
   const commitProject = useCallback(async (
-    orgId: string, 
+    orgId: string,
     draft: DraftProjectState
   ) => {
     if (!user) return;
@@ -45,12 +47,11 @@ export function useProjects() {
 
     try {
       // Step A: Create a Team for this project
-      // (In a real app, you might select an existing team, but here we create one for the project)
       const { data: teamData, error: teamError } = await supabase
         .from('teams')
-        .insert([{ 
-          organization_id: orgId, 
-          name: `Team: ${draft.description.substring(0, 20)}...` 
+        .insert([{
+          organization_id: orgId,
+          name: draft.name
         }])
         .select()
         .single();
@@ -64,11 +65,11 @@ export function useProjects() {
           user_id: userId,
           role: 'member'
         }));
-        
+
         const { error: memberError } = await supabase
           .from('team_members')
           .insert(teamMembers);
-          
+
         if (memberError) throw memberError;
       }
 
@@ -78,7 +79,7 @@ export function useProjects() {
         .insert([{
           organization_id: orgId,
           team_id: teamData.id,
-          name: draft.description.split('.')[0].substring(0, 50), // Use first sentence as title
+          name: draft.name,
           description: draft.description,
           status: 'active',
           source: 'internal',
@@ -95,7 +96,6 @@ export function useProjects() {
         name: t.task,
         estimated_hours: t.estimatedHours,
         status: 'not_started',
-        // We can optionally assign tasks round-robin style here if needed
       }));
 
       const { error: tasksError } = await supabase

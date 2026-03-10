@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from './ui/button';
+import { useAuth } from '@/contexts/AuthContext';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Progress } from './ui/progress';
@@ -154,6 +155,7 @@ const AddTeamMemberModal = ({ open, onOpenChange }: { open: boolean; onOpenChang
 };
 
 export const PeopleCapacityScreen = () => {
+    const { user, orgId, orgRole } = useAuth();
     const [selectedPerson, setSelectedPerson] = useState<TeamMemberView | null>(null);
     const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
     const [showSkillsVerification, setShowSkillsVerification] = useState(false);
@@ -166,13 +168,27 @@ export const PeopleCapacityScreen = () => {
 
     useEffect(() => {
         const loadData = async () => {
+            if (!orgId || !user) return;
+
             try {
+                let teamIds: string[] | undefined = undefined;
+
+                // If manager, only show their teams
+                if (orgRole === 'manager') {
+                    teamIds = await peopleService.fetchUserTeams(user.id);
+                }
+
                 const [members, skills] = await Promise.all([
-                    peopleService.fetchAllTeamMembers(),
-                    peopleService.fetchPendingSkills()
+                    peopleService.fetchAllTeamMembers(orgId, teamIds),
+                    peopleService.fetchPendingSkills(orgId, teamIds)
                 ]);
-                setTeamMembers(members);
-                setPendingSkills(skills);
+
+                // Exclude current user (manager) from the list
+                const filteredMembers = members.filter(m => m.id !== user.id);
+                const filteredSkills = skills.filter(s => s.userId !== user.id);
+
+                setTeamMembers(filteredMembers);
+                setPendingSkills(filteredSkills);
             } catch (error) {
                 toast.error('Failed to load live data. Falling back to mock data.');
                 setTeamMembers(teamMembersView);
@@ -182,7 +198,7 @@ export const PeopleCapacityScreen = () => {
             }
         };
         loadData();
-    }, []);
+    }, [orgId, user, orgRole]);
 
     const fetchDetail = async (name: string) => {
         if (allPersonDetails[name]) return;

@@ -88,13 +88,13 @@ export const planRecommendedTeam: PlanTeamCandidate[] = [
 
 // NEW VIEW-MODEL DATA (For PeopleCapacityScreen)
 export const teamMembersView: TeamMemberView[] = [
-    { name: 'Sarah Chen', role: 'Frontend Lead', avatar: 'SC', skills: ['React', 'TypeScript', 'CSS', 'UI/UX'], utilization: 120, projects: 3, status: 'overloaded', availability: 0 },
-    { name: 'Marcus Rodriguez', role: 'Backend Engineer', avatar: 'MR', skills: ['Node.js', 'PostgreSQL', 'AWS'], utilization: 95, projects: 2, status: 'at-risk', availability: 8 },
-    { name: 'Alex Kim', role: 'Data Engineer', avatar: 'AK', skills: ['Python', 'Spark', 'SQL'], utilization: 70, projects: 1, status: 'healthy', availability: 24 },
+    { id: 'user-sarah', name: 'Sarah Chen', role: 'Frontend Lead', avatar: 'SC', skills: ['React', 'TypeScript', 'CSS', 'UI/UX'], utilization: 120, projects: 3, status: 'overloaded', availability: 0 },
+    { id: 'user-marcus', name: 'Marcus Rodriguez', role: 'Backend Engineer', avatar: 'MR', skills: ['Node.js', 'PostgreSQL', 'AWS'], utilization: 95, projects: 2, status: 'at-risk', availability: 8 },
+    { id: 'user-alex', name: 'Alex Kim', role: 'Data Engineer', avatar: 'AK', skills: ['Python', 'Spark', 'SQL'], utilization: 70, projects: 1, status: 'healthy', availability: 24 },
 ];
 
 export const pendingSkillsView: PendingSkillView[] = [
-    { id: 1, person: 'Alex Kim', avatar: 'AK', skill: 'Kubernetes', selfRated: 'Expert', evidence: 'Managed cluster for Project Alpha', suggestedBy: 'ai' },
+    { id: 1, userId: 'user-alex', person: 'Alex Kim', avatar: 'AK', skill: 'Kubernetes', selfRated: 'Expert', evidence: 'Managed cluster for Project Alpha', suggestedBy: 'ai' },
 ];
 
 export const personDetailsMap: Record<string, PersonDetailView> = {

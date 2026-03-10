@@ -171,6 +171,7 @@ export interface PlanTeamCandidate {
 
 /** Team member card — derived from User + TaskAssignments */
 export interface TeamMemberView {
+    id: string;
     name: string;
     role: string;
     avatar: string;
@@ -184,6 +185,7 @@ export interface TeamMemberView {
 /** Pending skill for verification */
 export interface PendingSkillView {
     id: number;
+    userId: string;
     person: string;
     avatar: string;
     skill: string;
