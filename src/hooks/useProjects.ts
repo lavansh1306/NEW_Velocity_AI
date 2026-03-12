@@ -96,6 +96,8 @@ export function useProjects() {
         name: t.task,
         estimated_hours: t.estimatedHours,
         status: 'not_started',
+        start_date: t.startDate ? t.startDate.toISOString().split('T')[0] : null,
+        due_date: t.dueDate ? t.dueDate.toISOString().split('T')[0] : null,
       }));
 
       const { error: tasksError } = await supabase

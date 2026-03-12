@@ -40,6 +40,9 @@ interface Project {
   status: "planning" | "active" | "completed";
   createdAt: string;
   tasks: Task[];
+  startDate?: Date;
+  dueDate?: Date;
+  estimatedHours?: number;
 }
 
 interface Task {
@@ -50,8 +53,10 @@ interface Task {
   estimatedHours: number;
   requiredSkills: string[];
   assignedTo?: string;
-  status: "todo" | "in-progress" | "completed";
+  status: "not_started" | "in_progress" | "blocked" | "completed";
   aiSuggestions?: Employee[];
+  startDate?: Date;
+  dueDate?: Date;
 }
 
 interface AssignmentResult {
@@ -72,8 +77,29 @@ export const DeploymentView = () => {
   const [showProjectDialog, setShowProjectDialog] = useState(false);
   const [newProject, setNewProject] = useState({
     name: "",
-    description: ""
+    description: "",
+    startDate: "",
+    dueDate: "",
+    estimatedHours: 0
   });
+  
+  // Tasks to be added with project creation
+  const [projectTasks, setProjectTasks] = useState<Task[]>([]);
+  const [newProjectTask, setNewProjectTask] = useState({
+    title: "",
+    priority: "medium" as const,
+    estimatedHours: 0
+  });
+
+  // Calculate estimated hours based on days between start and due date
+  const calculateEstimatedHours = (start: string, due: string) => {
+    if (!start || !due) return 0;
+    const startDate = new Date(start);
+    const dueDate = new Date(due);
+    const diffTime = Math.abs(dueDate.getTime() - startDate.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays * 8; // 8 hours per day
+  };
 
   // Task creation
   const [showTaskDialog, setShowTaskDialog] = useState(false);
@@ -82,7 +108,10 @@ export const DeploymentView = () => {
     description: "",
     priority: "medium" as const,
     estimatedHours: 0,
-    requiredSkills: ""
+    requiredSkills: "",
+    startDate: "",
+    dueDate: "",
+    status: "not_started" as const
   });
 
   // CSV Upload
@@ -231,18 +260,47 @@ export const DeploymentView = () => {
       description: newProject.description,
       status: "planning",
       createdAt: new Date().toISOString(),
-      tasks: []
+      tasks: projectTasks, // Include tasks created during project creation
+      startDate: newProject.startDate ? new Date(newProject.startDate) : undefined,
+      dueDate: newProject.dueDate ? new Date(newProject.dueDate) : undefined,
+      estimatedHours: newProject.estimatedHours
     };
 
     setProjects(prev => [...prev, project]);
     setCurrentProject(project);
-    setNewProject({ name: "", description: "" });
+    setNewProject({ name: "", description: "", startDate: "", dueDate: "", estimatedHours: 0 });
+    setProjectTasks([]); // Reset project tasks
+    setNewProjectTask({ title: "", priority: "medium", estimatedHours: 0 }); // Reset task form
     setShowProjectDialog(false);
 
     toast({
       title: "Project created",
       description: `"${project.name}" has been created successfully`,
     });
+  };
+
+  // Add task to project during creation
+  const handleAddTaskToProject = () => {
+    if (!newProjectTask.title.trim()) return;
+
+    const task: Task = {
+      id: `task_${Date.now()}`,
+      title: newProjectTask.title,
+      description: "",
+      priority: newProjectTask.priority,
+      estimatedHours: newProjectTask.estimatedHours,
+      requiredSkills: [],
+      status: "not_started",
+      aiSuggestions: []
+    };
+
+    setProjectTasks(prev => [...prev, task]);
+    setNewProjectTask({ title: "", priority: "medium", estimatedHours: 0 });
+  };
+
+  // Remove task from project during creation
+  const handleRemoveTaskFromProject = (taskId: string) => {
+    setProjectTasks(prev => prev.filter(task => task.id !== taskId));
   };
 
   // Task Management
@@ -258,7 +316,9 @@ export const DeploymentView = () => {
         priority: newTask.priority,
         estimatedHours: newTask.estimatedHours,
         requiredSkills: newTask.requiredSkills.split(',').map(s => s.trim()).filter(s => s),
-        status: "todo"
+        status: newTask.status,
+        startDate: newTask.startDate ? new Date(newTask.startDate) : undefined,
+        dueDate: newTask.dueDate ? new Date(newTask.dueDate) : undefined
       };
 
       // Get AI suggestions
@@ -277,7 +337,10 @@ export const DeploymentView = () => {
         description: "",
         priority: "medium",
         estimatedHours: 0,
-        requiredSkills: ""
+        requiredSkills: "",
+        startDate: "",
+        dueDate: "",
+        status: "not_started"
       });
       setShowTaskDialog(false);
 
@@ -586,6 +649,137 @@ export const DeploymentView = () => {
                               className="border-gray-200 focus:border-blue-500 font-light"
                             />
                           </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label htmlFor="project-start-date" className="font-light">Start Date</Label>
+                              <Input
+                                id="project-start-date"
+                                type="date"
+                                value={newProject.startDate}
+                                onChange={(e) => {
+                                  const startDate = e.target.value;
+                                  const estimatedHours = calculateEstimatedHours(startDate, newProject.dueDate);
+                                  setNewProject(prev => ({
+                                    ...prev,
+                                    startDate,
+                                    estimatedHours
+                                  }));
+                                }}
+                                className="border-gray-200 focus:border-blue-500 font-light"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="project-due-date" className="font-light">Due Date</Label>
+                              <Input
+                                id="project-due-date"
+                                type="date"
+                                value={newProject.dueDate}
+                                onChange={(e) => {
+                                  const dueDate = e.target.value;
+                                  const estimatedHours = calculateEstimatedHours(newProject.startDate, dueDate);
+                                  setNewProject(prev => ({
+                                    ...prev,
+                                    dueDate,
+                                    estimatedHours
+                                  }));
+                                }}
+                                className="border-gray-200 focus:border-blue-500 font-light"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <Label htmlFor="project-estimated-hours" className="font-light">Estimated Hours</Label>
+                            <Input
+                              id="project-estimated-hours"
+                              type="number"
+                              value={newProject.estimatedHours}
+                              disabled
+                              placeholder="Auto-calculated: 8 hours per day"
+                              className="border-gray-200 focus:border-blue-500 font-light bg-gray-50"
+                            />
+                            <p className="text-xs text-gray-500 mt-1 font-light">Auto-calculated based on start and due dates (8 hours/day)</p>
+                          </div>
+                          {/* Tasks Section */}
+                          <div className="border-t pt-4 mt-4">
+                            <Label className="font-light mb-3 block">Add Tasks (Optional)</Label>
+                            <div className="space-y-3">
+                              {/* Task Input Form */}
+                              <div className="space-y-3 bg-gray-50 p-3 rounded-lg">
+                                <div>
+                                  <Label htmlFor="project-task-title" className="font-light text-sm">Task Title</Label>
+                                  <Input
+                                    id="project-task-title"
+                                    value={newProjectTask.title}
+                                    onChange={(e) => setNewProjectTask(prev => ({ ...prev, title: e.target.value }))}
+                                    placeholder="Enter task title"
+                                    className="border-gray-200 focus:border-blue-500 font-light"
+                                  />
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <Label htmlFor="project-task-priority" className="font-light text-sm">Priority</Label>
+                                    <Select
+                                      value={newProjectTask.priority}
+                                      onValueChange={(value: any) => setNewProjectTask(prev => ({ ...prev, priority: value }))}
+                                    >
+                                      <SelectTrigger className="border-gray-200 font-light">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="low">Low</SelectItem>
+                                        <SelectItem value="medium">Medium</SelectItem>
+                                        <SelectItem value="high">High</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  <div>
+                                    <Label htmlFor="project-task-hours" className="font-light text-sm">Est. Hours</Label>
+                                    <Input
+                                      id="project-task-hours"
+                                      type="number"
+                                      value={newProjectTask.estimatedHours}
+                                      onChange={(e) => setNewProjectTask(prev => ({ ...prev, estimatedHours: parseInt(e.target.value) || 0 }))}
+                                      placeholder="0"
+                                      className="border-gray-200 focus:border-blue-500 font-light"
+                                    />
+                                  </div>
+                                </div>
+                                <Button 
+                                  type="button"
+                                  onClick={handleAddTaskToProject}
+                                  size="sm"
+                                  className="w-full bg-green-600 hover:bg-green-700 font-light"
+                                >
+                                  <Plus className="h-4 w-4 mr-2" />
+                                  Add Task
+                                </Button>
+                              </div>
+
+                              {/* Tasks List */}
+                              {projectTasks.length > 0 && (
+                                <div className="bg-blue-50 rounded-lg p-3 space-y-2">
+                                  <p className="text-sm font-medium text-gray-700">Added Tasks ({projectTasks.length})</p>
+                                  {projectTasks.map((task) => (
+                                    <div key={task.id} className="flex items-center justify-between bg-white p-2 rounded border border-gray-200">
+                                      <div className="flex-1">
+                                        <p className="font-light text-sm">{task.title}</p>
+                                        <p className="text-xs text-gray-500">Priority: <span className="capitalize">{task.priority}</span> | Hours: {task.estimatedHours}</p>
+                                      </div>
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="destructive"
+                                        onClick={() => handleRemoveTaskFromProject(task.id)}
+                                        className="h-7 w-7 p-0"
+                                      >
+                                        ×
+                                      </Button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
                           <Button onClick={handleCreateProject} className="w-full bg-blue-600 hover:bg-blue-700 font-light">
                             Create Project
                           </Button>
@@ -695,6 +889,45 @@ export const DeploymentView = () => {
                                   className="border-gray-200 focus:border-blue-500 font-light"
                                 />
                               </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <Label htmlFor="task-start-date" className="font-light">Start Date</Label>
+                                <Input
+                                  id="task-start-date"
+                                  type="date"
+                                  value={newTask.startDate}
+                                  onChange={(e) => setNewTask(prev => ({ ...prev, startDate: e.target.value }))}
+                                  className="border-gray-200 focus:border-blue-500 font-light"
+                                />
+                              </div>
+                              <div>
+                                <Label htmlFor="task-due-date" className="font-light">Due Date</Label>
+                                <Input
+                                  id="task-due-date"
+                                  type="date"
+                                  value={newTask.dueDate}
+                                  onChange={(e) => setNewTask(prev => ({ ...prev, dueDate: e.target.value }))}
+                                  className="border-gray-200 focus:border-blue-500 font-light"
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <Label htmlFor="task-status" className="font-light">Status</Label>
+                              <Select
+                                value={newTask.status}
+                                onValueChange={(value: any) => setNewTask(prev => ({ ...prev, status: value }))}
+                              >
+                                <SelectTrigger className="border-gray-200 font-light">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="not_started">Not Started</SelectItem>
+                                  <SelectItem value="in_progress">In Progress</SelectItem>
+                                  <SelectItem value="blocked">Blocked</SelectItem>
+                                  <SelectItem value="completed">Completed</SelectItem>
+                                </SelectContent>
+                              </Select>
                             </div>
                             <div>
                               <Label htmlFor="task-skills" className="font-light">Required Skills (comma-separated)</Label>

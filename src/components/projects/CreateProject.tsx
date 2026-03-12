@@ -32,6 +32,12 @@ export default function CreateProject() {
   const { commitProject, isLoading: isSubmitting } = useProjects();
   const { employees, isLoading: loadingMembers } = useLeaveManagementData();
 
+  // Helper to get today's date in YYYY-MM-DD format
+  const getTodayDateString = () => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  };
+
   // 2. UI State (The Look)
   const [projectName, setProjectName] = useState('');
   const [projectKey, setProjectKey] = useState('');
@@ -39,11 +45,24 @@ export default function CreateProject() {
   const [projectType, setProjectType] = useState('Scrum Software Development');
   const [projectLead, setProjectLead] = useState(''); // ID of the lead
   const [description, setDescription] = useState('');
+  const [startDate, setStartDate] = useState(getTodayDateString()); // Default to today's date
+  const [dueDate, setDueDate] = useState('');
+  const [estimatedHours, setEstimatedHours] = useState(0);
 
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [tasks, setTasks] = useState([
-    { id: 1, name: 'Database Setup', assignee: 'Unassigned', hours: '4', timeline: 'Week 1' },
+    { id: 1, name: 'Database Setup', assignee: 'Unassigned', hours: '4', timeline: 'Week 1', startDate: getTodayDateString(), dueDate: '' },
   ]);
+
+  // Calculate estimated hours based on days between start and due date
+  const calculateEstimatedHours = (start: string, due: string) => {
+    if (!start || !due) return 0;
+    const startDateObj = new Date(start);
+    const dueDateObj = new Date(due);
+    const diffTime = Math.abs(dueDateObj.getTime() - startDateObj.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 to include the first day
+    return diffDays * 8; // 8 hours per day
+  };
 
   // Auto-set Project Lead to current user if available
   useEffect(() => {
@@ -73,15 +92,29 @@ export default function CreateProject() {
   const handleAddTask = () =>
     setTasks(prev => [
       ...prev,
-      { id: Date.now(), name: '', assignee: 'Unassigned', hours: '0', timeline: '' },
+      { id: Date.now(), name: '', assignee: 'Unassigned', hours: '0', timeline: '', startDate: getTodayDateString(), dueDate: '' },
     ]);
 
   const handleDeleteTask = (id: number) => {
     if (tasks.length > 1) setTasks(prev => prev.filter(t => t.id !== id));
   };
 
-  const handleTaskChange = (id: number, field: string, value: string) =>
-    setTasks(prev => prev.map(t => (t.id === id ? { ...t, [field]: value } : t)));
+  const handleTaskChange = (id: number, field: string, value: string) => {
+    setTasks(prev =>
+      prev.map(t => {
+        if (t.id === id) {
+          const updatedTask = { ...t, [field]: value };
+          // Auto-calculate hours when start or due date changes
+          if ((field === 'startDate' || field === 'dueDate') && updatedTask.startDate && updatedTask.dueDate) {
+            const calculatedHours = calculateEstimatedHours(updatedTask.startDate, updatedTask.dueDate);
+            updatedTask.hours = String(calculatedHours);
+          }
+          return updatedTask;
+        }
+        return t;
+      })
+    );
+  };
 
   const toggleMember = (id: string) =>
     setSelectedMembers(prev =>
@@ -103,11 +136,17 @@ export default function CreateProject() {
       name: projectName,
       key: projectKey,
       description: description,
+      startDate: startDate ? new Date(startDate) : undefined,
+      dueDate: dueDate ? new Date(dueDate) : undefined,
+      estimatedHours: estimatedHours,
       selectedTeamIds: selectedMembers,
       tasks: tasks.filter(t => t.name.trim()).map(t => ({
         id: String(t.id),
         task: t.name,
-        estimatedHours: Number(t.hours) || 0
+        estimatedHours: Number(t.hours) || 0,
+        status: 'not_started',
+        startDate: t.startDate ? new Date(t.startDate) : undefined,
+        dueDate: t.dueDate ? new Date(t.dueDate) : undefined
       }))
     });
 
@@ -292,9 +331,11 @@ export default function CreateProject() {
 
               {/* Column headers */}
               <div className="grid grid-cols-12 gap-4 px-6 py-2 text-[10px] font-bold text-[#A8A29E] uppercase tracking-wider">
-                <div className="col-span-5">Task Name</div>
-                <div className="col-span-3">Assignee</div>
-                <div className="col-span-2">Est. Hours</div>
+                <div className="col-span-3">Task Name</div>
+                <div className="col-span-2">Assignee</div>
+                <div className="col-span-1">Est. Hours</div>
+                <div className="col-span-2">Start Date</div>
+                <div className="col-span-2">Due Date</div>
                 <div className="col-span-2">Timeline</div>
               </div>
 
@@ -302,7 +343,7 @@ export default function CreateProject() {
                 <div className="divide-y divide-[#E7E5E4]">
                   {tasks.map(task => (
                     <div key={task.id} className="grid grid-cols-12 gap-4 px-6 py-3 bg-white items-center">
-                      <div className="col-span-5">
+                      <div className="col-span-3">
                         <input
                           type="text"
                           value={task.name}
@@ -311,7 +352,7 @@ export default function CreateProject() {
                           className="w-full text-sm bg-transparent focus:outline-none text-[#1C1917] placeholder:text-[#A8A29E]"
                         />
                       </div>
-                      <div className="col-span-3">
+                      <div className="col-span-2">
                         <select
                           value={task.assignee}
                           onChange={e => handleTaskChange(task.id, 'assignee', e.target.value)}
@@ -323,14 +364,31 @@ export default function CreateProject() {
                           ))}
                         </select>
                       </div>
-                      <div className="col-span-2">
+                      <div className="col-span-1">
                         <input
                           type="number"
                           min="0"
                           value={task.hours}
                           onChange={e => handleTaskChange(task.id, 'hours', e.target.value)}
-                          placeholder="0"
-                          className="w-20 text-sm bg-transparent focus:outline-none text-[#1C1917]"
+                          placeholder="Auto-calculated"
+                          className="w-full text-sm bg-transparent focus:outline-none text-[#1C1917] placeholder:text-[#A8A29E] border-b border-transparent hover:border-[#E7E5E4] focus:border-[#1C1917] px-1 py-1"
+                          title="Auto-calculated from dates (8 hours/day). Editable if needed."
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <input
+                          type="date"
+                          value={task.startDate}
+                          onChange={e => handleTaskChange(task.id, 'startDate', e.target.value)}
+                          className="w-full text-sm bg-transparent focus:outline-none text-[#1C1917]"
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <input
+                          type="date"
+                          value={task.dueDate}
+                          onChange={e => handleTaskChange(task.id, 'dueDate', e.target.value)}
+                          className="w-full text-sm bg-transparent focus:outline-none text-[#1C1917]"
                         />
                       </div>
                       <div className="col-span-2 flex justify-between items-center">
