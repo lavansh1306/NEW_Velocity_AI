@@ -2,8 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { Button } from './ui/button';
 import { toast } from 'sonner';
+import { Avatar, AvatarFallback } from './ui/avatar';
 import ChevronRightOutlined from '@mui/icons-material/ChevronRightOutlined';
 import SyncOutlined from '@mui/icons-material/SyncOutlined';
+import ArrowBackOutlined from '@mui/icons-material/ArrowBackOutlined';
+import CheckCircleOutlined from '@mui/icons-material/CheckCircleOutlined';
+import CheckOutlined from '@mui/icons-material/CheckOutlined';
 
 // ── SUPABASE IMPORT (Adjust path as needed) ──
 import { supabase } from '../lib/supabase'; 
@@ -24,7 +28,7 @@ export const PlanMyProjectScreen = () => {
     const [currentOrgId, setCurrentOrgId] = useState<string | null>(null);
 
     // Inputs State
-    const [projectTitle, setProjectTitle] = useState('New AI Project'); 
+    const [projectTitle, setProjectTitle] = useState(''); 
     const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
     const [descriptionError, setDescriptionError] = useState<string | null>(null);
     const [projectDescription, setProjectDescription] = useState('');
@@ -45,6 +49,15 @@ export const PlanMyProjectScreen = () => {
     const [showAddRow, setShowAddRow] = useState(false);
     const [addForm, setAddForm] = useState({ task: '', estimatedHours: 0 });
 
+    // Step 2 Logic (Team Allocation)
+    const [isMatchingTeam, setIsMatchingTeam] = useState(false);
+    const [teamReady, setTeamReady] = useState(false);
+    const [selectedTeam, setSelectedTeam] = useState<string[]>([]);
+    const [teamThoughts, setTeamThoughts] = useState<string[]>([]);
+    
+    // Placeholder for recommended team (Will be wired to API next)
+    const recommendedTeam: PlanTeamCandidate[] = []; 
+
     const baseUrl = import.meta.env.VITE_LLM_URL || 'http://127.0.0.1:8000';
 
     // ── FETCH DYNAMIC CONTEXT ON MOUNT ──
@@ -52,7 +65,6 @@ export const PlanMyProjectScreen = () => {
         const fetchContext = async () => {
             try {
                 // Fetch the first active organization. 
-                // In a production app, this would come from your Auth Provider (e.g., supabase.auth.getUser())
                 const { data, error } = await supabase
                     .from('organizations')
                     .select('id')
@@ -168,16 +180,18 @@ export const PlanMyProjectScreen = () => {
 
         setIsSaving(true);
         try {
-            const generatedName = uploadedFileName 
+            const fallbackName = uploadedFileName 
                 ? `Draft: ${uploadedFileName.replace(/\.[^/.]+$/, "")}` 
                 : `AI Draft - ${new Date().toLocaleDateString()}`;
+                
+            const finalProjectName = projectTitle.trim() !== '' ? projectTitle.trim() : fallbackName;
 
             // 1. Insert Parent Project using Dynamic DB Data
             const { data: projectData, error: projectError } = await supabase
                 .from('projects')
                 .insert({
-                    organization_id: currentOrgId, // Using the ID fetched from the DB
-                    name: generatedName,
+                    organization_id: currentOrgId,
+                    name: finalProjectName,
                     description: projectDescription,
                     source: 'internal',
                     status: 'draft' 
@@ -242,6 +256,21 @@ export const PlanMyProjectScreen = () => {
         setShowAddRow(false);
     };
 
+    // ── STEP 2 NAVIGATION ──
+    const teamMatchThoughts = ['Scanning skills...', 'Checking availability...', 'Optimizing match...'];
+    const goToStep2 = () => {
+        if (tasks.length === 0) return toast.error('Add a task first');
+        setCurrentStep(2); 
+        setIsMatchingTeam(true); 
+        setTeamThoughts([]); 
+        setTeamReady(false);
+        
+        teamMatchThoughts.forEach((t, i) => setTimeout(() => {
+            setTeamThoughts(p => [...p, t]);
+            if (i === teamMatchThoughts.length - 1) setTimeout(() => { setIsMatchingTeam(false); setTeamReady(true); }, 600);
+        }, i * 700));
+    };
+
     const totalHours = tasks.reduce((s, t) => s + t.estimatedHours, 0);
     
     // Keyframes
@@ -261,6 +290,8 @@ export const PlanMyProjectScreen = () => {
                 
                 {/* 1. HEADER COMPONENT */}
                 <PlanHeader 
+                    projectTitle={projectTitle}
+                    setProjectTitle={setProjectTitle}
                     projectDescription={projectDescription}
                     setProjectDescription={setProjectDescription}
                     uploadedFileName={uploadedFileName}
@@ -273,9 +304,9 @@ export const PlanMyProjectScreen = () => {
                     handleAnalyze={handleAnalyze}
                 />
 
-                {/* 2. RESULTS COMPONENTS */}
+                {/* 2. STEP 1: RESULTS COMPONENTS */}
                 {hasAnalyzed && currentStep === 1 && (
-                    <div className="space-y-6">
+                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                         
                         <TaskStats 
                             totalHours={totalHours} 
@@ -302,19 +333,19 @@ export const PlanMyProjectScreen = () => {
                         <div className="flex gap-4">
                             <Button 
                                 variant="outline" 
-                                className="flex-1 h-11 rounded-xl font-light border-[#E7E5E4] bg-white/70 hover:bg-white text-[#292524]" 
+                                className="flex-1 h-11 rounded-xl font-light border-[#E7E5E4] bg-white/70 hover:bg-white text-[#292524] transition-all" 
                                 onClick={handleSaveDraft} 
-                                disabled={isSaving || !currentOrgId} // Disable if no DB context
+                                disabled={isSaving || !currentOrgId}
                             >
                                 {isSaving ? <SyncOutlined className="animate-spin mr-2" style={{fontSize: 16}} /> : null}
                                 {isSaving ? 'Saving...' : 'Save Draft'}
                             </Button>
                             <button
                                 type="button"
-                                className="flex-1 h-11 rounded-xl font-light text-white inline-flex items-center justify-center relative overflow-hidden disabled:opacity-50"
+                                className="flex-1 h-11 rounded-xl font-light text-white inline-flex items-center justify-center relative overflow-hidden disabled:opacity-50 transition-all hover:opacity-90"
                                 style={{ background: 'linear-gradient(135deg, #1C1917 0%, #292524 50%, #0F766E 100%)', boxShadow: '0 4px 14px rgba(15,118,110,0.2)' }}
-                                onClick={() => setCurrentStep(2)}
-                                disabled={!currentOrgId} // Disable if no DB context
+                                onClick={goToStep2}
+                                disabled={!currentOrgId}
                             >
                                 <span className="relative z-10 inline-flex items-center">
                                     Continue to Team Allocation
@@ -322,6 +353,131 @@ export const PlanMyProjectScreen = () => {
                                 </span>
                             </button>
                         </div>
+                    </div>
+                )}
+
+                {/* 3. STEP 2: TEAM ALLOCATION */}
+                {hasAnalyzed && currentStep === 2 && (
+                    <div className="animate-in fade-in slide-in-from-right-8 duration-500">
+                        {isMatchingTeam ? (
+                            <div className="relative rounded-2xl mb-10 p-[1px] [background-size:300%_300%]" style={{ backgroundImage: 'linear-gradient(135deg, #0F766E, #10B981, #A8A29E, #0F766E)', animation: 'gradientShift 2s ease infinite' }}>
+                                <div className="bg-white/90 backdrop-blur-[40px] rounded-2xl p-10" style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.04)' }}>
+                                    <div className="flex items-center gap-3 mb-6">
+                                        <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #0F766E, #10B981)', boxShadow: '0 4px 12px rgba(15,118,110,0.25)' }}>
+                                            <SyncOutlined style={{ fontSize: 16, color: '#fff' }} className="animate-spin" />
+                                        </div>
+                                        <span className="text-sm text-[#1C1917] font-light">Matching team members to your {tasks.length} tasks...</span>
+                                    </div>
+                                    <div className="space-y-3 pl-12">
+                                        {teamThoughts.map((line, idx) => (
+                                            <div key={idx} className="text-sm text-[#78716C] font-light flex items-center gap-3 animate-in fade-in slide-in-from-left-2 duration-500">
+                                                {line}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        ) : teamReady && (
+                            <div className="contents">
+                                <div className="grid grid-cols-12 gap-8 mb-10">
+                                    {/* Left — Task summary sidebar */}
+                                    <div className="col-span-4">
+                                        <div className="relative rounded-2xl p-[1px] sticky top-24" style={{ background: 'linear-gradient(135deg, rgba(231,229,228,0.6), rgba(204,251,241,0.3), rgba(231,229,228,0.6))' }}>
+                                            <div className="bg-white/85 backdrop-blur-[40px] rounded-2xl p-8" style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.03)' }}>
+                                                <h3 className="text-sm text-[#78716C] uppercase tracking-wider font-light mb-5">Task Summary</h3>
+                                                <div className="space-y-3 mb-6 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                                                    {tasks.map(t => (
+                                                        <div key={t.id} className="flex items-center justify-between py-2 border-b border-[#F5F5F4] last:border-0">
+                                                            <span className="text-sm text-[#1C1917] font-light truncate flex-1 mr-3">{t.task}</span>
+                                                            <span className="text-xs text-[#78716C] font-light whitespace-nowrap">{t.estimatedHours}h</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                <div className="pt-4 border-t border-[#E7E5E4] flex justify-between">
+                                                    <span className="text-sm text-[#78716C] font-light">{tasks.length} tasks</span>
+                                                    <span className="text-sm text-[#1C1917] font-medium">{totalHours}h</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Right — Recommended team */}
+                                    <div className="col-span-8">
+                                        <div className="flex items-center justify-between mb-6">
+                                            <h2 className="text-xl font-light text-[#1C1917]">Recommended Team</h2>
+                                            <span className="text-xs text-[#78716C] font-light">{selectedTeam.length} selected</span>
+                                        </div>
+                                        
+                                        {recommendedTeam.length === 0 ? (
+                                            <div className="p-10 border border-dashed border-[#E7E5E4] rounded-2xl flex flex-col items-center justify-center text-center bg-white/50">
+                                                <span className="text-sm text-[#78716C] font-light">API integration pending...<br/>This will show dynamic AI allocations shortly.</span>
+                                            </div>
+                                        ) : (
+                                            <div className="grid grid-cols-2 gap-6">
+                                                {recommendedTeam.map((member) => {
+                                                    const isSelected = selectedTeam.includes(member.name);
+                                                    return (
+                                                        <div
+                                                            key={member.name}
+                                                            onClick={() => {
+                                                                if (isSelected) setSelectedTeam(prev => prev.filter(n => n !== member.name));
+                                                                else setSelectedTeam(prev => [...prev, member.name]);
+                                                            }}
+                                                            className="relative rounded-2xl p-[1px] cursor-pointer group transition-all duration-300"
+                                                            style={{
+                                                                background: isSelected ? 'linear-gradient(135deg, #1C1917, #0F766E)' : 'linear-gradient(135deg, #E7E5E4, #F0FDFA)',
+                                                                boxShadow: isSelected ? '0 8px 24px rgba(15,118,110,0.15)' : 'none',
+                                                            }}
+                                                        >
+                                                            <div className="bg-white rounded-2xl p-6 h-full transition-all">
+                                                                {isSelected && (
+                                                                    <div className="absolute top-4 right-4 text-[#0F766E]">
+                                                                        <CheckCircleOutlined style={{ fontSize: 20 }} />
+                                                                    </div>
+                                                                )}
+                                                                <div className="flex items-center gap-4 mb-4">
+                                                                    <Avatar className="w-12 h-12 shadow-sm">
+                                                                        <AvatarFallback className="text-[#1C1917] text-sm font-light bg-[#F5F5F4]">{member.avatar}</AvatarFallback>
+                                                                    </Avatar>
+                                                                    <div>
+                                                                        <div className="text-[#1C1917] font-medium text-sm">{member.name}</div>
+                                                                        <div className="text-[#78716C] text-xs font-light">{member.role}</div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Step 2 Actions */}
+                                <div className="flex gap-4">
+                                    <Button variant="outline" className="h-11 px-8 rounded-xl font-light border-[#E7E5E4] bg-white/70 hover:bg-white text-[#292524]" onClick={() => setCurrentStep(1)}>
+                                        <ArrowBackOutlined style={{ fontSize: 16 }} className="mr-2" /> Back to Tasks
+                                    </Button>
+                                    <Button variant="outline" className="flex-1 h-11 rounded-xl font-light border-[#E7E5E4] bg-white/70 hover:bg-white text-[#292524]" onClick={handleSaveDraft} disabled={isSaving || !currentOrgId}>
+                                        {isSaving ? 'Saving...' : 'Save Draft'}
+                                    </Button>
+                                    <button
+                                        type="button"
+                                        className="flex-1 h-11 rounded-xl font-light text-white inline-flex items-center justify-center relative overflow-hidden"
+                                        style={{ background: 'linear-gradient(135deg, #1C1917 0%, #0F766E 100%)', boxShadow: '0 4px 14px rgba(15,118,110,0.25)' }}
+                                        onClick={() => {
+                                            toast.success(`Project committed with ${tasks.length} tasks`);
+                                            navigate('/projects');
+                                        }}
+                                    >
+                                        <span className="relative z-10 inline-flex items-center">
+                                            <CheckOutlined style={{ fontSize: 18 }} className="mr-2" />
+                                            Commit Project
+                                        </span>
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

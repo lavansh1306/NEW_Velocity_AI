@@ -1,10 +1,13 @@
 import React from 'react';
 import { AutoAwesomeOutlined, SyncOutlined, DescriptionOutlined, CloudUploadOutlined, CloseOutlined, ErrorOutlineOutlined } from '@mui/icons-material';
 import { Button } from '../ui/button';
+import { Input } from '../ui/input'; // <-- Import Input
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 
 interface PlanHeaderProps {
+    projectTitle: string;
+    setProjectTitle: (title: string) => void;
     projectDescription: string;
     setProjectDescription: (desc: string) => void;
     uploadedFileName: string | null;
@@ -18,7 +21,8 @@ interface PlanHeaderProps {
 }
 
 export const PlanHeader: React.FC<PlanHeaderProps> = ({
-    projectDescription, setProjectDescription, uploadedFileName, handleFileUpload, clearFileUpload,
+    projectTitle, setProjectTitle, projectDescription, setProjectDescription, 
+    uploadedFileName, handleFileUpload, clearFileUpload,
     descriptionError, isAnalyzing, analysisStatus, thoughtLines, handleAnalyze
 }) => {
     return (
@@ -35,8 +39,19 @@ export const PlanHeader: React.FC<PlanHeaderProps> = ({
                  animation: isAnalyzing ? 'gradientShift 2s ease infinite' : 'none'
             }}>
                 <div className="bg-white/85 backdrop-blur-[40px] rounded-2xl p-10">
-                    <Label className="text-sm font-light text-[#78716C] block mb-3">Project Description</Label>
                     
+                    {/* ── NEW: PROJECT TITLE INPUT ── */}
+                    <div className="mb-6">
+                        <Label className="text-sm font-light text-[#78716C] block mb-2">Project Name (Optional)</Label>
+                        <Input 
+                            value={projectTitle}
+                            onChange={(e) => setProjectTitle(e.target.value)}
+                            placeholder="e.g., Q3 Analytics Dashboard"
+                            className="h-11 font-light rounded-xl border-[#E7E5E4] bg-white/60 focus:bg-white transition-all duration-300"
+                        />
+                    </div>
+
+                    <Label className="text-sm font-light text-[#78716C] block mb-2">Project Description</Label>
                     <div className="relative mb-5 rounded-xl overflow-hidden" style={{ border: '1px solid #E7E5E4', background: 'rgba(255,255,255,0.6)' }}>
                         <Textarea 
                             value={projectDescription} 
