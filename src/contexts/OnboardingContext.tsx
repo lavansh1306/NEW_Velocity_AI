@@ -6,6 +6,7 @@ import {
   setCurrentOrgRole,
   setCurrentOrgName,
 } from '@/lib/orgContext';
+import { apiUrl } from '@/lib/api';
 
 // ---- Types ----
 
@@ -185,11 +186,30 @@ export const OnboardingProvider = ({ children }: { children: React.ReactNode }) 
       setCurrentOrgRole('owner');
       setCurrentOrgName(org.name);
 
-      // Generate default invite code
-      const code = generateCode(name);
-      setInviteCode(code);
+      // Generate default invite code and persist it server-side
+      try {
+        const resp = await fetch(apiUrl('/api/invites/create'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ organizationId: org.id, role: 'owner' }),
+        });
+        const body = await resp.json();
+        if (resp.ok && body.inviteCode) {
+          setInviteCode(body.inviteCode);
+          console.log('[Onboarding] Invite code persisted:', body.inviteCode);
+        } else {
+          console.warn('[Onboarding] Could not persist invite code, server response:', body);
+          // Fallback to local-only code for display
+          const fallback = generateCode(name);
+          setInviteCode(fallback);
+        }
+      } catch (err) {
+        console.error('[Onboarding] Error persisting invite code:', err);
+        const fallback = generateCode(name);
+        setInviteCode(fallback);
+      }
 
-      console.log(`[Onboarding] Org created: ${org.name} (${org.id}), team: ${team.id}, invite code: ${code}`);
+      console.log(`[Onboarding] Org created: ${org.name} (${org.id}), team: ${team.id}`);
       return org.id;
     } catch (err: any) {
       const msg = err.message || 'Failed to create organization';
@@ -430,27 +450,20 @@ export const OnboardingProvider = ({ children }: { children: React.ReactNode }) 
     setError(null);
 
     try {
-      const code = generateCode(orgName || 'TEAM');
-      console.log('[Onboarding] Generating invite code:', code);
-
-      const { error: inviteError } = await supabase
-        .from('org_invites')
-        .insert({
-          organization_id: orgId,
-          invite_code: code,
-          created_by: user.id,
-          role: 'employee',
-          is_active: true,
-        });
-
-      if (inviteError) {
-        console.error('[Onboarding] Failed to generate invite code:', inviteError);
-        throw inviteError;
+      // Call server-side service to create invite (do not call Supabase from frontend)
+      const resp = await fetch(apiUrl('/api/invites/create'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ organizationId: orgId, role: 'employee' }),
+      });
+      const body = await resp.json();
+      if (!resp.ok || !body.inviteCode) {
+        const err = body?.error || 'Failed to generate invite';
+        console.error('[Onboarding] Server invite create failed:', err);
+        throw new Error(err);
       }
-      
-      setInviteCode(code);
-      console.log('[Onboarding] Invite code generated successfully:', code);
-      return code;
+      setInviteCode(body.inviteCode);
+      return body.inviteCode;
     } catch (err: any) {
       const msg = err.message || 'Failed to generate invite code';
       console.error('[Onboarding] Error in generateInviteCode:', err);
@@ -468,134 +481,36 @@ export const OnboardingProvider = ({ children }: { children: React.ReactNode }) 
     setError(null);
 
     try {
-      console.log('[Onboarding] Validating invite code:', code);
-      
-      // Look up the invite code
-      const { data: invite, error: lookupError } = await supabase
-        .from('org_invites')
-        .select('id, organization_id, role, max_uses, use_count, expires_at, is_active')
-        .eq('invite_code', code.trim().toUpperCase())
-        .maybeSingle();
-
-      if (lookupError) {
-        console.error('[Onboarding] Error looking up invite code:', lookupError);
-        throw lookupError;
-      }
-      if (!invite) throw new Error('Invalid invite code. Please check and try again.');
-      if (!invite.is_active) throw new Error('This invite code is no longer active.');
-      if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
-        throw new Error('This invite code has expired.');
-      }
-      if (invite.max_uses && invite.use_count >= invite.max_uses) {
-        throw new Error('This invite code has reached its maximum uses.');
+      // Call server-side join endpoint (server will perform DB writes)
+      const resp = await fetch(apiUrl('/api/invites/join'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: code.trim().toUpperCase(), userId: user.id, email: user.email, displayName: user.user_metadata?.full_name }),
+      });
+      const body = await resp.json();
+      if (!resp.ok || !body.success) {
+        const err = body?.error || 'Failed to join with invite code';
+        console.error('[Onboarding] Server join failed:', err);
+        throw new Error(err);
       }
 
-      console.log('[Onboarding] Invite code validated:', invite);
+      // Server returns organizationId, teamId, orgName, role
+      const { organizationId, teamId, orgName, role } = body;
 
-      // Look up the org and its default team
-      const { data: org } = await supabase
-        .from('organizations')
-        .select('id, name')
-        .eq('id', invite.organization_id)
-        .single();
-
-      const { data: defaultTeam } = await supabase
-        .from('teams')
-        .select('id')
-        .eq('organization_id', invite.organization_id)
-        .order('created_at', { ascending: true })
-        .limit(1)
-        .single();
-
-      if (!defaultTeam) {
-        throw new Error('No team found for this organization');
-      }
-
-      // Ensure user record exists in the users table
-      const { data: existingUser } = await supabase
-        .from('users')
-        .select('id')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      if (!existingUser) {
-        console.log('[Onboarding] Creating user record for:', user.id);
-        const { error: createUserError } = await supabase
-          .from('users')
-          .insert({
-            id: user.id,
-            organization_id: invite.organization_id,
-            email: user.email,
-            name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
-            role: 'employee',
-            is_active: true,
-          });
-
-        if (createUserError) {
-          console.error('[Onboarding] Failed to create user record:', createUserError);
-          throw createUserError;
-        }
-      }
-
-      // Check if user is already a team member
-      const { data: existingMember } = await supabase
-        .from('team_members')
-        .select('id')
-        .eq('team_id', defaultTeam.id)
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (existingMember) {
-        // Already a team member — just set context and proceed
-        console.log('[Onboarding] User already a member of this team');
-      } else {
-        // Add user as team member
-        console.log('[Onboarding] Adding user as member to team:', defaultTeam.id);
-        const { error: memberError } = await supabase
-          .from('team_members')
-          .insert({
-            team_id: defaultTeam.id,
-            user_id: user.id,
-            role: 'member',
-          });
-
-        if (memberError) {
-          console.error('[Onboarding] Failed to add team member:', memberError);
-          throw memberError;
-        }
-
-        // Increment use_count
-        await supabase
-          .from('org_invites')
-          .update({ use_count: (invite.use_count || 0) + 1 })
-          .eq('id', invite.id);
-      }
-
-      // Set org context
-      setOrgId(invite.organization_id);
-      setTeamId(defaultTeam.id);
-      setOrgName(org?.name || '');
-      setCurrentOrgId(invite.organization_id);
-      setCurrentOrgRole(invite.role || 'employee');
-      setCurrentOrgName(org?.name || '');
-
-      // Also update pending team invite if exists
-      const { error: updateError } = await supabase
-        .from('pending_team_members')
-        .update({ status: 'accepted' })
-        .eq('team_id', defaultTeam.id)
-        .eq('email', (user.email || '').toLowerCase());
-
-      if (updateError) {
-        console.warn('[Onboarding] Warning: Could not update pending team invite status:', updateError);
-      }
-
-      console.log('[Onboarding] User successfully joined organization and team');
+      // Set org context locally
+      setOrgId(organizationId);
+      setTeamId(teamId);
+      setOrgName(orgName || '');
+      setCurrentOrgId(organizationId);
+      setCurrentOrgRole(role || 'employee');
+      setCurrentOrgName(orgName || '');
 
       // Refresh AuthContext org state
       await refreshOrg();
 
-      console.log(`[Onboarding] Joined org: ${org?.name} (${invite.organization_id}), team: ${defaultTeam.id}`);
+      console.log('[Onboarding] Joined org via server:', organizationId, teamId);
+
+      console.log(`[Onboarding] Joined org: ${orgName} (${organizationId}), team: ${teamId}`);
     } catch (err: any) {
       const msg = err.message || 'Failed to join team';
       setError(msg);

@@ -3,6 +3,7 @@ import cors from 'cors';
 import session from 'express-session';
 import jiraRoutes from '../src/api/jira/routes.js';
 import leaveApprovalRoutes from '../src/api/leave-approval/routes.js';
+import invitesRoutes from '../src/api/invites/routes.js';
 
 // Create a fresh Express app instance for this serverless function
 const app = express();
@@ -70,11 +71,13 @@ app.get('/health', (_req: Request, res: Response) => {
 // Mount API routers with /api prefix to match the expected routes
 app.use('/api/jira', jiraRoutes);
 app.use('/api/leave-approval', leaveApprovalRoutes);
+app.use('/api/invites', invitesRoutes);
 app.use('/api/v1/analyze', leaveApprovalRoutes);
 
 // Also mount at root level for backwards compatibility
 app.use('/jira', jiraRoutes);
 app.use('/leave-approval', leaveApprovalRoutes);
+app.use('/invites', invitesRoutes);
 
 // Fallback 404 handler
 app.use((req: Request, res: Response) => {
