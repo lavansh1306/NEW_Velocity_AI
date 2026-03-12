@@ -14,8 +14,7 @@ import { TaskStats } from './planproject/TaskStats';
 import { TaskBreakdown } from './planproject/TaskBreakdown';
 
 // ── TYPES ──
-import type { PlanTeamCandidate } from '../types'; 
-export type EditableTask = { id: string; task: string; estimatedHours: number; requiredSkills?: string[] };
+import type { PlanTeamCandidate, EditableTask } from '../types';
 
 export const PlanMyProjectScreen = () => {
     const navigate = useNavigate();
