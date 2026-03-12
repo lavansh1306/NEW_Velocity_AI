@@ -140,14 +140,19 @@ export default function CreateProject() {
       dueDate: dueDate ? new Date(dueDate) : undefined,
       estimatedHours: estimatedHours,
       selectedTeamIds: selectedMembers,
-      tasks: tasks.filter(t => t.name.trim()).map(t => ({
-        id: String(t.id),
-        task: t.name,
-        estimatedHours: Number(t.hours) || 0,
-        status: 'not_started',
-        startDate: t.startDate ? new Date(t.startDate) : undefined,
-        dueDate: t.dueDate ? new Date(t.dueDate) : undefined
-      }))
+      tasks: tasks.filter(t => t.name.trim()).map(t => {
+        // Find the assignee ID by matching employee name
+        const assigneeEmployee = employees.find(e => e.name === t.assignee);
+        return {
+          id: String(t.id),
+          task: t.name,
+          estimatedHours: Number(t.hours) || 0,
+          status: 'not_started',
+          startDate: t.startDate ? new Date(t.startDate) : undefined,
+          dueDate: t.dueDate ? new Date(t.dueDate) : undefined,
+          assigneeId: assigneeEmployee ? assigneeEmployee.id : undefined
+        };
+      })
     });
 
     if (successProjectId) {

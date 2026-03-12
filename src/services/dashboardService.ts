@@ -188,10 +188,11 @@ export async function getDashboardData(options?: DashboardOptions): Promise<Dash
                                                       task.assigned_team_member_id === member.id ||
                                                       task.assigned_to === member.id ||
                                                       (task as any).assignee_id === member.user_id ||
-                                                      (task as any).assignee_id === member.id;
+                                                      (task as any).assignee_id === member.id ||
+                                                      task.user_id === member.user_id;
                             
                             // If no assignment field exists, log for debugging
-                            if (!isAssignedToMember && !task.assigned_to && !(task as any).assignee_id && !(task as any).assigned_team_member_id) {
+                            if (!isAssignedToMember && !task.assigned_to && !(task as any).assignee_id && !(task as any).assigned_team_member_id && !task.user_id) {
                                 console.log('[dashboardService] Task missing assignment fields:', {
                                     taskId: task.id,
                                     taskName: task.name,

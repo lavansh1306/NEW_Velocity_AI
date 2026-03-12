@@ -11,7 +11,11 @@ export const peopleService = {
                 task_assignments (
                     allocated_hours_per_week,
                     tasks (
-                        project_id
+                        id,
+                        name,
+                        project_id,
+                        start_date,
+                        due_date
                     )
                 ),
                 user_skills (
@@ -35,7 +39,24 @@ export const peopleService = {
             throw userError;
         }
 
-        return (users || []).map(u => normalizeTeamMember(u, u.task_assignments || [], u.user_skills || []));
+        // Now fetch tasks directly assigned via user_id for each user
+        const userIds = (users || []).map(u => u.id);
+        let tasksData: any[] = [];
+        
+        if (userIds.length > 0) {
+            const { data: directTasks, error: tasksError } = await supabase
+                .from('tasks')
+                .select('id, name, start_date, due_date, user_id')
+                .in('user_id', userIds);
+            
+            if (tasksError) {
+                console.error('Error fetching direct tasks:', tasksError);
+            } else {
+                tasksData = directTasks || [];
+            }
+        }
+
+        return (users || []).map(u => normalizeTeamMember(u, u.task_assignments || [], u.user_skills || [], tasksData));
     },
 
     async fetchUserTeams(userId: string): Promise<string[]> {

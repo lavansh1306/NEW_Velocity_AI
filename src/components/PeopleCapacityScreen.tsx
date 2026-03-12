@@ -667,7 +667,7 @@ export const PeopleCapacityScreen = () => {
                             </div>
 
                             {/* Skills */}
-                            <div className="flex gap-1.5 flex-wrap">
+                            <div className="flex gap-1.5 flex-wrap mb-4">
                                 {member.skills.slice(0, 3).map((skill, i) => (
                                     <span key={i} className="px-2.5 py-1 bg-[#2DD4BF]/[0.06] border border-[#2DD4BF]/12 text-[#292524] text-[11px] rounded-full font-light">
                                         {skill}
@@ -679,6 +679,32 @@ export const PeopleCapacityScreen = () => {
                                     </span>
                                 )}
                             </div>
+
+                            {/* Tasks with Dates */}
+                            {member.tasks && member.tasks.length > 0 && (
+                                <div className="space-y-2 border-t border-[#E7E5E4] pt-4">
+                                    <div className="text-xs text-[#78716C] font-light uppercase tracking-wider mb-2">Assigned Tasks</div>
+                                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                                        {member.tasks.map((task, i) => (
+                                            <div key={i} className="p-2.5 bg-[#F5F5F4] border border-[#E7E5E4] rounded-lg">
+                                                <div className="text-xs text-[#1C1917] font-light truncate mb-1">{task.name}</div>
+                                                <div className="flex gap-2 text-[10px] text-[#78716C] font-light">
+                                                    {task.start_date && (
+                                                        <span className="px-1.5 py-0.5 bg-white border border-[#E7E5E4] rounded">
+                                                            Start: {new Date(task.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                                        </span>
+                                                    )}
+                                                    {task.due_date && (
+                                                        <span className="px-1.5 py-0.5 bg-white border border-[#E7E5E4] rounded">
+                                                            Due: {new Date(task.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     ))}
                 </div>

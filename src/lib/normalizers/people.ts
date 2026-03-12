@@ -3,11 +3,36 @@ import { TeamMemberView, PersonDetailView, User, TaskAssignment, UserSkill, AISu
 export const normalizeTeamMember = (
     user: any,
     assignments: any[],
-    skills: any[]
+    skills: any[],
+    allDirectTasks: any[] = []
 ): TeamMemberView => {
     const utilization = assignments.reduce((acc, curr) => acc + (curr.allocated_hours_per_week || 0), 0);
     const totalCapacity = user.capacity_hours_per_week || 40;
     const utilizationPercentage = Math.round((utilization / totalCapacity) * 100);
+
+    // Extract unique tasks from assignments
+    const assignmentTasks = assignments
+        .filter(a => a.tasks)
+        .map(a => ({
+            id: a.tasks.id,
+            name: a.tasks.name,
+            start_date: a.tasks.start_date || null,
+            due_date: a.tasks.due_date || null,
+        }));
+
+    // Extract direct tasks where user_id matches this user
+    const directTasks = allDirectTasks
+        .filter(t => t.user_id === user.id)
+        .map(t => ({
+            id: t.id,
+            name: t.name,
+            start_date: t.start_date || null,
+            due_date: t.due_date || null,
+        }));
+
+    // Combine and deduplicate tasks by ID
+    const allTasks = [...assignmentTasks, ...directTasks];
+    const uniqueTasks = allTasks.filter((task, index, self) => self.findIndex(t => t.id === task.id) === index);
 
     return {
         id: user.id,
@@ -18,7 +43,8 @@ export const normalizeTeamMember = (
         utilization: utilizationPercentage,
         projects: new Set(assignments.map(a => a.tasks?.project_id)).size,
         status: utilizationPercentage > 100 ? 'overloaded' : utilizationPercentage > 85 ? 'at-risk' : 'healthy',
-        availability: Math.max(0, totalCapacity - utilization) // Simple weekly availability
+        availability: Math.max(0, totalCapacity - utilization), // Simple weekly availability
+        tasks: uniqueTasks.length > 0 ? uniqueTasks : undefined
     };
 };
 

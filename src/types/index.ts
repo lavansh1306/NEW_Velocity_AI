@@ -68,6 +68,9 @@ export interface Task {
     estimated_hours: number;
     actual_hours: number;
     status: string;
+    start_date?: string;
+    due_date?: string;
+    user_id?: string;
 }
 
 /** Task ↔ User assignment — maps to `task_assignments` table */
@@ -187,6 +190,12 @@ export interface TeamMemberView {
     projects: number;
     status: 'healthy' | 'overloaded' | 'at-risk';
     availability: number;
+    tasks?: Array<{
+        id: string;
+        name: string;
+        start_date: string | null;
+        due_date: string | null;
+    }>;
 }
 
 /** Pending skill for verification */

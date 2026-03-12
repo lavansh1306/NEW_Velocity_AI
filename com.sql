@@ -124,6 +124,12 @@ CREATE TABLE public.organizations (
   target_utilization integer DEFAULT 85,
   created_at timestamp without time zone DEFAULT now(),
   updated_at timestamp without time zone DEFAULT now(),
+  invite_code text,
+  invite_role text DEFAULT 'employee'::text,
+  invite_is_active boolean DEFAULT true,
+  invite_use_count integer DEFAULT 0,
+  invite_created_by uuid,
+  invite_updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT organizations_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.plan_task_matches (
@@ -168,7 +174,7 @@ CREATE TABLE public.projects (
   name text NOT NULL,
   description text,
   source text DEFAULT 'internal'::text CHECK (source = ANY (ARRAY['internal'::text, 'jira'::text])),
-  status text DEFAULT 'active'::text CHECK (status = ANY (ARRAY['active'::text, 'completed'::text, 'archived'::text])),
+  status text DEFAULT 'active'::text CHECK (status = ANY (ARRAY['active'::text, 'completed'::text, 'archived'::text, 'draft'::text])),
   start_date date,
   end_date date,
   created_at timestamp without time zone DEFAULT now(),
@@ -198,12 +204,16 @@ CREATE TABLE public.tasks (
   actual_hours numeric,
   start_date date,
   due_date date,
+  user_id uuid,
   status text DEFAULT 'not_started'::text CHECK (status = ANY (ARRAY['not_started'::text, 'in_progress'::text, 'blocked'::text, 'completed'::text])),
   created_at timestamp without time zone DEFAULT now(),
   jira_issue_id uuid,
+  assignee_id uuid,
   CONSTRAINT tasks_pkey PRIMARY KEY (id),
   CONSTRAINT tasks_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id),
-  CONSTRAINT tasks_jira_issue_fkey FOREIGN KEY (jira_issue_id) REFERENCES public.jira_issues(id)
+  CONSTRAINT tasks_jira_issue_fkey FOREIGN KEY (jira_issue_id) REFERENCES public.jira_issues(id),
+  CONSTRAINT tasks_assignee_id_fkey FOREIGN KEY (assignee_id) REFERENCES public.users(id),
+  CONSTRAINT tasks_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
 CREATE TABLE public.team_members (
   id uuid NOT NULL DEFAULT gen_random_uuid(),

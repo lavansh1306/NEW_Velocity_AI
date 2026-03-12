@@ -41,6 +41,10 @@ export interface DraftProjectState {
     id: string;
     task: string;
     estimatedHours: number;
+    status?: string;
+    startDate?: Date;
+    dueDate?: Date;
+    assigneeId?: string;
   }[];
   selectedTeamIds: string[];
 }
