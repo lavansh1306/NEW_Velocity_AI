@@ -48,6 +48,7 @@ async function initializeRedis() {
 import jiraRoutes from "./src/api/jira/routes.js"
 import deployedRoutes from "./src/api/deployed/routes.js"
 import leaveApprovalRoutes from "./src/api/leave-approval/routes.ts"
+import invitesRoutes from "./src/api/invites/routes.ts"
 const app = express()
 
 console.log("typeof express:", typeof express)
@@ -194,6 +195,10 @@ console.log('[Server] Deployed routes mounted');
 // ============ Leave Approval Agent Routes ============
 app.use('/api/leave-approval', leaveApprovalRoutes);
 console.log('[Server] Leave Approval Agent routes mounted');
+
+// ============ Invites Routes ============
+app.use('/api/invites', invitesRoutes);
+console.log('[Server] Invites routes mounted');
 
 // try {
 //   const stack = (hubspotRoutes as any)?.stack || []
