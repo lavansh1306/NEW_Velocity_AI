@@ -9,8 +9,10 @@ import ArrowBackOutlined from '@mui/icons-material/ArrowBackOutlined';
 import CheckCircleOutlined from '@mui/icons-material/CheckCircleOutlined';
 import CheckOutlined from '@mui/icons-material/CheckOutlined';
 
-// ── SUPABASE IMPORT (Adjust path as needed) ──
+// ── SUPABASE & AUTH IMPORTS ──
 import { supabase } from '../lib/supabase'; 
+import { useAuth } from '@/contexts/AuthContext';
+import { getCurrentOrgId } from '@/lib/orgContext';
 
 // ── CHILD COMPONENTS ──
 import { PlanHeader } from './planproject/PlanHeader';
@@ -22,6 +24,8 @@ import type { PlanTeamCandidate, EditableTask } from '../types';
 
 export const PlanMyProjectScreen = () => {
     const navigate = useNavigate();
+    const { user, orgId: contextOrgId } = useAuth(); // ADDED: to get secure context
+
     const [currentStep, setCurrentStep] = useState<1 | 2>(1);
     
     // Dynamic Context State
@@ -60,21 +64,30 @@ export const PlanMyProjectScreen = () => {
 
     const baseUrl = import.meta.env.VITE_LLM_URL || 'http://127.0.0.1:8000';
 
-    // ── FETCH DYNAMIC CONTEXT ON MOUNT ──
+    // ── FETCH DYNAMIC CONTEXT ON MOUNT (FIXED DISCREPANCY) ──
     useEffect(() => {
         const fetchContext = async () => {
             try {
-                // Fetch the first active organization. 
-                const { data, error } = await supabase
-                    .from('organizations')
-                    .select('id')
-                    .eq('status', 'active')
-                    .limit(1)
-                    .single();
+                // Use the secure context from Auth instead of randomly picking an active org
+                let orgId = contextOrgId || getCurrentOrgId();
 
-                if (error) throw error;
-                if (data) {
-                    setCurrentOrgId(data.id);
+                // Fallback: If not in local context, fetch specifically for this user
+                if (!orgId && user?.email) {
+                    const { data, error } = await supabase
+                        .from('users')
+                        .select('organization_id')
+                        .eq('email', user.email)
+                        .maybeSingle();
+
+                    if (!error && data) {
+                        orgId = data.organization_id;
+                    }
+                }
+
+                if (orgId) {
+                    setCurrentOrgId(orgId);
+                } else {
+                    console.warn("Could not resolve Organization ID for user.");
                 }
             } catch (err) {
                 console.error("Error fetching organization context:", err);
@@ -83,7 +96,7 @@ export const PlanMyProjectScreen = () => {
         };
 
         fetchContext();
-    }, []);
+    }, [contextOrgId, user]);
 
     // ── HEALTH CHECK LOGIC ──
     const ensureBackendActive = async () => {
@@ -338,7 +351,7 @@ export const PlanMyProjectScreen = () => {
                                 disabled={isSaving || !currentOrgId}
                             >
                                 {isSaving ? <SyncOutlined className="animate-spin mr-2" style={{fontSize: 16}} /> : null}
-                                {isSaving ? 'Saving...' : 'Save Draft'}
+                                Save Draft
                             </Button>
                             <button
                                 type="button"
@@ -444,6 +457,27 @@ export const PlanMyProjectScreen = () => {
                                                                         <div className="text-[#78716C] text-xs font-light">{member.role}</div>
                                                                     </div>
                                                                 </div>
+                                                                <div className="space-y-4 pt-4 border-t border-[#F5F5F4]">
+                                                                    <div className="flex items-center justify-between">
+                                                                        <span className="text-xs text-[#78716C] font-light">Skill Match</span>
+                                                                        <span className="text-sm font-light" style={{ color: '#0F766E' }}>{member.match_percentage}%</span>
+                                                                    </div>
+                                                                    <div className="space-y-1.5">
+                                                                        <div className="flex items-center justify-between">
+                                                                            <span className="text-xs text-[#78716C] font-light">Availability</span>
+                                                                            <span className={`text-xs font-medium ${member.availability >= 80 ? 'text-[#0F766E]' : member.availability >= 50 ? 'text-[#D97706]' : 'text-[#BE123C]'}`}>{member.availability}%</span>
+                                                                        </div>
+                                                                        <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: 'linear-gradient(90deg, #F5F5F4, #E7E5E4)' }}>
+                                                                            <div
+                                                                                className="h-full rounded-full transition-all duration-500"
+                                                                                style={{
+                                                                                    width: `${member.availability}%`,
+                                                                                    background: member.availability >= 80 ? 'linear-gradient(90deg, #0F766E, #10B981)' : member.availability >= 50 ? 'linear-gradient(90deg, #D97706, #F59E0B)' : 'linear-gradient(90deg, #BE123C, #F43F5E)',
+                                                                                }}
+                                                                            />
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     );
@@ -459,7 +493,7 @@ export const PlanMyProjectScreen = () => {
                                         <ArrowBackOutlined style={{ fontSize: 16 }} className="mr-2" /> Back to Tasks
                                     </Button>
                                     <Button variant="outline" className="flex-1 h-11 rounded-xl font-light border-[#E7E5E4] bg-white/70 hover:bg-white text-[#292524]" onClick={handleSaveDraft} disabled={isSaving || !currentOrgId}>
-                                        {isSaving ? 'Saving...' : 'Save Draft'}
+                                        {isSaving ? <SyncOutlined className="animate-spin mr-2" style={{fontSize: 16}} /> : 'Save Draft'}
                                     </Button>
                                     <button
                                         type="button"
