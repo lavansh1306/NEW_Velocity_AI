@@ -60,7 +60,7 @@ export const PlanMyProjectScreen = () => {
     const [teamThoughts, setTeamThoughts] = useState<string[]>([]);
     
     // Placeholder for recommended team (Will be wired to API next)
-    const recommendedTeam: PlanTeamCandidate[] = []; 
+    const [recommendedTeam, setRecommendedTeam] = useState<any[]>([]);
 
     const baseUrl = import.meta.env.VITE_LLM_URL || 'http://127.0.0.1:8000';
 
@@ -271,17 +271,78 @@ export const PlanMyProjectScreen = () => {
 
     // ── STEP 2 NAVIGATION ──
     const teamMatchThoughts = ['Scanning skills...', 'Checking availability...', 'Optimizing match...'];
-    const goToStep2 = () => {
+   const goToStep2 = async () => {
         if (tasks.length === 0) return toast.error('Add a task first');
+        if (!currentOrgId) return toast.error('Organization context missing.');
+
         setCurrentStep(2); 
         setIsMatchingTeam(true); 
         setTeamThoughts([]); 
         setTeamReady(false);
         
-        teamMatchThoughts.forEach((t, i) => setTimeout(() => {
-            setTeamThoughts(p => [...p, t]);
-            if (i === teamMatchThoughts.length - 1) setTimeout(() => { setIsMatchingTeam(false); setTeamReady(true); }, 600);
-        }, i * 700));
+        // 1. Start the visual "Thinking" animation loop
+        const teamMatchThoughts = ['Scanning skills...', 'Checking availability...', 'Optimizing match...', 'Finalizing roster...'];
+        let tIdx = 0;
+        const tInterval = setInterval(() => {
+            if (tIdx < teamMatchThoughts.length) {
+                setTeamThoughts(p => [...p, teamMatchThoughts[tIdx]]);
+                tIdx++;
+            }
+        }, 1500); // Slower interval because multiple tasks take a bit longer
+
+        try {
+            // 2. Auto-calculate project dates based on total hours
+            const totalHours = tasks.reduce((s, t) => s + t.estimatedHours, 0);
+            const weeks = Math.max(1, Math.ceil(totalHours / 40));
+            
+            const startDateObj = new Date();
+            const endDateObj = new Date();
+            endDateObj.setDate(endDateObj.getDate() + (weeks * 7));
+            
+            const startDateStr = startDateObj.toISOString().split('T')[0];
+            const endDateStr = endDateObj.toISOString().split('T')[0];
+
+            // 3. Call the Python Batch Allocator
+            const response = await fetch(`${baseUrl}/api/v1/planner/allocate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    org_id: currentOrgId,
+                    start_date: startDateStr,
+                    end_date: endDateStr,
+                    tasks: tasks.map(t => ({
+                        task_name: t.task,
+                        estimated_hours: t.estimatedHours,
+                        required_skills: t.requiredSkills || []
+                    }))
+                }),
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.detail || 'Allocation failed');
+            }
+
+            const data = await response.json();
+            
+            // 4. Update UI state
+            setRecommendedTeam(data.recommended_team);
+            
+            // Pre-select everyone the AI recommended by default
+            setSelectedTeam(data.recommended_team.map((m: any) => m.name));
+
+            clearInterval(tInterval);
+            setIsMatchingTeam(false); 
+            setTeamReady(true);
+            toast.success('Team allocation complete!');
+
+        } catch (error: any) {
+            clearInterval(tInterval);
+            setIsMatchingTeam(false);
+            console.error("Allocation Error:", error);
+            toast.error(error.message || "Failed to allocate team. Returning to Step 1.");
+            setCurrentStep(1); // Boot them back to step 1 if it fails
+        }
     };
 
     const totalHours = tasks.reduce((s, t) => s + t.estimatedHours, 0);
