@@ -1,5 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from './ui/button';
+import { useAuth } from '@/contexts/AuthContext';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Progress } from './ui/progress';
@@ -33,6 +34,8 @@ import { FormError, validators } from './shared/FormError';
 import { LoadingButton } from './shared/LoadingButton';
 import { PageSkeleton } from './shared/SkeletonLoader';
 import { useSimulatedLoading } from '@/hooks/useSimulatedLoading';
+import { supabase } from '@/lib/supabase';
+import { getCurrentOrgId } from '@/lib/orgContext';
 import { peopleService } from '../services/peopleService';
 import { teamMembersView, pendingSkillsView, personDetailsMap } from '../data/mockData';
 import type { TeamMemberView, PendingSkillView, PersonDetailView } from '../types';
@@ -51,7 +54,7 @@ const UtilizationBar = ({ value }: { value: number }) => {
     );
 };
 
-const AddTeamMemberModal = ({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) => {
+const AddTeamMemberModal = ({ open, onOpenChange, onMemberAdded }: { open: boolean; onOpenChange: (open: boolean) => void; onMemberAdded?: () => void }) => {
     const [name, setName] = useState('');
     const [role, setRole] = useState('');
     const [email, setEmail] = useState('');
@@ -59,6 +62,7 @@ const AddTeamMemberModal = ({ open, onOpenChange }: { open: boolean; onOpenChang
     const [utilization, setUtilization] = useState(85);
     const [memberErrors, setMemberErrors] = useState<Record<string, string>>({});
     const [memberAttempted, setMemberAttempted] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const validateMember = () => {
         const errors: Record<string, string> = {};
@@ -71,13 +75,61 @@ const AddTeamMemberModal = ({ open, onOpenChange }: { open: boolean; onOpenChang
         return Object.keys(errors).length === 0;
     };
 
-    const handleAddMember = () => {
+    const handleAddMember = async () => {
         setMemberAttempted(true);
-        if (validateMember()) {
+        if (!validateMember()) return;
+
+        setIsSubmitting(true);
+        try {
+            const orgId = getCurrentOrgId();
+            if (!orgId) {
+                toast.error('Organization not found');
+                return;
+            }
+
+            // Fetch the default team for the organization
+            const { data: teams, error: teamsError } = await supabase
+                .from('teams')
+                .select('id')
+                .eq('organization_id', orgId)
+                .limit(1);
+
+            if (teamsError || !teams || teams.length === 0) {
+                toast.error('No team found for your organization. Please create a team first.');
+                return;
+            }
+
+            const teamId = teams[0].id;
+
+            // Add team member
+            const result = await peopleService.addTeamMember(orgId, teamId, {
+                name,
+                email,
+                role,
+                skills,
+                utilizationPercent: utilization,
+            });
+
+            console.log('[AddTeamMemberModal] Team member added:', result);
             toast.success('Team member added successfully');
+            
+            // Reset form
+            setName('');
+            setEmail('');
+            setRole('');
+            setSkills('');
+            setUtilization(85);
+            setMemberErrors({});
+            setMemberAttempted(false);
+            
             onOpenChange(false);
-            setName(''); setEmail(''); setRole(''); setSkills(''); setUtilization(85);
-            setMemberErrors({}); setMemberAttempted(false);
+            onMemberAdded?.();
+        } catch (error) {
+            console.error('[AddTeamMemberModal] Error adding team member:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Failed to add team member';
+            toast.error(errorMessage);
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -111,12 +163,12 @@ const AddTeamMemberModal = ({ open, onOpenChange }: { open: boolean; onOpenChang
                                     <SelectValue placeholder="Select role" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="frontend">Frontend Developer</SelectItem>
-                                    <SelectItem value="backend">Backend Developer</SelectItem>
-                                    <SelectItem value="fullstack">Full Stack Developer</SelectItem>
-                                    <SelectItem value="designer">Product Designer</SelectItem>
-                                    <SelectItem value="pm">Product Manager</SelectItem>
-                                    <SelectItem value="qa">QA Engineer</SelectItem>
+                                    <SelectItem value="Frontend Developer">Frontend Developer</SelectItem>
+                                    <SelectItem value="Backend Developer">Backend Developer</SelectItem>
+                                    <SelectItem value="Full Stack Developer">Full Stack Developer</SelectItem>
+                                    <SelectItem value="Designer">Product Designer</SelectItem>
+                                    <SelectItem value="Product Manager">Product Manager</SelectItem>
+                                    <SelectItem value="QA Engineer">QA Engineer</SelectItem>
                                 </SelectContent>
                             </Select>
                             <FormError message={memberErrors.role} />
@@ -145,8 +197,8 @@ const AddTeamMemberModal = ({ open, onOpenChange }: { open: boolean; onOpenChang
                 </div>
 
                 <DialogFooter className="px-8 py-5 border-t border-[#E5E5E5] bg-white flex justify-end gap-3">
-                    <Button variant="outline" onClick={() => onOpenChange(false)} className="border-[#E5E5E5] text-[#737373] hover:text-[#121212]">Cancel</Button>
-                    <LoadingButton simulateMs={1000} onClick={handleAddMember} className="bg-[#121212] text-white hover:bg-[#262626] shadow-sm px-6">Add Member</LoadingButton>
+                    <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting} className="border-[#E5E5E5] text-[#737373] hover:text-[#121212]">Cancel</Button>
+                    <LoadingButton onClick={handleAddMember} isLoading={isSubmitting} disabled={isSubmitting} className="bg-[#121212] text-white hover:bg-[#262626] shadow-sm px-6">Add Member</LoadingButton>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -154,6 +206,7 @@ const AddTeamMemberModal = ({ open, onOpenChange }: { open: boolean; onOpenChang
 };
 
 export const PeopleCapacityScreen = () => {
+    const { user, orgId, orgRole } = useAuth();
     const [selectedPerson, setSelectedPerson] = useState<TeamMemberView | null>(null);
     const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
     const [showSkillsVerification, setShowSkillsVerification] = useState(false);
@@ -164,25 +217,40 @@ export const PeopleCapacityScreen = () => {
     const [allPersonDetails, setAllPersonDetails] = useState<Record<string, PersonDetailView>>({});
     const [isLoading, setIsLoading] = useState(true);
 
-    useEffect(() => {
-        const loadData = async () => {
-            try {
-                const [members, skills] = await Promise.all([
-                    peopleService.fetchAllTeamMembers(),
-                    peopleService.fetchPendingSkills()
-                ]);
-                setTeamMembers(members);
-                setPendingSkills(skills);
-            } catch (error) {
-                toast.error('Failed to load live data. Falling back to mock data.');
-                setTeamMembers(teamMembersView);
-                setPendingSkills(pendingSkillsView);
-            } finally {
-                setIsLoading(false);
+    const loadTeamData = useCallback(async () => {
+        if (!orgId || !user) return;
+
+        try {
+            let teamIds: string[] | undefined = undefined;
+
+            // If manager, only show their teams
+            if (orgRole === 'manager') {
+                teamIds = await peopleService.fetchUserTeams(user.id);
             }
-        };
-        loadData();
-    }, []);
+
+            const [members, skills] = await Promise.all([
+                peopleService.fetchAllTeamMembers(orgId, teamIds),
+                peopleService.fetchPendingSkills(orgId, teamIds)
+            ]);
+
+            // Exclude current user (manager) from the list
+            const filteredMembers = members.filter(m => m.id !== user.id);
+            const filteredSkills = skills.filter(s => s.userId !== user.id);
+
+            setTeamMembers(filteredMembers);
+            setPendingSkills(filteredSkills);
+        } catch (error) {
+            toast.error('Failed to load live data. Falling back to mock data.');
+            setTeamMembers(teamMembersView);
+            setPendingSkills(pendingSkillsView);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [orgId, user, orgRole]);
+
+    useEffect(() => {
+        loadTeamData();
+    }, [loadTeamData]);
 
     const fetchDetail = async (name: string) => {
         if (allPersonDetails[name]) return;
@@ -256,7 +324,7 @@ export const PeopleCapacityScreen = () => {
                     </Button>
                 </div>
 
-                <AddTeamMemberModal open={isAddMemberOpen} onOpenChange={setIsAddMemberOpen} />
+                <AddTeamMemberModal open={isAddMemberOpen} onOpenChange={setIsAddMemberOpen} onMemberAdded={loadTeamData} />
 
                 {/* Capacity Summary Strip */}
                 <div className="flex items-center gap-0 mb-10">

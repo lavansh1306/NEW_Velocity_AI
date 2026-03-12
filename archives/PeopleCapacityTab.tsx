@@ -21,6 +21,9 @@ import { Plus, X, AlertCircle, RefreshCw } from 'lucide-react';
 import { fetchAllIssuesHybrid } from '@/lib/jiraDbClient';
 import { supabase } from '@/lib/supabase';
 import { getCurrentOrgId } from '@/lib/orgContext';
+import { toast } from 'sonner';
+import { peopleService } from '@/services/peopleService';
+import { LoadingButton } from '@/components/shared/LoadingButton';
 
 // ==================== TYPE DEFINITIONS ====================
 
@@ -69,12 +72,80 @@ const UtilizationBar = ({ value }: { value: number }) => {
 
 // ==================== ADD TEAM MEMBER MODAL ====================
 
-const AddTeamMemberModal = ({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) => {
+const AddTeamMemberModal = ({ open, onOpenChange, onMemberAdded }: { open: boolean; onOpenChange: (open: boolean) => void; onMemberAdded?: () => void }) => {
   const [name, setName] = useState('');
   const [role, setRole] = useState('');
   const [email, setEmail] = useState('');
   const [skills, setSkills] = useState('');
   const [utilization, setUtilization] = useState(85);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+    if (!name.trim()) newErrors.name = 'Full name is required';
+    if (!email.trim()) newErrors.email = 'Email is required';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) newErrors.email = 'Invalid email format';
+    if (!role) newErrors.role = 'Please select a role';
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleAddMember = async () => {
+    if (!validateForm()) return;
+
+    setIsSubmitting(true);
+    try {
+      const orgId = getCurrentOrgId();
+      if (!orgId) {
+        toast.error('Organization not found');
+        return;
+      }
+
+      // Fetch the default team for the organization
+      const { data: teams, error: teamsError } = await supabase
+        .from('teams')
+        .select('id')
+        .eq('organization_id', orgId)
+        .limit(1);
+
+      if (teamsError || !teams || teams.length === 0) {
+        toast.error('No team found for your organization. Please create a team first.');
+        return;
+      }
+
+      const teamId = teams[0].id;
+
+      // Add team member
+      const result = await peopleService.addTeamMember(orgId, teamId, {
+        name,
+        email,
+        role,
+        skills,
+        utilizationPercent: utilization,
+      });
+
+      console.log('[AddTeamMemberModal] Team member added:', result);
+      toast.success('Team member added successfully');
+      
+      // Reset form
+      setName('');
+      setEmail('');
+      setRole('');
+      setSkills('');
+      setUtilization(85);
+      setErrors({});
+      
+      onOpenChange(false);
+      onMemberAdded?.();
+    } catch (error) {
+      console.error('[AddTeamMemberModal] Error adding team member:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to add team member';
+      toast.error(errorMessage);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -87,36 +158,57 @@ const AddTeamMemberModal = ({ open, onOpenChange }: { open: boolean; onOpenChang
           <div className="space-y-4">
             <div className="space-y-2">
               <Label className="text-xs font-medium text-[#737373] uppercase tracking-wide">Full Name</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} className="h-10 border-[#E5E5E5] bg-white" placeholder="e.g. Jane Doe" />
+              <Input 
+                value={name} 
+                onChange={(e) => { setName(e.target.value); if (errors.name) setErrors(prev => ({ ...prev, name: '' })); }} 
+                className={`h-10 border-[#E5E5E5] bg-white ${errors.name ? 'border-red-500' : ''}`} 
+                placeholder="e.g. Jane Doe" 
+                disabled={isSubmitting}
+              />
+              {errors.name && <p className="text-xs text-red-500">{errors.name}</p>}
             </div>
 
             <div className="space-y-2">
               <Label className="text-xs font-medium text-[#737373] uppercase tracking-wide">Email</Label>
-              <Input value={email} onChange={(e) => setEmail(e.target.value)} className="h-10 border-[#E5E5E5] bg-white" placeholder="jane@example.com" />
+              <Input 
+                value={email} 
+                onChange={(e) => { setEmail(e.target.value); if (errors.email) setErrors(prev => ({ ...prev, email: '' })); }} 
+                className={`h-10 border-[#E5E5E5] bg-white ${errors.email ? 'border-red-500' : ''}`} 
+                placeholder="jane@example.com" 
+                disabled={isSubmitting}
+              />
+              {errors.email && <p className="text-xs text-red-500">{errors.email}</p>}
             </div>
           </div>
 
           <div className="space-y-4">
             <div className="space-y-2">
               <Label className="text-xs font-medium text-[#737373] uppercase tracking-wide">Role</Label>
-              <Select value={role} onValueChange={setRole}>
+              <Select value={role} onValueChange={(val) => { setRole(val); if (errors.role) setErrors(prev => ({ ...prev, role: '' })); }} disabled={isSubmitting}>
                 <SelectTrigger className="h-10 border-[#E5E5E5] bg-white">
                   <SelectValue placeholder="Select role" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="frontend">Frontend Developer</SelectItem>
-                  <SelectItem value="backend">Backend Developer</SelectItem>
-                  <SelectItem value="fullstack">Full Stack Developer</SelectItem>
-                  <SelectItem value="designer">Product Designer</SelectItem>
-                  <SelectItem value="pm">Product Manager</SelectItem>
-                  <SelectItem value="qa">QA Engineer</SelectItem>
+                  <SelectItem value="Frontend Developer">Frontend Developer</SelectItem>
+                  <SelectItem value="Backend Developer">Backend Developer</SelectItem>
+                  <SelectItem value="Full Stack Developer">Full Stack Developer</SelectItem>
+                  <SelectItem value="Designer">Product Designer</SelectItem>
+                  <SelectItem value="Product Manager">Product Manager</SelectItem>
+                  <SelectItem value="QA Engineer">QA Engineer</SelectItem>
                 </SelectContent>
               </Select>
+              {errors.role && <p className="text-xs text-red-500">{errors.role}</p>}
             </div>
 
             <div className="space-y-2">
               <Label className="text-xs font-medium text-[#737373] uppercase tracking-wide">Skills (comma separated)</Label>
-              <Input value={skills} onChange={(e) => setSkills(e.target.value)} className="h-10 border-[#E5E5E5] bg-white" placeholder="React, Node.js, etc." />
+              <Input 
+                value={skills} 
+                onChange={(e) => setSkills(e.target.value)} 
+                className="h-10 border-[#E5E5E5] bg-white" 
+                placeholder="React, Node.js, etc." 
+                disabled={isSubmitting}
+              />
             </div>
           </div>
 
@@ -132,13 +224,14 @@ const AddTeamMemberModal = ({ open, onOpenChange }: { open: boolean; onOpenChang
               value={utilization}
               onChange={(e) => setUtilization(parseInt(e.target.value))}
               className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
+              disabled={isSubmitting}
             />
           </div>
         </div>
 
         <DialogFooter className="px-8 py-5 border-t border-[#E5E5E5] bg-white flex justify-end gap-3">
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="border-[#E5E5E5] text-[#737373] hover:text-[#121212]">Cancel</Button>
-          <Button onClick={() => onOpenChange(false)} className="bg-[#121212] text-white hover:bg-[#262626] shadow-sm px-6">Add Member</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting} className="border-[#E5E5E5] text-[#737373] hover:text-[#121212]">Cancel</Button>
+          <LoadingButton onClick={handleAddMember} isLoading={isSubmitting} disabled={isSubmitting} className="bg-[#121212] text-white hover:bg-[#262626] shadow-sm px-6">Add Member</LoadingButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -367,6 +460,202 @@ export default function PeopleCapacityTab() {
     return timeline;
   };
 
+  // Function to load team and issues data
+  const loadTeam = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const orgId = getCurrentOrgId();
+      if (!orgId) {
+        console.warn('[PeopleCapacity] No org_id set');
+        setAllTeam([]);
+        setTeam([]);
+        setLoading(false);
+        return;
+      }
+
+      console.log('[PeopleCapacity] Loading team data from DB');
+
+      // First, try to fetch issues from database
+      const { data: dbIssues, error: dbError } = await supabase
+        .from('jira_issues')
+        .select('*')
+        .not('assignee', 'is', null);
+
+      let allIssuesData: any[] = [];
+      if (!dbError && dbIssues && dbIssues.length > 0) {
+        console.log('[PeopleCapacity] Loaded', dbIssues.length, 'issues from database');
+        allIssuesData = dbIssues.map((issue: any) => ({
+          key: issue.issue_key,
+          summary: issue.summary,
+          assignee: issue.assignee,
+          assigneeEmail: issue.assignee,
+          assigneeName: issue.assignee,
+          projectName: issue.project_key,
+          status: issue.status,
+          dueDate: issue.due_date,
+          created: issue.created_date,
+          timeestimate_seconds: 0,
+          story_points: 0
+        }));
+      } else {
+        console.log('[PeopleCapacity] Database query failed or empty, falling back to Jira API');
+        const { issues: jiraIssues, source } = await fetchAllIssuesHybrid();
+        console.log(`[PeopleCapacity] Received ${jiraIssues.length} issues from ${source}`);
+        allIssuesData = jiraIssues;
+      }
+
+      // Fetch teams for this organization
+      const { data: teams, error: teamsError } = await supabase
+        .from('teams')
+        .select('id')
+        .eq('organization_id', orgId);
+
+      if (teamsError) {
+        console.warn('[PeopleCapacity] Error fetching teams:', teamsError);
+      }
+
+      const teamIds = (teams || []).map(t => t.id);
+      if (teamIds.length === 0) {
+        console.log('[PeopleCapacity] No teams found for this organization');
+        setAllTeam([]);
+        setTeam([]);
+        setLoading(false);
+        return;
+      }
+
+      // Fetch team members from team_members table with user info
+      const { data: teamMembersData, error: memberError } = await supabase
+        .from('team_members')
+        .select(`
+          id,
+          team_id,
+          user_id,
+          email,
+          display_name,
+          role,
+          status,
+          users!team_members_user_id_fkey (id, email, name, role)
+        `)
+        .in('team_id', teamIds);
+
+      if (memberError) {
+        console.warn('[PeopleCapacity] Error fetching team members:', memberError);
+      }
+
+      const newMemberMap = new Map<string, any>();
+      (teamMembersData || []).forEach((member: any) => {
+        const email = member.email || member.users?.email || 'unknown';
+        const displayName = member.display_name || member.users?.name || member.email?.split('@')[0] || 'Unknown';
+        const role = member.role || member.users?.role || 'employee';
+
+        newMemberMap.set(email, {
+          dbId: member.id,
+          displayName: displayName,
+          dbRole: role,
+          dbSkills: []
+        });
+      });
+      setMemberMap(newMemberMap);
+
+      // Initialize team map
+      const teamMap = new Map<string, TeamMember>();
+      const projectMap = new Map<string, Set<string>>();
+      const CAPACITY_PER_PERSON = 160;
+
+      console.log('[PeopleCapacity] Initializing team with', newMemberMap.size, 'team members');
+      newMemberMap.forEach((memberData, email) => {
+        const displayName = memberData.displayName || email.split('@')[0] || 'Unknown';
+        const skills = memberData.dbSkills?.length > 0 ? memberData.dbSkills : ['—'];
+        const dbRole = memberData.dbRole || 'employee';
+
+        teamMap.set(email, {
+          email: email,
+          name: displayName,
+          role: dbRole,
+          skills: skills,
+          utilization: 0,
+          totalHours: 0,
+          availableCapacity: CAPACITY_PER_PERSON,
+          issueCount: 0,
+          projects: 0,
+          status: 'healthy',
+          avatar: getInitials(displayName)
+        });
+        projectMap.set(email, new Set<string>());
+      });
+
+      // Process issues
+      if (Array.isArray(allIssuesData) && allIssuesData.length > 0) {
+        console.log('[PeopleCapacity] Processing', allIssuesData.length, 'issues');
+        allIssuesData.forEach((issue: any) => {
+          const assignee = issue.assigneeEmail || issue.assignee || 'Unassigned';
+          if (assignee === 'Unassigned') return;
+
+          const memberData = newMemberMap.get(assignee);
+          if (!memberData) {
+            console.log('[PeopleCapacity] Skipping assignee not in team_members:', assignee);
+            return;
+          }
+
+          const person = teamMap.get(assignee);
+          if (person) {
+            person.issueCount++;
+            projectMap.get(assignee)?.add(issue.projectName || 'Unknown');
+            const estimate = issue.timeestimate_seconds
+              ? Math.round(issue.timeestimate_seconds / 3600)
+              : issue.story_points
+                ? issue.story_points * 4
+                : 4;
+            person.totalHours += estimate;
+          }
+        });
+      } else {
+        console.warn('[PeopleCapacity] No issues found, showing team members with 0% utilization');
+      }
+
+      const teamArray = Array.from(teamMap.values());
+      const totalMembers = teamArray.length;
+
+      if (totalMembers === 0) {
+        console.warn('[PeopleCapacity] No team members found');
+        setAllIssues([]);
+        setAllTeam([]);
+        setTeam([]);
+        setLoading(false);
+        return;
+      }
+
+      console.log(`[PeopleCapacity] Processed ${totalMembers} team members`);
+
+      teamArray.forEach((person) => {
+        const utilization = (person.totalHours / CAPACITY_PER_PERSON) * 100;
+        person.utilization = Math.round(utilization);
+        person.availableCapacity = Math.max(0, CAPACITY_PER_PERSON - person.totalHours);
+        person.projects = projectMap.get(person.email)?.size || person.issueCount;
+
+        if (person.utilization > 110) {
+          person.status = 'overloaded';
+        } else if (person.utilization > 90) {
+          person.status = 'at-risk';
+        } else {
+          person.status = 'healthy';
+        }
+      });
+
+      setAllIssues(allIssuesData);
+      setAllTeam(teamArray.sort((a, b) => b.utilization - a.utilization));
+      setTeam(teamArray.sort((a, b) => b.utilization - a.utilization));
+      setMetrics(calculateMetrics(teamArray));
+      setLoading(false);
+    } catch (error) {
+      console.error('[PeopleCapacity] Error loading data:', error);
+      setError(error instanceof Error ? error.message : 'Failed to load data');
+      setLoading(false);
+    }
+  };
+
   // Load person details when a person is selected
   useEffect(() => {
     if (selectedPerson) {
@@ -562,215 +851,8 @@ export default function PeopleCapacityTab() {
   }, [analyticsStartDate, allTeam, allIssues]);
 
   useEffect(() => {
-    const loadPeopleCapacityData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const orgId = getCurrentOrgId();
-        if (!orgId) {
-          console.warn('[PeopleCapacity] No org_id set');
-          setAllTeam([]);
-          setTeam([]);
-          setLoading(false);
-          return;
-        }
-
-        console.log('[PeopleCapacity] Fetching from DB with database-first approach');
-
-        // First, try to fetch issues from database
-        const { data: dbIssues, error: dbError } = await supabase
-          .from('jira_issues')
-          .select('*')
-          .not('assignee', 'is', null);
-
-        let allIssuesData: any[] = [];
-        if (!dbError && dbIssues && dbIssues.length > 0) {
-          console.log('[PeopleCapacity] Loaded', dbIssues.length, 'issues from database');
-          // Transform database issues to match the expected format
-          allIssuesData = dbIssues.map((issue: any) => ({
-            key: issue.issue_key,
-            summary: issue.summary,
-            assignee: issue.assignee,
-            assigneeEmail: issue.assignee,
-            assigneeName: issue.assignee,
-            projectName: issue.project_key,
-            status: issue.status,
-            dueDate: issue.due_date,
-            created: issue.created_date,
-            timeestimate_seconds: 0,
-            story_points: 0
-          }));
-        } else {
-          // Fallback to Jira API
-          console.log('[PeopleCapacity] Database query failed or empty, falling back to Jira API');
-          const { issues: jiraIssues, source } = await fetchAllIssuesHybrid();
-          console.log(`[PeopleCapacity] Received ${jiraIssues.length} issues from ${source}`);
-          allIssuesData = jiraIssues;
-        }
-
-// Fetch teams for this organization
-      const { data: teams, error: teamsError } = await supabase
-        .from('teams')
-        .select('id')
-        .eq('organization_id', orgId);
-
-      if (teamsError) {
-        console.warn('[PeopleCapacity] Error fetching teams:', teamsError);
-      }
-
-      const teamIds = (teams || []).map(t => t.id);
-      if (teamIds.length === 0) {
-        console.log('[PeopleCapacity] No teams found for this organization');
-        setAllTeam([]);
-        setTeam([]);
-        setLoading(false);
-        return;
-      }
-
-      // Fetch team members from team_members table with user info
-      const { data: teamMembersData, error: memberError } = await supabase
-        .from('team_members')
-        .select(`
-          id,
-          team_id,
-          user_id,
-          email,
-          display_name,
-          role,
-          status,
-          users!team_members_user_id_fkey (id, email, name, role)
-        `)
-        .in('team_id', teamIds);
-
-      if (memberError) {
-        console.warn('[PeopleCapacity] Error fetching team members:', memberError);
-      }
-
-      const newMemberMap = new Map<string, any>();
-      (teamMembersData || []).forEach((member: any) => {
-        // Use email from team_members first, then from users table
-        const email = member.email || member.users?.email || 'unknown';
-        const displayName = member.display_name || member.users?.name || member.email?.split('@')[0] || 'Unknown';
-        const role = member.role || member.users?.role || 'employee';
-        
-        newMemberMap.set(email, {
-          dbId: member.id,
-          displayName: displayName,
-          dbRole: role,
-          dbSkills: [] // Skills not stored in team_members, can be extended later
-        });
-      });
-      setMemberMap(newMemberMap);
-
-        // Initialize team map with all team members from the org (even if no issues assigned)
-        const teamMap = new Map<string, TeamMember>();
-        const projectMap = new Map<string, Set<string>>();
-        const CAPACITY_PER_PERSON = 160;
-
-        // First, add all team members from memberMap
-        console.log('[PeopleCapacity] Initializing team with', newMemberMap.size, 'team members');
-        newMemberMap.forEach((memberData, email) => {
-          const displayName = memberData.displayName || email.split('@')[0] || 'Unknown';
-          const skills = memberData.dbSkills?.length > 0 ? memberData.dbSkills : ['—'];
-          const dbRole = memberData.dbRole || 'employee';
-
-          teamMap.set(email, {
-            email: email,
-            name: displayName,
-            role: dbRole,
-            skills: skills,
-            utilization: 0,
-            totalHours: 0,
-            availableCapacity: CAPACITY_PER_PERSON,
-            issueCount: 0,
-            projects: 0,
-            status: 'healthy',
-            avatar: getInitials(displayName)
-          });
-          projectMap.set(email, new Set<string>());
-        });
-
-        // Then add issues if available
-        if (Array.isArray(allIssuesData) && allIssuesData.length > 0) {
-          console.log('[PeopleCapacity] Processing', allIssuesData.length, 'issues');
-          allIssuesData.forEach((issue: any) => {
-            const assignee = issue.assigneeEmail || issue.assignee || 'Unassigned';
-            if (assignee === 'Unassigned') return;
-
-            // Get member data from DB
-            const memberData = newMemberMap.get(assignee);
-            
-            // Only include team members that exist in the team_members table for this org
-            if (!memberData) {
-              console.log('[PeopleCapacity] Skipping assignee not in team_members:', assignee);
-              return;
-            }
-
-            const person = teamMap.get(assignee)!;
-            person.issueCount += 1;
-
-            // Track projects assigned
-            if (issue.projectName) {
-              projectMap.get(assignee)!.add(issue.projectName);
-            }
-
-            const estimate = issue.timeestimate_seconds
-              ? Math.round(issue.timeestimate_seconds / 3600)
-              : issue.story_points
-                ? issue.story_points * 4
-                : 4;
-
-            person.totalHours += estimate;
-          });
-        } else {
-          console.warn('[PeopleCapacity] No issues found, showing team members with 0% utilization');
-        }
-
-        const teamArray = Array.from(teamMap.values());
-        const totalMembers = teamArray.length;
-
-        if (totalMembers === 0) {
-          console.warn('[PeopleCapacity] No team members found in organization');
-          setAllIssues([]);
-          setAllTeam([]);
-          setTeam([]);
-          setLoading(false);
-          return;
-        }
-
-        console.log(`[PeopleCapacity] Processed ${totalMembers} team members`);
-
-        teamArray.forEach((person) => {
-          const utilization = (person.totalHours / CAPACITY_PER_PERSON) * 100;
-          person.utilization = Math.round(utilization);
-          person.availableCapacity = Math.max(0, CAPACITY_PER_PERSON - person.totalHours);
-          person.projects = projectMap.get(person.email)?.size || person.issueCount;
-
-          // Determine status
-          if (person.utilization > 110) {
-            person.status = 'overloaded';
-          } else if (person.utilization > 90) {
-            person.status = 'at-risk';
-          } else {
-            person.status = 'healthy';
-          }
-        });
-
-        setAllIssues(allIssuesData);
-        setAllTeam(teamArray.sort((a, b) => b.utilization - a.utilization));
-        setTeam(teamArray.sort((a, b) => b.utilization - a.utilization));
-        setMetrics(calculateMetrics(teamArray));
-        setLoading(false);
-      } catch (error) {
-        console.error('[PeopleCapacity] Error loading data:', error);
-        setError(error instanceof Error ? error.message : 'Failed to load data');
-        setLoading(false);
-      }
-    };
-
-    loadPeopleCapacityData();
-    const interval = setInterval(loadPeopleCapacityData, 30000);
+    loadTeam();
+    const interval = setInterval(loadTeam, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -818,7 +900,7 @@ export default function PeopleCapacityTab() {
           </Button>
         </div>
 
-        <AddTeamMemberModal open={isAddMemberOpen} onOpenChange={setIsAddMemberOpen} />
+        <AddTeamMemberModal open={isAddMemberOpen} onOpenChange={setIsAddMemberOpen} onMemberAdded={loadTeam} />
 
         {/* ===== CAPACITY SUMMARY STRIP ===== */}
         <div className="flex items-center gap-0 mb-10">

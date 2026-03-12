@@ -39,7 +39,7 @@ export default function CreateProject() {
   const [projectType, setProjectType] = useState('Scrum Software Development');
   const [projectLead, setProjectLead] = useState(''); // ID of the lead
   const [description, setDescription] = useState('');
-  
+
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [tasks, setTasks] = useState([
     { id: 1, name: 'Database Setup', assignee: 'Unassigned', hours: '4', timeline: 'Week 1' },
@@ -48,9 +48,9 @@ export default function CreateProject() {
   // Auto-set Project Lead to current user if available
   useEffect(() => {
     if (employees.length > 0 && !projectLead && user?.id) {
-        // Try to find the user in the employee list to select them by default
-        const me = employees.find(e => e.id === user.id);
-        if (me) setProjectLead(me.id);
+      // Try to find the user in the employee list to select them by default
+      const me = employees.find(e => e.id === user.id);
+      if (me) setProjectLead(me.id);
     }
   }, [employees, user, projectLead]);
 
@@ -94,23 +94,25 @@ export default function CreateProject() {
 
     const orgId = getCurrentOrgId();
     if (!orgId) {
-        toast({ title: "Error", description: "Organization not found.", variant: "destructive" });
-        return;
+      toast({ title: "Error", description: "Organization not found.", variant: "destructive" });
+      return;
     }
 
     // Call the unified hook logic
     const successProjectId = await commitProject(orgId, {
-        description: description || `Project Key: ${projectKey}`, // Storing Key in description since DB has no col
-        selectedTeamIds: selectedMembers,
-        tasks: tasks.filter(t => t.name.trim()).map(t => ({
-            id: String(t.id),
-            task: t.name,
-            estimatedHours: Number(t.hours) || 0
-        }))
+      name: projectName,
+      key: projectKey,
+      description: description,
+      selectedTeamIds: selectedMembers,
+      tasks: tasks.filter(t => t.name.trim()).map(t => ({
+        id: String(t.id),
+        task: t.name,
+        estimatedHours: Number(t.hours) || 0
+      }))
     });
 
     if (successProjectId) {
-        navigate('/projects');
+      navigate('/projects');
     }
   };
 
@@ -160,9 +162,8 @@ export default function CreateProject() {
                       onChange={handleProjectKeyChange}
                       placeholder="MOB"
                       maxLength={5}
-                      className={`w-full h-11 px-4 bg-[#FAFAF9] border rounded-xl focus:outline-none focus:ring-1 focus:ring-[#1C1917] text-[#1C1917] transition-all ${
-                        projectKey && !isValidProjectKey(projectKey) ? 'border-rose-300 bg-rose-50' : 'border-[#E7E5E4]'
-                      }`}
+                      className={`w-full h-11 px-4 bg-[#FAFAF9] border rounded-xl focus:outline-none focus:ring-1 focus:ring-[#1C1917] text-[#1C1917] transition-all ${projectKey && !isValidProjectKey(projectKey) ? 'border-rose-300 bg-rose-50' : 'border-[#E7E5E4]'
+                        }`}
                     />
                   </div>
                 </div>
@@ -233,24 +234,22 @@ export default function CreateProject() {
                     employees.map(member => {
                       const isSelected = selectedMembers.includes(member.id);
                       // Fallback logic for initials if not in DB
-                      const initials = member.name.substring(0,2).toUpperCase();
-                      
+                      const initials = member.name.substring(0, 2).toUpperCase();
+
                       return (
                         <div
                           key={member.id}
                           onClick={() => toggleMember(member.id)}
-                          className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all border ${
-                            isSelected
+                          className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all border ${isSelected
                               ? 'bg-[#FAFAF9] border-[#1C1917] shadow-sm'
                               : 'bg-white border-transparent hover:bg-[#FAFAF9]'
-                          }`}
+                            }`}
                         >
                           <div
-                            className={`w-10 h-10 rounded-full border flex items-center justify-center text-xs font-medium shadow-sm transition-colors ${
-                              isSelected
+                            className={`w-10 h-10 rounded-full border flex items-center justify-center text-xs font-medium shadow-sm transition-colors ${isSelected
                                 ? 'bg-white border-[#E7E5E4] text-[#1C1917]'
                                 : 'bg-[#F5F5F4] border-transparent text-[#78716C]'
-                            }`}
+                              }`}
                           >
                             {initials}
                           </div>

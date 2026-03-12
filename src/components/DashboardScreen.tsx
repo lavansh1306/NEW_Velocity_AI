@@ -12,6 +12,8 @@ import { KPICard } from './shared/KPICard';
 import { PageHeader } from './shared/PageHeader';
 import { PageSkeleton } from './shared/SkeletonLoader';
 import { useSimulatedLoading } from '@/hooks/useSimulatedLoading';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 import { getDashboardData } from '@/services/dashboardService';
 import type { KPIData, GanttMember, Deadline } from '../types';
 import CalendarToday from '@mui/icons-material/CalendarToday';
@@ -31,6 +33,7 @@ const getCurrentWeekMonday = () => {
 
 export const DashboardScreen = () => {
     const navigate = useNavigate();
+    const { orgId } = useAuth();
     const [isLoading, setIsLoading] = useSimulatedLoading(600);
     const [kpis, setKpis] = useState<KPIData[]>([]);
     const [deadlines, setDeadlines] = useState<Deadline[]>([]);
@@ -82,7 +85,82 @@ export const DashboardScreen = () => {
         };
 
         fetchData();
-    }, [dateRangeParam, customRange]);
+    }, [dateRangeParam, customRange, orgId]);
+
+    // Set up real-time subscriptions to auto-update when new projects/issues are created
+    useEffect(() => {
+        if (!orgId) return;
+
+        console.log('[DashboardScreen] Setting up real-time subscriptions for org:', orgId);
+
+        // Helper to refetch data
+        const refetchData = async () => {
+            try {
+                const endDate = new Date();
+                endDate.setHours(23, 59, 59, 999);
+                let startDate = new Date();
+
+                if (dateRangeParam === 'custom') {
+                    startDate = customRange?.from ? new Date(customRange.from) : new Date();
+                    if (customRange?.to) endDate.setTime(customRange.to.getTime());
+                } else {
+                    startDate.setDate(endDate.getDate() - parseInt(dateRangeParam || '30'));
+                }
+                startDate.setHours(0, 0, 0, 0);
+
+                const data = await getDashboardData({ startDate, endDate });
+                setKpis(data.kpis);
+                setDeadlines(data.deadlines);
+                setGantt(data.gantt);
+                console.log('[DashboardScreen] Dashboard data refreshed from real-time event');
+            } catch (err) {
+                console.error('[DashboardScreen] Failed to refresh data:', err);
+            }
+        };
+
+        // Subscribe to changes in jira_projects table
+        const projectSubscription = supabase
+            .channel(`jira_projects:org_id=eq.${orgId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'jira_projects',
+                    filter: `org_id=eq.${orgId}`,
+                },
+                (payload) => {
+                    console.log('[DashboardScreen] Detected project change:', payload);
+                    refetchData();
+                }
+            )
+            .subscribe();
+
+        // Subscribe to changes in jira_issues table
+        const issueSubscription = supabase
+            .channel(`jira_issues:org_id=eq.${orgId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'jira_issues',
+                    filter: `org_id=eq.${orgId}`,
+                },
+                (payload) => {
+                    console.log('[DashboardScreen] Detected issue change:', payload);
+                    refetchData();
+                }
+            )
+            .subscribe();
+
+        // Cleanup subscriptions on unmount or when orgId changes
+        return () => {
+            console.log('[DashboardScreen] Cleaning up real-time subscriptions');
+            projectSubscription.unsubscribe();
+            issueSubscription.unsubscribe();
+        };
+    }, [orgId, dateRangeParam, customRange]);
 
     // Helper to generate the 7 dates for the currently selected week
     const generateWeekDates = (monday: Date) => {
