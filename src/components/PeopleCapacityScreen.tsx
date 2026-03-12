@@ -281,12 +281,21 @@ export const PeopleCapacityScreen = () => {
 
     const [pendingSkillActions, setPendingSkillActions] = useState<Record<number, string>>({});
 
+    // Default person details structure to prevent undefined errors
+    const defaultPersonDetails = {
+        capacityTimeline: [],
+        projects: [],
+        skills: [],
+        recommendations: []
+    };
+
     const personDetails = selectedPerson ? {
         name: selectedPerson.name,
         role: selectedPerson.role,
         avatar: selectedPerson.avatar,
         utilization: selectedPerson.utilization,
-        ...(allPersonDetails[selectedPerson.name] || allPersonDetails[Object.keys(allPersonDetails)[0]]),
+        ...defaultPersonDetails,
+        ...(allPersonDetails[selectedPerson.name] || allPersonDetails[Object.keys(allPersonDetails)[0]] || {}),
     } : null;
 
     const totalMembers = teamMembers.length;

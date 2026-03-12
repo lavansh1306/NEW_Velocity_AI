@@ -104,8 +104,15 @@ export async function getDashboardData(options?: DashboardOptions): Promise<Dash
             ? Math.round((totalActualHours / totalEstimatedHours) * 100) 
             : 0;
 
-        // Get unique team members
-        const uniqueMembers = new Set(teamMembers?.map(m => m.id) || []);
+        // Get unique team members by email (not by team_member ID)
+        const uniqueMemberEmails = new Set(
+            teamMembers
+                ?.map(m => {
+                    const userData = users?.find(u => u.id === m.user_id);
+                    return userData?.email || m.email || '';
+                })
+                .filter(email => email !== '') || []
+        );
 
         const kpis: KPIData[] = [
             {
@@ -126,7 +133,7 @@ export async function getDashboardData(options?: DashboardOptions): Promise<Dash
             },
             {
                 label: 'Active Team Members',
-                value: uniqueMembers.size,
+                value: uniqueMemberEmails.size,
                 sublabel: 'With assignments',
                 trend: 'up',
             },
@@ -135,7 +142,7 @@ export async function getDashboardData(options?: DashboardOptions): Promise<Dash
         console.log('[dashboardService] KPI Calculations:', {
             activeProjects: activeProjects.length,
             projectsAtRisk: projectsAtRisk.length,
-            uniqueMembers: uniqueMembers.size,
+            uniqueMembers: uniqueMemberEmails.size,
             utilizationPercent,
         });
 
@@ -158,20 +165,42 @@ export async function getDashboardData(options?: DashboardOptions): Promise<Dash
             .slice(0, 5);
 
         // 3. Build Gantt Chart data from team members and their tasks
+        const seenEmails = new Set<string>(); // Track unique emails
+        
         const gantt: GanttMember[] = (teamMembers || [])
             .map(member => {
                 // Find user data for this team member from the users table
                 const userData = users?.find(u => u.id === member.user_id);
+                const memberEmail = userData?.email || member.email || '';
                 const memberName = userData?.display_name || userData?.email || member.display_name || member.email || 'Unknown';
                 
                 return {
+                    id: member.id, // Use team_member ID as unique identifier
+                    email: memberEmail, // Include email for uniqueness check
                     name: memberName,
                     role: member.role || 'Team Member',
                     avatar: memberName.charAt(0).toUpperCase(),
+                    // Filter tasks assigned to THIS specific team member
                     tasks: (allTasks || [])
                         .filter(task => {
-                            // Filter tasks that start and end within a reasonable range
-                            return task.start_date && task.due_date;
+                            // Check various assignment field possibilities
+                            const isAssignedToMember = task.assigned_to === member.user_id || 
+                                                      task.assigned_team_member_id === member.id ||
+                                                      task.assigned_to === member.id ||
+                                                      (task as any).assignee_id === member.user_id ||
+                                                      (task as any).assignee_id === member.id;
+                            
+                            // If no assignment field exists, log for debugging
+                            if (!isAssignedToMember && !task.assigned_to && !(task as any).assignee_id && !(task as any).assigned_team_member_id) {
+                                console.log('[dashboardService] Task missing assignment fields:', {
+                                    taskId: task.id,
+                                    taskName: task.name,
+                                    taskFields: Object.keys(task)
+                                });
+                            }
+                            
+                            // Also must have valid dates
+                            return isAssignedToMember && task.start_date && task.due_date;
                         })
                         .map(task => ({
                             name: task.name,
@@ -181,6 +210,14 @@ export async function getDashboardData(options?: DashboardOptions): Promise<Dash
                             status: task.status === 'completed' || task.status === 'in_progress' ? ('track' as const) : ('risk' as const),
                         })) || [],
                 };
+            })
+            .filter(member => {
+                // Only include unique emails - include members regardless of task count
+                if (!member.email || seenEmails.has(member.email)) {
+                    return false;
+                }
+                seenEmails.add(member.email);
+                return true; // Show all team members, even those without assigned tasks
             })
             .slice(0, 10);
 

@@ -427,7 +427,7 @@ export const DashboardScreen = () => {
                                             const rowHeight = Math.max(64, validTasks.length * 40 + 24);
 
                                             return (
-                                                <div key={idx} className="flex items-stretch gap-1 group hover:bg-[#FAFAF9] rounded-lg transition-colors p-2 -mx-2" style={{ height: `${rowHeight}px` }}>
+                                                <div key={member.id} className="flex items-stretch gap-1 group hover:bg-[#FAFAF9] rounded-lg transition-colors p-2 -mx-2" style={{ height: `${rowHeight}px` }}>
                                                     {/* Member Info */}
                                                     <div className="w-56 flex-shrink-0 flex items-center gap-3 pr-4 border-r border-[#E7E5E4]/50 z-20 bg-white group-hover:bg-[#FAFAF9]">
                                                         <Avatar className="w-8 h-8 border border-[#E7E5E4] transition-transform group-hover:scale-105">

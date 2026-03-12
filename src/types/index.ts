@@ -410,6 +410,8 @@ export interface DashboardData {
 
 /** Team member (Gantt row) */
 export interface GanttMember {
+    id: string; // Unique identifier for the team member
+    email?: string; // Email for uniqueness checking
     name: string;
     role: string;
     avatar: string;
