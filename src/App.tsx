@@ -102,8 +102,7 @@ const App = () => (
                 <Route path="/projects/create" element={<ProtectedRoute><CreateProject /></ProtectedRoute>} />
                 <Route path="/projects/global-gantt" element={<ProtectedRoute><GlobalGanttDashboard /></ProtectedRoute>} />
                 <Route path="/projects/jira-dashboard" element={<ProtectedRoute><JiraDashboard /></ProtectedRoute>} />
-                <Route path="/projects/:id" element={<ProtectedRoute><ProjectDetailNew /></ProtectedRoute>} />
-                <Route path="/project-analytics/:id" element={<ProtectedRoute><ProjectAnalytics /></ProtectedRoute>} />
+                <Route path="/projects/:id" element={<ProtectedRoute><ProjectAnalytics /></ProtectedRoute>} />
 
                 {/* 6. Fallback */}
                 <Route path="*" element={<NotFound />} />

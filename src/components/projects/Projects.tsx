@@ -76,7 +76,7 @@ export default function Projects() {
                   <div
                     key={project.id}
                     className="p-6 hover:bg-[#FAFAF9] cursor-pointer transition-colors group relative"
-                    onClick={() => navigate(`/project-analytics/${project.id}`)}
+                    onClick={() => navigate(`/projects/${project.id}`)}
                   >
                     <div className="flex justify-between items-start">
                       <div>

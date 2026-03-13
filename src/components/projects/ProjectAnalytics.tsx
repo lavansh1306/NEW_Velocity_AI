@@ -1,312 +1,20 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { VelocityAISidebar } from '@/components/dashboard/VelocityAISidebar';
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/lib/supabase';
+import { useProjectAnalytics } from '@/hooks/useProjectAnalytics';
 import {
   ArrowLeft, LayoutGrid, Users, CheckSquare,
   Clock, Lightbulb, AlertCircle, Sparkles, Loader2
 } from 'lucide-react';
 
-// --- Helper Function for Health Score Calculation ---
-function calculateHealthScore(
-  completedTasks: number,
-  totalTasks: number,
-  estimatedHours: number,
-  actualHours: number
-): number {
-  // 60% based on task completion, 40% based on time budget adherence
-  const taskFactor = totalTasks > 0 ? (completedTasks / totalTasks) : 1;
-  const timeFactor = estimatedHours > 0 ? Math.min(1, (estimatedHours / Math.max(actualHours, 1))) : 1;
-  return Math.round(((taskFactor * 0.6) + (timeFactor * 0.4)) * 100);
-}
-
-// --- Interfaces ---
-interface JiraProject {
-  id: string;
-  key: string;
-  title: string;
-  created_at: string;
-}
-
-interface JiraIssue {
-  id: string;
-  issue_key: string;
-  issue_type: string;
-  summary: string;
-  status: string;
-  assignee: string;
-  // Supabase returns these as numbers or null
-  time_spent_seconds: number | null;
-  original_estimate_seconds: number | null;
-  created_date: string;
-}
-
-// State for calculated project metrics
-interface AnalyticsState {
-  totalEstHours: number;
-  actualHours: number;
-  remainingHours: number;
-  completionPct: number;
-  totalTasks: number;
-  tasksCompleted: number;
-  tasksRemaining: number;
-  teamSize: number;
-  healthScore: number;
-  isAtRisk: boolean;
-  feasibility: number;
-}
-
-interface DerivedTeamMember {
-  name: string;
-  role: string;
-  initials: string;
-  tasks_assigned: number;
-  tasks_completed: number;
-  actual_hours: number;
-  utilization: number;
-  status: 'Healthy' | 'Overloaded' | 'Underutilized';
-}
-
 export default function ProjectAnalytics() {
-  const { id, projectId } = useParams();
-  const targetId = projectId || id;
+  const { id } = useParams();
   const navigate = useNavigate();
-
   const [activeTab, setActiveTab] = useState<'overview' | 'team' | 'tasks' | 'timeline' | 'insights'>('overview');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  // Raw Data from DB
-  const [project, setProject] = useState<JiraProject | null>(null);
-  const [issues, setIssues] = useState<JiraIssue[]>([]);
-
-  // Computed Data for UI
-  const [analytics, setAnalytics] = useState<AnalyticsState>({
-    totalEstHours: 0, actualHours: 0, remainingHours: 0, completionPct: 0,
-    totalTasks: 0, tasksCompleted: 0, tasksRemaining: 0, teamSize: 0,
-    healthScore: 0, isAtRisk: false, feasibility: 0
-  });
-  const [teamMembers, setTeamMembers] = useState<DerivedTeamMember[]>([]);
-
-  // --- 1. Fetching Logic ---
-  useEffect(() => {
-    if (!targetId) return;
-
-    const fetchAndCalculate = async () => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        // A. Determine if targetId is UUID or Project Key
-        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetId);
-
-        // B. Fetch Project Meta (Try projects first, then jira_projects)
-        let projData = null;
-        let isInternal = false;
-
-        // Try 'projects' table first (Internal)
-        const { data: internalProj, error: internalError } = await supabase
-          .from('projects')
-          .select('*, teams(name)')
-          .eq('id', targetId)
-          .single();
-
-        if (internalProj) {
-          projData = {
-            id: internalProj.id,
-            key: internalProj.id.substring(0, 5).toUpperCase(), // Placeholder key
-            title: internalProj.name,
-            created_at: internalProj.created_at,
-            team_name: internalProj.teams?.name
-          };
-          isInternal = true;
-        } else {
-          // Try 'jira_projects' table
-          const { data: jiraProj, error: jiraError } = await supabase
-            .from('jira_projects')
-            .select('*')
-            .eq(isUUID ? 'id' : 'key', targetId)
-            .single();
-
-          if (jiraProj) {
-            projData = jiraProj;
-            isInternal = false;
-          }
-        }
-
-        if (!projData) throw new Error("Project not found.");
-        setProject(projData);
-
-        // C. Fetch All Issues/Tasks
-        let validIssues: JiraIssue[] = [];
-
-        if (isInternal) {
-          const { data: tasksData, error: tasksError } = await supabase
-            .from('tasks')
-            .select(`
-              *,
-              users ( name )
-            `)
-            .eq('project_id', projData.id);
-
-          if (tasksError) throw new Error("Could not load project tasks.");
-
-          validIssues = (tasksData || []).map(t => ({
-            id: t.id,
-            issue_key: `TASK-${t.id.substring(0, 4)}`,
-            issue_type: 'Task',
-            summary: t.name,
-            status: t.status || 'To Do',
-            assignee: t.users?.name || 'Unassigned',
-            time_spent_seconds: 0, // We could pull this if we had a time_entries table
-            original_estimate_seconds: (t.estimated_hours || 0) * 3600,
-            created_date: t.created_at
-          }));
-        } else {
-          const { data: issuesData, error: issuesError } = await supabase
-            .from('jira_issues')
-            .select('*')
-            .eq('project_key', projData.key);
-
-          if (issuesError) throw new Error("Could not load project issues.");
-          validIssues = issuesData || [];
-        }
-
-        setIssues(validIssues);
-
-        // --- 2. Calculation Logic (The "Brain") ---
-
-        // Variables for aggregation
-        let totalEstSeconds = 0;
-        let totalSpentSeconds = 0;
-        let completedCount = 0;
-        const memberMap = new Map<string, { assigned: number; completed: number; seconds: number }>();
-
-        validIssues.forEach(issue => {
-          // Time Aggregation
-          totalEstSeconds += issue.original_estimate_seconds || 0;
-          totalSpentSeconds += issue.time_spent_seconds || 0;
-
-          // Status Check
-          const status = issue.status?.toLowerCase() || '';
-          const isDone = ['done', 'closed', 'resolved', 'complete'].some(s => status.includes(s));
-          if (isDone) completedCount++;
-
-          // Team Aggregation
-          const assignee = issue.assignee || 'Unassigned';
-          if (assignee !== 'Unassigned') {
-            if (!memberMap.has(assignee)) {
-              memberMap.set(assignee, { assigned: 0, completed: 0, seconds: 0 });
-            }
-            const stats = memberMap.get(assignee)!;
-            stats.assigned += 1;
-            stats.seconds += (issue.time_spent_seconds || 0);
-            if (isDone) stats.completed += 1;
-          }
-        });
-
-        // Compute Final Metrics
-        const totalEstHours = Math.round(totalEstSeconds / 3600);
-        const actualHours = Math.round(totalSpentSeconds / 3600);
-        const remainingHours = Math.max(totalEstHours - actualHours, 0);
-        const totalTasks = validIssues.length;
-        const tasksRemaining = totalTasks - completedCount;
-
-        // Completion %: If we have hours, use hours. Else use task count.
-        const completionPct = totalEstHours > 0
-          ? Math.round((actualHours / totalEstHours) * 100)
-          : (totalTasks > 0 ? Math.round((completedCount / totalTasks) * 100) : 0);
-
-        // Health Score using shared calculation
-        const healthScore = calculateHealthScore(completedCount, totalTasks, totalEstHours, actualHours);
-
-        setAnalytics({
-          totalEstHours,
-          actualHours,
-          remainingHours,
-          completionPct,
-          totalTasks,
-          tasksCompleted: completedCount,
-          tasksRemaining,
-          teamSize: memberMap.size,
-          healthScore,
-          isAtRisk: healthScore < 50,
-          feasibility: Math.min(Math.round(healthScore * 1.1), 100) // Mock logic for feasibility
-        });
-
-        // Compute Team List
-        let members: DerivedTeamMember[] = [];
-
-        if (isInternal && projData.team_id) {
-          // Fetch explicit team members
-          const { data: teamMembersData } = await supabase
-            .from('team_members')
-            .select('users ( name, role )')
-            .eq('team_id', projData.team_id);
-
-          const teamList = teamMembersData || [];
-
-          // Seed members list with all team members
-          members = teamList.map(tm => {
-            const userObj = Array.isArray(tm.users) ? tm.users[0] : tm.users;
-            const name = userObj?.name || 'Unknown';
-            const stats = memberMap.get(name) || { assigned: 0, completed: 0, seconds: 0 };
-
-            const assigned = stats.assigned;
-            const completionRate = assigned > 0 ? stats.completed / assigned : 0;
-            const incomplete = assigned - stats.completed;
-
-            let status: DerivedTeamMember['status'] = 'Healthy';
-            if (incomplete > 8) status = 'Overloaded';
-            if (assigned === 0) status = 'Underutilized';
-
-            return {
-              name,
-              role: userObj?.role || 'Team Member',
-              initials: name.substring(0, 2).toUpperCase(),
-              tasks_assigned: assigned,
-              tasks_completed: stats.completed,
-              actual_hours: Math.round(stats.seconds / 3600),
-              utilization: Math.round(completionRate * 100),
-              status
-            };
-          });
-        } else {
-          // Original dynamic derivation for Jira projects
-          members = Array.from(memberMap.entries()).map(([name, stats]) => {
-            const completionRate = stats.assigned > 0 ? stats.completed / stats.assigned : 0;
-            const assigned = stats.assigned;
-            const incomplete = assigned - stats.completed;
-
-            let status: DerivedTeamMember['status'] = 'Healthy';
-            if (incomplete > 8) status = 'Overloaded';
-            if (assigned < 3) status = 'Underutilized';
-
-            return {
-              name,
-              role: 'Team Member',
-              initials: name.substring(0, 2).toUpperCase(),
-              tasks_assigned: assigned,
-              tasks_completed: stats.completed,
-              actual_hours: Math.round(stats.seconds / 3600),
-              utilization: Math.round(completionRate * 100),
-              status
-            };
-          });
-        }
-        setTeamMembers(members);
-
-      } catch (err: any) {
-        console.error('Logic calculation error:', err);
-        setError(err.message || 'Failed to process project analytics');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAndCalculate();
-  }, [targetId]);
+  // Use the realtime analytics hook
+  const { loading, error, project, issues, metrics, teamMembers, allocatedTeamMembers } = useProjectAnalytics(id);
 
 
   return (
@@ -351,25 +59,25 @@ export default function ProjectAnalytics() {
                 {/* Project Header Card */}
                 <div className="bg-white rounded-[24px] border border-[#E7E5E4] p-8 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                   <div className="space-y-4">
-                    <span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${analytics.isAtRisk ? 'bg-[#FFF1F2] text-[#BE123C]' : 'bg-[#F0FDFA] text-[#0F766E]'}`}>
-                      {analytics.isAtRisk ? 'At Risk' : 'On Track'}
+                    <span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${metrics.isAtRisk ? 'bg-[#FFF1F2] text-[#BE123C]' : 'bg-[#F0FDFA] text-[#0F766E]'}`}>
+                      {metrics.isAtRisk ? 'At Risk' : 'On Track'}
                     </span>
                     <h1 className="text-3xl md:text-4xl font-light text-[#1C1917] tracking-tight">
                       {project.title || project.key}
                     </h1>
                     <p className="text-sm text-[#78716C]">
-                      {startDate} &rarr; Active · <span className="text-[#A8A29E]">{analytics.totalTasks} issues tracked</span>
+                      {startDate} &rarr; Active · <span className="text-[#A8A29E]">{metrics.totalTasks} issues tracked</span>
                     </p>
                   </div>
 
                   <div className="flex items-center gap-8">
                     <div className="text-center">
                       <p className="text-xs text-[#A8A29E] mb-2 uppercase tracking-wider">Health Score</p>
-                      <div className={`w-16 h-16 rounded-full border flex items-center justify-center text-2xl font-light mx-auto ${analytics.isAtRisk ? 'border-pink-100 bg-pink-50 text-pink-500' : 'border-teal-100 bg-teal-50 text-teal-600'
+                      <div className={`w-16 h-16 rounded-full border flex items-center justify-center text-2xl font-light mx-auto ${metrics.isAtRisk ? 'border-pink-100 bg-pink-50 text-pink-500' : 'border-teal-100 bg-teal-50 text-teal-600'
                         }`}>
-                        {analytics.healthScore}
+                        {metrics.healthScore}
                       </div>
-                      <p className="text-xs text-[#A8A29E] mt-2">Feasibility {analytics.feasibility}%</p>
+                      <p className="text-xs text-[#A8A29E] mt-2">Feasibility {metrics.feasibility}%</p>
                     </div>
                     <Button className="bg-[#1C1917] hover:bg-[#292524] text-white rounded-xl px-6 py-6 h-auto font-light">
                       Edit Project
@@ -412,11 +120,11 @@ export default function ProjectAnalytics() {
                     <div className="bg-white rounded-[24px] border border-[#E7E5E4] p-8 shadow-sm">
                       <div className="grid grid-cols-2 md:grid-cols-5 gap-8 divide-x divide-[#E7E5E4]">
                         {[
-                          { val: analytics.totalEstHours, label: 'Total Est. Hours' },
-                          { val: analytics.actualHours, label: 'Actual Hours' },
-                          { val: analytics.remainingHours, label: 'Remaining' },
-                          { val: `${analytics.completionPct}%`, label: 'Completion' },
-                          { val: analytics.teamSize, label: 'Team Size' },
+                          { val: metrics.totalEstHours, label: 'Total Est. Hours' },
+                          { val: metrics.actualHours, label: 'Actual Hours' },
+                          { val: metrics.remainingHours, label: 'Remaining' },
+                          { val: `${metrics.completionPct}%`, label: 'Completion' },
+                          { val: metrics.teamSize, label: 'Team Size' },
                         ].map((stat, i) => (
                           <div key={i} className={`px-4 ${i === 0 ? 'first:px-0' : ''}`}>
                             <p className="text-4xl font-light text-[#1C1917]">{stat.val}</p>
@@ -435,22 +143,22 @@ export default function ProjectAnalytics() {
                         <div>
                           <div className="flex justify-between text-sm mb-3">
                             <span className="text-[#78716C]">Overall</span>
-                            <span className="text-[#1C1917]">{analytics.completionPct}%</span>
+                            <span className="text-[#1C1917]">{metrics.completionPct}%</span>
                           </div>
                           <div className="h-2 w-full bg-[#E7E5E4] rounded-full overflow-hidden">
                             <div
                               className="h-full bg-[#1C1917] rounded-full transition-all duration-1000"
-                              style={{ width: `${Math.min(analytics.completionPct, 100)}%` }}
+                              style={{ width: `${Math.min(metrics.completionPct, 100)}%` }}
                             />
                           </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4 pt-4">
                           <div className="bg-[#F0FDFA] rounded-xl p-6 border border-teal-100">
-                            <p className="text-3xl text-[#0F766E] font-light">{analytics.tasksCompleted}</p>
+                            <p className="text-3xl text-[#0F766E] font-light">{metrics.tasksCompleted}</p>
                             <p className="text-xs text-[#0F766E] mt-2">Tasks Completed</p>
                           </div>
                           <div className="bg-[#FFF7ED] rounded-xl p-6 border border-orange-100">
-                            <p className="text-3xl text-[#C2410C] font-light">{analytics.tasksRemaining}</p>
+                            <p className="text-3xl text-[#C2410C] font-light">{metrics.tasksRemaining}</p>
                             <p className="text-xs text-[#C2410C] mt-2">Tasks Remaining</p>
                           </div>
                         </div>
@@ -463,7 +171,7 @@ export default function ProjectAnalytics() {
                           <div>
                             <div className="flex justify-between text-sm mb-2">
                               <span className="text-[#78716C]">Estimated</span>
-                              <span className="text-[#1C1917]">{analytics.totalEstHours}h</span>
+                              <span className="text-[#1C1917]">{metrics.totalEstHours}h</span>
                             </div>
                             <div className="h-2 w-full bg-[#E7E5E4] rounded-full overflow-hidden">
                               <div className="h-full bg-[#E7E5E4] rounded-full" style={{ width: '100%' }} />
@@ -472,12 +180,12 @@ export default function ProjectAnalytics() {
                           <div>
                             <div className="flex justify-between text-sm mb-2">
                               <span className="text-[#78716C]">Logged</span>
-                              <span className="text-[#1C1917]">{analytics.actualHours}h</span>
+                              <span className="text-[#1C1917]">{metrics.actualHours}h</span>
                             </div>
                             <div className="h-2 w-full bg-[#E7E5E4] rounded-full overflow-hidden">
                               <div
                                 className="h-full bg-[#0F766E] rounded-full transition-all duration-1000"
-                                style={{ width: `${analytics.totalEstHours > 0 ? Math.min((analytics.actualHours / analytics.totalEstHours) * 100, 100) : 0}%` }}
+                                style={{ width: `${metrics.totalEstHours > 0 ? Math.min((metrics.actualHours / metrics.totalEstHours) * 100, 100) : 0}%` }}
                               />
                             </div>
                           </div>
@@ -494,7 +202,7 @@ export default function ProjectAnalytics() {
                         <div>
                           <p className="text-xs text-[#0F766E] font-medium uppercase tracking-wider mb-1">AI Health Check</p>
                           <p className="text-[#1C1917] text-sm">
-                            {analytics.actualHours > analytics.totalEstHours
+                            {metrics.actualHours > metrics.totalEstHours
                               ? 'Project is exceeding estimated hours. Immediate review of scope required.'
                               : 'Project is tracking within estimated time budget.'}
                           </p>
@@ -506,61 +214,131 @@ export default function ProjectAnalytics() {
 
                 {/* --- TAB CONTENT: TEAM --- */}
                 {activeTab === 'team' && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in duration-300">
-                    {teamMembers.map((member, i) => (
-                      <div key={i} className="bg-white rounded-[24px] border border-[#E7E5E4] p-8 shadow-sm">
-                        <div className="flex justify-between items-start mb-6">
-                          <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-full bg-[#F5F5F4] flex items-center justify-center text-[#1C1917] font-medium border border-[#E7E5E4]">
-                              {member.initials}
-                            </div>
-                            <div>
-                              <p className="font-medium text-[#1C1917] text-lg">{member.name}</p>
-                              <p className="text-sm text-[#78716C]">{member.role}</p>
-                            </div>
-                          </div>
-                          <span className={`text-xs px-2 py-1 rounded-full border ${member.status === 'Overloaded' ? 'bg-[#FFF1F2] text-[#BE123C] border-pink-100' :
-                            member.status === 'Underutilized' ? 'bg-[#FFF7ED] text-[#C2410C] border-orange-100' :
-                              'bg-[#F0FDFA] text-[#0F766E] border-teal-100'
-                            }`}>
-                            {member.status}
+                  <div className="space-y-8 animate-in fade-in duration-300">
+                    {/* Allocated Team Members Section */}
+                    {allocatedTeamMembers.length > 0 && (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                          <h3 className="text-lg font-light text-[#1C1917]">Allocated Team Members</h3>
+                          <span className="text-xs font-medium bg-[#F0FDFA] text-[#0F766E] px-3 py-1 rounded-full border border-teal-100">
+                            {allocatedTeamMembers.length} members
                           </span>
                         </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                          {allocatedTeamMembers.map((member) => {
+                            const startDate = new Date(member.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                            const endDate = new Date(member.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+                            return (
+                              <div key={member.id} className="bg-white rounded-[24px] border border-[#E7E5E4] p-8 shadow-sm">
+                                <div className="flex justify-between items-start mb-6">
+                                  <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-full bg-[#F0FDFA] flex items-center justify-center text-[#0F766E] font-medium border border-teal-100">
+                                      {member.name.substring(0, 2).toUpperCase()}
+                                    </div>
+                                    <div>
+                                      <p className="font-medium text-[#1C1917] text-lg">{member.name}</p>
+                                      <p className="text-sm text-[#78716C]">{member.role}</p>
+                                    </div>
+                                  </div>
+                                  <span className="text-xs px-3 py-1 rounded-full bg-[#F0FDFA] text-[#0F766E] border border-teal-100 font-medium">
+                                    {member.allocation_percentage}%
+                                  </span>
+                                </div>
 
-                        <div className="space-y-4 pt-2">
-                          <div className="flex justify-between text-sm">
-                            <span className="text-[#78716C] font-light">Assigned</span>
-                            <span className="text-[#1C1917] font-medium">{member.tasks_assigned} tasks</span>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-[#78716C] font-light">Completed</span>
-                            <span className="text-[#0F766E] font-medium">{member.tasks_completed} tasks</span>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-[#78716C] font-light">Hours</span>
-                            <span className="text-[#1C1917] font-medium">{member.actual_hours}h</span>
-                          </div>
-
-                          <div className="pt-2 border-t border-[#F5F5F4] mt-2">
-                            <div className="flex justify-between text-xs text-[#78716C] mb-2">
-                              <span>Utilization</span>
-                              <span>{member.utilization}%</span>
-                            </div>
-                            <div className="w-full bg-[#E7E5E4] rounded-full h-1.5 overflow-hidden">
-                              <div
-                                className={`h-full rounded-full ${member.status === 'Overloaded' ? 'bg-[#BE123C]' :
-                                  member.status === 'Underutilized' ? 'bg-[#C2410C]' : 'bg-[#0F766E]'
-                                  }`}
-                                style={{ width: `${Math.min(member.utilization, 100)}%` }}
-                              />
-                            </div>
-                          </div>
+                                <div className="space-y-4 pt-2">
+                                  <div className="flex justify-between text-sm">
+                                    <span className="text-[#78716C] font-light">Allocated Hours</span>
+                                    <span className="text-[#1C1917] font-medium">{member.allocated_hours}h</span>
+                                  </div>
+                                  <div className="flex justify-between text-sm">
+                                    <span className="text-[#78716C] font-light">Duration</span>
+                                    <span className="text-[#1C1917] font-medium text-xs">{startDate} to {endDate}</span>
+                                  </div>
+                                  <div className="pt-2 border-t border-[#F5F5F4] mt-2">
+                                    <p className="text-xs text-[#78716C] mb-2">Allocation</p>
+                                    <div className="w-full bg-[#E7E5E4] rounded-full h-1.5 overflow-hidden">
+                                      <div
+                                        className="h-full bg-[#0F766E] rounded-full"
+                                        style={{ width: `${Math.min(member.allocation_percentage, 100)}%` }}
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
-                    ))}
-                    {teamMembers.length === 0 && (
+                    )}
+
+                    {/* Task-Assigned Team Members Section */}
+                    {teamMembers.length > 0 && (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                          <h3 className="text-lg font-light text-[#1C1917]">Task Assignments</h3>
+                          <span className="text-xs font-medium bg-[#FFF7ED] text-[#C2410C] px-3 py-1 rounded-full border border-orange-100">
+                            {teamMembers.length} team members
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                          {teamMembers.map((member, i) => (
+                            <div key={i} className="bg-white rounded-[24px] border border-[#E7E5E4] p-8 shadow-sm">
+                              <div className="flex justify-between items-start mb-6">
+                                <div className="flex items-center gap-4">
+                                  <div className="w-12 h-12 rounded-full bg-[#F5F5F4] flex items-center justify-center text-[#1C1917] font-medium border border-[#E7E5E4]">
+                                    {member.initials}
+                                  </div>
+                                  <div>
+                                    <p className="font-medium text-[#1C1917] text-lg">{member.name}</p>
+                                    <p className="text-sm text-[#78716C]">{member.role}</p>
+                                  </div>
+                                </div>
+                                <span className={`text-xs px-2 py-1 rounded-full border ${member.status === 'Overloaded' ? 'bg-[#FFF1F2] text-[#BE123C] border-pink-100' :
+                                  member.status === 'Underutilized' ? 'bg-[#FFF7ED] text-[#C2410C] border-orange-100' :
+                                    'bg-[#F0FDFA] text-[#0F766E] border-teal-100'
+                                  }`}>
+                                  {member.status}
+                                </span>
+                              </div>
+
+                              <div className="space-y-4 pt-2">
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-[#78716C] font-light">Assigned</span>
+                                  <span className="text-[#1C1917] font-medium">{member.tasks_assigned} tasks</span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-[#78716C] font-light">Completed</span>
+                                  <span className="text-[#0F766E] font-medium">{member.tasks_completed} tasks</span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-[#78716C] font-light">Hours</span>
+                                  <span className="text-[#1C1917] font-medium">{member.actual_hours}h</span>
+                                </div>
+
+                                <div className="pt-2 border-t border-[#F5F5F4] mt-2">
+                                  <div className="flex justify-between text-xs text-[#78716C] mb-2">
+                                    <span>Utilization</span>
+                                    <span>{member.utilization}%</span>
+                                  </div>
+                                  <div className="w-full bg-[#E7E5E4] rounded-full h-1.5 overflow-hidden">
+                                    <div
+                                      className={`h-full rounded-full ${member.status === 'Overloaded' ? 'bg-[#BE123C]' :
+                                        member.status === 'Underutilized' ? 'bg-[#C2410C]' : 'bg-[#0F766E]'
+                                        }`}
+                                      style={{ width: `${Math.min(member.utilization, 100)}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {allocatedTeamMembers.length === 0 && teamMembers.length === 0 && (
                       <div className="col-span-full text-center py-12 text-[#A8A29E] bg-white rounded-[24px] border border-[#E7E5E4] border-dashed">
-                        No team members found with assigned tasks.
+                        No team members allocated or assigned to this project. Start by allocating team members or assigning tasks.
                       </div>
                     )}
                   </div>
