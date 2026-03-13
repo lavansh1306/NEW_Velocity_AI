@@ -14,7 +14,7 @@
 
 **AI-powered project analytics and productivty intelligence platform
 
-[Features](#-features) • [Tech Stack](#-tech-stack) • [Getting Started](#-getting-started • [Architecture](#-architecture)
+[Features](#-features) • [Tech Stack](#-tech-stack) • [Gettin Started](#-getting-started • [Architecture](#-architecture)
 
 </div>
 
