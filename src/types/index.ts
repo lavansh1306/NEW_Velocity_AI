@@ -21,6 +21,10 @@ export interface Organization {
     week_starts_on: string;
     fiscal_year_start: string;
     target_utilization: number;
+    overload_threshold?: number;
+    ai_low_confidence_threshold?: number;
+    ai_health_score_warning?: number;
+    ai_timeline_risk_days?: number;
 }
 
 /** Core user entity — maps to `users` table */

@@ -63,31 +63,35 @@ export default function AuthCallback() {
             console.log('[AuthCallback] 9. Querying users table for org info...');
             const { data: userData, error: userError } = await supabase
               .from('users')
-              .select('organization_id')
+              .select('organization_id, role')
               .eq('id', session.user.id)
               .maybeSingle();
 
             console.log('[AuthCallback] 10. Query result:', {
               hasData: !!userData,
               organizationId: userData?.organization_id,
+              role: userData?.role,
               error: userError?.message
             });
 
             if (userError) {
-              console.error('[AuthCallback] DB Error:', {
-                message: userError.message,
-                details: userError.details,
-                hint: userError.hint
-              });
+              console.error('[AuthCallback] DB Error:', userError.message);
               navigate('/onboarding/mode', { replace: true });
               return;
             }
 
-            // Route based on org membership
+            // Route based on org membership and role
             if (userData?.organization_id) {
-              console.log('[AuthCallback] 11. User has org:', userData.organization_id);
-              console.log('[AuthCallback] 12. Redirecting to /dashboard');
-              navigate('/dashboard', { replace: true });
+              console.log(`[AuthCallback] 11. User has org: ${userData.organization_id}, role: ${userData.role}`);
+              
+              const role = userData.role?.toLowerCase();
+              if (role === 'employee' || role === 'member') {
+                console.log('[AuthCallback] 12. Redirecting to /app/employee/dashboard');
+                navigate('/app/employee/dashboard', { replace: true });
+              } else {
+                console.log('[AuthCallback] 12. Redirecting to /dashboard');
+                navigate('/dashboard', { replace: true });
+              }
             } else {
               console.log('[AuthCallback] 11. New user (no org)');
               console.log('[AuthCallback] 12. Redirecting to /onboarding/mode');

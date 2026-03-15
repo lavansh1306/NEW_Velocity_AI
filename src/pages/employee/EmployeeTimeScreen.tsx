@@ -153,7 +153,9 @@ export const EmployeeTimeScreen = () => {
         onSubmit={async (payload) => {
           const success = await timeData.createLeaveRequest(payload);
           if (success) {
-            toast.success('Leave request submitted for approval');
+            toast.success('Leave request submitted', {
+              description: 'Your manager will review it shortly.',
+            });
             setShowLeaveModal(false);
           } else {
             toast.error('Failed to submit leave request');
@@ -374,6 +376,7 @@ const LeaveRequestCard = ({
 // ==================== HOLIDAYS TAB ====================
 
 const HolidaysTab = ({ holidays, loading }: { holidays: Holiday[]; loading: boolean }) => {
+  console.log('[HolidaysTab] Rendering with holidays count:', holidays?.length || 0);
   const today = new Date();
 
   const holidaysWithMeta = holidays.map(h => {
