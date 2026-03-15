@@ -17,8 +17,18 @@ export interface ProjectMetrics {
   feasibility: number;
 }
 
+export interface TaskDetail {
+  id: string;
+  name: string;
+  status: string;
+  estimated_hours: number;
+  actual_hours: number;
+  created_at: string;
+}
+
 export interface TeamMember {
   id: string;
+  user_id?: string;
   name: string;
   role: string;
   initials: string;
@@ -27,6 +37,7 @@ export interface TeamMember {
   actual_hours: number;
   utilization: number;
   status: 'Healthy' | 'Overloaded' | 'Underutilized';
+  tasks: TaskDetail[];
 }
 
 export interface AllocatedTeamMember {
@@ -101,14 +112,19 @@ export function useProjectAnalytics(projectId: string | undefined) {
   const [allocatedTeamMembers, setAllocatedTeamMembers] = useState<AllocatedTeamMember[]>([]);
 
   // Calculate metrics from issues
-  const calculateMetrics = useCallback((allIssues: JiraIssue[], projData: ProjectData) => {
-    console.log('🔄 Calculating metrics for issues:', allIssues.length, 'issues');
+  const calculateMetrics = useCallback((allIssues: JiraIssue[], projData: ProjectData, baseTeamMembers: any[] = []) => {
+    console.log('🔄 Calculating metrics for issues:', allIssues.length, 'issues with', baseTeamMembers.length, 'base team members');
     console.log('📋 Issues data:', allIssues.map(i => ({ key: i.issue_key, assignee: i.assignee, status: i.status })));
     
     let totalEstSeconds = 0;
     let totalSpentSeconds = 0;
     let completedCount = 0;
-    const memberMap = new Map<string, { assigned: number; completed: number; seconds: number }>();
+    const memberMap = new Map<string, { 
+      assigned: number; 
+      completed: number; 
+      seconds: number;
+      tasks: TaskDetail[];
+    }>();
 
     allIssues.forEach(issue => {
       totalEstSeconds += issue.original_estimate_seconds || 0;
@@ -122,12 +138,22 @@ export function useProjectAnalytics(projectId: string | undefined) {
       
       // Count all assignees including "Unassigned" in team metrics
       if (!memberMap.has(assignee)) {
-        memberMap.set(assignee, { assigned: 0, completed: 0, seconds: 0 });
+        memberMap.set(assignee, { assigned: 0, completed: 0, seconds: 0, tasks: [] });
       }
       const stats = memberMap.get(assignee)!;
       stats.assigned += 1;
       stats.seconds += (issue.time_spent_seconds || 0);
       if (isDone) stats.completed += 1;
+      
+      // Add task detail
+      stats.tasks.push({
+        id: issue.id,
+        name: issue.summary,
+        status: issue.status || 'not_started',
+        estimated_hours: (issue.original_estimate_seconds || 0) / 3600,
+        actual_hours: (issue.time_spent_seconds || 0) / 3600,
+        created_at: issue.created_date
+      });
     });
 
     const totalEstHours = Math.round(totalEstSeconds / 3600);
@@ -155,6 +181,7 @@ export function useProjectAnalytics(projectId: string | undefined) {
         if (assigned < 3) status = 'Underutilized';
 
         return {
+          id: name,
           name,
           role: 'Team Member',
           initials: name.substring(0, 2).toUpperCase(),
@@ -162,14 +189,35 @@ export function useProjectAnalytics(projectId: string | undefined) {
           tasks_completed: stats.completed,
           actual_hours: Math.round(stats.seconds / 3600),
           utilization: Math.round(completionRate * 100),
-          status
+          status,
+          tasks: stats.tasks
         };
       });
 
-    const actualTeamSize = members.length; // Only count actual team members, not "Unassigned"
+    // Add base team members that don't have tasks assigned yet
+    const memberNames = new Set(members.map(m => m.name));
+    const additionalMembers: TeamMember[] = baseTeamMembers
+      .filter((bt: any) => !memberNames.has(bt.name))
+      .map((bt: any) => ({
+        id: bt.user_id || bt.id,
+        name: bt.name,
+        user_id: bt.user_id,
+        role: bt.role || 'Team Member',
+        initials: bt.name.substring(0, 2).toUpperCase(),
+        tasks_assigned: 0,
+        tasks_completed: 0,
+        actual_hours: 0,
+        utilization: 0,
+        status: 'Underutilized' as const,
+        tasks: []
+      }));
+
+    const finalMembers = [...members, ...additionalMembers];
+    const actualTeamSize = finalMembers.length; // Count all team members including those without tasks
 
     console.log('📊 Updated metrics:', { totalTasks, teamSize: actualTeamSize, completionPct, healthScore, memberCount: memberMap.size });
-    console.log('👥 Team members:', members.map(m => ({ name: m.name, tasks: m.tasks_assigned, completed: m.tasks_completed })));
+    console.log('👥 Task-assigned members:', members.map(m => ({ name: m.name, tasks: m.tasks_assigned, completed: m.tasks_completed })));
+    console.log('👥 Additional base team members:', additionalMembers.map(m => ({ name: m.name })));
 
     setMetrics({
       totalEstHours,
@@ -185,7 +233,7 @@ export function useProjectAnalytics(projectId: string | undefined) {
       feasibility: Math.min(Math.round(healthScore * 1.1), 100)
     });
 
-    setTeamMembers(members);
+    setTeamMembers(finalMembers);
   }, []);
 
   // Initial fetch and subscription setup
@@ -246,6 +294,7 @@ export function useProjectAnalytics(projectId: string | undefined) {
         // Fetch initial issues
         let initialIssues: JiraIssue[] = [];
         let cleanupFn: (() => void) | null = null;
+        let allTeamMembers: any[] = [];
 
         if (isInternal) {
           // Fetch tasks
@@ -261,14 +310,17 @@ export function useProjectAnalytics(projectId: string | undefined) {
 
           // Fetch assignees (users) for the tasks
           const assigneeIds = Array.from(new Set((tasksData || []).map(t => t.assignee_id).filter(Boolean)));
+          console.log('🔍 Assignee IDs found:', assigneeIds);
+          
           let assigneeMap = new Map<string, any>();
 
           if (assigneeIds.length > 0) {
-            const { data: users } = await supabase
+            const { data: users, error: usersError } = await supabase
               .from('users')
               .select('id, name, email, role')
               .in('id', assigneeIds);
 
+            console.log('👥 Users fetched:', users?.length, 'Error:', usersError);
             if (users) {
               assigneeMap = new Map(users.map(u => [u.id, u]));
             }
@@ -289,6 +341,48 @@ export function useProjectAnalytics(projectId: string | undefined) {
               created_date: t.created_at
             };
           });
+          
+          console.log('📋 Initial issues mapped:', initialIssues.map(i => ({ key: i.issue_key, assignee: i.assignee })));
+          
+          // Also fetch team members from the team to show team size
+          if (projData.team_id) {
+            const { data: tmData, error: tmError } = await supabase
+              .from('team_members')
+              .select('id, user_id, users(id, name, email, role)')
+              .eq('team_id', projData.team_id);
+              
+            console.log('👫 Team members fetched from team_members table:', tmData?.length, 'Error:', tmError);
+            if (tmData && tmData.length > 0) {
+              allTeamMembers = tmData.map((tm: any) => ({
+                id: tm.user_id,
+                user_id: tm.user_id,
+                name: tm.users?.name || 'Unknown',
+                email: tm.users?.email,
+                role: tm.users?.role || 'Team Member'
+              }));
+            }
+          }
+          
+          // If no team members found via team_id, try fetching from organization members
+          if (allTeamMembers.length === 0 && projData.organization_id) {
+            const { data: orgMembers, error: omError } = await supabase
+              .from('organization_members')
+              .select('user_id, role, users(id, name, email)')
+              .eq('organization_id', projData.organization_id);
+              
+            console.log('🏢 Organization members fetched:', orgMembers?.length, 'Error:', omError);
+            if (orgMembers && orgMembers.length > 0) {
+              allTeamMembers = orgMembers.map((om: any) => ({
+                id: om.user_id,
+                user_id: om.user_id,
+                name: om.users?.name || 'Unknown',
+                email: om.users?.email,
+                role: om.role || 'Team Member'
+              }));
+            }
+          }
+          
+          console.log('📊 Total team members available:', allTeamMembers.length, allTeamMembers.map((m: any) => m.name));
 
           // Subscribe to realtime task updates
           const taskSubscription = supabase
@@ -343,7 +437,7 @@ export function useProjectAnalytics(projectId: string | undefined) {
                 console.log('🎯 Mapped issues with assignees:', updated.map(i => ({ key: i.issue_key, assignee: i.assignee })));
 
                 setIssues(updated);
-                calculateMetrics(updated, projData);
+                calculateMetrics(updated, projData, allTeamMembers);
               }
             )
             .subscribe();
@@ -453,7 +547,7 @@ export function useProjectAnalytics(projectId: string | undefined) {
 
                 const updated = updatedIssues || [];
                 setIssues(updated);
-                calculateMetrics(updated, projData);
+                calculateMetrics(updated, projData, allTeamMembers);
               }
             )
             .subscribe();
@@ -465,7 +559,7 @@ export function useProjectAnalytics(projectId: string | undefined) {
 
         // Set initial data AFTER subscriptions are set up
         setIssues(initialIssues);
-        calculateMetrics(initialIssues, projData);
+        calculateMetrics(initialIssues, projData, allTeamMembers);
 
         // Return cleanup function
         return cleanupFn;

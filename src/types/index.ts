@@ -451,10 +451,12 @@ export interface GanttMember {
 }
 
 export interface GanttTask {
+    id: string; // Task ID for database updates
     name: string;
     start?: number;
     duration?: number;
-    status: 'track' | 'risk';
+    status: 'not_started' | 'in_progress' | 'blocked' | 'completed'; // Actual database status values
+    displayStatus?: 'track' | 'risk'; // Display status for UI (optional)
     project: string;
     startDate: string; // Restored for UI compatibility
     endDate: string;   // Restored for UI compatibility

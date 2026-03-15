@@ -1,20 +1,72 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { VelocityAISidebar } from '@/components/dashboard/VelocityAISidebar';
 import { Button } from '@/components/ui/button';
 import { useProjectAnalytics } from '@/hooks/useProjectAnalytics';
+import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
 import {
   ArrowLeft, LayoutGrid, Users, CheckSquare,
-  Clock, Lightbulb, AlertCircle, Sparkles, Loader2
+  Clock, Lightbulb, AlertCircle, Sparkles, Loader2, ChevronDown, ChevronUp
 } from 'lucide-react';
 
 export default function ProjectAnalytics() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'overview' | 'team' | 'tasks' | 'timeline' | 'insights'>('overview');
+  const [expandedMember, setExpandedMember] = useState<string | null>(null);
+  const [selectedTaskStatus, setSelectedTaskStatus] = useState<{ taskId: string; currentStatus: string } | null>(null);
+  const [updatingTask, setUpdatingTask] = useState(false);
+  const statusDropdownRef = useRef<HTMLDivElement>(null);
 
   // Use the realtime analytics hook
   const { loading, error, project, issues, metrics, teamMembers, allocatedTeamMembers } = useProjectAnalytics(id);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (statusDropdownRef.current && !statusDropdownRef.current.contains(event.target as Node)) {
+        setSelectedTaskStatus(null);
+      }
+    };
+
+    if (selectedTaskStatus) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [selectedTaskStatus]);
+
+  const TASK_STATUSES = ['not_started', 'in_progress', 'blocked', 'completed'];
+  const STATUS_COLORS: { [key: string]: string } = {
+    'not_started': 'bg-[#F5F5F4] text-[#57534E]',
+    'in_progress': 'bg-[#DBEAFE] text-[#1E40AF]',
+    'blocked': 'bg-[#FEE2E2] text-[#991B1B]',
+    'completed': 'bg-[#DCFCE7] text-[#15803D]'
+  };
+
+  const getStatusColor = (status: string) => {
+    const normalizedStatus = status.toLowerCase().replace(' ', '_');
+    return STATUS_COLORS[normalizedStatus] || STATUS_COLORS['not_started'];
+  };
+
+  const updateTaskStatus = async (taskId: string, newStatus: string) => {
+    setUpdatingTask(true);
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({ status: newStatus })
+        .eq('id', taskId);
+
+      if (error) throw error;
+      toast.success(`Task status updated to ${newStatus}`);
+      setSelectedTaskStatus(null);
+    } catch (err: any) {
+      console.error('Error updating task status:', err);
+      toast.error('Failed to update task status');
+    } finally {
+      setUpdatingTask(false);
+    }
+  };
 
 
   return (
@@ -215,6 +267,60 @@ export default function ProjectAnalytics() {
                 {/* --- TAB CONTENT: TEAM --- */}
                 {activeTab === 'team' && (
                   <div className="space-y-8 animate-in fade-in duration-300">
+                    {/* Team Analytics Summary */}
+                    {teamMembers.length > 0 && (
+                      <div className="bg-white rounded-[24px] border border-[#E7E5E4] p-8 shadow-sm">
+                        <h3 className="text-lg font-light text-[#1C1917] mb-6">Team Analytics</h3>
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+                          <div className="border-r border-[#E7E5E4] pr-4">
+                            <p className="text-4xl font-light text-[#1C1917]">{teamMembers.length}</p>
+                            <p className="text-xs text-[#A8A29E] mt-2 uppercase tracking-wider">Team Size</p>
+                          </div>
+                          <div className="border-r border-[#E7E5E4] pr-4">
+                            <p className="text-4xl font-light text-[#1C1917]">{metrics.totalTasks}</p>
+                            <p className="text-xs text-[#A8A29E] mt-2 uppercase tracking-wider">Total Tasks</p>
+                          </div>
+                          <div className="border-r border-[#E7E5E4] pr-4">
+                            <p className="text-4xl font-light text-[#0F766E]">{Math.round(metrics.totalTasks / Math.max(teamMembers.length, 1))}</p>
+                            <p className="text-xs text-[#A8A29E] mt-2 uppercase tracking-wider">Avg per Person</p>
+                          </div>
+                          <div className="border-r border-[#E7E5E4] pr-4">
+                            <p className="text-4xl font-light text-[#1C1917]">{metrics.tasksCompleted}</p>
+                            <p className="text-xs text-[#A8A29E] mt-2 uppercase tracking-wider">Completed</p>
+                          </div>
+                          <div className="pr-4">
+                            <p className="text-4xl font-light text-[#C2410C]">{metrics.tasksRemaining}</p>
+                            <p className="text-xs text-[#A8A29E] mt-2 uppercase tracking-wider">Remaining</p>
+                          </div>
+                        </div>
+
+                        {/* Workload Distribution by Status */}
+                        <div className="mt-6 grid grid-cols-3 gap-4">
+                          {(() => {
+                            const healthy = teamMembers.filter(m => m.status === 'Healthy').length;
+                            const overloaded = teamMembers.filter(m => m.status === 'Overloaded').length;
+                            const underutilized = teamMembers.filter(m => m.status === 'Underutilized').length;
+                            return (
+                              <>
+                                <div className="bg-[#F0FDFA] rounded-lg p-4 border border-teal-100">
+                                  <p className="text-sm font-medium text-[#0F766E]">{healthy} Healthy</p>
+                                  <p className="text-xs text-[#0F766E] opacity-75 mt-1">{Math.round((healthy / teamMembers.length) * 100)}% of team</p>
+                                </div>
+                                <div className="bg-[#FFF1F2] rounded-lg p-4 border border-pink-100">
+                                  <p className="text-sm font-medium text-[#BE123C]">{overloaded} Overloaded</p>
+                                  <p className="text-xs text-[#BE123C] opacity-75 mt-1">{Math.round((overloaded / teamMembers.length) * 100)}% of team</p>
+                                </div>
+                                <div className="bg-[#FFF7ED] rounded-lg p-4 border border-orange-100">
+                                  <p className="text-sm font-medium text-[#C2410C]">{underutilized} Underutilized</p>
+                                  <p className="text-xs text-[#C2410C] opacity-75 mt-1">{Math.round((underutilized / teamMembers.length) * 100)}% of team</p>
+                                </div>
+                              </>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Allocated Team Members Section */}
                     {allocatedTeamMembers.length > 0 && (
                       <div className="space-y-4">
@@ -280,58 +386,138 @@ export default function ProjectAnalytics() {
                             {teamMembers.length} team members
                           </span>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                          {teamMembers.map((member, i) => (
-                            <div key={i} className="bg-white rounded-[24px] border border-[#E7E5E4] p-8 shadow-sm">
-                              <div className="flex justify-between items-start mb-6">
-                                <div className="flex items-center gap-4">
-                                  <div className="w-12 h-12 rounded-full bg-[#F5F5F4] flex items-center justify-center text-[#1C1917] font-medium border border-[#E7E5E4]">
-                                    {member.initials}
+                        <div className="space-y-4">
+                          {teamMembers.map((member) => {
+                            const isExpanded = expandedMember === member.id;
+                            return (
+                              <div key={member.id} className="bg-white rounded-[24px] border border-[#E7E5E4] shadow-sm overflow-hidden">
+                                {/* Member Header */}
+                                <div 
+                                  className="p-6 cursor-pointer hover:bg-[#FAFAF9] transition-colors"
+                                  onClick={() => setExpandedMember(isExpanded ? null : member.id)}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-4 flex-1">
+                                      <div className="w-12 h-12 rounded-full bg-[#F5F5F4] flex items-center justify-center text-[#1C1917] font-medium border border-[#E7E5E4]">
+                                        {member.initials}
+                                      </div>
+                                      <div className="flex-1">
+                                        <p className="font-medium text-[#1C1917] text-lg">{member.name}</p>
+                                        <p className="text-sm text-[#78716C]">{member.role}</p>
+                                      </div>
+                                    </div>
+                                    
+                                    <div className="flex items-center gap-4">
+                                      <div className="text-right">
+                                        <p className="text-sm font-medium text-[#1C1917]">{member.tasks_assigned}</p>
+                                        <p className="text-xs text-[#78716C]">tasks assigned</p>
+                                      </div>
+                                      <span className={`text-xs px-3 py-1 rounded-full border ${member.status === 'Overloaded' ? 'bg-[#FFF1F2] text-[#BE123C] border-pink-100' :
+                                        member.status === 'Underutilized' ? 'bg-[#FFF7ED] text-[#C2410C] border-orange-100' :
+                                          'bg-[#F0FDFA] text-[#0F766E] border-teal-100'
+                                        }`}>
+                                        {member.status}
+                                      </span>
+                                      {isExpanded ? <ChevronUp className="w-5 h-5 text-[#78716C]" /> : <ChevronDown className="w-5 h-5 text-[#78716C]" />}
+                                    </div>
                                   </div>
-                                  <div>
-                                    <p className="font-medium text-[#1C1917] text-lg">{member.name}</p>
-                                    <p className="text-sm text-[#78716C]">{member.role}</p>
-                                  </div>
-                                </div>
-                                <span className={`text-xs px-2 py-1 rounded-full border ${member.status === 'Overloaded' ? 'bg-[#FFF1F2] text-[#BE123C] border-pink-100' :
-                                  member.status === 'Underutilized' ? 'bg-[#FFF7ED] text-[#C2410C] border-orange-100' :
-                                    'bg-[#F0FDFA] text-[#0F766E] border-teal-100'
-                                  }`}>
-                                  {member.status}
-                                </span>
-                              </div>
 
-                              <div className="space-y-4 pt-2">
-                                <div className="flex justify-between text-sm">
-                                  <span className="text-[#78716C] font-light">Assigned</span>
-                                  <span className="text-[#1C1917] font-medium">{member.tasks_assigned} tasks</span>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                  <span className="text-[#78716C] font-light">Completed</span>
-                                  <span className="text-[#0F766E] font-medium">{member.tasks_completed} tasks</span>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                  <span className="text-[#78716C] font-light">Hours</span>
-                                  <span className="text-[#1C1917] font-medium">{member.actual_hours}h</span>
+                                  {/* Quick Stats */}
+                                  <div className="mt-4 grid grid-cols-4 gap-4">
+                                    <div>
+                                      <p className="text-xs text-[#78716C] font-light">Completed</p>
+                                      <p className="text-sm font-medium text-[#0F766E]">{member.tasks_completed}/{member.tasks_assigned}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-[#78716C] font-light">Hours</p>
+                                      <p className="text-sm font-medium text-[#1C1917]">{member.actual_hours}h</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-[#78716C] font-light">Utilization</p>
+                                      <p className="text-sm font-medium text-[#1C1917]">{member.utilization}%</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-[#78716C] font-light">Health</p>
+                                      <div className="w-full bg-[#E7E5E4] rounded-full h-1.5 mt-1 overflow-hidden">
+                                        <div
+                                          className={`h-full rounded-full ${member.status === 'Overloaded' ? 'bg-[#BE123C]' :
+                                            member.status === 'Underutilized' ? 'bg-[#C2410C]' : 'bg-[#0F766E]'
+                                            }`}
+                                          style={{ width: `${Math.min(member.utilization, 100)}%` }}
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
                                 </div>
 
-                                <div className="pt-2 border-t border-[#F5F5F4] mt-2">
-                                  <div className="flex justify-between text-xs text-[#78716C] mb-2">
-                                    <span>Utilization</span>
-                                    <span>{member.utilization}%</span>
+                                {/* Expandable Tasks Section */}
+                                {isExpanded && (
+                                  <div className="border-t border-[#E7E5E4] p-6 bg-[#FAFAF9]">
+                                    <h4 className="text-sm font-medium text-[#1C1917] mb-4">Assigned Tasks ({member.tasks.length})</h4>
+                                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                                      {member.tasks.length > 0 ? (
+                                        member.tasks.map((task, idx) => {
+                                          const isDone = task.status?.toLowerCase() === 'completed';
+                                          const isStatusOpen = selectedTaskStatus?.taskId === task.id;
+                                          return (
+                                            <div key={idx} className="bg-white rounded-lg border border-[#E7E5E4] p-4 relative">
+                                              <div className="flex items-start justify-between gap-3">
+                                                <div className="flex-1 min-w-0">
+                                                  <div className="flex items-center gap-2 mb-2">
+                                                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${isDone ? 'bg-[#0F766E] border-[#0F766E]' : 'border-[#E7E5E4]'}`}>
+                                                      {isDone && <span className="text-white text-xs">✓</span>}
+                                                    </div>
+                                                    <p className={`text-sm font-medium ${isDone ? 'text-[#A8A29E] line-through' : 'text-[#1C1917]'}`}>
+                                                      {task.name}
+                                                    </p>
+                                                  </div>
+                                                  <div className="flex items-center gap-2 ml-7 mt-2">
+                                                    <p className="text-xs text-[#78716C]">Status:</p>
+                                                    <button
+                                                      onClick={() => setSelectedTaskStatus(selectedTaskStatus?.taskId === task.id ? null : { taskId: task.id, currentStatus: task.status })}
+                                                      className={`text-xs px-3 py-1 rounded-full border cursor-pointer transition-colors hover:opacity-80 ${getStatusColor(task.status)}`}
+                                                    >
+                                                      {task.status}
+                                                    </button>
+                                                  </div>
+                                                </div>
+                                                <div className="text-right flex-shrink-0">
+                                                  <p className="text-xs text-[#78716C]">Est / Actual</p>
+                                                  <p className="text-sm font-medium text-[#1C1917]">{task.estimated_hours.toFixed(1)}h / {task.actual_hours.toFixed(1)}h</p>
+                                                </div>
+                                              </div>
+
+                                              {/* Status Dropdown */}
+                                              {isStatusOpen && (
+                                                <div ref={statusDropdownRef} className="absolute top-full left-7 mt-2 bg-white border border-[#E7E5E4] rounded-lg shadow-lg z-50 min-w-[160px]">
+                                                  {TASK_STATUSES.map((status) => (
+                                                    <button
+                                                      key={status}
+                                                      onClick={() => updateTaskStatus(task.id, status)}
+                                                      disabled={updatingTask}
+                                                      className={`w-full text-left px-4 py-2 text-sm transition-colors hover:bg-[#FAFAF9] disabled:opacity-50 ${
+                                                        task.status === status ? 'bg-[#F0FDFA] font-medium' : ''
+                                                      } ${status === 'completed' ? 'border-b border-[#E7E5E4]' : ''}`}
+                                                    >
+                                                      <span className={`inline-block px-2 py-0.5 rounded text-xs ${getStatusColor(status)}`}>
+                                                        {status}
+                                                      </span>
+                                                    </button>
+                                                  ))}
+                                                </div>
+                                              )}
+                                            </div>
+                                          );
+                                        })
+                                      ) : (
+                                        <p className="text-sm text-[#A8A29E] text-center py-4">No tasks assigned</p>
+                                      )}
+                                    </div>
                                   </div>
-                                  <div className="w-full bg-[#E7E5E4] rounded-full h-1.5 overflow-hidden">
-                                    <div
-                                      className={`h-full rounded-full ${member.status === 'Overloaded' ? 'bg-[#BE123C]' :
-                                        member.status === 'Underutilized' ? 'bg-[#C2410C]' : 'bg-[#0F766E]'
-                                        }`}
-                                      style={{ width: `${Math.min(member.utilization, 100)}%` }}
-                                    />
-                                  </div>
-                                </div>
+                                )}
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     )}
