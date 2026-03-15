@@ -3,12 +3,12 @@
 // ── Backend Data Model (Supabase) ──────────────────────────────
 
 /** Organization entity — maps to `organizations` table */
-export type EditableTask = { 
-    id: string; 
-    task: string; 
-    estimatedHours: number; 
-    requiredSkills?: string[];
-};
+export interface EditableTask {
+    id: string;
+    task: string;
+    estimatedHours: number;
+    requiredSkills: string[];
+}
 
 export interface Organization {
     id: string;
