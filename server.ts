@@ -49,6 +49,7 @@ import jiraRoutes from "./src/api/jira/routes.js"
 import deployedRoutes from "./src/api/deployed/routes.js"
 import leaveApprovalRoutes from "./src/api/leave-approval/routes.ts"
 import invitesRoutes from "./src/api/invites/routes.ts"
+import employeeRoutes from "./src/api/employee/routes.ts"
 const app = express()
 
 console.log("typeof express:", typeof express)
@@ -191,6 +192,10 @@ console.log('[Server] Jira OAuth routes mounted');
 // ============ Deployed API Routes ============
 app.use('/api/deployed', deployedRoutes);
 console.log('[Server] Deployed routes mounted');
+
+// ============ Employee API Routes ============
+app.use('/api/employee', employeeRoutes);
+console.log('[Server] Employee routes mounted');
 
 // ============ Leave Approval Agent Routes ============
 app.use('/api/leave-approval', leaveApprovalRoutes);

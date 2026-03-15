@@ -80,6 +80,7 @@ app.use('/api/v1/analyze', leaveApprovalRoutes);
 app.use('/jira', jiraRoutes);
 app.use('/leave-approval', leaveApprovalRoutes);
 app.use('/invites', invitesRoutes);
+app.use('/employee', employeeRoutes);
 
 // Fallback 404 handler
 app.use((req: Request, res: Response) => {
