@@ -8,7 +8,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Analytics } from "@vercel/analytics/react";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-
+import { AllocateTeamScreen } from "./components/planproject/AllocateTeamScreen";
 // Page Imports
 import Index from "./pages/Index";
 import Demo from "./pages/Demo";
@@ -101,7 +101,7 @@ const App = () => (
                 <Route path="/projects/global-gantt" element={<ProtectedRoute><GlobalGanttDashboard /></ProtectedRoute>} />
                 <Route path="/projects/jira-dashboard" element={<ProtectedRoute><JiraDashboard /></ProtectedRoute>} />
                 <Route path="/projects/:id" element={<ProtectedRoute><ProjectAnalytics /></ProtectedRoute>} />
-
+                <Route path="/allocate-team" element={<ProtectedRoute><AllocateTeamScreen /></ProtectedRoute>} />
                 {/* 6. Fallback */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
