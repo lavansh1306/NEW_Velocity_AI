@@ -120,6 +120,7 @@ export function useEmployeeTimeData(): UseEmployeeTimeDataReturn {
       setLeaveTypes(typesData || []);
       setLeaveBalances(balancesData || []);
       setHolidays(holidaysData || []);
+      console.log(`[useEmployeeTimeData] Holidays fetched: ${holidaysData?.length || 0}`);
       
       setIsMockData(false);
     } catch (err: any) {

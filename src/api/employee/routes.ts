@@ -109,7 +109,9 @@ router.get('/leave-balances', async (_req: Request, res: Response) => {
 router.get('/holidays', async (_req: Request, res: Response) => {
   try {
     const { organizationId } = res.locals;
+    console.log(`[Employee Routes] Fetching holidays for Org: ${organizationId}`);
     const data = await db.getHolidays(organizationId);
+    console.log(`[Employee Routes] Found ${data.length} holidays`);
     res.json({ success: true, data });
   } catch (err: any) {
     console.error('[Employee] GET holidays error:', err?.message || err);

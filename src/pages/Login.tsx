@@ -103,13 +103,19 @@ export default function Login() {
     try {
       await signIn(email, password);
       // After sign-in, check if user has an org. If not, send to onboarding.
-      const { data: membership } = await (await import('@/lib/supabase')).supabase
-        .from('organization_members')
-        .select('org_id')
-        .limit(1)
+      const { data: userData } = await (await import('@/lib/supabase')).supabase
+        .from('users')
+        .select('organization_id, role')
+        .eq('id', (await (await import('@/lib/supabase')).supabase.auth.getUser()).data.user?.id)
         .maybeSingle();
-      if (membership?.org_id) {
-        navigate('/dashboard');
+
+      if (userData?.organization_id) {
+        const role = userData.role?.toLowerCase();
+        if (role === 'employee' || role === 'member') {
+          navigate('/app/employee/dashboard');
+        } else {
+          navigate('/dashboard');
+        }
       } else {
         navigate('/onboarding/mode');
       }

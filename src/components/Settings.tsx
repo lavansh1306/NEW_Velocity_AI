@@ -1,10 +1,14 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, Loader2, Calendar as CalendarIcon } from 'lucide-react';
 import { StatusBadge } from '@/components/shared/StatusBadge';
+import { organizationApi } from '@/services/organizationApi';
+import { Organization } from '@/types';
+import { toast } from 'sonner';
+import { format } from 'date-fns';
 
 /**
  * Main Settings Screen Component
@@ -16,11 +20,92 @@ import { StatusBadge } from '@/components/shared/StatusBadge';
  * - Integrations
  */
 const SettingsScreen = () => {
+  const [settings, setSettings] = useState<Partial<Organization>>({});
+  const [holidays, setHolidays] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // State for new holiday modal
+  const [newHoliday, setNewHoliday] = useState({ name: '', date: format(new Date(), 'yyyy-MM-dd') });
+  const [showAddHoliday, setShowAddHoliday] = useState(false);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setIsLoading(true);
+      const [settingsData, holidaysData] = await Promise.all([
+        organizationApi.getSettings(),
+        organizationApi.getHolidays()
+      ]);
+      setSettings(settingsData);
+      setHolidays(holidaysData);
+    } catch (error: any) {
+      toast.error('Failed to load settings', { description: error.message });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUpdateSetting = (field: keyof Organization, value: any) => {
+    setSettings(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSaveChanges = async () => {
+    try {
+      setIsSaving(true);
+      await organizationApi.updateSettings(settings);
+      toast.success('Settings saved successfully');
+    } catch (error: any) {
+      toast.error('Failed to save settings', { description: error.message });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleAddHoliday = async () => {
+    if (!newHoliday.name || !newHoliday.date) {
+      toast.error('Please provide both name and date');
+      return;
+    }
+    try {
+      setIsSaving(true);
+      const added = await organizationApi.addHoliday(newHoliday);
+      setHolidays(prev => [...prev, added].sort((a, b) => a.date.localeCompare(b.date)));
+      setNewHoliday({ name: '', date: format(new Date(), 'yyyy-MM-dd') });
+      setShowAddHoliday(false);
+      toast.success('Holiday added successfully');
+    } catch (error: any) {
+      toast.error('Failed to add holiday', { description: error.message });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteHoliday = async (id: string) => {
+    try {
+      await organizationApi.deleteHoliday(id);
+      setHolidays(prev => prev.filter(h => h.id !== id));
+      toast.success('Holiday removed');
+    } catch (error: any) {
+      toast.error('Failed to remove holiday', { description: error.message });
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="p-12 flex flex-col items-center justify-center min-h-[60vh]">
+        <Loader2 className="w-8 h-8 text-[#2DD4BF] animate-spin mb-4" />
+        <p className="text-[#78716C] font-light">Loading settings...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="p-12 relative min-h-screen">
       <div className="max-w-[1200px] mx-auto relative z-10">
-
-
         <Tabs defaultValue="organization" className="w-full">
           {/* Tab Navigation */}
           <TabsList className="mb-10 bg-white/70 backdrop-blur-xl border border-white/20 p-1.5 rounded-xl shadow-sm">
@@ -40,6 +125,8 @@ const SettingsScreen = () => {
                 <div>
                   <Label className="text-sm font-light text-[#78716C] mb-2 block">Organization Name</Label>
                   <Input
+                    value={settings.name || ''}
+                    onChange={e => handleUpdateSetting('name', e.target.value)}
                     placeholder="Acme Inc."
                     className="h-11 rounded-xl border-white/20 bg-white/50 font-light"
                   />
@@ -50,6 +137,8 @@ const SettingsScreen = () => {
                   <Label className="text-sm font-light text-[#78716C] mb-2 block">Default Work Hours Per Week</Label>
                   <Input
                     type="number"
+                    value={settings.work_hours_per_week || 40}
+                    onChange={e => handleUpdateSetting('work_hours_per_week', parseInt(e.target.value))}
                     placeholder="40"
                     className="h-11 rounded-xl border-white/20 bg-white/50 font-light"
                   />
@@ -60,6 +149,8 @@ const SettingsScreen = () => {
                   <Label className="text-sm font-light text-[#78716C] mb-2 block">Default Work Days Per Week</Label>
                   <Input
                     type="number"
+                    value={settings.work_days_per_week || 5}
+                    onChange={e => handleUpdateSetting('work_days_per_week', parseInt(e.target.value))}
                     placeholder="5"
                     className="h-11 rounded-xl border-white/20 bg-white/50 font-light"
                   />
@@ -68,16 +159,25 @@ const SettingsScreen = () => {
                 {/* Fiscal Year Start */}
                 <div>
                   <Label className="text-sm font-light text-[#78716C] mb-2 block">Fiscal Year Start</Label>
-                  <select className="w-full border border-white/20 bg-white/50 rounded-xl px-4 py-2.5 text-sm font-light h-11 text-[#292524]">
-                    <option>January</option>
-                    <option>April</option>
-                    <option>July</option>
-                    <option>October</option>
+                  <select 
+                    value={settings.fiscal_year_start || 'january'}
+                    onChange={e => handleUpdateSetting('fiscal_year_start', e.target.value)}
+                    className="w-full border border-white/20 bg-white/50 rounded-xl px-4 py-2.5 text-sm font-light h-11 text-[#292524]"
+                  >
+                    <option value="january">January</option>
+                    <option value="april">April</option>
+                    <option value="july">July</option>
+                    <option value="october">October</option>
                   </select>
                 </div>
 
                 {/* Save Button */}
-                <Button className="mt-8 bg-[#1C1917] hover:bg-[#292524] h-11 px-6 rounded-xl font-light transition-all duration-300 text-white shadow-md">
+                <Button 
+                  onClick={handleSaveChanges}
+                  disabled={isSaving}
+                  className="mt-8 bg-[#1C1917] hover:bg-[#292524] h-11 px-6 rounded-xl font-light transition-all duration-300 text-white shadow-md disabled:opacity-50"
+                >
+                  {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                   Save Changes
                 </Button>
               </div>
@@ -91,9 +191,11 @@ const SettingsScreen = () => {
               <div className="space-y-6 max-w-xl">
                 {/* Default Utilization Target */}
                 <div>
-                  <Label className="text-sm font-light text-[#78716C] mb-2 block">Default Utilization Target</Label>
+                  <Label className="text-sm font-light text-[#78716C] mb-2 block">Default Utilization Target (%)</Label>
                   <Input
                     type="number"
+                    value={settings.target_utilization || 85}
+                    onChange={e => handleUpdateSetting('target_utilization', parseInt(e.target.value))}
                     placeholder="85"
                     className="h-11 rounded-xl border-white/20 bg-white/50 font-light"
                   />
@@ -104,9 +206,11 @@ const SettingsScreen = () => {
 
                 {/* Overload Threshold */}
                 <div>
-                  <Label className="text-sm font-light text-[#78716C] mb-2 block">Overload Threshold</Label>
+                  <Label className="text-sm font-light text-[#78716C] mb-2 block">Overload Threshold (%)</Label>
                   <Input
                     type="number"
+                    value={settings.overload_threshold || 110}
+                    onChange={e => handleUpdateSetting('overload_threshold', parseInt(e.target.value))}
                     placeholder="110"
                     className="h-11 rounded-xl border-white/20 bg-white/50 font-light"
                   />
@@ -116,7 +220,12 @@ const SettingsScreen = () => {
                 </div>
 
                 {/* Save Button */}
-                <Button className="mt-8 bg-[#1C1917] hover:bg-[#292524] h-11 px-6 rounded-xl font-light transition-all duration-300 text-white shadow-md">
+                <Button 
+                  onClick={handleSaveChanges}
+                  disabled={isSaving}
+                  className="mt-8 bg-[#1C1917] hover:bg-[#292524] h-11 px-6 rounded-xl font-light transition-all duration-300 text-white shadow-md disabled:opacity-50"
+                >
+                  {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                   Save Changes
                 </Button>
               </div>
@@ -131,31 +240,74 @@ const SettingsScreen = () => {
                 <h2 className="text-xl font-light text-[#1C1917]">Company Holidays</h2>
                 <Button
                   size="sm"
+                  onClick={() => setShowAddHoliday(!showAddHoliday)}
                   className="bg-[#1C1917] hover:bg-[#292524] h-10 px-5 rounded-xl font-light transition-all duration-300 text-white shadow-md"
                 >
                   <Plus className="w-4 h-4 mr-2" />
-                  Add Holiday
+                  {showAddHoliday ? 'Cancel' : 'Add Holiday'}
                 </Button>
               </div>
 
+              {/* Add Holiday Form */}
+              {showAddHoliday && (
+                <div className="mb-8 p-6 bg-white/50 border border-white/20 rounded-2xl space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-xs font-light text-[#78716C] mb-1.5 block">Holiday Name</Label>
+                      <Input
+                        value={newHoliday.name}
+                        onChange={e => setNewHoliday(prev => ({ ...prev, name: e.target.value }))}
+                        placeholder="e.g. Christmas"
+                        className="h-10 rounded-xl border-white/10 bg-white/30"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs font-light text-[#78716C] mb-1.5 block">Date</Label>
+                      <Input
+                        type="date"
+                        value={newHoliday.date}
+                        onChange={e => setNewHoliday(prev => ({ ...prev, date: e.target.value }))}
+                        className="h-10 rounded-xl border-white/10 bg-white/30"
+                      />
+                    </div>
+                  </div>
+                  <Button
+                    onClick={handleAddHoliday}
+                    disabled={isSaving}
+                    className="w-full bg-[#1C1917] text-white h-10 rounded-xl font-light"
+                  >
+                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                    Confirm Add Holiday
+                  </Button>
+                </div>
+              )}
+
               {/* Holidays List */}
               <div className="space-y-3">
-                {[
-                  "New Year's Day - Jan 1, 2026",
-                  "Memorial Day - May 25, 2026",
-                  "Independence Day - Jul 4, 2026",
-                  "Thanksgiving - Nov 26, 2026"
-                ].map((holiday, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between py-4 px-5 bg-white/40 border-[0.5px] border-white/20 rounded-2xl"
-                  >
-                    <span className="text-sm text-[#1C1917] font-light">{holiday}</span>
-                    <button className="text-[#A8A29E] hover:text-[#78716C] transition-colors">
-                      <X className="w-4 h-4" />
-                    </button>
+                {holidays.length === 0 ? (
+                  <div className="text-center py-12 border border-dashed border-[#E7E5E4] rounded-2xl">
+                    <CalendarIcon className="w-8 h-8 text-[#D6D3D1] mx-auto mb-3" />
+                    <p className="text-sm text-[#A8A29E] font-light">No holidays added yet.</p>
                   </div>
-                ))}
+                ) : (
+                  holidays.map((holiday) => (
+                    <div
+                      key={holiday.id}
+                      className="flex items-center justify-between py-4 px-5 bg-white/40 border-[0.5px] border-white/20 rounded-2xl group hover:bg-white/60 transition-all"
+                    >
+                      <div className="flex flex-col">
+                        <span className="text-sm text-[#1C1917] font-medium">{holiday.name}</span>
+                        <span className="text-xs text-[#78716C] font-light">{format(new Date(holiday.date), 'MMMM do, yyyy')}</span>
+                      </div>
+                      <button 
+                        onClick={() => handleDeleteHoliday(holiday.id)}
+                        className="text-[#A8A29E] hover:text-[#F43F5E] opacity-0 group-hover:opacity-100 transition-all"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </TabsContent>
@@ -167,9 +319,11 @@ const SettingsScreen = () => {
               <div className="space-y-6 max-w-xl">
                 {/* Low Confidence Threshold */}
                 <div>
-                  <Label className="text-sm font-light text-[#78716C] mb-2 block">Low Confidence Threshold</Label>
+                  <Label className="text-sm font-light text-[#78716C] mb-2 block">Low Confidence Threshold (%)</Label>
                   <Input
                     type="number"
+                    value={settings.ai_low_confidence_threshold || 70}
+                    onChange={e => handleUpdateSetting('ai_low_confidence_threshold', parseInt(e.target.value))}
                     placeholder="70"
                     className="h-11 rounded-xl border-white/20 bg-white/50 font-light"
                   />
@@ -183,6 +337,8 @@ const SettingsScreen = () => {
                   <Label className="text-sm font-light text-[#78716C] mb-2 block">Health Score Warning</Label>
                   <Input
                     type="number"
+                    value={settings.ai_health_score_warning || 60}
+                    onChange={e => handleUpdateSetting('ai_health_score_warning', parseInt(e.target.value))}
                     placeholder="60"
                     className="h-11 rounded-xl border-white/20 bg-white/50 font-light"
                   />
@@ -196,6 +352,8 @@ const SettingsScreen = () => {
                   <Label className="text-sm font-light text-[#78716C] mb-2 block">Timeline Risk Days</Label>
                   <Input
                     type="number"
+                    value={settings.ai_timeline_risk_days || 7}
+                    onChange={e => handleUpdateSetting('ai_timeline_risk_days', parseInt(e.target.value))}
                     placeholder="7"
                     className="h-11 rounded-xl border-white/20 bg-white/50 font-light"
                   />
@@ -205,7 +363,12 @@ const SettingsScreen = () => {
                 </div>
 
                 {/* Save Button */}
-                <Button className="mt-8 bg-[#1C1917] hover:bg-[#292524] h-11 px-6 rounded-xl font-light transition-all duration-300 text-white shadow-md">
+                <Button 
+                  onClick={handleSaveChanges}
+                  disabled={isSaving}
+                  className="mt-8 bg-[#1C1917] hover:bg-[#292524] h-11 px-6 rounded-xl font-light transition-all duration-300 text-white shadow-md disabled:opacity-50"
+                >
+                  {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                   Save Changes
                 </Button>
               </div>
@@ -217,62 +380,11 @@ const SettingsScreen = () => {
             <div className="bg-white/70 backdrop-blur-[32px] border-[0.5px] border-white/20 rounded-2xl p-10 shadow-sm">
               <h2 className="text-xl font-light text-[#1C1917] mb-8">Integrations</h2>
 
-              {/* Integration List */}
-              <div className="space-y-4">
-                {[
-                  {
-                    name: 'Jira',
-                    description: 'Import projects and track tasks',
-                    connected: true
-                  },
-                  {
-                    name: 'Asana',
-                    description: 'Sync project management data',
-                    connected: false
-                  },
-                  {
-                    name: 'Slack',
-                    description: 'Get notifications and updates',
-                    connected: true
-                  },
-                  {
-                    name: 'Google Calendar',
-                    description: 'Sync team schedules',
-                    connected: false
-                  },
-                ].map((integration, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between py-5 px-6 bg-white/40 border border-white/20 rounded-2xl"
-                  >
-                    {/* Integration Info */}
-                    <div>
-                      <div className="text-[#292524] text-sm mb-1.5 font-light">{integration.name}</div>
-                      <div className="text-xs text-[#78716C] font-light">{integration.description}</div>
-                    </div>
-
-                    {/* Integration Actions */}
-                    {integration.connected ? (
-                      <div className="flex items-center gap-4">
-                        <StatusBadge status="Active" />
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-xs h-9 px-4 rounded-xl font-light border-white/20 hover:bg-white transition-all duration-300"
-                        >
-                          Configure
-                        </Button>
-                      </div>
-                    ) : (
-                      <Button
-                        size="sm"
-                        className="bg-[#1C1917] hover:bg-[#292524] h-9 px-5 rounded-xl font-light transition-all duration-300 text-white shadow-md"
-                      >
-                        Connect
-                      </Button>
-                    )}
-                  </div>
-                ))}
+              <div className="p-8 border border-dashed border-[#E7E5E4] rounded-2xl text-center">
+                <p className="text-[#A8A29E] font-light text-sm italic">
+                  Advanced integrations are managed via the Jira & OAuth workflows. 
+                  Contact support for custom Slack or Google Calendar enterprise setups.
+                </p>
               </div>
             </div>
           </TabsContent>

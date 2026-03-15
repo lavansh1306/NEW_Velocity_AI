@@ -49,6 +49,8 @@ import jiraRoutes from "./src/api/jira/routes.js"
 import deployedRoutes from "./src/api/deployed/routes.js"
 import leaveApprovalRoutes from "./src/api/leave-approval/routes.ts"
 import invitesRoutes from "./src/api/invites/routes.ts"
+import employeeRoutes from "./src/api/employee/routes.ts"
+import organizationRoutes from "./src/api/organization/routes.ts"
 const app = express()
 
 console.log("typeof express:", typeof express)
@@ -59,7 +61,12 @@ app.set('trust proxy', 1)
 
 // Simple request logger to help debugging route matching
 app.use((req: Request, res: Response, next) => {
-  console.log('[REQ]', req.method, req.url, 'headers:', { host: req.headers.host, origin: req.headers.origin })
+  console.log(`[API DEBUG] ${req.method} ${req.url}`);
+  console.log('  - Headers:', { 
+    host: req.headers.host, 
+    origin: req.headers.origin,
+    auth: req.headers.authorization ? 'Present' : 'Missing'
+  });
   next()
 })
 
@@ -199,6 +206,27 @@ console.log('[Server] Leave Approval Agent routes mounted');
 // ============ Invites Routes ============
 app.use('/api/invites', invitesRoutes);
 console.log('[Server] Invites routes mounted');
+
+// ============ Employee Routes ============
+app.use('/api/employee', employeeRoutes);
+console.log('[Server] Employee routes mounted');
+
+// ============ Organization Routes ============
+app.use('/api/organization', organizationRoutes);
+console.log('[Server] Organization routes mounted at /api/organization');
+
+app.get('/api/debug-routes', (req, res) => {
+  res.json({
+    mounted: [
+      '/api/jira',
+      '/api/deployed',
+      '/api/leave-approval',
+      '/api/invites',
+      '/api/employee',
+      '/api/organization'
+    ]
+  });
+});
 
 // try {
 //   const stack = (hubspotRoutes as any)?.stack || []
