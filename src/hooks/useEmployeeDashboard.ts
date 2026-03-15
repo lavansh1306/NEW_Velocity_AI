@@ -27,13 +27,13 @@ interface UseEmployeeDashboardReturn {
  * Layer 2: Service Layer - calls the API endpoint
  */
 export function useEmployeeDashboard(): UseEmployeeDashboardReturn {
-  const { user, orgId } = useAuth();
+  const { user, session, orgId } = useAuth();
   const [data, setData] = useState<EmployeeDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = async () => {
-    if (!user?.id || !orgId) {
+    if (!user?.id || !orgId || !session?.access_token) {
       setLoading(false);
       return;
     }
@@ -43,13 +43,12 @@ export function useEmployeeDashboard(): UseEmployeeDashboardReturn {
 
     try {
       const response = await fetch(
-        `/api/employee/dashboard?userId=${user.id}&orgId=${orgId}`,
+        `/api/employee/dashboard`,
         {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            // Add Authorization header if needed
-            'Authorization': `Bearer ${user.id}`,
+            'Authorization': `Bearer ${session.access_token}`,
           },
         }
       );
@@ -68,12 +67,12 @@ export function useEmployeeDashboard(): UseEmployeeDashboardReturn {
     }
   };
 
-  // Fetch on mount or when user/orgId changes
+  // Fetch on mount or when user/session/orgId changes
   useEffect(() => {
-    if (user?.id && orgId) {
+    if (user?.id && orgId && session?.access_token) {
       fetchData();
     }
-  }, [user?.id, orgId]);
+  }, [user?.id, session?.access_token, orgId]);
 
   return {
     data,

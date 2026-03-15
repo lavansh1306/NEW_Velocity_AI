@@ -6,7 +6,12 @@ export default defineConfig({
   server: {
     host: "::",
     port: 5173,
-    // Proxy removed to eliminate backend dependency
+    proxy: {
+      '/api': {
+        target: 'http://localhost:4000',
+        changeOrigin: true,
+      }
+    }
   },
   plugins: [react()],
   resolve: {

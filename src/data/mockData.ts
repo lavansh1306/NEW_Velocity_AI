@@ -1,4 +1,4 @@
-import { TeamMemberView, PendingSkillView, PersonDetailView, PlanTask, PlanTeamCandidate, EmpDashboardTask, EmpDashboardAlert, EmpDashboardActivity } from '../types';
+import { TeamMemberView, PendingSkillView, PersonDetailView, PlanTask, PlanTeamCandidate, EmpDashboardTask, EmpDashboardAlert, EmpDashboardActivity, TimesheetWeekMeta, PastWeekSummary } from '../types';
 
 // LEGACY DATA (Needed by PlanMyProjectScreen)
 export const planSeedTasks: PlanTask[] = [
@@ -162,4 +162,70 @@ export const empDashboardActivities: EmpDashboardActivity[] = [
     { id: 'edact-2', timestamp: 'Yesterday, 4:15 PM', description: 'Submitted timesheet for Week of Mar 4-10' },
     { id: 'edact-3', timestamp: '2 days ago', description: 'Requested skill verification: GraphQL (Mid)' },
     { id: 'edact-4', timestamp: '3 days ago', description: 'Completed task: Design System Setup' },
+];
+
+// ── Timesheet Data ────────────────────────────────────
+
+export const timesheetWeeks: TimesheetWeekMeta[] = [
+    {
+        status: 'Draft',
+        rows: [
+            {
+                id: 'row-1',
+                type: 'project',
+                project: 'Velocity AI Platform',
+                task: 'API Integration',
+                suggested: [8, 8, 8, 8, 8, 0, 0],
+                hours: [8, 8, 8, 8, 8, 0, 0]
+            },
+            {
+                id: 'row-2',
+                type: 'project',
+                project: 'Mobile App MVP',
+                task: 'UI Components',
+                suggested: [4, 4, 4, 4, 4, 0, 0],
+                hours: [4, 4, 4, 4, 4, 0, 0]
+            }
+        ]
+    },
+    {
+        status: 'Approved',
+        rows: [
+            {
+                id: 'row-3',
+                type: 'project',
+                project: 'Velocity AI Platform',
+                task: 'Database Schema',
+                suggested: [8, 8, 8, 8, 8, 0, 0],
+                hours: [8, 8, 8, 8, 8, 0, 0]
+            }
+        ]
+    }
+];
+
+export const pastWeeksSummary: PastWeekSummary[] = [
+    {
+        offset: 0,
+        label: 'This Week',
+        hours: 40,
+        status: 'Pending Review'
+    },
+    {
+        offset: 1,
+        label: 'Last Week',
+        hours: 40,
+        status: 'Approved'
+    },
+    {
+        offset: 2,
+        label: '2 Weeks Ago',
+        hours: 40,
+        status: 'Approved'
+    },
+    {
+        offset: 3,
+        label: '3 Weeks Ago',
+        hours: 36,
+        status: 'Approved'
+    }
 ];
