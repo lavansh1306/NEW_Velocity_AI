@@ -610,4 +610,3 @@ export const mlService = {
   analyzeCapacity,
 };
 
-export default mlService;

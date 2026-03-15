@@ -1,5 +1,5 @@
 import React from 'react';
-import type { ProjectHealthReport } from '@/lib/types';
+import type { ProjectHealthReport } from '@/types';
 import {
   Activity,
   Clock,

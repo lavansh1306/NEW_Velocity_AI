@@ -15,7 +15,6 @@ import Demo from "./pages/Demo";
 import VelocityAI from "./pages/VelocityAI";
 import Projects from "./components/projects/Projects";
 import ProjectAnalytics from "./components/projects/ProjectAnalytics";
-import ProjectDetailNew from "../archives/ProjectDetailNew";
 import JiraDashboard from "./pages/JiraDashboard";
 import GlobalGanttDashboard from "./pages/GlobalGanttDashboard";
 import Login from "./pages/Login";
@@ -42,7 +41,6 @@ import { EmployeeLayout } from "@/components/employee/EmployeeLayout";
 import EmployeeDashboard from "./pages/employee/EmployeeDashboard";
 import EmployeeProjects from "./pages/employee/EmployeeProjects";
 import EmployeeProjectDetail from "./pages/employee/EmployeeProjectDetail";
-import EmployeeLeave from "./pages/employee/EmployeeLeave";
 import EmployeeProfile from "./pages/employee/EmployeeProfile";
 import { EmployeeTimeScreen } from "./pages/employee/EmployeeTimeScreen";
 

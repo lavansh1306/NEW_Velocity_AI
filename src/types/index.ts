@@ -319,6 +319,22 @@ export interface ProjectHealthRow {
     budget: number;
 }
 
+/** Project health metrics — used for scoring and visualization */
+export interface ProjectHealthMetrics {
+    compositeScore: number;
+    schedule: number;
+    resource: number;
+    risk: number;
+    quality: number;
+}
+
+/** Aggregated project health report */
+export interface ProjectHealthReport {
+    health: ProjectHealthMetrics;
+    lastUpdated: string;
+    projectId: string;
+}
+
 /** Employee project view */
 export interface EmployeeProjectView {
     id: number;

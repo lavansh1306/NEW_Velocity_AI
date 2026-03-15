@@ -5,13 +5,7 @@
  * Migrated from the decommissioned metrics.ts.
  */
 
-export interface ProjectHealthMetrics {
-    compositeScore: number;
-    schedule: number;
-    resource: number;
-    risk: number;
-    quality: number;
-}
+import { ProjectHealthMetrics } from '@/types';
 
 /**
  * calculateProjectHealthScore
