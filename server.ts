@@ -47,6 +47,7 @@ async function initializeRedis() {
 // Static imports
 import jiraRoutes from "./src/api/jira/routes.js"
 import deployedRoutes from "./src/api/deployed/routes.js"
+import authRoutes from "./src/api/auth/routes.ts"
 import leaveApprovalRoutes from "./src/api/leave-approval/routes.ts"
 import invitesRoutes from "./src/api/invites/routes.ts"
 import employeeRoutes from "./src/api/employee/routes.ts"
@@ -194,6 +195,10 @@ app.get("/health", (_req: Request, res: Response) => {
 // ============ Jira OAuth & API Routes (multi-tenant) ============
 app.use('/api/jira', jiraRoutes);
 console.log('[Server] Jira OAuth routes mounted');
+
+// ============ Auth Routes ============
+app.use('/api/auth', authRoutes);
+console.log('[Server] Auth routes mounted');
 
 // ============ Deployed API Routes ============
 app.use('/api/deployed', deployedRoutes);
