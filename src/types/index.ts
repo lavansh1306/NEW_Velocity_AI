@@ -525,3 +525,33 @@ export interface SetupTeamMember {
     role: string;
     skills: string[];
 }
+
+/** Employee dashboard: task */
+export interface EmpDashboardTask {
+    id: string;
+    title: string;
+    project: string;
+    status: 'In Progress' | 'Not Started';
+    dueDate: string;
+}
+
+/** Employee dashboard: alert */
+export interface EmpDashboardAlert {
+    id: string;
+    type: 'warning' | 'info' | 'success';
+    icon: string;
+    title: string;
+    description: string;
+    secondaryText?: string;
+    actionLabel?: string;
+    actionPath?: string;
+    bgColor: string;
+    borderColor: string;
+}
+
+/** Employee dashboard: activity */
+export interface EmpDashboardActivity {
+    id: string;
+    timestamp: string;
+    description: string;
+}

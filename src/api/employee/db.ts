@@ -246,3 +246,94 @@ export async function bulkUpdateStatus(organizationId: string, userId: string, s
   }
   return data;
 }
+
+// ---------- Dashboard Data ----------
+
+export async function getEmployeeTasks(organizationId: string, userId: string) {
+  const client = getClient();
+  const { data, error } = await client
+    .from('tasks')
+    .select(`
+      id,
+      name,
+      status,
+      due_date,
+      project_id,
+      projects ( name )
+    `)
+    .eq('assignee_id', userId)
+    .order('due_date', { ascending: true });
+
+  if (error) {
+    console.warn('[EmployeeDB] getEmployeeTasks warning:', error.message);
+    return [];
+  }
+
+  return (data || []).map((row: any) => ({
+    id: row.id,
+    title: row.name,
+    project: row.projects?.name ?? 'Unassigned',
+    status: row.status,
+    dueDate: row.due_date ? new Date(row.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : null,
+  }));
+}
+
+export async function getEmployeeAlerts(organizationId: string, userId: string) {
+  // alerts table exists but is empty, return empty array
+  return [];
+}
+
+export async function getEmployeeActivities(organizationId: string, userId: string, limit: number = 5) {
+  // activities table exists but is empty, return empty array
+  return [];
+}
+
+export async function getUserProfile(organizationId: string, userId: string) {
+  const client = getClient();
+  const { data, error } = await client
+    .from('users')
+    .select('*')
+    .eq('organization_id', organizationId)
+    .eq('id', userId)
+    .single();
+
+  if (error) {
+    console.error('[EmployeeDB] getUserProfile error:', error.message);
+    throw error;
+  }
+  return data;
+}
+
+export async function getUserProjects(organizationId: string, userId: string) {
+  const client = getClient();
+  
+  // First get all project IDs where user has tasks
+  const { data: taskData, error: taskError } = await client
+    .from('tasks')
+    .select('project_id')
+    .eq('assignee_id', userId);
+
+  if (taskError) {
+    console.warn('[EmployeeDB] getUserProjects warning fetching tasks:', taskError.message);
+    return [];
+  }
+
+  const projectIds = [...new Set((taskData || []).map((t: any) => t.project_id))];
+  
+  if (projectIds.length === 0) {
+    return [];
+  }
+
+  // Then fetch project details for those IDs
+  const { data, error } = await client
+    .from('projects')
+    .select('*')
+    .eq('organization_id', organizationId)
+    .in('id', projectIds);
+
+  if (error) {
+    console.warn('[EmployeeDB] getUserProjects warning fetching projects:', error.message);
+    return [];
+  }
+  return data || [];
+}
