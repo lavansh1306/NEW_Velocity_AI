@@ -3,9 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { VelocityAISidebar } from '@/components/dashboard/VelocityAISidebar';
 import { Button } from '@/components/ui/button';
 import { useProjectAnalytics } from '@/hooks/useProjectAnalytics';
+import { supabase } from '@/lib/supabase'; // Added for the update logic
+import { toast } from 'sonner';
 import {
   ArrowLeft, LayoutGrid, Users, CheckSquare,
-  Clock, Lightbulb, AlertCircle, Sparkles, Loader2
+  Clock, Lightbulb, AlertCircle, Sparkles, X, Loader2
 } from 'lucide-react';
 
 export default function ProjectAnalytics() {
@@ -13,13 +15,75 @@ export default function ProjectAnalytics() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'overview' | 'team' | 'tasks' | 'timeline' | 'insights'>('overview');
 
+  // --- EDIT MODAL STATE ---
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isFetchingDetails, setIsFetchingDetails] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [editForm, setEditForm] = useState({ title: '', description: '', status: 'active' });
+
   // Use the realtime analytics hook
   const { loading, error, project, issues, metrics, teamMembers, allocatedTeamMembers } = useProjectAnalytics(id);
 
+  // --- EDIT PROJECT LOGIC ---
+  const openEditModal = async () => {
+    if (!project) return;
+    setIsEditModalOpen(true);
+    setIsFetchingDetails(true);
+    
+    try {
+      // Fetch the latest description and status since they aren't in the base hook's ProjectData
+      const { data, error } = await supabase
+        .from('projects')
+        .select('description, status')
+        .eq('id', project.id)
+        .single();
+        
+      if (error) throw error;
+      
+      setEditForm({
+        title: project.title || '',
+        description: data?.description || '',
+        status: data?.status || 'active'
+      });
+    } catch (err) {
+      toast.error("Failed to load project details for editing.");
+    } finally {
+      setIsFetchingDetails(false);
+    }
+  };
+
+  const handleUpdateProject = async () => {
+    if (!project) return;
+    if (!editForm.title.trim()) return toast.error("Project title cannot be empty.");
+
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .update({
+          name: editForm.title,
+          description: editForm.description,
+          status: editForm.status
+        })
+        .eq('id', project.id);
+
+      if (error) throw error;
+      
+      toast.success("Project updated successfully!");
+      setIsEditModalOpen(false);
+      
+      // Reload to reflect changes in the UI (since the hook drives the main state)
+      window.location.reload(); 
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update project.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <VelocityAISidebar>
-      <div className="bg-[#FAFAF9] min-h-screen p-8 md:p-12 font-['Inter',sans-serif] animate-in fade-in duration-300">
+      <div className="bg-[#FAFAF9] min-h-screen p-8 md:p-12 font-['Inter',sans-serif] animate-in fade-in duration-300 relative">
         <div className="max-w-[1200px] mx-auto space-y-8">
 
           {/* Error State */}
@@ -50,7 +114,6 @@ export default function ProjectAnalytics() {
             const startDate = new Date(project.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
             return (
               <>
-
                 {/* Back Nav */}
                 <button onClick={() => navigate('/projects')} className="flex items-center gap-2 text-sm text-[#78716C] hover:text-[#1C1917] transition-colors">
                   <ArrowLeft className="w-4 h-4" /> Back to Projects
@@ -79,7 +142,8 @@ export default function ProjectAnalytics() {
                       </div>
                       <p className="text-xs text-[#A8A29E] mt-2">Feasibility {metrics.feasibility}%</p>
                     </div>
-                    <Button className="bg-[#1C1917] hover:bg-[#292524] text-white rounded-xl px-6 py-6 h-auto font-light">
+                    {/* WIRED UP THE EDIT BUTTON */}
+                    <Button onClick={openEditModal} className="bg-[#1C1917] hover:bg-[#292524] text-white rounded-xl px-6 py-6 h-auto font-light transition-all">
                       Edit Project
                     </Button>
                   </div>
@@ -226,8 +290,8 @@ export default function ProjectAnalytics() {
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                           {allocatedTeamMembers.map((member) => {
-                            const startDate = new Date(member.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                            const endDate = new Date(member.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+                            const startD = new Date(member.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                            const endD = new Date(member.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
                             return (
                               <div key={member.id} className="bg-white rounded-[24px] border border-[#E7E5E4] p-8 shadow-sm">
                                 <div className="flex justify-between items-start mb-6">
@@ -252,7 +316,7 @@ export default function ProjectAnalytics() {
                                   </div>
                                   <div className="flex justify-between text-sm">
                                     <span className="text-[#78716C] font-light">Duration</span>
-                                    <span className="text-[#1C1917] font-medium text-xs">{startDate} to {endDate}</span>
+                                    <span className="text-[#1C1917] font-medium text-xs">{startD} to {endD}</span>
                                   </div>
                                   <div className="pt-2 border-t border-[#F5F5F4] mt-2">
                                     <p className="text-xs text-[#78716C] mb-2">Allocation</p>
@@ -388,6 +452,97 @@ export default function ProjectAnalytics() {
 
         </div>
       </div>
+
+      {/* --- EDIT PROJECT MODAL --- */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-in fade-in duration-200"
+            onClick={() => !isSaving && setIsEditModalOpen(false)}
+          />
+          
+          {/* Modal Content */}
+          <div className="relative bg-white rounded-3xl shadow-xl w-full max-w-lg p-8 animate-in zoom-in-95 duration-200">
+            <button 
+              onClick={() => setIsEditModalOpen(false)}
+              className="absolute top-6 right-6 p-2 rounded-full hover:bg-[#F5F5F4] transition-colors"
+              disabled={isSaving}
+            >
+              <X className="w-5 h-5 text-[#78716C]" />
+            </button>
+
+            <h2 className="text-2xl font-light text-[#1C1917] mb-6">Edit Project</h2>
+
+            {isFetchingDetails ? (
+              <div className="py-12 flex flex-col items-center justify-center text-[#78716C]">
+                <Loader2 className="w-8 h-8 animate-spin mb-4 text-[#0F766E]" />
+                <p>Loading project details...</p>
+              </div>
+            ) : (
+              <div className="space-y-5">
+                <div>
+                  <label className="block text-sm text-[#78716C] mb-2 font-medium">Project Title</label>
+                  <input 
+                    type="text"
+                    value={editForm.title}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, title: e.target.value }))}
+                    className="w-full px-4 py-3 rounded-xl border border-[#E7E5E4] focus:outline-none focus:ring-2 focus:ring-[#0F766E]/20 focus:border-[#0F766E] transition-all"
+                    placeholder="Enter project title"
+                    disabled={isSaving}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-[#78716C] mb-2 font-medium">Description</label>
+                  <textarea 
+                    value={editForm.description}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                    rows={4}
+                    className="w-full px-4 py-3 rounded-xl border border-[#E7E5E4] focus:outline-none focus:ring-2 focus:ring-[#0F766E]/20 focus:border-[#0F766E] transition-all resize-none"
+                    placeholder="Enter project description"
+                    disabled={isSaving}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-[#78716C] mb-2 font-medium">Status</label>
+                  <select
+                    value={editForm.status}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, status: e.target.value }))}
+                    className="w-full px-4 py-3 rounded-xl border border-[#E7E5E4] focus:outline-none focus:ring-2 focus:ring-[#0F766E]/20 focus:border-[#0F766E] transition-all bg-white"
+                    disabled={isSaving}
+                  >
+                    <option value="active">Active</option>
+                    <option value="draft">Draft</option>
+                    <option value="completed">Completed</option>
+                    <option value="archived">Archived</option>
+                  </select>
+                </div>
+
+                <div className="pt-4 flex gap-3">
+                  <Button 
+                    variant="outline" 
+                    className="flex-1 h-12 rounded-xl" 
+                    onClick={() => setIsEditModalOpen(false)}
+                    disabled={isSaving}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    className="flex-1 h-12 text-white bg-[#1C1917] hover:bg-[#292524] rounded-xl"
+                    onClick={handleUpdateProject}
+                    disabled={isSaving}
+                  >
+                    {isSaving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...</> : 'Save Changes'}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
     </VelocityAISidebar>
   );
 }
