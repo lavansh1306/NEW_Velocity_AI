@@ -412,29 +412,44 @@ export default function ProjectAnalytics() {
                 {activeTab === 'tasks' && (
                   <div className="bg-white rounded-[24px] border border-[#E7E5E4] p-8 shadow-sm animate-in fade-in duration-300">
                     <div className="space-y-2">
-                      {issues.map(issue => (
-                        <div key={issue.id} className="flex justify-between items-center p-4 hover:bg-[#FAFAF9] rounded-xl border border-transparent hover:border-[#E7E5E4] transition-all">
-                          <div>
-                            <div className="flex items-center gap-3">
-                              <span className="text-xs font-mono text-[#0F766E] bg-[#F0FDFA] px-2 py-1 rounded-md border border-teal-100">
-                                {issue.issue_key}
-                              </span>
-                              <span className="text-[#1C1917] font-medium">{issue.summary}</span>
+                      {issues.map(issue => {
+                        // Convert seconds back to hours for display
+                        const estHours = issue.original_estimate_seconds 
+                            ? Math.round(issue.original_estimate_seconds / 3600) 
+                            : 0;
+
+                        return (
+                          <div key={issue.id} className="flex justify-between items-center p-4 hover:bg-[#FAFAF9] rounded-xl border border-transparent hover:border-[#E7E5E4] transition-all">
+                            <div>
+                              <div className="flex items-center gap-3">
+                                <span className="text-xs font-mono text-[#0F766E] bg-[#F0FDFA] px-2 py-1 rounded-md border border-teal-100">
+                                  {issue.issue_key}
+                                </span>
+                                <span className="text-[#1C1917] font-medium">{issue.summary}</span>
+                              </div>
+                              <div className="text-xs text-[#78716C] mt-2 pl-1 flex items-center gap-2">
+                                <span>{issue.issue_type}</span>
+                                <span>·</span>
+                                <span>Assigned to <span className="font-medium text-[#1C1917]">{issue.assignee || 'Unassigned'}</span></span>
+                                <span>·</span>
+                                {/* --- NEW: ESTIMATED HOURS DISPLAY --- */}
+                                <span className="flex items-center gap-1 font-medium text-[#1C1917]">
+                                  <Clock className="w-3 h-3 text-[#A8A29E]" />
+                                  {estHours}h est.
+                                </span>
+                              </div>
                             </div>
-                            <p className="text-xs text-[#78716C] mt-2 pl-1">
-                              {issue.issue_type} · Assigned to <span className="font-medium text-[#1C1917]">{issue.assignee || 'Unassigned'}</span>
-                            </p>
+                            <div className="text-right">
+                              <span className={`text-xs px-2 py-1 rounded border ${['done', 'resolved', 'closed', 'complete'].some(s => issue.status?.toLowerCase().includes(s))
+                                ? 'bg-[#F0FDFA] text-[#0F766E] border-teal-100'
+                                : 'bg-[#FFF7ED] text-[#C2410C] border-orange-100'
+                                }`}>
+                                {issue.status}
+                              </span>
+                            </div>
                           </div>
-                          <div className="text-right">
-                            <span className={`text-xs px-2 py-1 rounded border ${['done', 'resolved', 'closed', 'complete'].some(s => issue.status?.toLowerCase().includes(s))
-                              ? 'bg-[#F0FDFA] text-[#0F766E] border-teal-100'
-                              : 'bg-[#FFF7ED] text-[#C2410C] border-orange-100'
-                              }`}>
-                              {issue.status}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                       {issues.length === 0 && <p className="text-center text-[#A8A29E] py-8">No issues found.</p>}
                     </div>
                   </div>
