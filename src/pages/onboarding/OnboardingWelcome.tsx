@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { OrganizationPicker } from '@/components/onboarding/OrganizationPicker';
 
 export default function OnboardingWelcome() {
   const navigate = useNavigate();
@@ -68,14 +69,15 @@ export default function OnboardingWelcome() {
         </p>
 
         {/* Organization Name Input */}
-        <div className="w-[400px] mb-8">
-          <label className="text-sm text-[#57534E] font-medium mb-2 block">What's your team or company name?</label>
-          <Input
-            placeholder="e.g., Acme Inc, Engineering Team"
+        <div className="w-[450px] mb-8">
+          <OrganizationPicker
             value={orgName}
-            onChange={(e) => setOrgName(e.target.value)}
-            className="h-12 text-base border-[#E7E5E4] focus:border-[#0F766E] focus:ring-1 focus:ring-[#0F766E] rounded-lg"
-            onKeyDown={(e) => e.key === 'Enter' && handleStart()}
+            onSelect={(org) => {
+              if (org) setOrgName(org.name);
+              else setOrgName('');
+            }}
+            onCreate={(name) => setOrgName(name)}
+            onClear={() => setOrgName('')}
           />
         </div>
 

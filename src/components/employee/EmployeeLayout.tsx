@@ -4,7 +4,6 @@ import {
   Zap,
   LayoutDashboard,
   Kanban,
-  Zap as BoltOutline,
   CalendarRange,
   User,
   Search,
@@ -31,8 +30,7 @@ import { useAuth } from '@/contexts/AuthContext';
 const navItems = [
   { path: '/app/employee/dashboard', label: 'Dashboard', Icon: LayoutDashboard },
   { path: '/app/employee/my-projects', label: 'My Projects', Icon: Kanban },
-  { path: '/app/employee/my-capacity', label: 'My Capacity', Icon: BoltOutline },
-  { path: '/app/employee/leave', label: 'Leave Requests', Icon: CalendarRange },
+  { path: '/app/employee/time', label: 'Time', Icon: CalendarRange },
   { path: '/app/employee/profile', label: 'My Profile', Icon: User },
 ];
 

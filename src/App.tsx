@@ -42,9 +42,9 @@ import { EmployeeLayout } from "@/components/employee/EmployeeLayout";
 import EmployeeDashboard from "./pages/employee/EmployeeDashboard";
 import EmployeeProjects from "./pages/employee/EmployeeProjects";
 import EmployeeProjectDetail from "./pages/employee/EmployeeProjectDetail";
-import EmployeeCapacity from "./pages/employee/EmployeeCapacity";
 import EmployeeLeave from "./pages/employee/EmployeeLeave";
 import EmployeeProfile from "./pages/employee/EmployeeProfile";
+import { EmployeeTimeScreen } from "./pages/employee/EmployeeTimeScreen";
 
 const queryClient = new QueryClient();
 
@@ -86,8 +86,8 @@ const App = () => (
                   <Route path="dashboard" element={<EmployeeDashboard />} />
                   <Route path="my-projects" element={<EmployeeProjects />} />
                   <Route path="projects/:id" element={<EmployeeProjectDetail />} />
-                  <Route path="my-capacity" element={<EmployeeCapacity />} />
-                  <Route path="leave" element={<EmployeeLeave />} />
+                  <Route path="leave" element={<Navigate to="/app/employee/time?tab=leave" replace />} />
+                  <Route path="time" element={<EmployeeTimeScreen />} />
                   <Route path="profile" element={<EmployeeProfile />} />
                 </Route>
 
