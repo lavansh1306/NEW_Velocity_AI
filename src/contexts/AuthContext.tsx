@@ -41,43 +41,54 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [orgName, setOrgNameState] = useState<string | null>(getCurrentOrgName());
 
   /**
-   * Look up the user's org membership from the 'users' table.
-   * Based on your schema: users table has organization_id and links to organizations(name).
+   * Look up the user's org membership from the backend API.
+   * The API validates the JWT and returns org details from the database.
    */
-  const lookupOrg = async (userId: string) => {
+  const lookupOrg = async (userId: string, accessToken?: string) => {
     try {
       console.log('[Auth] Looking up org for user:', userId);
-      const { data, error } = await supabase
-        .from('users')
-        .select('organization_id, role, organizations(name)')
-        .eq('id', userId)
-        .maybeSingle();
-
-      if (error) {
-        console.error('[Auth] lookupOrg database error:', error.message);
-        return;
-      }
-
-      if (!data || !data.organization_id) {
-        console.log('[Auth] No organization_id found in users table for:', userId);
-        return;
-      }
-
-      const name = (data as any).organizations?.name || 'My Organization';
       
+      // Only proceed if we have an access token
+      if (!accessToken) {
+        console.warn('[Auth] No access token available for org lookup');
+        return;
+      }
+
+      // Call the backend API endpoint with JWT
+      const response = await fetch('/api/auth/lookup-org', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData?.error || `Lookup failed with status ${response.status}`);
+      }
+
+      const result = await response.json();
+      if (!result.success || !result.data) {
+        throw new Error('Invalid response from org lookup endpoint');
+      }
+
+      const { organizationId, organizationName, role, email } = result.data;
+
       // Update local storage/context helpers
-      setCurrentOrgId(data.organization_id);
-      setCurrentOrgRole(data.role || 'employee');
-      setCurrentOrgName(name);
+      setCurrentOrgId(organizationId);
+      setCurrentOrgRole(role || 'employee');
+      setCurrentOrgName(organizationName);
       
       // Update state
-      setOrgIdState(data.organization_id);
-      setOrgRoleState(data.role || 'employee');
-      setOrgNameState(name);
+      setOrgIdState(organizationId);
+      setOrgRoleState(role || 'employee');
+      setOrgNameState(organizationName);
       
-      console.log(`[Auth] Org resolved: ${name} (${data.organization_id})`);
+      console.log(`[Auth] Org resolved: ${organizationName} (${organizationId})`);
     } catch (err) {
-      console.warn('[Auth] lookupOrg unexpected error:', err);
+      console.warn('[Auth] lookupOrg error:', err instanceof Error ? err.message : err);
     }
   };
 
@@ -98,7 +109,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const refreshOrg = async () => {
-    if (user?.id) await lookupOrg(user.id);
+    if (user?.id && session?.access_token) {
+      await lookupOrg(user.id, session.access_token);
+    }
   };
 
   useEffect(() => {
@@ -120,6 +133,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           const userId = session.user.id;
           const userEmail = session.user.email!;
           const fullName = session.user.user_metadata?.full_name;
+          const accessToken = session.access_token;
           const isGoogleAuth = session.user.app_metadata?.provider === 'google';
 
           // Use setTimeout to move async DB work outside the synchronous auth callback
@@ -129,7 +143,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               if (isGoogleAuth) {
                 await saveGoogleUserEmail(userEmail, userId, fullName);
               }
-              await lookupOrg(userId);
+              await lookupOrg(userId, accessToken);
             } catch (err) {
               console.warn('[Auth] Background sync failed:', err);
             } finally {

@@ -261,4 +261,4 @@ export const VelocityAISidebar = ({ children }: VelocityAISidebarProps) => {
   );
 };
 
-export default VelocityAISidebar;
+

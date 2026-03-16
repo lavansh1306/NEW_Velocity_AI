@@ -3,12 +3,12 @@
 // ── Backend Data Model (Supabase) ──────────────────────────────
 
 /** Organization entity — maps to `organizations` table */
-export type EditableTask = { 
-    id: string; 
-    task: string; 
-    estimatedHours: number; 
-    requiredSkills?: string[];
-};
+export interface EditableTask {
+    id: string;
+    task: string;
+    estimatedHours: number;
+    requiredSkills: string[];
+}
 
 export interface Organization {
     id: string;
@@ -21,6 +21,10 @@ export interface Organization {
     week_starts_on: string;
     fiscal_year_start: string;
     target_utilization: number;
+    overload_threshold?: number;
+    ai_low_confidence_threshold?: number;
+    ai_health_score_warning?: number;
+    ai_timeline_risk_days?: number;
 }
 
 /** Core user entity — maps to `users` table */
@@ -320,6 +324,22 @@ export interface ProjectHealthRow {
     budget: number;
 }
 
+/** Project health metrics — used for scoring and visualization */
+export interface ProjectHealthMetrics {
+    compositeScore: number;
+    schedule: number;
+    resource: number;
+    risk: number;
+    quality: number;
+}
+
+/** Aggregated project health report */
+export interface ProjectHealthReport {
+    health: ProjectHealthMetrics;
+    lastUpdated: string;
+    projectId: string;
+}
+
 /** Employee project view */
 export interface EmployeeProjectView {
     id: number;
@@ -436,10 +456,12 @@ export interface GanttMember {
 }
 
 export interface GanttTask {
+    id: string; // Task ID for database updates
     name: string;
     start?: number;
     duration?: number;
-    status: 'track' | 'risk';
+    status: 'not_started' | 'in_progress' | 'blocked' | 'completed'; // Actual database status values
+    displayStatus?: 'track' | 'risk'; // Display status for UI (optional)
     project: string;
     startDate: string; // Restored for UI compatibility
     endDate: string;   // Restored for UI compatibility
@@ -447,6 +469,7 @@ export interface GanttTask {
 
 /** Upcoming deadline */
 export interface Deadline {
+    id: string;
     project: string;
     deadline: string;
     daysLeft: number;
@@ -507,4 +530,34 @@ export interface SetupTeamMember {
     email: string;
     role: string;
     skills: string[];
+}
+
+/** Employee dashboard: task */
+export interface EmpDashboardTask {
+    id: string;
+    title: string;
+    project: string;
+    status: 'In Progress' | 'Not Started';
+    dueDate: string;
+}
+
+/** Employee dashboard: alert */
+export interface EmpDashboardAlert {
+    id: string;
+    type: 'warning' | 'info' | 'success';
+    icon: string;
+    title: string;
+    description: string;
+    secondaryText?: string;
+    actionLabel?: string;
+    actionPath?: string;
+    bgColor: string;
+    borderColor: string;
+}
+
+/** Employee dashboard: activity */
+export interface EmpDashboardActivity {
+    id: string;
+    timestamp: string;
+    description: string;
 }

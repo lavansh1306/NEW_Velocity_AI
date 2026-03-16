@@ -1,4 +1,4 @@
-import { TeamMemberView, PendingSkillView, PersonDetailView, PlanTask, PlanTeamCandidate } from '../types';
+import { TeamMemberView, PendingSkillView, PersonDetailView, PlanTask, PlanTeamCandidate, EmpDashboardTask, EmpDashboardAlert, EmpDashboardActivity, TimesheetWeekMeta, PastWeekSummary } from '../types';
 
 // LEGACY DATA (Needed by PlanMyProjectScreen)
 export const planSeedTasks: PlanTask[] = [
@@ -123,3 +123,109 @@ export const personDetailsMap: Record<string, PersonDetailView> = {
         ]
     }
 };
+
+// ── Employee Dashboard Data ────────────────────────────────────
+
+export const empDashboardTasks: EmpDashboardTask[] = [
+    { id: 'edt-1', title: 'API Integration Layer', project: 'Velocity AI Platform', status: 'In Progress', dueDate: 'Mar 22' },
+    { id: 'edt-2', title: 'Design System Documentation', project: 'Design System', status: 'Not Started', dueDate: 'Mar 18' },
+    { id: 'edt-3', title: 'Testing & QA', project: 'Mobile App MVP', status: 'Not Started', dueDate: 'Mar 28' },
+    { id: 'edt-4', title: 'Code Review - Auth Module', project: 'Velocity AI Platform', status: 'In Progress', dueDate: 'Mar 15' },
+    { id: 'edt-5', title: 'Update Component Library', project: 'Design System', status: 'In Progress', dueDate: 'Mar 17' },
+];
+
+export const empDashboardAlerts: EmpDashboardAlert[] = [
+    {
+        id: 'eda-1', type: 'warning', icon: '🟡', title: 'Approaching Capacity',
+        description: "You're at 95% utilization this week (38h / 40h)",
+        secondaryText: 'Consider discussing workload with your manager if this continues.',
+        bgColor: 'bg-[#FFFBEB]', borderColor: 'border-[#D6D3D1]',
+    },
+    {
+        id: 'eda-2', type: 'info', icon: '📋', title: 'Leave Request Pending',
+        description: 'Summer Vacation (Jul 15-26)',
+        secondaryText: 'Awaiting approval from John Smith',
+        actionLabel: 'View Request', actionPath: '/app/employee/leave',
+        bgColor: 'bg-[#F0FDFA]', borderColor: 'border-[#99F6E4]',
+    },
+    {
+        id: 'eda-3', type: 'success', icon: '✓', title: 'Skill Verified',
+        description: 'GraphQL (Mid) was approved',
+        secondaryText: 'by John Smith yesterday',
+        actionLabel: 'View Skills', actionPath: '/app/employee/skills',
+        bgColor: 'bg-[#F0FDF4]', borderColor: 'border-[#BBF7D0]',
+    },
+];
+
+export const empDashboardActivities: EmpDashboardActivity[] = [
+    { id: 'edact-1', timestamp: 'Today, 2:30 PM', description: 'Updated progress on Dashboard UI Components to 72%' },
+    { id: 'edact-2', timestamp: 'Yesterday, 4:15 PM', description: 'Submitted timesheet for Week of Mar 4-10' },
+    { id: 'edact-3', timestamp: '2 days ago', description: 'Requested skill verification: GraphQL (Mid)' },
+    { id: 'edact-4', timestamp: '3 days ago', description: 'Completed task: Design System Setup' },
+];
+
+// ── Timesheet Data ────────────────────────────────────
+
+export const timesheetWeeks: TimesheetWeekMeta[] = [
+    {
+        status: 'Draft',
+        rows: [
+            {
+                id: 'row-1',
+                type: 'project',
+                project: 'Velocity AI Platform',
+                task: 'API Integration',
+                suggested: [8, 8, 8, 8, 8, 0, 0],
+                hours: [8, 8, 8, 8, 8, 0, 0]
+            },
+            {
+                id: 'row-2',
+                type: 'project',
+                project: 'Mobile App MVP',
+                task: 'UI Components',
+                suggested: [4, 4, 4, 4, 4, 0, 0],
+                hours: [4, 4, 4, 4, 4, 0, 0]
+            }
+        ]
+    },
+    {
+        status: 'Approved',
+        rows: [
+            {
+                id: 'row-3',
+                type: 'project',
+                project: 'Velocity AI Platform',
+                task: 'Database Schema',
+                suggested: [8, 8, 8, 8, 8, 0, 0],
+                hours: [8, 8, 8, 8, 8, 0, 0]
+            }
+        ]
+    }
+];
+
+export const pastWeeksSummary: PastWeekSummary[] = [
+    {
+        offset: 0,
+        label: 'This Week',
+        hours: 40,
+        status: 'Pending Review'
+    },
+    {
+        offset: 1,
+        label: 'Last Week',
+        hours: 40,
+        status: 'Approved'
+    },
+    {
+        offset: 2,
+        label: '2 Weeks Ago',
+        hours: 40,
+        status: 'Approved'
+    },
+    {
+        offset: 3,
+        label: '3 Weeks Ago',
+        hours: 36,
+        status: 'Approved'
+    }
+];
