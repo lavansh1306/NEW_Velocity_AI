@@ -227,7 +227,7 @@ export const DashboardScreen = () => {
                                     <div className="flex flex-1 gap-2">
                                         {weekDays.map((day, i) => (
                                             <div key={i} className={`flex-1 text-center py-1 ${day.isToday ? 'text-[#0F766E] bg-[#F0FDFA] rounded-md font-bold' : ''}`}>
-                                                <div className="text-[9px] mb-0.5 opacity-70">Week ending</div>
+                                                
                                                 {day.label}
                                             </div>
                                         ))}
