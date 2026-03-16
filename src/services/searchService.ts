@@ -19,90 +19,65 @@ export const searchService = {
         const searchTerm = `%${query}%`;
 
         try {
-            // 1. Search Projects
-            const { data: projects } = await supabase
-                .from('jira_projects')
-                .select('id, jira_project_id, key, title')
-                .eq('org_id', orgId)
-                .or(`title.ilike.${searchTerm},key.ilike.${searchTerm}`)
-                .limit(5);
-
-            // 2. Search People (Organization Members + Jira Assignees)
-            const [membersRes, assigneesRes] = await Promise.all([
+            // Run searches in parallel for better performance
+            const [projectsRes, membersRes, issuesRes] = await Promise.all([
+                // 1. Search Projects (Matches 'jira_projects' schema)
                 supabase
-                    .from('organization_members')
-                    .select('id, email, display_name, role')
-                    .eq('org_id', orgId)
-                    .or(`display_name.ilike.${searchTerm},email.ilike.${searchTerm}`)
+                    .from('jira_projects')
+                    .select('id, project_key, name')
+                    .eq('organization_id', orgId)
+                    .or(`name.ilike.${searchTerm},project_key.ilike.${searchTerm}`)
                     .limit(5),
+
+                // 2. Search People (Matches 'users' table - more reliable than team_members)
+                supabase
+                    .from('users')
+                    .select('id, email, name, designation')
+                    .eq('organization_id', orgId)
+                    .or(`name.ilike.${searchTerm},email.ilike.${searchTerm}`)
+                    .limit(5),
+
+                // 3. Search Tasks (Matches 'jira_issues' schema)
                 supabase
                     .from('jira_issues')
-                    .select('assignee')
-                    .eq('org_id', orgId)
-                    .ilike('assignee', searchTerm)
-                    .limit(20)
+                    .select('issue_key, summary')
+                    .eq('organization_id', orgId)
+                    .or(`summary.ilike.${searchTerm},issue_key.ilike.${searchTerm}`)
+                    .limit(5)
             ]);
 
-            const members = membersRes.data || [];
-            const assigneeIssues = assigneesRes.data || [];
-
-            // 3. Search Tasks (Jira Issues)
-            const { data: issues } = await supabase
-                .from('jira_issues')
-                .select('issue_key, summary, project_key')
-                .eq('org_id', orgId)
-                .or(`summary.ilike.${searchTerm},issue_key.ilike.${searchTerm}`)
-                .limit(5);
-
             const results: SearchResult[] = [];
-            const seenPeople = new Set<string>();
 
             // Map Projects
-            projects?.forEach(p => {
+            projectsRes.data?.forEach(p => {
                 results.push({
-                    id: p.jira_project_id || p.id,
+                    id: p.id,
                     type: 'project',
-                    title: p.title || p.key,
-                    subtitle: p.key,
-                    path: `/projects/${p.key}`
+                    title: p.name || 'Untitled Project',
+                    subtitle: p.project_key,
+                    path: `/projects/${p.project_key}`
                 });
             });
 
-            // Map People (Members)
-            members.forEach(m => {
-                const name = m.display_name || m.email?.split('@')[0] || 'Unknown Member';
-                seenPeople.add(name.toLowerCase());
+            // Map People
+            membersRes.data?.forEach(m => {
                 results.push({
                     id: m.id,
                     type: 'people',
-                    title: name,
-                    subtitle: m.role || 'Member',
-                    path: '/people'
+                    title: m.name || m.email.split('@')[0],
+                    subtitle: m.designation || 'Member',
+                    path: `/people/${m.id}`
                 });
             });
 
-            // Map People (Assignees from Jira)
-            assigneeIssues.forEach(i => {
-                if (i.assignee && !seenPeople.has(i.assignee.toLowerCase())) {
-                    seenPeople.add(i.assignee.toLowerCase());
-                    results.push({
-                        id: `assignee-${i.assignee}`,
-                        type: 'people',
-                        title: i.assignee,
-                        subtitle: 'Team Member',
-                        path: '/people'
-                    });
-                }
-            });
-
             // Map Tasks
-            issues?.forEach(i => {
+            issuesRes.data?.forEach(i => {
                 results.push({
                     id: i.issue_key,
                     type: 'task',
-                    title: i.summary,
+                    title: i.summary || 'No Summary',
                     subtitle: i.issue_key,
-                    path: '/dashboard' // Could navigate to a detail view if it exists
+                    path: `/tasks/${i.issue_key}`
                 });
             });
 

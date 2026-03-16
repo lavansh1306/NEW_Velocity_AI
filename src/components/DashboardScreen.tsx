@@ -59,17 +59,45 @@ export const DashboardScreen = () => {
 
     const uniqueProjects = useMemo(() => {
         const projects = new Set<string>();
-        gantt.forEach((m: any) => m.tasks.forEach((t: any) => t.project && projects.add(t.project)));
+        if (Array.isArray(gantt)) {
+            gantt.forEach((m: any) => {
+                if (Array.isArray(m.tasks)) {
+                    m.tasks.forEach((t: any) => t.project && projects.add(t.project));
+                }
+            });
+        }
         return Array.from(projects).sort();
     }, [gantt]);
 
     const displayGantt = useMemo(() => {
-        return gantt.map((member: any) => ({
-            ...member, tasks: ganttFilterProject === 'All' ? member.tasks : member.tasks.filter((t: any) => t.project === ganttFilterProject)
-        })).filter((m: any) => m.tasks.length > 0 || ganttFilterProject === 'All');
-    }, [gantt, ganttFilterProject]);
+        if (!Array.isArray(gantt)) return [];
+        
+        let filtered = gantt.map((member: any) => ({
+            ...member, 
+            tasks: ganttFilterProject === 'All' 
+                ? member.tasks 
+                : member.tasks.filter((t: any) => t.project === ganttFilterProject)
+        })).filter((m: any) => {
+            if (ganttFilterProject === 'All') return true;
+            return m.tasks && m.tasks.length > 0;
+        });
 
-    // Strictly matched Figma KPI Card Component
+        return filtered.sort((a, b) => {
+            if (ganttSort === 'Name') return (a.name || '').localeCompare(b.name || '');
+            if (ganttSort === 'Role') return (a.role || '').localeCompare(b.role || '');
+            return 0;
+        });
+    }, [gantt, ganttFilterProject, ganttSort]);
+
+    const sortedDeadlines = useMemo(() => {
+        if (!Array.isArray(deadlines)) return [];
+        return [...deadlines].sort((a, b) => {
+            const dateA = a.deadline ? new Date(a.deadline).getTime() : 0;
+            const dateB = b.deadline ? new Date(b.deadline).getTime() : 0;
+            return dateA - dateB;
+        });
+    }, [deadlines]);
+
     const KPICard = ({ label, value, trend, sublabel }: any) => (
         <div className="bg-white border border-[#E7E5E4] rounded-2xl p-6 shadow-sm flex flex-col justify-between min-h-[140px]">
             <div>
@@ -94,7 +122,6 @@ export const DashboardScreen = () => {
     return (
         <div className="p-8 relative max-w-[1600px] mx-auto bg-[#FAFAF9] min-h-screen">
             
-            {/* Header section matching Figma */}
             <div className="flex items-center justify-between mb-8">
                 <div>
                     <h2 className="text-3xl font-light text-[#1C1917]">Dashboard</h2>
@@ -137,29 +164,23 @@ export const DashboardScreen = () => {
                 </div>
             </div>
 
-            {/* Main Layout Grid */}
             <div className="grid grid-cols-12 gap-6">
                 
-                {/* Left Column (Main Content) */}
                 <div className="col-span-12 xl:col-span-8 space-y-6">
                     
-                    {/* The 4 Dynamic KPI Boxes */}
                     <div className="grid grid-cols-4 gap-4">
                         {kpis.length > 0 ? (
                             kpis.map((kpi: any, i: number) => <KPICard key={i} {...kpi} />)
                         ) : (
-                            // Fallback if data fails to load or array is empty
                             Array(4).fill(0).map((_, i) => <KPICard key={i} label="Loading Data" value="--" />)
                         )}
                     </div>
 
-                    {/* Team Capacity & Allocation */}
                     <div className="bg-white border border-[#E7E5E4] rounded-2xl p-8 shadow-sm">
                         <div className="flex flex-col mb-6">
                             <div className="flex justify-between items-center w-full">
                                 <h2 className="text-xl font-medium text-[#1C1917]">Team Capacity & Allocation</h2>
                                 <div className="flex items-center gap-3">
-                                    {/* Filter Dropdown */}
                                     <Select value={ganttFilterProject} onValueChange={setGanttFilterProject}>
                                         <SelectTrigger className="h-9 w-[120px] text-xs font-semibold bg-white border-[#E7E5E4] rounded-full shadow-sm text-[#78716C]">
                                             <SelectValue placeholder="Filter" />
@@ -170,7 +191,6 @@ export const DashboardScreen = () => {
                                         </SelectContent>
                                     </Select>
 
-                                    {/* Sort Dropdown (Added from Figma) */}
                                     <Select value={ganttSort} onValueChange={setGanttSort}>
                                         <SelectTrigger className="h-9 w-[100px] text-xs font-semibold bg-white border-[#E7E5E4] rounded-full shadow-sm text-[#78716C]">
                                             <SelectValue placeholder="Sort" />
@@ -181,7 +201,6 @@ export const DashboardScreen = () => {
                                         </SelectContent>
                                     </Select>
 
-                                    {/* Date Range Navigation */}
                                     <div className="flex items-center gap-1 bg-white border border-[#E7E5E4] rounded-full p-1 shadow-sm h-9">
                                         <Button variant="ghost" className="h-6 w-6 p-0 hover:bg-[#F5F5F4] rounded-full text-[#78716C]" onClick={() => setCurrentWeekStart(new Date(new Date(currentWeekStart).setDate(currentWeekStart.getDate() - 7)))}>
                                             <ChevronLeftIcon style={{ fontSize: 16 }} />
@@ -194,7 +213,6 @@ export const DashboardScreen = () => {
                                 </div>
                             </div>
                             
-                            {/* Gantt Legend (Added from Figma) */}
                             <div className="flex items-center gap-6 mt-6 mb-2 text-xs font-semibold text-[#78716C]">
                                 <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-[#0F766E]"></div> On Track</div>
                                 <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-[#EAB308]"></div> At Risk</div>
@@ -202,7 +220,6 @@ export const DashboardScreen = () => {
                             </div>
                         </div>
 
-                        {/* Gantt Chart Implementation */}
                         <div className="overflow-x-auto">
                             <div className="min-w-[700px]">
                                 <div className="flex gap-1 border-b border-[#E7E5E4] pb-3 mb-3 text-[#A8A29E] text-[10px] font-bold uppercase tracking-wider">
@@ -210,7 +227,7 @@ export const DashboardScreen = () => {
                                     <div className="flex flex-1 gap-2">
                                         {weekDays.map((day, i) => (
                                             <div key={i} className={`flex-1 text-center py-1 ${day.isToday ? 'text-[#0F766E] bg-[#F0FDFA] rounded-md font-bold' : ''}`}>
-                                                <div className="text-[9px] mb-0.5 opacity-70">Week ending</div>
+                                                
                                                 {day.label}
                                             </div>
                                         ))}
@@ -219,7 +236,11 @@ export const DashboardScreen = () => {
                                 
                                 <div className="space-y-2">
                                     {displayGantt.length === 0 ? (
-                                        <div className="text-center py-12 text-sm text-[#78716C]">No team members currently assigned to tasks.</div>
+                                        <div className="text-center py-12 text-sm text-[#78716C]">
+                                            {ganttFilterProject === 'All' 
+                                                ? 'No team members found.' 
+                                                : 'No members allocated to this project.'}
+                                        </div>
                                     ) : (
                                         displayGantt.map((member: any) => {
                                             const viewStart = new Date(weekDays[0].date); viewStart.setHours(0, 0, 0, 0);
@@ -293,16 +314,15 @@ export const DashboardScreen = () => {
                         </div>
                     </div>
 
-                    {/* Upcoming Deadlines */}
                     <div className="bg-white border border-[#E7E5E4] rounded-2xl p-8 shadow-sm">
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-xl font-medium text-[#1C1917]">Upcoming Deadlines</h2>
                             <span className="text-xs font-bold text-[#A8A29E] uppercase tracking-wider cursor-pointer hover:text-[#1C1917] transition-colors">View All</span>
                         </div>
                         <div className="space-y-4">
-                            {deadlines.length === 0 ? (
-                                <div className="text-center py-8 text-sm text-[#78716C]">No upcoming deadlines in the next 30 days.</div>
-                            ) : deadlines.map((item: any) => (
+                            {sortedDeadlines.length === 0 ? (
+                                <div className="text-center py-8 text-sm text-[#78716C]">No upcoming project deadlines.</div>
+                            ) : sortedDeadlines.map((item: any) => (
                                 <Link to={`/projects/${item.id}`} key={item.id} className="flex items-center justify-between py-4 px-6 bg-[#FAFAF9] border border-[#E7E5E4] rounded-2xl hover:bg-white hover:shadow-md transition-all group">
                                     <div className="flex items-center gap-4">
                                         <div className="w-12 h-12 rounded-xl border border-[#E7E5E4] flex items-center justify-center bg-white text-[#78716C] group-hover:text-[#1C1917] transition-colors shadow-sm">
@@ -310,7 +330,9 @@ export const DashboardScreen = () => {
                                         </div>
                                         <div>
                                             <div className="text-[15px] font-semibold text-[#1C1917] mb-1">{item.project}</div>
-                                            <div className="text-xs font-medium text-[#78716C]">{format(new Date(item.deadline), "MMM d, yyyy")}</div>
+                                            <div className="text-xs font-medium text-[#78716C]">
+                                                {item.deadline ? format(new Date(item.deadline), "MMM d, yyyy") : 'No Deadline'}
+                                            </div>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-10">
@@ -332,7 +354,6 @@ export const DashboardScreen = () => {
                     </div>
                 </div>
 
-                {/* Right Column (AI Insights to match Figma Layout) */}
                 <div className="col-span-12 xl:col-span-4">
                     <div className="bg-white border border-[#E7E5E4] rounded-2xl p-6 shadow-sm h-full">
                         <div className="flex items-center gap-2 mb-6">
@@ -340,7 +361,6 @@ export const DashboardScreen = () => {
                             <h2 className="text-lg font-semibold text-[#1C1917]">AI Insights</h2>
                         </div>
                         
-                        {/* Static Placeholder Insights matching your Figma screenshot */}
                         <div className="space-y-4">
                             <div className="bg-white border border-[#E7E5E4] rounded-2xl p-5 shadow-sm hover:shadow-md transition-all">
                                 <div className="flex items-center gap-2 mb-3">
