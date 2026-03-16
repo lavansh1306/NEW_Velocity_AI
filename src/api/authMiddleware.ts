@@ -87,6 +87,8 @@ export async function verifySupabaseToken(
     res.locals.authUserEmail = authUserEmail;
     res.locals.organizationId = userRow.organization_id;
 
+    console.log(`[AuthMiddleware] Resolved: User=${authUserId}, Email=${authUserEmail}, Org=${userRow.organization_id}`);
+
     next();
   } catch (err: any) {
     console.error('[AuthMiddleware] Unexpected error:', err?.message || err);

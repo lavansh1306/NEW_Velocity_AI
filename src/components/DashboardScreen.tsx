@@ -15,12 +15,14 @@ import { useSimulatedLoading } from '@/hooks/useSimulatedLoading';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { getDashboardData } from '@/services/dashboardService';
+import { toast } from 'sonner';
 import type { KPIData, GanttMember, Deadline } from '../types';
 import CalendarToday from '@mui/icons-material/CalendarToday';
 import Add from '@mui/icons-material/Add';
 import ViewKanban from '@mui/icons-material/ViewKanban';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import Close from '@mui/icons-material/Close';
 
 // Helper to get the Monday of the current week
 const getCurrentWeekMonday = () => {
@@ -51,6 +53,48 @@ export const DashboardScreen = () => {
 
     // Week Navigation State
     const [currentWeekStart, setCurrentWeekStart] = useState<Date>(getCurrentWeekMonday());
+
+    // Task Detail Popup State
+    const [selectedTask, setSelectedTask] = useState<any>(null);
+    const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+
+    // Task Status Constants
+    const TASK_STATUSES = ['not_started', 'in_progress', 'blocked', 'completed'];
+    const STATUS_COLORS: { [key: string]: string } = {
+        'not_started': 'bg-[#F5F5F4] text-[#57534E]',
+        'in_progress': 'bg-[#DBEAFE] text-[#1E40AF]',
+        'blocked': 'bg-[#FEE2E2] text-[#991B1B]',
+        'completed': 'bg-[#DCFCE7] text-[#15803D]'
+    };
+
+    const getStatusColor = (status: string) => {
+        const normalizedStatus = status.toLowerCase().replace(' ', '_');
+        return STATUS_COLORS[normalizedStatus] || STATUS_COLORS['not_started'];
+    };
+
+    const updateTaskStatus = async (taskId: string, newStatus: string) => {
+        setIsUpdatingStatus(true);
+        try {
+            if (!taskId) {
+                throw new Error('Task ID is missing');
+            }
+            
+            console.log('[DashboardScreen] Updating task:', { taskId, newStatus });
+            const { error } = await supabase
+                .from('tasks')
+                .update({ status: newStatus })
+                .eq('id', taskId);
+
+            if (error) throw error;
+            toast.success(`Task status updated to ${newStatus.replace('_', ' ')}`);
+            setSelectedTask({ ...selectedTask, status: newStatus });
+        } catch (err: any) {
+            console.error('Error updating task status:', err);
+            toast.error('Failed to update task status');
+        } finally {
+            setIsUpdatingStatus(false);
+        }
+    };
 
     useEffect(() => {
         const fetchData = async () => {
@@ -434,8 +478,8 @@ export const DashboardScreen = () => {
                                                             <AvatarFallback className="bg-[#F5F5F4] text-[#1C1917] text-[10px]">{member.avatar}</AvatarFallback>
                                                         </Avatar>
                                                         <div className="min-w-0">
-                                                            <div className="text-sm font-medium text-[#1C1917] truncate">{member.name}</div>
-                                                            <div className="text-[10px] text-[#78716C] truncate">{member.role}</div>
+                                                            <div className="text-sm font-bold text-[#1C1917] truncate">{member.name}</div>
+                                                            <div className="text-[10px] font-normal text-[#78716C] truncate">{member.email}</div>
                                                         </div>
                                                     </div>
 
@@ -480,11 +524,11 @@ export const DashboardScreen = () => {
                                                                 return (
                                                                     <div
                                                                         key={vIdx}
-                                                                        onClick={() => navigate(`/projects`)} // Navigate to projects list
+                                                                        onClick={() => setSelectedTask(task)}
                                                                         className={`absolute h-8 text-[11px] font-medium flex items-center px-4 shadow-sm border cursor-pointer z-10 transition-all duration-200 hover:shadow-md hover:z-30 group/tooltip rounded-[8px]
                                                                         ${isTruncatedLeft ? '!rounded-l-none !border-l-0' : ''}
                                                                         ${isTruncatedRight ? '!rounded-r-none !border-r-0' : ''}
-                                                                        ${task.status === 'track'
+                                                                        ${task.displayStatus === 'track'
                                                                                 ? 'bg-[#F0FDFA] text-[#0F766E] border-[#CCFBF1] hover:bg-[#E0F2FE] hover:border-[#BAE6FD]' // Lighter teal
                                                                                 : 'bg-[#FFF7ED] text-[#C2410C] border-[#FFEDD5] hover:bg-[#FFF1F2] hover:border-[#FECDD3]' // Orange
                                                                             }
@@ -564,6 +608,109 @@ export const DashboardScreen = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Task Detail Popup Modal */}
+            {selectedTask && (
+                <div className="fixed inset-0 bg-black/50 z-[1000] flex items-center justify-center" onClick={() => setSelectedTask(null)}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md m-4" onClick={(e) => e.stopPropagation()}>
+                        {/* Header */}
+                        <div className="border-b border-[#E7E5E4] p-6 flex items-center justify-between">
+                            <h3 className="text-lg font-medium text-[#1C1917]">Task Details</h3>
+                            <button
+                                onClick={() => setSelectedTask(null)}
+                                className="text-[#A8A29E] hover:text-[#57534E] transition-colors p-1"
+                            >
+                                <Close style={{ fontSize: 20 }} />
+                            </button>
+                        </div>
+
+                        {/* Content */}
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <p className="text-xs text-[#78716C] font-light uppercase tracking-wider mb-1">Task Name</p>
+                                <p className="text-sm font-medium text-[#1C1917]">{selectedTask.name}</p>
+                            </div>
+
+                            <div>
+                                <p className="text-xs text-[#78716C] font-light uppercase tracking-wider mb-1">Project</p>
+                                <p className="text-sm font-medium text-[#1C1917]">{selectedTask.project}</p>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <p className="text-xs text-[#78716C] font-light uppercase tracking-wider mb-1">Start Date</p>
+                                    <p className="text-sm font-medium text-[#1C1917]">
+                                        {new Date(selectedTask.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                    </p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-[#78716C] font-light uppercase tracking-wider mb-1">End Date</p>
+                                    <p className="text-sm font-medium text-[#1C1917]">
+                                        {new Date(selectedTask.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div>
+                                <p className="text-xs text-[#78716C] font-light uppercase tracking-wider mb-2">Status</p>
+                                <div className="relative">
+                                    <button
+                                        onClick={() => setSelectedTask({ ...selectedTask, statusDropdownOpen: !selectedTask.statusDropdownOpen })}
+                                        className={`inline-flex px-3 py-1 rounded-full text-xs font-medium border transition-all cursor-pointer hover:opacity-80 ${getStatusColor(selectedTask.status)}`}
+                                        disabled={isUpdatingStatus}
+                                    >
+                                        {selectedTask.status.replace('_', ' ')}
+                                    </button>
+                                    {selectedTask.statusDropdownOpen && (
+                                        <div className="absolute top-full mt-2 left-0 bg-white border border-[#E7E5E4] rounded-lg shadow-lg z-50 min-w-[160px]">
+                                            {TASK_STATUSES.map((status) => (
+                                                <button
+                                                    key={status}
+                                                    onClick={() => {
+                                                        updateTaskStatus(selectedTask.id, status);
+                                                        setSelectedTask({ ...selectedTask, statusDropdownOpen: false });
+                                                    }}
+                                                    disabled={isUpdatingStatus}
+                                                    className={`w-full text-left px-4 py-2 text-xs first:rounded-t-lg last:rounded-b-lg transition-colors ${getStatusColor(status)} hover:opacity-80 ${selectedTask.status === status ? 'border-l-4 border-l-[#0F766E]' : ''}`}
+                                                >
+                                                    {status.replace('_', ' ').toUpperCase()}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {selectedTask.assignee && (
+                                <div>
+                                    <p className="text-xs text-[#78716C] font-light uppercase tracking-wider mb-1">Assigned To</p>
+                                    <p className="text-sm font-medium text-[#1C1917]">{selectedTask.assignee}</p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="border-t border-[#E7E5E4] p-6 flex gap-3">
+                            <Button
+                                onClick={() => setSelectedTask(null)}
+                                variant="outline"
+                                className="flex-1 border-[#E7E5E4] text-[#1C1917] hover:bg-[#FAFAF9]"
+                            >
+                                Close
+                            </Button>
+                            <Button
+                                onClick={() => {
+                                    setSelectedTask(null);
+                                    navigate('/projects');
+                                }}
+                                className="flex-1 bg-[#0F766E] hover:bg-[#0D6B65] text-white"
+                            >
+                                View Project
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

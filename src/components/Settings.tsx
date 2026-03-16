@@ -1,107 +1,95 @@
-import React, { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase'; // Adjust this path to your supabase client
+import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Plus, X, Copy, RefreshCw, Users, Loader2 } from 'lucide-react';
+import { Plus, X, Loader2, Calendar as CalendarIcon } from 'lucide-react';
 import { StatusBadge } from '@/components/shared/StatusBadge';
+import { organizationApi } from '@/services/organizationApi';
+import { Organization } from '@/types';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
 
 const SettingsScreen = () => {
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [orgData, setOrgData] = useState<any>(null);
+  const [settings, setSettings] = useState<Partial<Organization>>({});
   const [holidays, setHolidays] = useState<any[]>([]);
-  const [integrations, setIntegrations] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // State for new holiday modal
+  const [newHoliday, setNewHoliday] = useState({ name: '', date: format(new Date(), 'yyyy-MM-dd') });
+  const [showAddHoliday, setShowAddHoliday] = useState(false);
 
-  // 1. Fetch live data on mount
   useEffect(() => {
-    fetchSettings();
+    loadData();
   }, []);
 
-  const fetchSettings = async () => {
+  const loadData = async () => {
     try {
-      setLoading(true);
-      
-      // Get the authenticated user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Get user profile to find organization_id
-      const { data: userProfile } = await supabase
-        .from('users')
-        .select('organization_id')
-        .eq('id', user.id)
-        .single();
-
-      if (userProfile?.organization_id) {
-        const orgId = userProfile.organization_id;
-
-        // Parallel fetch for efficiency
-        const [orgRes, holidayRes, jiraRes] = await Promise.all([
-          supabase.from('organizations').select('*').eq('id', orgId).single(),
-          supabase.from('holidays').select('*').eq('organization_id', orgId).order('date', { ascending: true }),
-          supabase.from('jira_connections').select('*').eq('organization_id', orgId)
-        ]);
-
-        if (orgRes.data) setOrgData(orgRes.data);
-        if (holidayRes.data) setHolidays(holidayRes.data);
-
-        // Map live integrations
-        setIntegrations([
-          { 
-            name: 'Jira', 
-            description: 'Import projects and track tasks', 
-            connected: (jiraRes.data?.length ?? 0) > 0 
-          },
-          { name: 'Asana', description: 'Sync project management data', connected: false },
-          { name: 'Slack', description: 'Get notifications and updates', connected: false },
-          { name: 'Google Calendar', description: 'Sync team schedules', connected: false },
-        ]);
-      }
-    } catch (error) {
-      toast.error("Failed to load settings");
-      console.error(error);
+      setIsLoading(true);
+      const [settingsData, holidaysData] = await Promise.all([
+        organizationApi.getSettings(),
+        organizationApi.getHolidays()
+      ]);
+      setSettings(settingsData);
+      setHolidays(holidaysData);
+    } catch (error: any) {
+      toast.error('Failed to load settings', { description: error.message });
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  // 2. Handle Organization Update
-  const handleUpdateOrg = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      const { error } = await supabase
-        .from('organizations')
-        .update({
-          name: orgData.name,
-          work_hours_per_week: orgData.work_hours_per_week,
-          work_days_per_week: orgData.work_days_per_week,
-          fiscal_year_start: orgData.fiscal_year_start,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', orgData.id);
+  const handleUpdateSetting = (field: keyof Organization, value: any) => {
+    setSettings(prev => ({ ...prev, [field]: value }));
+  };
 
-      if (error) throw error;
-      toast.success("Organization settings updated");
-    } catch (error) {
-      toast.error("Update failed");
+  const handleSaveChanges = async () => {
+    try {
+      setIsSaving(true);
+      await organizationApi.updateSettings(settings);
+      toast.success('Settings saved successfully');
+    } catch (error: any) {
+      toast.error('Failed to save settings', { description: error.message });
     } finally {
-      setSaving(false);
+      setIsSaving(false);
     }
   };
 
-  const copyInviteCode = () => {
-    navigator.clipboard.writeText(orgData?.invite_code || "");
-    toast.success("Invite code copied!");
+  const handleAddHoliday = async () => {
+    if (!newHoliday.name || !newHoliday.date) {
+      toast.error('Please provide both name and date');
+      return;
+    }
+    try {
+      setIsSaving(true);
+      const added = await organizationApi.addHoliday(newHoliday);
+      setHolidays(prev => [...prev, added].sort((a, b) => a.date.localeCompare(b.date)));
+      setNewHoliday({ name: '', date: format(new Date(), 'yyyy-MM-dd') });
+      setShowAddHoliday(false);
+      toast.success('Holiday added successfully');
+    } catch (error: any) {
+      toast.error('Failed to add holiday', { description: error.message });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  if (loading) {
+  const handleDeleteHoliday = async (id: string) => {
+    try {
+      await organizationApi.deleteHoliday(id);
+      setHolidays(prev => prev.filter(h => h.id !== id));
+      toast.success('Holiday removed');
+    } catch (error: any) {
+      toast.error('Failed to remove holiday', { description: error.message });
+    }
+  };
+
+  if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-8 h-8 animate-spin text-stone-400" />
+      <div className="p-12 flex flex-col items-center justify-center min-h-[60vh]">
+        <Loader2 className="w-8 h-8 text-[#2DD4BF] animate-spin mb-4" />
+        <p className="text-[#78716C] font-light">Loading settings...</p>
       </div>
     );
   }
@@ -122,90 +110,113 @@ const SettingsScreen = () => {
           <TabsContent value="organization">
             <div className="bg-white/70 backdrop-blur-[32px] border-[0.5px] border-white/20 rounded-2xl p-10 shadow-sm">
               <h2 className="text-xl font-light text-[#1C1917] mb-8">Organization Settings</h2>
-              
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-                <form onSubmit={handleUpdateOrg} className="space-y-6">
-                  <div>
-                    <Label className="text-sm font-light text-[#78716C] mb-2 block">Organization Name</Label>
-                    <Input
-                      value={orgData?.name || ""}
-                      onChange={(e) => setOrgData({...orgData, name: e.target.value})}
-                      className="h-11 rounded-xl border-white/20 bg-white/50 font-light"
-                    />
+              <div className="space-y-6 max-w-xl">
+                {/* Organization Name */}
+                <div>
+                  <Label className="text-sm font-light text-[#78716C] mb-2 block">Organization Name</Label>
+                  <Input
+                    value={settings.name || ''}
+                    onChange={e => handleUpdateSetting('name', e.target.value)}
+                    placeholder="Acme Inc."
+                    className="h-11 rounded-xl border-white/20 bg-white/50 font-light"
+                  />
+                </div>
+
+                {/* Default Work Hours Per Week */}
+                <div>
+                  <Label className="text-sm font-light text-[#78716C] mb-2 block">Default Work Hours Per Week</Label>
+                  <Input
+                    type="number"
+                    value={settings.work_hours_per_week || 40}
+                    onChange={e => handleUpdateSetting('work_hours_per_week', parseInt(e.target.value))}
+                    placeholder="40"
+                    className="h-11 rounded-xl border-white/20 bg-white/50 font-light"
+                  />
+                </div>
+
+                {/* Default Work Days Per Week */}
+                <div>
+                  <Label className="text-sm font-light text-[#78716C] mb-2 block">Default Work Days Per Week</Label>
+                  <Input
+                    type="number"
+                    value={settings.work_days_per_week || 5}
+                    onChange={e => handleUpdateSetting('work_days_per_week', parseInt(e.target.value))}
+                    placeholder="5"
+                    className="h-11 rounded-xl border-white/20 bg-white/50 font-light"
+                  />
+                </div>
+
+                {/* Fiscal Year Start */}
+                <div>
+                  <Label className="text-sm font-light text-[#78716C] mb-2 block">Fiscal Year Start</Label>
+                  <select 
+                    value={settings.fiscal_year_start || 'january'}
+                    onChange={e => handleUpdateSetting('fiscal_year_start', e.target.value)}
+                    className="w-full border border-white/20 bg-white/50 rounded-xl px-4 py-2.5 text-sm font-light h-11 text-[#292524]"
+                  >
+                    <option value="january">January</option>
+                    <option value="april">April</option>
+                    <option value="july">July</option>
+                    <option value="october">October</option>
+                  </select>
+                </div>
+
+                {/* Save Button */}
+                <Button 
+                  onClick={handleSaveChanges}
+                  disabled={isSaving}
+                  className="mt-8 bg-[#1C1917] hover:bg-[#292524] h-11 px-6 rounded-xl font-light transition-all duration-300 text-white shadow-md disabled:opacity-50"
+                >
+                  {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                  Save Changes
+                </Button>
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* ===== TAB 2: TEAM SETTINGS ===== */}
+          <TabsContent value="team">
+            <div className="bg-white/70 backdrop-blur-[32px] border-[0.5px] border-white/20 rounded-2xl p-10 shadow-sm">
+              <h2 className="text-xl font-light text-[#1C1917] mb-8">Team Settings</h2>
+              <div className="space-y-6 max-w-xl">
+                {/* Default Utilization Target */}
+                <div>
+                  <Label className="text-sm font-light text-[#78716C] mb-2 block">Default Utilization Target (%)</Label>
+                  <Input
+                    type="number"
+                    value={settings.target_utilization || 85}
+                    onChange={e => handleUpdateSetting('target_utilization', parseInt(e.target.value))}
+                    placeholder="85"
+                    className="h-11 rounded-xl border-white/20 bg-white/50 font-light"
+                  />
+                  <div className="text-xs text-[#A8A29E] font-light mt-2">
+                    Target utilization percentage for team members
                   </div>
 
-                  <div>
-                    <Label className="text-sm font-light text-[#78716C] mb-2 block">Default Work Hours Per Week</Label>
-                    <Input
-                      type="number"
-                      value={orgData?.work_hours_per_week || 40}
-                      onChange={(e) => setOrgData({...orgData, work_hours_per_week: parseInt(e.target.value)})}
-                      className="h-11 rounded-xl border-white/20 bg-white/50 font-light"
-                    />
-                  </div>
-
-                  <div>
-                    <Label className="text-sm font-light text-[#78716C] mb-2 block">Fiscal Year Start</Label>
-                    <select 
-                      value={orgData?.fiscal_year_start || "january"}
-                      onChange={(e) => setOrgData({...orgData, fiscal_year_start: e.target.value})}
-                      className="w-full border border-white/20 bg-white/50 rounded-xl px-4 py-2.5 text-sm font-light h-11 text-[#292524]"
-                    >
-                      <option value="january">January</option>
-                      <option value="april">April</option>
-                      <option value="july">July</option>
-                      <option value="october">October</option>
-                    </select>
-                  </div>
-
-                  <Button type="submit" disabled={saving} className="mt-8 bg-[#1C1917] text-white rounded-xl px-6 h-11">
-                    {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                    Save Changes
-                  </Button>
-                </form>
-
-                {/* Invite Code Showcase */}
-                <div className="space-y-6 p-8 rounded-2xl bg-stone-50/50 border border-stone-100">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Users className="w-5 h-5 text-[#1C1917]" />
-                    <h3 className="text-sm font-medium text-[#1C1917]">Team Recruitment</h3>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <Label className="text-xs font-light text-[#78716C] mb-2 block">Organization Invite Code</Label>
-                      <div className="flex gap-2">
-                        <div className="relative flex-1">
-                          <Input
-                            readOnly
-                            value={orgData?.invite_code || "GEN-RANDOM-CODE"}
-                            className="h-11 pr-10 rounded-xl border-white/20 bg-white font-mono text-xs tracking-wider"
-                          />
-                          <button onClick={copyInviteCode} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#A8A29E] hover:text-[#1C1917]">
-                            <Copy className="w-4 h-4" />
-                          </button>
-                        </div>
-                        <Button variant="outline" className="h-11 w-11 p-0 rounded-xl border-white/20 bg-white">
-                          <RefreshCw className="w-4 h-4 text-[#78716C]" />
-                        </Button>
-                      </div>
-                      <p className="text-[10px] text-[#A8A29E] mt-2 italic">
-                        Usage count: {orgData?.invite_use_count || 0} members joined via this code
-                      </p>
-                    </div>
-
-                    <div className="pt-4 border-t border-stone-200/50">
-                      <div className="flex items-center justify-between mb-4">
-                        <span className="text-xs text-[#78716C]">Invite Status</span>
-                        <StatusBadge status={orgData?.invite_is_active ? "Active" : "Inactive"} />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-[#78716C]">Joining Role</span>
-                        <span className="text-xs font-medium text-[#1C1917] capitalize">{orgData?.invite_role || 'employee'}</span>
-                      </div>
-                    </div>
+                {/* Overload Threshold */}
+                <div>
+                  <Label className="text-sm font-light text-[#78716C] mb-2 block">Overload Threshold (%)</Label>
+                  <Input
+                    type="number"
+                    value={settings.overload_threshold || 110}
+                    onChange={e => handleUpdateSetting('overload_threshold', parseInt(e.target.value))}
+                    placeholder="110"
+                    className="h-11 rounded-xl border-white/20 bg-white/50 font-light"
+                  />
+                  <div className="text-xs text-[#A8A29E] font-light mt-2">
+                    Alert when utilization exceeds this percentage
                   </div>
                 </div>
+
+                {/* Save Button */}
+                <Button 
+                  onClick={handleSaveChanges}
+                  disabled={isSaving}
+                  className="mt-8 bg-[#1C1917] hover:bg-[#292524] h-11 px-6 rounded-xl font-light transition-all duration-300 text-white shadow-md disabled:opacity-50"
+                >
+                  {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                  Save Changes
+                </Button>
               </div>
             </div>
           </TabsContent>
@@ -215,26 +226,139 @@ const SettingsScreen = () => {
             <div className="bg-white/70 backdrop-blur-[32px] border-[0.5px] border-white/20 rounded-2xl p-10 shadow-sm">
               <div className="flex items-center justify-between mb-8">
                 <h2 className="text-xl font-light text-[#1C1917]">Company Holidays</h2>
-                <Button size="sm" className="bg-[#1C1917] text-white rounded-xl px-5 h-10">
-                  <Plus className="w-4 h-4 mr-2" /> Add Holiday
+                <Button
+                  size="sm"
+                  onClick={() => setShowAddHoliday(!showAddHoliday)}
+                  className="bg-[#1C1917] hover:bg-[#292524] h-10 px-5 rounded-xl font-light transition-all duration-300 text-white shadow-md"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  {showAddHoliday ? 'Cancel' : 'Add Holiday'}
                 </Button>
               </div>
 
+              {/* Add Holiday Form */}
+              {showAddHoliday && (
+                <div className="mb-8 p-6 bg-white/50 border border-white/20 rounded-2xl space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-xs font-light text-[#78716C] mb-1.5 block">Holiday Name</Label>
+                      <Input
+                        value={newHoliday.name}
+                        onChange={e => setNewHoliday(prev => ({ ...prev, name: e.target.value }))}
+                        placeholder="e.g. Christmas"
+                        className="h-10 rounded-xl border-white/10 bg-white/30"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs font-light text-[#78716C] mb-1.5 block">Date</Label>
+                      <Input
+                        type="date"
+                        value={newHoliday.date}
+                        onChange={e => setNewHoliday(prev => ({ ...prev, date: e.target.value }))}
+                        className="h-10 rounded-xl border-white/10 bg-white/30"
+                      />
+                    </div>
+                  </div>
+                  <Button
+                    onClick={handleAddHoliday}
+                    disabled={isSaving}
+                    className="w-full bg-[#1C1917] text-white h-10 rounded-xl font-light"
+                  >
+                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                    Confirm Add Holiday
+                  </Button>
+                </div>
+              )}
+
+              {/* Holidays List */}
               <div className="space-y-3">
-                {holidays.length > 0 ? (
+                {holidays.length === 0 ? (
+                  <div className="text-center py-12 border border-dashed border-[#E7E5E4] rounded-2xl">
+                    <CalendarIcon className="w-8 h-8 text-[#D6D3D1] mx-auto mb-3" />
+                    <p className="text-sm text-[#A8A29E] font-light">No holidays added yet.</p>
+                  </div>
+                ) : (
                   holidays.map((holiday) => (
-                    <div key={holiday.id} className="flex items-center justify-between py-4 px-5 bg-white/40 border-[0.5px] border-white/20 rounded-2xl">
-                      <span className="text-sm text-[#1C1917] font-light">
-                        {holiday.name} — {new Date(holiday.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                      </span>
-                      <button className="text-[#A8A29E] hover:text-red-500 transition-colors">
+                    <div
+                      key={holiday.id}
+                      className="flex items-center justify-between py-4 px-5 bg-white/40 border-[0.5px] border-white/20 rounded-2xl group hover:bg-white/60 transition-all"
+                    >
+                      <div className="flex flex-col">
+                        <span className="text-sm text-[#1C1917] font-medium">{holiday.name}</span>
+                        <span className="text-xs text-[#78716C] font-light">{format(new Date(holiday.date), 'MMMM do, yyyy')}</span>
+                      </div>
+                      <button 
+                        onClick={() => handleDeleteHoliday(holiday.id)}
+                        className="text-[#A8A29E] hover:text-[#F43F5E] opacity-0 group-hover:opacity-100 transition-all"
+                      >
                         <X className="w-4 h-4" />
                       </button>
                     </div>
                   ))
-                ) : (
-                  <div className="text-center py-12 text-stone-400 font-light">No holidays added yet.</div>
                 )}
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* ===== TAB 4: AI THRESHOLD SETTINGS ===== */}
+          <TabsContent value="ai-thresholds">
+            <div className="bg-white/70 backdrop-blur-[32px] border-[0.5px] border-white/20 rounded-2xl p-10 shadow-sm">
+              <h2 className="text-xl font-light text-[#1C1917] mb-8">AI Threshold Settings</h2>
+              <div className="space-y-6 max-w-xl">
+                {/* Low Confidence Threshold */}
+                <div>
+                  <Label className="text-sm font-light text-[#78716C] mb-2 block">Low Confidence Threshold (%)</Label>
+                  <Input
+                    type="number"
+                    value={settings.ai_low_confidence_threshold || 70}
+                    onChange={e => handleUpdateSetting('ai_low_confidence_threshold', parseInt(e.target.value))}
+                    placeholder="70"
+                    className="h-11 rounded-xl border-white/20 bg-white/50 font-light"
+                  />
+                  <div className="text-xs text-[#A8A29E] font-light mt-2">
+                    Alert for tasks with confidence below this %
+                  </div>
+                </div>
+
+                {/* Health Score Warning */}
+                <div>
+                  <Label className="text-sm font-light text-[#78716C] mb-2 block">Health Score Warning</Label>
+                  <Input
+                    type="number"
+                    value={settings.ai_health_score_warning || 60}
+                    onChange={e => handleUpdateSetting('ai_health_score_warning', parseInt(e.target.value))}
+                    placeholder="60"
+                    className="h-11 rounded-xl border-white/20 bg-white/50 font-light"
+                  />
+                  <div className="text-xs text-[#A8A29E] font-light mt-2">
+                    Projects below this score show warnings
+                  </div>
+                </div>
+
+                {/* Timeline Risk Days */}
+                <div>
+                  <Label className="text-sm font-light text-[#78716C] mb-2 block">Timeline Risk Days</Label>
+                  <Input
+                    type="number"
+                    value={settings.ai_timeline_risk_days || 7}
+                    onChange={e => handleUpdateSetting('ai_timeline_risk_days', parseInt(e.target.value))}
+                    placeholder="7"
+                    className="h-11 rounded-xl border-white/20 bg-white/50 font-light"
+                  />
+                  <div className="text-xs text-[#A8A29E] font-light mt-2">
+                    Alert when predicted delay exceeds this many days
+                  </div>
+                </div>
+
+                {/* Save Button */}
+                <Button 
+                  onClick={handleSaveChanges}
+                  disabled={isSaving}
+                  className="mt-8 bg-[#1C1917] hover:bg-[#292524] h-11 px-6 rounded-xl font-light transition-all duration-300 text-white shadow-md disabled:opacity-50"
+                >
+                  {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                  Save Changes
+                </Button>
               </div>
             </div>
           </TabsContent>
@@ -243,23 +367,12 @@ const SettingsScreen = () => {
           <TabsContent value="integrations">
             <div className="bg-white/70 backdrop-blur-[32px] border-[0.5px] border-white/20 rounded-2xl p-10 shadow-sm">
               <h2 className="text-xl font-light text-[#1C1917] mb-8">Integrations</h2>
-              <div className="space-y-4">
-                {integrations.map((integration, idx) => (
-                  <div key={idx} className="flex items-center justify-between py-5 px-6 bg-white/40 border border-white/20 rounded-2xl">
-                    <div>
-                      <div className="text-[#292524] text-sm mb-1.5 font-light">{integration.name}</div>
-                      <div className="text-xs text-[#78716C] font-light">{integration.description}</div>
-                    </div>
-                    {integration.connected ? (
-                      <div className="flex items-center gap-4">
-                        <StatusBadge status="Active" />
-                        <Button variant="outline" className="text-xs h-9 px-4 rounded-xl border-white/20">Configure</Button>
-                      </div>
-                    ) : (
-                      <Button className="bg-[#1C1917] text-white h-9 px-5 rounded-xl">Connect</Button>
-                    )}
-                  </div>
-                ))}
+
+              <div className="p-8 border border-dashed border-[#E7E5E4] rounded-2xl text-center">
+                <p className="text-[#A8A29E] font-light text-sm italic">
+                  Advanced integrations are managed via the Jira & OAuth workflows. 
+                  Contact support for custom Slack or Google Calendar enterprise setups.
+                </p>
               </div>
             </div>
           </TabsContent>
