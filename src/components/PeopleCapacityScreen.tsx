@@ -57,6 +57,8 @@ const UtilizationBar = ({ value }: { value: number }) => {
 const AddTeamMemberModal = ({ open, onOpenChange, onMemberAdded }: { open: boolean; onOpenChange: (open: boolean) => void; onMemberAdded?: () => void }) => {
     const [name, setName] = useState('');
     const [role, setRole] = useState('');
+    const [customRole, setCustomRole] = useState('');
+    const [isCustomRole, setIsCustomRole] = useState(false);
     const [email, setEmail] = useState('');
     const [skills, setSkills] = useState('');
     const [utilization, setUtilization] = useState(85);
@@ -70,7 +72,8 @@ const AddTeamMemberModal = ({ open, onOpenChange, onMemberAdded }: { open: boole
         if (nameErr) errors.name = nameErr;
         const emailErr = validators.email(email);
         if (emailErr) errors.email = emailErr;
-        if (!role) errors.role = 'Please select a role';
+        const finalRole = isCustomRole ? customRole.trim() : role;
+        if (!finalRole) errors.role = 'Please select or enter a role';
         setMemberErrors(errors);
         return Object.keys(errors).length === 0;
     };
@@ -100,12 +103,13 @@ const AddTeamMemberModal = ({ open, onOpenChange, onMemberAdded }: { open: boole
             }
 
             const teamId = teams[0].id;
+            const finalRole = isCustomRole ? customRole.trim() : role;
 
             // Add team member
             const result = await peopleService.addTeamMember(orgId, teamId, {
                 name,
                 email,
-                role,
+                role: finalRole,
                 skills,
                 utilizationPercent: utilization,
             });
@@ -117,6 +121,8 @@ const AddTeamMemberModal = ({ open, onOpenChange, onMemberAdded }: { open: boole
             setName('');
             setEmail('');
             setRole('');
+            setCustomRole('');
+            setIsCustomRole(false);
             setSkills('');
             setUtilization(85);
             setMemberErrors({});
@@ -158,19 +164,47 @@ const AddTeamMemberModal = ({ open, onOpenChange, onMemberAdded }: { open: boole
                     <div className="space-y-4">
                         <div className="space-y-2">
                             <Label className="text-xs font-medium text-[#737373] uppercase tracking-wide">Role</Label>
-                            <Select value={role} onValueChange={(val) => { setRole(val); setMemberErrors(prev => ({ ...prev, role: '' })); }}>
-                                <SelectTrigger className="h-10 border-[#E5E5E5] bg-white">
-                                    <SelectValue placeholder="Select role" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="Frontend Developer">Frontend Developer</SelectItem>
-                                    <SelectItem value="Backend Developer">Backend Developer</SelectItem>
-                                    <SelectItem value="Full Stack Developer">Full Stack Developer</SelectItem>
-                                    <SelectItem value="Designer">Product Designer</SelectItem>
-                                    <SelectItem value="Product Manager">Product Manager</SelectItem>
-                                    <SelectItem value="QA Engineer">QA Engineer</SelectItem>
-                                </SelectContent>
-                            </Select>
+                            {!isCustomRole ? (
+                                <div className="space-y-3">
+                                    <Select value={role} onValueChange={(val) => { setRole(val); setMemberErrors(prev => ({ ...prev, role: '' })); }} disabled={isSubmitting}>
+                                        <SelectTrigger className="h-10 border-[#E5E5E5] bg-white hover:border-[#D6D3D1] focus:ring-2 focus:ring-[#2DD4BF]/20 focus:border-[#2DD4BF] transition-all duration-200">
+                                            <SelectValue placeholder="Select a role" />
+                                        </SelectTrigger>
+                                        <SelectContent className="bg-white border-[#E5E5E5] shadow-lg">
+                                            <SelectItem value="Frontend Developer" className="hover:bg-[#FAFAF9] focus:bg-[#FAFAF9]">Frontend Developer</SelectItem>
+                                            <SelectItem value="Backend Developer" className="hover:bg-[#FAFAF9] focus:bg-[#FAFAF9]">Backend Developer</SelectItem>
+                                            <SelectItem value="Full Stack Developer" className="hover:bg-[#FAFAF9] focus:bg-[#FAFAF9]">Full Stack Developer</SelectItem>
+                                            <SelectItem value="Designer" className="hover:bg-[#FAFAF9] focus:bg-[#FAFAF9]">Product Designer</SelectItem>
+                                            <SelectItem value="Product Manager" className="hover:bg-[#FAFAF9] focus:bg-[#FAFAF9]">Product Manager</SelectItem>
+                                            <SelectItem value="QA Engineer" className="hover:bg-[#FAFAF9] focus:bg-[#FAFAF9]">QA Engineer</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <button
+                                        onClick={() => { setIsCustomRole(true); setRole(''); setMemberErrors(prev => ({ ...prev, role: '' })); }}
+                                        disabled={isSubmitting}
+                                        className="w-full py-2.5 px-3 text-xs font-medium text-[#2DD4BF] border border-[#2DD4BF]/30 bg-[#2DD4BF]/5 rounded-lg hover:bg-[#2DD4BF]/10 hover:border-[#2DD4BF]/60 transition-all duration-200 disabled:opacity-50"
+                                    >
+                                        + Add Custom Role
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    <Input 
+                                        value={customRole} 
+                                        onChange={(e) => { setCustomRole(e.target.value); setMemberErrors(prev => ({ ...prev, role: '' })); }} 
+                                        className="h-10 border-[#E5E5E5] bg-white hover:border-[#D6D3D1] focus:ring-2 focus:ring-[#2DD4BF]/20 focus:border-[#2DD4BF] transition-all duration-200" 
+                                        placeholder="e.g. DevOps Engineer" 
+                                        disabled={isSubmitting}
+                                    />
+                                    <button
+                                        onClick={() => { setIsCustomRole(false); setCustomRole(''); setMemberErrors(prev => ({ ...prev, role: '' })); }}
+                                        disabled={isSubmitting}
+                                        className="w-full py-2.5 px-3 text-xs font-medium text-[#737373] border border-[#E5E5E5] bg-white rounded-lg hover:bg-[#FAFAF9] hover:border-[#D6D3D1] transition-all duration-200 disabled:opacity-50"
+                                    >
+                                        Select from List
+                                    </button>
+                                </div>
+                            )}
                             <FormError message={memberErrors.role} />
                         </div>
 
@@ -252,10 +286,76 @@ export const PeopleCapacityScreen = () => {
         loadTeamData();
     }, [loadTeamData]);
 
-    const fetchDetail = async (name: string) => {
+    // Fetch dynamic capacity timeline from tasks
+    const fetchCapacityTimeline = async (userId: string) => {
+        try {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            // Calculate dates for 4 weeks
+            const weeks = [];
+            for (let i = 0; i < 4; i++) {
+                const weekStart = new Date(today);
+                weekStart.setDate(weekStart.getDate() + i * 7);
+                const weekEnd = new Date(weekStart);
+                weekEnd.setDate(weekEnd.getDate() + 6);
+                weeks.push({ start: weekStart, end: weekEnd });
+            }
+
+            // Fetch tasks for the user for the next 4 weeks
+            const { data: tasks, error } = await supabase
+                .from('tasks')
+                .select('estimated_hours, start_date, due_date')
+                .eq('assignee_id', userId)
+                .or(`status.eq.not_started,status.eq.in_progress`)
+                .gte('due_date', today.toISOString().split('T')[0]);
+
+            if (error) {
+                console.error('Error fetching tasks:', error);
+                return [];
+            }
+
+            // Map tasks to weeks and calculate hours
+            const capacityTimeline = weeks.map((week, idx) => {
+                const weekTasks = tasks.filter((task: any) => {
+                    if (!task.due_date) return false;
+                    const dueDate = new Date(task.due_date);
+                    dueDate.setHours(0, 0, 0, 0);
+                    return dueDate >= week.start && dueDate <= week.end;
+                });
+
+                const allocatedHours = weekTasks.reduce((sum: number, task: any) => {
+                    return sum + (task.estimated_hours || 0);
+                }, 0);
+
+                const weekLabel = `${week.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${week.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+                const availableHours = 40; // 40 hours per week (8 hours/day * 5 days)
+
+                return {
+                    week: weekLabel,
+                    allocated: Math.round(allocatedHours),
+                    available: availableHours
+                };
+            });
+
+            return capacityTimeline;
+        } catch (error) {
+            console.error('Error in fetchCapacityTimeline:', error);
+            return [];
+        }
+    };
+
+    const fetchDetail = async (name: string, userId?: string) => {
         if (allPersonDetails[name]) return;
         try {
             const detail = await peopleService.fetchPersonDetails(name);
+            
+            // Fetch dynamic capacity timeline if userId is provided
+            if (userId) {
+                const capacityTimeline = await fetchCapacityTimeline(userId);
+                detail.capacityTimeline = capacityTimeline;
+            }
+            
             setAllPersonDetails(prev => ({ ...prev, [name]: detail }));
         } catch (error) {
             console.error('Error fetching detail:', error);
@@ -266,7 +366,7 @@ export const PeopleCapacityScreen = () => {
 
     useEffect(() => {
         if (selectedPerson) {
-            fetchDetail(selectedPerson.name);
+            fetchDetail(selectedPerson.name, selectedPerson.id);
         }
     }, [selectedPerson]);
 
