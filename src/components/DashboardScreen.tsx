@@ -202,20 +202,22 @@ export const DashboardScreen = () => {
                 <div className="flex items-center gap-3">
                     <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                         <PopoverAnchor asChild>
-                            <Select value={dateRangeParam} onValueChange={(val) => {
-                                setDateRangeParam(val);
-                                if (val === 'custom') setIsCalendarOpen(true);
-                            }}>
-                                <SelectTrigger className="w-[220px] h-10 bg-white border-[#E7E5E4] rounded-md shadow-sm">
-                                    <CalendarToday style={{ fontSize: 16 }} className="mr-2 text-[#78716C]" />
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent className="bg-white border-[#E7E5E4]">
-                                    <SelectItem value="30">Last 30 Days</SelectItem>
-                                    <SelectItem value="90">Last 90 Days</SelectItem>
-                                    <SelectItem value="custom">Custom Date Range</SelectItem>
-                                </SelectContent>
-                            </Select>
+                            <div>
+                                <Select value={dateRangeParam} onValueChange={(val) => {
+                                    setDateRangeParam(val);
+                                    if (val === 'custom') setIsCalendarOpen(true);
+                                }}>
+                                    <SelectTrigger className="w-[220px] h-10 bg-white border-[#E7E5E4] rounded-md shadow-sm">
+                                        <CalendarToday style={{ fontSize: 16 }} className="mr-2 text-[#78716C]" />
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-white border-[#E7E5E4]">
+                                        <SelectItem value="30">Last 30 Days</SelectItem>
+                                        <SelectItem value="90">Last 90 Days</SelectItem>
+                                        <SelectItem value="custom">Custom Date Range</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </PopoverAnchor>
                         <PopoverContent className="w-auto p-0 bg-white" align="start">
                             <Calendar mode="range" selected={customRange} onSelect={setCustomRange} numberOfMonths={2} />
@@ -293,7 +295,7 @@ export const DashboardScreen = () => {
                                                         </Avatar>
                                                         <div className="min-w-0">
                                                             <div className="text-sm font-bold text-[#1C1917] truncate">{member.name}</div>
-                                                            <div className="text-[10px] font-normal text-[#78716C] truncate">{member.email}</div>
+                                                            <div className="text-[10px] font-normal text-[#78716C] truncate">{member.role}</div>
                                                         </div>
                                                     </div>
 
