@@ -258,7 +258,6 @@ David Lee,david@example.com,Frontend Developer`;
             ))}
           </div>
         </div>
-        </>
         )}
 
         {!isCSVMode && (
