@@ -75,6 +75,8 @@ const UtilizationBar = ({ value }: { value: number }) => {
 const AddTeamMemberModal = ({ open, onOpenChange, onMemberAdded }: { open: boolean; onOpenChange: (open: boolean) => void; onMemberAdded?: () => void }) => {
   const [name, setName] = useState('');
   const [role, setRole] = useState('');
+  const [customRole, setCustomRole] = useState('');
+  const [isCustomRole, setIsCustomRole] = useState(false);
   const [email, setEmail] = useState('');
   const [skills, setSkills] = useState('');
   const [utilization, setUtilization] = useState(85);
@@ -86,7 +88,8 @@ const AddTeamMemberModal = ({ open, onOpenChange, onMemberAdded }: { open: boole
     if (!name.trim()) newErrors.name = 'Full name is required';
     if (!email.trim()) newErrors.email = 'Email is required';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) newErrors.email = 'Invalid email format';
-    if (!role) newErrors.role = 'Please select a role';
+    const finalRole = isCustomRole ? customRole.trim() : role;
+    if (!finalRole) newErrors.role = 'Please select or enter a role';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -115,12 +118,13 @@ const AddTeamMemberModal = ({ open, onOpenChange, onMemberAdded }: { open: boole
       }
 
       const teamId = teams[0].id;
+      const finalRole = isCustomRole ? customRole.trim() : role;
 
       // Add team member
       const result = await peopleService.addTeamMember(orgId, teamId, {
         name,
         email,
-        role,
+        role: finalRole,
         skills,
         utilizationPercent: utilization,
       });
@@ -132,6 +136,8 @@ const AddTeamMemberModal = ({ open, onOpenChange, onMemberAdded }: { open: boole
       setName('');
       setEmail('');
       setRole('');
+      setCustomRole('');
+      setIsCustomRole(false);
       setSkills('');
       setUtilization(85);
       setErrors({});
@@ -184,19 +190,47 @@ const AddTeamMemberModal = ({ open, onOpenChange, onMemberAdded }: { open: boole
           <div className="space-y-4">
             <div className="space-y-2">
               <Label className="text-xs font-medium text-[#737373] uppercase tracking-wide">Role</Label>
-              <Select value={role} onValueChange={(val) => { setRole(val); if (errors.role) setErrors(prev => ({ ...prev, role: '' })); }} disabled={isSubmitting}>
-                <SelectTrigger className="h-10 border-[#E5E5E5] bg-white">
-                  <SelectValue placeholder="Select role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Frontend Developer">Frontend Developer</SelectItem>
-                  <SelectItem value="Backend Developer">Backend Developer</SelectItem>
-                  <SelectItem value="Full Stack Developer">Full Stack Developer</SelectItem>
-                  <SelectItem value="Designer">Product Designer</SelectItem>
-                  <SelectItem value="Product Manager">Product Manager</SelectItem>
-                  <SelectItem value="QA Engineer">QA Engineer</SelectItem>
-                </SelectContent>
-              </Select>
+              {!isCustomRole ? (
+                <div className="space-y-3">
+                  <Select value={role} onValueChange={(val) => { setRole(val); if (errors.role) setErrors(prev => ({ ...prev, role: '' })); }} disabled={isSubmitting}>
+                    <SelectTrigger className="h-10 border-[#E5E5E5] bg-white hover:border-[#D6D3D1] focus:ring-2 focus:ring-[#2DD4BF]/20 focus:border-[#2DD4BF] transition-all duration-200">
+                      <SelectValue placeholder="Select a role" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border-[#E5E5E5] shadow-lg">
+                      <SelectItem value="Frontend Developer" className="hover:bg-[#FAFAF9] focus:bg-[#FAFAF9]">Frontend Developer</SelectItem>
+                      <SelectItem value="Backend Developer" className="hover:bg-[#FAFAF9] focus:bg-[#FAFAF9]">Backend Developer</SelectItem>
+                      <SelectItem value="Full Stack Developer" className="hover:bg-[#FAFAF9] focus:bg-[#FAFAF9]">Full Stack Developer</SelectItem>
+                      <SelectItem value="Designer" className="hover:bg-[#FAFAF9] focus:bg-[#FAFAF9]">Product Designer</SelectItem>
+                      <SelectItem value="Product Manager" className="hover:bg-[#FAFAF9] focus:bg-[#FAFAF9]">Product Manager</SelectItem>
+                      <SelectItem value="QA Engineer" className="hover:bg-[#FAFAF9] focus:bg-[#FAFAF9]">QA Engineer</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <button
+                    onClick={() => { setIsCustomRole(true); setRole(''); if (errors.role) setErrors(prev => ({ ...prev, role: '' })); }}
+                    disabled={isSubmitting}
+                    className="w-full py-2.5 px-3 text-xs font-medium text-[#2DD4BF] border border-[#2DD4BF]/30 bg-[#2DD4BF]/5 rounded-lg hover:bg-[#2DD4BF]/10 hover:border-[#2DD4BF]/60 transition-all duration-200 disabled:opacity-50"
+                  >
+                    + Add Custom Role
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <Input 
+                    value={customRole} 
+                    onChange={(e) => { setCustomRole(e.target.value); if (errors.role) setErrors(prev => ({ ...prev, role: '' })); }} 
+                    className="h-10 border-[#E5E5E5] bg-white hover:border-[#D6D3D1] focus:ring-2 focus:ring-[#2DD4BF]/20 focus:border-[#2DD4BF] transition-all duration-200" 
+                    placeholder="e.g. DevOps Engineer" 
+                    disabled={isSubmitting}
+                  />
+                  <button
+                    onClick={() => { setIsCustomRole(false); setCustomRole(''); if (errors.role) setErrors(prev => ({ ...prev, role: '' })); }}
+                    disabled={isSubmitting}
+                    className="w-full py-2.5 px-3 text-xs font-medium text-[#737373] border border-[#E5E5E5] bg-white rounded-lg hover:bg-[#FAFAF9] hover:border-[#D6D3D1] transition-all duration-200 disabled:opacity-50"
+                  >
+                    Select from List
+                  </button>
+                </div>
+              )}
               {errors.role && <p className="text-xs text-red-500">{errors.role}</p>}
             </div>
 

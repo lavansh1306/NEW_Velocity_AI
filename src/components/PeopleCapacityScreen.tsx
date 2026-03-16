@@ -57,6 +57,8 @@ const UtilizationBar = ({ value }: { value: number }) => {
 const AddTeamMemberModal = ({ open, onOpenChange, onMemberAdded }: { open: boolean; onOpenChange: (open: boolean) => void; onMemberAdded?: () => void }) => {
     const [name, setName] = useState('');
     const [role, setRole] = useState('');
+    const [customRole, setCustomRole] = useState('');
+    const [isCustomRole, setIsCustomRole] = useState(false);
     const [email, setEmail] = useState('');
     const [skills, setSkills] = useState('');
     const [utilization, setUtilization] = useState(85);
@@ -70,7 +72,8 @@ const AddTeamMemberModal = ({ open, onOpenChange, onMemberAdded }: { open: boole
         if (nameErr) errors.name = nameErr;
         const emailErr = validators.email(email);
         if (emailErr) errors.email = emailErr;
-        if (!role) errors.role = 'Please select a role';
+        const finalRole = isCustomRole ? customRole.trim() : role;
+        if (!finalRole) errors.role = 'Please select or enter a role';
         setMemberErrors(errors);
         return Object.keys(errors).length === 0;
     };
@@ -100,12 +103,13 @@ const AddTeamMemberModal = ({ open, onOpenChange, onMemberAdded }: { open: boole
             }
 
             const teamId = teams[0].id;
+            const finalRole = isCustomRole ? customRole.trim() : role;
 
             // Add team member
             const result = await peopleService.addTeamMember(orgId, teamId, {
                 name,
                 email,
-                role,
+                role: finalRole,
                 skills,
                 utilizationPercent: utilization,
             });
@@ -117,6 +121,8 @@ const AddTeamMemberModal = ({ open, onOpenChange, onMemberAdded }: { open: boole
             setName('');
             setEmail('');
             setRole('');
+            setCustomRole('');
+            setIsCustomRole(false);
             setSkills('');
             setUtilization(85);
             setMemberErrors({});
@@ -158,19 +164,47 @@ const AddTeamMemberModal = ({ open, onOpenChange, onMemberAdded }: { open: boole
                     <div className="space-y-4">
                         <div className="space-y-2">
                             <Label className="text-xs font-medium text-[#737373] uppercase tracking-wide">Role</Label>
-                            <Select value={role} onValueChange={(val) => { setRole(val); setMemberErrors(prev => ({ ...prev, role: '' })); }}>
-                                <SelectTrigger className="h-10 border-[#E5E5E5] bg-white">
-                                    <SelectValue placeholder="Select role" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="Frontend Developer">Frontend Developer</SelectItem>
-                                    <SelectItem value="Backend Developer">Backend Developer</SelectItem>
-                                    <SelectItem value="Full Stack Developer">Full Stack Developer</SelectItem>
-                                    <SelectItem value="Designer">Product Designer</SelectItem>
-                                    <SelectItem value="Product Manager">Product Manager</SelectItem>
-                                    <SelectItem value="QA Engineer">QA Engineer</SelectItem>
-                                </SelectContent>
-                            </Select>
+                            {!isCustomRole ? (
+                                <div className="space-y-3">
+                                    <Select value={role} onValueChange={(val) => { setRole(val); setMemberErrors(prev => ({ ...prev, role: '' })); }} disabled={isSubmitting}>
+                                        <SelectTrigger className="h-10 border-[#E5E5E5] bg-white hover:border-[#D6D3D1] focus:ring-2 focus:ring-[#2DD4BF]/20 focus:border-[#2DD4BF] transition-all duration-200">
+                                            <SelectValue placeholder="Select a role" />
+                                        </SelectTrigger>
+                                        <SelectContent className="bg-white border-[#E5E5E5] shadow-lg">
+                                            <SelectItem value="Frontend Developer" className="hover:bg-[#FAFAF9] focus:bg-[#FAFAF9]">Frontend Developer</SelectItem>
+                                            <SelectItem value="Backend Developer" className="hover:bg-[#FAFAF9] focus:bg-[#FAFAF9]">Backend Developer</SelectItem>
+                                            <SelectItem value="Full Stack Developer" className="hover:bg-[#FAFAF9] focus:bg-[#FAFAF9]">Full Stack Developer</SelectItem>
+                                            <SelectItem value="Designer" className="hover:bg-[#FAFAF9] focus:bg-[#FAFAF9]">Product Designer</SelectItem>
+                                            <SelectItem value="Product Manager" className="hover:bg-[#FAFAF9] focus:bg-[#FAFAF9]">Product Manager</SelectItem>
+                                            <SelectItem value="QA Engineer" className="hover:bg-[#FAFAF9] focus:bg-[#FAFAF9]">QA Engineer</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <button
+                                        onClick={() => { setIsCustomRole(true); setRole(''); setMemberErrors(prev => ({ ...prev, role: '' })); }}
+                                        disabled={isSubmitting}
+                                        className="w-full py-2.5 px-3 text-xs font-medium text-[#2DD4BF] border border-[#2DD4BF]/30 bg-[#2DD4BF]/5 rounded-lg hover:bg-[#2DD4BF]/10 hover:border-[#2DD4BF]/60 transition-all duration-200 disabled:opacity-50"
+                                    >
+                                        + Add Custom Role
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    <Input 
+                                        value={customRole} 
+                                        onChange={(e) => { setCustomRole(e.target.value); setMemberErrors(prev => ({ ...prev, role: '' })); }} 
+                                        className="h-10 border-[#E5E5E5] bg-white hover:border-[#D6D3D1] focus:ring-2 focus:ring-[#2DD4BF]/20 focus:border-[#2DD4BF] transition-all duration-200" 
+                                        placeholder="e.g. DevOps Engineer" 
+                                        disabled={isSubmitting}
+                                    />
+                                    <button
+                                        onClick={() => { setIsCustomRole(false); setCustomRole(''); setMemberErrors(prev => ({ ...prev, role: '' })); }}
+                                        disabled={isSubmitting}
+                                        className="w-full py-2.5 px-3 text-xs font-medium text-[#737373] border border-[#E5E5E5] bg-white rounded-lg hover:bg-[#FAFAF9] hover:border-[#D6D3D1] transition-all duration-200 disabled:opacity-50"
+                                    >
+                                        Select from List
+                                    </button>
+                                </div>
+                            )}
                             <FormError message={memberErrors.role} />
                         </div>
 
@@ -217,6 +251,82 @@ export const PeopleCapacityScreen = () => {
     const [allPersonDetails, setAllPersonDetails] = useState<Record<string, PersonDetailView>>({});
     const [isLoading, setIsLoading] = useState(true);
 
+    // Fetch assigned projects for team members
+    const fetchMemberProjects = async (members: TeamMemberView[]) => {
+        try {
+            const membersWithProjects = await Promise.all(
+                members.map(async (member) => {
+                    try {
+                        // Try to fetch tasks using assignee_id first
+                        let { data: tasks, error } = await supabase
+                            .from('tasks')
+                            .select('project_id')
+                            .eq('assignee_id', member.id)
+                            .in('status', ['not_started', 'in_progress', 'blocked']);
+
+                        // If no results with assignee_id, try user_id
+                        if (error || !tasks || tasks.length === 0) {
+                            console.log(`[fetchMemberProjects] Trying user_id for ${member.name}`);
+                            const { data: userTasks, error: userError } = await supabase
+                                .from('tasks')
+                                .select('project_id')
+                                .eq('user_id', member.id)
+                                .in('status', ['not_started', 'in_progress', 'blocked']);
+
+                            if (userError) {
+                                console.warn(`Error fetching tasks for ${member.name}:`, userError);
+                                return { ...member, assignedProjects: [] };
+                            }
+                            tasks = userTasks;
+                        }
+
+                        if (error || !tasks) {
+                            console.warn(`Error fetching tasks for ${member.name}:`, error);
+                            return { ...member, assignedProjects: [] };
+                        }
+
+                        console.log(`[fetchMemberProjects] Tasks for ${member.name} (${member.id}):`, tasks);
+
+                        // Get unique project IDs
+                        const projectIds = [...new Set(tasks.map(t => t.project_id).filter(id => id))];
+
+                        if (projectIds.length === 0) {
+                            console.log(`[fetchMemberProjects] No project IDs for ${member.name}`);
+                            return { ...member, assignedProjects: [] };
+                        }
+
+                        // Fetch project details
+                        const { data: projects, error: projectError } = await supabase
+                            .from('projects')
+                            .select('id, name')
+                            .in('id', projectIds);
+
+                        if (projectError || !projects) {
+                            console.warn(`Error fetching projects for ${member.name}:`, projectError);
+                            return { ...member, assignedProjects: [] };
+                        }
+
+                        console.log(`[fetchMemberProjects] Projects for ${member.name}:`, projects);
+
+                        return {
+                            ...member,
+                            assignedProjects: projects.map(p => ({ id: p.id, name: p.name }))
+                        };
+                    } catch (error) {
+                        console.error(`Error processing projects for ${member.name}:`, error);
+                        return { ...member, assignedProjects: [] };
+                    }
+                })
+            );
+
+            console.log('[fetchMemberProjects] Final result:', membersWithProjects);
+            return membersWithProjects;
+        } catch (error) {
+            console.error('Error in fetchMemberProjects:', error);
+            return members;
+        }
+    };
+
     const loadTeamData = useCallback(async () => {
         if (!orgId || !user) return;
 
@@ -237,7 +347,12 @@ export const PeopleCapacityScreen = () => {
             const filteredMembers = members.filter(m => m.id !== user.id);
             const filteredSkills = skills.filter(s => s.userId !== user.id);
 
-            setTeamMembers(filteredMembers);
+            // Fetch assigned projects for each member
+            const membersWithProjects = await fetchMemberProjects(filteredMembers);
+
+            console.log('[loadTeamData] Members with projects:', membersWithProjects);
+
+            setTeamMembers(membersWithProjects);
             setPendingSkills(filteredSkills);
         } catch (error) {
             toast.error('Failed to load live data. Falling back to mock data.');
@@ -252,10 +367,76 @@ export const PeopleCapacityScreen = () => {
         loadTeamData();
     }, [loadTeamData]);
 
-    const fetchDetail = async (name: string) => {
+    // Fetch dynamic capacity timeline from tasks
+    const fetchCapacityTimeline = async (userId: string) => {
+        try {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            // Calculate dates for 4 weeks
+            const weeks = [];
+            for (let i = 0; i < 4; i++) {
+                const weekStart = new Date(today);
+                weekStart.setDate(weekStart.getDate() + i * 7);
+                const weekEnd = new Date(weekStart);
+                weekEnd.setDate(weekEnd.getDate() + 6);
+                weeks.push({ start: weekStart, end: weekEnd });
+            }
+
+            // Fetch tasks for the user for the next 4 weeks
+            const { data: tasks, error } = await supabase
+                .from('tasks')
+                .select('estimated_hours, start_date, due_date')
+                .eq('assignee_id', userId)
+                .or(`status.eq.not_started,status.eq.in_progress`)
+                .gte('due_date', today.toISOString().split('T')[0]);
+
+            if (error) {
+                console.error('Error fetching tasks:', error);
+                return [];
+            }
+
+            // Map tasks to weeks and calculate hours
+            const capacityTimeline = weeks.map((week, idx) => {
+                const weekTasks = tasks.filter((task: any) => {
+                    if (!task.due_date) return false;
+                    const dueDate = new Date(task.due_date);
+                    dueDate.setHours(0, 0, 0, 0);
+                    return dueDate >= week.start && dueDate <= week.end;
+                });
+
+                const allocatedHours = weekTasks.reduce((sum: number, task: any) => {
+                    return sum + (task.estimated_hours || 0);
+                }, 0);
+
+                const weekLabel = `${week.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${week.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+                const availableHours = 40; // 40 hours per week (8 hours/day * 5 days)
+
+                return {
+                    week: weekLabel,
+                    allocated: Math.round(allocatedHours),
+                    available: availableHours
+                };
+            });
+
+            return capacityTimeline;
+        } catch (error) {
+            console.error('Error in fetchCapacityTimeline:', error);
+            return [];
+        }
+    };
+
+    const fetchDetail = async (name: string, userId?: string) => {
         if (allPersonDetails[name]) return;
         try {
             const detail = await peopleService.fetchPersonDetails(name);
+            
+            // Fetch dynamic capacity timeline if userId is provided
+            if (userId) {
+                const capacityTimeline = await fetchCapacityTimeline(userId);
+                detail.capacityTimeline = capacityTimeline;
+            }
+            
             setAllPersonDetails(prev => ({ ...prev, [name]: detail }));
         } catch (error) {
             console.error('Error fetching detail:', error);
@@ -266,7 +447,7 @@ export const PeopleCapacityScreen = () => {
 
     useEffect(() => {
         if (selectedPerson) {
-            fetchDetail(selectedPerson.name);
+            fetchDetail(selectedPerson.name, selectedPerson.id);
         }
     }, [selectedPerson]);
 
@@ -280,6 +461,70 @@ export const PeopleCapacityScreen = () => {
     }, [selectedPerson]);
 
     const [pendingSkillActions, setPendingSkillActions] = useState<Record<number, string>>({});
+    const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
+
+    const handleRemoveMember = async (e: React.MouseEvent, memberId: string, memberName: string) => {
+        e.stopPropagation();
+        
+        if (!confirm(`Are you sure you want to remove ${memberName} from the team? This action cannot be undone.`)) {
+            return;
+        }
+
+        setRemovingMemberId(memberId);
+        try {
+            const orgId = getCurrentOrgId();
+            if (!orgId) {
+                toast.error('Organization not found');
+                return;
+            }
+
+            // First, clean up any task assignments for this member
+            const { error: taskError } = await supabase
+                .from('task_assignments')
+                .delete()
+                .eq('team_member_id', memberId);
+
+            if (taskError) {
+                console.warn('Warning cleaning up task assignments:', taskError);
+                // Continue with member deletion even if this fails
+            }
+
+            // Delete the team member from database
+            const { error: deleteError, data } = await supabase
+                .from('team_members')
+                .delete()
+                .eq('id', memberId)
+                .select();
+
+            if (deleteError) {
+                toast.error('Failed to remove team member from database');
+                console.error('Delete error:', deleteError);
+                return;
+            }
+
+            // Verify deletion was successful
+            if (!data || data.length === 0) {
+                console.warn('Delete returned no rows - member may not exist');
+            }
+
+            console.log('[PeopleCapacity] Team member deleted successfully:', data);
+
+            // Update local state
+            setTeamMembers(prevMembers => prevMembers.filter(m => m.id !== memberId));
+            
+            // Close detail panel if the removed member is selected
+            if (selectedPerson?.id === memberId) {
+                setSelectedPerson(null);
+            }
+
+            toast.success(`${memberName} has been permanently removed from the team`);
+        } catch (error) {
+            toast.error('An error occurred while removing the team member');
+            console.error('Error removing member:', error);
+        } finally {
+            setRemovingMemberId(null);
+        }
+    };
 
     // Default person details structure to prevent undefined errors
     const defaultPersonDetails = {
@@ -296,6 +541,10 @@ export const PeopleCapacityScreen = () => {
         utilization: selectedPerson.utilization,
         ...defaultPersonDetails,
         ...(allPersonDetails[selectedPerson.name] || allPersonDetails[Object.keys(allPersonDetails)[0]] || {}),
+        // Use assignedProjects from selectedPerson if available
+        projects: (selectedPerson as any).assignedProjects && (selectedPerson as any).assignedProjects.length > 0
+            ? (selectedPerson as any).assignedProjects.map((p: any) => ({ name: p.name, hours: 0 }))
+            : (allPersonDetails[selectedPerson.name]?.projects || []),
     } : null;
 
     const totalMembers = teamMembers.length;
@@ -637,7 +886,17 @@ export const PeopleCapacityScreen = () => {
                                     </div>
                                     <div className="text-xs text-[#57534E] font-light mt-0.5">{member.role}</div>
                                 </div>
-                                <ArrowForwardOutlined style={{ fontSize: 16 }} className="text-[#D6D3D1] group-hover:text-[#2DD4BF] transition-colors shrink-0 mt-1" />
+                                <div className="flex items-center gap-2 shrink-0">
+                                    <button
+                                        onClick={(e) => handleRemoveMember(e, member.id, member.name)}
+                                        disabled={removingMemberId === member.id}
+                                        className="p-1.5 text-[#D6D3D1] hover:text-[#C2714F] hover:bg-[#C2714F]/10 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        title="Remove member"
+                                    >
+                                        <DeleteOutlined style={{ fontSize: 16 }} />
+                                    </button>
+                                    <ArrowForwardOutlined style={{ fontSize: 16 }} className="text-[#D6D3D1] group-hover:text-[#2DD4BF] transition-colors shrink-0 mt-1" />
+                                </div>
                             </div>
 
                             {/* Utilization bar */}
@@ -654,16 +913,38 @@ export const PeopleCapacityScreen = () => {
                                 <UtilizationBar value={member.utilization} />
                             </div>
 
-                            {/* Stats */}
-                            <div className="flex items-center gap-3 mb-5">
-                                <div className="flex-1 bg-[#2DD4BF]/[0.04] rounded-xl px-3 py-2.5 text-center border border-[#2DD4BF]/10">
-                                    <div className="text-sm text-[#1C1917] font-light">{member.projects}</div>
-                                    <div className="text-[10px] text-[#78716C] font-light mt-0.5">Projects</div>
+                            {/* Stats & Assigned Projects */}
+                            <div className="mb-5">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="flex-1 bg-[#7C9A82]/[0.05] rounded-xl px-3 py-2.5 text-center border border-[#7C9A82]/10">
+                                        <div className="text-sm text-[#1C1917] font-light">{(member as any).assignedProjects?.length || 0}</div>
+                                        <div className="text-[10px] text-[#78716C] font-light mt-0.5">Projects</div>
+                                    </div>
+                                    <div className="flex-1 bg-[#7C9A82]/[0.05] rounded-xl px-3 py-2.5 text-center border border-[#7C9A82]/10">
+                                        <div className="text-sm text-[#1C1917] font-light">{member.availability}h</div>
+                                        <div className="text-[10px] text-[#78716C] font-light mt-0.5">Avail (2wk)</div>
+                                    </div>
                                 </div>
-                                <div className="flex-1 bg-[#7C9A82]/[0.05] rounded-xl px-3 py-2.5 text-center border border-[#7C9A82]/10">
-                                    <div className="text-sm text-[#1C1917] font-light">{member.availability}h</div>
-                                    <div className="text-[10px] text-[#78716C] font-light mt-0.5">Avail (2wk)</div>
-                                </div>
+
+                                {/* Assigned Projects List */}
+                                {(member as any).assignedProjects && (member as any).assignedProjects.length > 0 && (
+                                    <div className="space-y-2 border-t border-[#E7E5E4] pt-3">
+                                        <div className="text-[10px] text-[#78716C] font-light uppercase tracking-wider mb-2">Assigned To</div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {(member as any).assignedProjects.map((project: any, i: number) => (
+                                                <span key={i} className="px-2.5 py-1 bg-[#7C9A82]/[0.08] border border-[#7C9A82]/20 text-[#292524] text-[10px] rounded-full font-light truncate max-w-full">
+                                                    {project.name}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                {(!((member as any).assignedProjects) || (member as any).assignedProjects.length === 0) && (
+                                    <div className="border-t border-[#E7E5E4] pt-3">
+                                        <div className="text-[10px] text-[#78716C] font-light uppercase tracking-wider">Assigned To</div>
+                                        <div className="text-[10px] text-[#A8A29E] font-light mt-1.5">No projects assigned</div>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Skills */}
