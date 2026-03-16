@@ -5,6 +5,7 @@ import jiraRoutes from '../src/api/jira/routes.js';
 import leaveApprovalRoutes from '../src/api/leave-approval/routes.js';
 import invitesRoutes from '../src/api/invites/routes.js';
 import employeeRoutes from '../src/api/employee/routes.js';
+import organizationRoutes from '../src/api/organization/routes.js';
 
 // Create a fresh Express app instance for this serverless function
 const app = express();
@@ -74,12 +75,14 @@ app.use('/api/jira', jiraRoutes);
 app.use('/api/leave-approval', leaveApprovalRoutes);
 app.use('/api/invites', invitesRoutes);
 app.use('/api/employee', employeeRoutes);
+app.use('/api/organization', organizationRoutes);
 app.use('/api/v1/analyze', leaveApprovalRoutes);
 
 // Also mount at root level for backwards compatibility
 app.use('/jira', jiraRoutes);
 app.use('/leave-approval', leaveApprovalRoutes);
 app.use('/invites', invitesRoutes);
+app.use('/employee', employeeRoutes);
 
 // Fallback 404 handler
 app.use((req: Request, res: Response) => {

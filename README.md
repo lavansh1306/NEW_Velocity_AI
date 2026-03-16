@@ -1,4 +1,4 @@
-# ⚡ Velocity A.I.
+# ⚡Velocity A.I. 
 
 <div align="center">
 
@@ -12,7 +12,7 @@
 ![Redis](https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white)
 ![Jira](https://img.shields.io/badge/Jira-0052CC?style=for-the-badge&logo=jira&logoColor=white)
 
-**AI-powered project analytics and productivty intelligence platform
+**AI-powered project analytics and productivty intelligence platformm
 
 [Features](#-features) • [Tech Stack](#-tech-stack) • [Gettin Started](#-getting-started • [Architecture](#-architecture)
 

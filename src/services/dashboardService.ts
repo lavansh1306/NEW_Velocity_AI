@@ -204,11 +204,13 @@ export async function getDashboardData(options?: DashboardOptions): Promise<Dash
                             return isAssignedToMember && task.start_date && task.due_date;
                         })
                         .map(task => ({
+                            id: task.id,
                             name: task.name,
                             project: projects?.find(p => p.id === task.project_id)?.name || 'Unknown',
                             startDate: new Date(task.start_date).toISOString(),
                             endDate: new Date(task.due_date).toISOString(),
-                            status: task.status === 'completed' || task.status === 'in_progress' ? ('track' as const) : ('risk' as const),
+                            status: (task.status as 'not_started' | 'in_progress' | 'blocked' | 'completed') || 'not_started',
+                            displayStatus: task.status === 'completed' || task.status === 'in_progress' ? ('track' as const) : ('risk' as const),
                         })) || [],
                 };
             })

@@ -109,7 +109,9 @@ router.get('/leave-balances', async (_req: Request, res: Response) => {
 router.get('/holidays', async (_req: Request, res: Response) => {
   try {
     const { organizationId } = res.locals;
+    console.log(`[Employee Routes] Fetching holidays for Org: ${organizationId}`);
     const data = await db.getHolidays(organizationId);
+    console.log(`[Employee Routes] Found ${data.length} holidays`);
     res.json({ success: true, data });
   } catch (err: any) {
     console.error('[Employee] GET holidays error:', err?.message || err);
@@ -172,6 +174,39 @@ router.post('/timesheets/submit', async (req: Request, res: Response) => {
   } catch (err: any) {
     console.error('[Employee] POST timesheets/submit error:', err?.message || err);
     res.status(500).json({ error: 'Failed to submit timesheet' });
+  }
+});
+
+// ---------- Dashboard ----------
+
+// GET /api/employee/dashboard
+router.get('/dashboard', async (_req: Request, res: Response) => {
+  try {
+    const { authUserId, organizationId } = res.locals;
+
+    // Fetch all dashboard data in parallel
+    const [userProfile, tasks, alerts, activities, holidays, projects] = await Promise.all([
+      db.getUserProfile(organizationId, authUserId),
+      db.getEmployeeTasks(organizationId, authUserId),
+      db.getEmployeeAlerts(organizationId, authUserId),
+      db.getEmployeeActivities(organizationId, authUserId),
+      db.getHolidays(organizationId),
+      db.getUserProjects(organizationId, authUserId),
+    ]);
+
+    const dashboardData = {
+      tasks: tasks || [],
+      alerts: alerts || [],
+      activities: activities || [],
+      holidays: holidays || [],
+      userName: userProfile?.name || 'User',
+      projects: projects || [],
+    };
+
+    res.json(dashboardData);
+  } catch (err: any) {
+    console.error('[Employee] GET dashboard error:', err?.message || err);
+    res.status(500).json({ error: 'Failed to fetch dashboard data', details: err?.message });
   }
 });
 

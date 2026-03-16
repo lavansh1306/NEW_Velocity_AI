@@ -1,4 +1,4 @@
-import { TeamMemberView, PendingSkillView, PersonDetailView, PlanTask, PlanTeamCandidate, TimesheetWeekMeta, PastWeekSummary, LeaveHistoryEntry } from '../types';
+import { TeamMemberView, PendingSkillView, PersonDetailView, PlanTask, PlanTeamCandidate, EmpDashboardTask, EmpDashboardAlert, EmpDashboardActivity, TimesheetWeekMeta, PastWeekSummary } from '../types';
 
 // LEGACY DATA (Needed by PlanMyProjectScreen)
 export const planSeedTasks: PlanTask[] = [
@@ -124,130 +124,108 @@ export const personDetailsMap: Record<string, PersonDetailView> = {
     }
 };
 
-// ==================== TIMESHEET MOCK DATA ====================
+// ── Employee Dashboard Data ────────────────────────────────────
 
-export const timesheetWeeks: Record<number, TimesheetWeekMeta> = {
-    0: {
+export const empDashboardTasks: EmpDashboardTask[] = [
+    { id: 'edt-1', title: 'API Integration Layer', project: 'Velocity AI Platform', status: 'In Progress', dueDate: 'Mar 22' },
+    { id: 'edt-2', title: 'Design System Documentation', project: 'Design System', status: 'Not Started', dueDate: 'Mar 18' },
+    { id: 'edt-3', title: 'Testing & QA', project: 'Mobile App MVP', status: 'Not Started', dueDate: 'Mar 28' },
+    { id: 'edt-4', title: 'Code Review - Auth Module', project: 'Velocity AI Platform', status: 'In Progress', dueDate: 'Mar 15' },
+    { id: 'edt-5', title: 'Update Component Library', project: 'Design System', status: 'In Progress', dueDate: 'Mar 17' },
+];
+
+export const empDashboardAlerts: EmpDashboardAlert[] = [
+    {
+        id: 'eda-1', type: 'warning', icon: '🟡', title: 'Approaching Capacity',
+        description: "You're at 95% utilization this week (38h / 40h)",
+        secondaryText: 'Consider discussing workload with your manager if this continues.',
+        bgColor: 'bg-[#FFFBEB]', borderColor: 'border-[#D6D3D1]',
+    },
+    {
+        id: 'eda-2', type: 'info', icon: '📋', title: 'Leave Request Pending',
+        description: 'Summer Vacation (Jul 15-26)',
+        secondaryText: 'Awaiting approval from John Smith',
+        actionLabel: 'View Request', actionPath: '/app/employee/leave',
+        bgColor: 'bg-[#F0FDFA]', borderColor: 'border-[#99F6E4]',
+    },
+    {
+        id: 'eda-3', type: 'success', icon: '✓', title: 'Skill Verified',
+        description: 'GraphQL (Mid) was approved',
+        secondaryText: 'by John Smith yesterday',
+        actionLabel: 'View Skills', actionPath: '/app/employee/skills',
+        bgColor: 'bg-[#F0FDF4]', borderColor: 'border-[#BBF7D0]',
+    },
+];
+
+export const empDashboardActivities: EmpDashboardActivity[] = [
+    { id: 'edact-1', timestamp: 'Today, 2:30 PM', description: 'Updated progress on Dashboard UI Components to 72%' },
+    { id: 'edact-2', timestamp: 'Yesterday, 4:15 PM', description: 'Submitted timesheet for Week of Mar 4-10' },
+    { id: 'edact-3', timestamp: '2 days ago', description: 'Requested skill verification: GraphQL (Mid)' },
+    { id: 'edact-4', timestamp: '3 days ago', description: 'Completed task: Design System Setup' },
+];
+
+// ── Timesheet Data ────────────────────────────────────
+
+export const timesheetWeeks: TimesheetWeekMeta[] = [
+    {
         status: 'Draft',
         rows: [
-            { id: 'p1', type: 'project', project: 'Velocity AI Platform', task: 'Dashboard Components', suggested: [5, 5, 5, 5, 5, 0, 0], hours: [6, 5, 5, 6, 6, 0, 0] },
-            { id: 'p2', type: 'project', project: 'Mobile App MVP', task: 'Bug Fixes & QA', suggested: [3, 3, 3, 3, 3, 0, 0], hours: [2, 3, 3, 2, 2, 0, 0] },
-            { id: 'p3', type: 'project', project: 'Design System', task: 'Component Library', suggested: [2, 1, 2, 1, 2, 0, 0], hours: [2, 1, 2, 1, 2, 0, 0] },
-        ],
+            {
+                id: 'row-1',
+                type: 'project',
+                project: 'Velocity AI Platform',
+                task: 'API Integration',
+                suggested: [8, 8, 8, 8, 8, 0, 0],
+                hours: [8, 8, 8, 8, 8, 0, 0]
+            },
+            {
+                id: 'row-2',
+                type: 'project',
+                project: 'Mobile App MVP',
+                task: 'UI Components',
+                suggested: [4, 4, 4, 4, 4, 0, 0],
+                hours: [4, 4, 4, 4, 4, 0, 0]
+            }
+        ]
     },
-    [-1]: {
+    {
         status: 'Approved',
         rows: [
-            { id: 'p1', type: 'project', project: 'Velocity AI Platform', task: 'Dashboard Components', suggested: [6, 6, 6, 6, 6, 0, 0], hours: [6, 6, 6, 6, 6, 0, 0] },
-            { id: 'p2', type: 'project', project: 'Mobile App MVP', task: 'Feature Development', suggested: [2, 2, 2, 2, 2, 0, 0], hours: [2, 2, 2, 2, 2, 0, 0] },
-        ],
-    },
-    [-2]: {
-        status: 'Approved',
-        rows: [
-            { id: 'p1', type: 'project', project: 'Velocity AI Platform', task: 'API Integration', suggested: [5, 5, 5, 5, 5, 0, 0], hours: [5, 5, 5, 5, 5, 0, 0] },
-            { id: 'p2', type: 'project', project: 'Design System', task: 'Figma Sync', suggested: [3, 3, 3, 3, 3, 0, 0], hours: [3, 3, 3, 3, 3, 0, 0] },
-        ],
-    },
-    [-3]: {
-        status: 'Pending Review',
-        rows: [
-            { id: 'p1', type: 'project', project: 'Mobile App MVP', task: 'UI Polish', suggested: [4, 4, 4, 4, 4, 0, 0], hours: [4, 4, 4, 4, 4, 0, 0] },
-            { id: 'p2', type: 'project', project: 'Design System', task: 'Token Refactor', suggested: [4, 4, 4, 4, 4, 0, 0], hours: [3, 4, 5, 4, 3, 0, 0] },
-        ],
-    },
-};
+            {
+                id: 'row-3',
+                type: 'project',
+                project: 'Velocity AI Platform',
+                task: 'Database Schema',
+                suggested: [8, 8, 8, 8, 8, 0, 0],
+                hours: [8, 8, 8, 8, 8, 0, 0]
+            }
+        ]
+    }
+];
 
 export const pastWeeksSummary: PastWeekSummary[] = [
-    { offset: -1, label: 'Last Week', hours: 40, status: 'Approved' as const },
-    { offset: -2, label: '2 Weeks Ago', hours: 40, status: 'Approved' as const },
-    { offset: -3, label: '3 Weeks Ago', hours: 39, status: 'Pending Review' as const },
-    { offset: -4, label: '4 Weeks Ago', hours: 38, status: 'Approved' as const },
-];
-
-export const leaveHistoryEntries: LeaveHistoryEntry[] = [
-    { type: 'Vacation', start: 'Feb 20', end: 'Feb 22', duration: '3 days', status: 'Approved', notes: 'Family trip' },
-    { type: 'Sick Leave', start: 'Jan 10', end: 'Jan 10', duration: '1 day', status: 'Approved', notes: '' },
-    { type: 'Vacation', start: 'Mar 15', end: 'Mar 19', duration: '5 days', status: 'Pending', notes: 'Spring break' },
-];
-
-// --- NEW MOCK DATA FOR EMPLOYEE PROJECTS ---
-export const employeeProjectsView = [
-  {
-    id: 'proj-1',
-    name: 'Velocity AI Platform Redesign',
-    dates: 'Jan 15 - Mar 30',
-    remaining: '36 days remaining',
-    status: 'At Risk',
-    statusColor: 'text-[#BE123C]',
-    health: 72,
-    healthColor: 'text-[#BE123C] border-[#FECDD3]',
-    team: ['JD', 'AS', 'MK', 'ER'],
-    yourHours: '25h',
-    progress: 92,
-    totalHoursLogged: 185,
-    totalHoursEstimated: 200,
-    insight: { text: 'You are overloaded this week (120% capacity)' }
-  },
-  {
-    id: 'proj-2',
-    name: 'Mobile App Beta Launch',
-    dates: 'Feb 01 - Apr 15',
-    remaining: '52 days remaining',
-    status: 'On Track',
-    statusColor: 'text-[#0F766E]',
-    health: 94,
-    healthColor: 'text-[#0F766E] border-[#CCFBF1]',
-    team: ['JD', 'TS'],
-    yourHours: '10h',
-    progress: 45,
-    totalHoursLogged: 45,
-    totalHoursEstimated: 100,
-    insight: null
-  },
-  {
-    id: 'proj-3',
-    name: 'Q4 Marketing Campaign',
-    dates: 'Oct 01 - Dec 15',
-    remaining: 'Completed',
-    status: 'Completed',
-    statusColor: 'text-[#78716C]',
-    health: 100,
-    healthColor: 'text-[#78716C] border-[#E7E5E4]',
-    team: ['JD', 'LM', 'RK'],
-    yourHours: '0h',
-    progress: 100,
-    totalHoursLogged: 120,
-    totalHoursEstimated: 120,
-    insight: null
-  }
-];
-
-export const empProjectStats = [
-  { label: 'Total Hours', value: '840' },
-  { label: 'Completed Tasks', value: '45/62' },
-  { label: 'Velocity', value: 'High' },
-  { label: 'Budget', value: '$45K/$50K' }
-];
-
-export const empProjectOverviewTasks = [
-  { name: 'Finalize Authentication Flow', status: 'In Progress', progress: 80 },
-  { name: 'Database Migration Script', status: 'To Do', progress: 0 },
-  { name: 'Update Dashboard UI', status: 'Completed', progress: 100 },
-  { name: 'API Rate Limiting', status: 'In Progress', progress: 45 },
-  { name: 'Unit Test Coverage', status: 'To Do', progress: 10 }
-];
-
-export const empProjectMilestones = [
-  { date: 'Feb 28', name: 'Alpha Release Complete', status: 'Delayed', color: 'text-[#BE123C]' },
-  { date: 'Mar 15', name: 'Beta Testing Begins', status: 'On Track', color: 'text-[#0F766E]' },
-  { date: 'Mar 30', name: 'Production Launch', status: 'Pending', color: 'text-[#78716C]' }
-];
-
-export const empProjectMyTasks = [
-  { name: 'Implement OAuth Login', phase: 'Auth', hours: '12h', status: 'In Progress', progress: 75, checked: false },
-  { name: 'Design Database Schema', phase: 'Backend', hours: '8h', status: 'Completed', progress: 100, checked: true },
-  { name: 'Setup CI/CD Pipeline', phase: 'DevOps', hours: '16h', status: 'To Do', progress: 0, checked: false },
-  { name: 'Write API Documentation', phase: 'Docs', hours: '4h', status: 'In Progress', progress: 30, checked: false },
-  { name: 'Fix Pagination Bug', phase: 'Frontend', hours: '2h', status: 'To Do', progress: 0, checked: false }
+    {
+        offset: 0,
+        label: 'This Week',
+        hours: 40,
+        status: 'Pending Review'
+    },
+    {
+        offset: 1,
+        label: 'Last Week',
+        hours: 40,
+        status: 'Approved'
+    },
+    {
+        offset: 2,
+        label: '2 Weeks Ago',
+        hours: 40,
+        status: 'Approved'
+    },
+    {
+        offset: 3,
+        label: '3 Weeks Ago',
+        hours: 36,
+        status: 'Approved'
+    }
 ];
