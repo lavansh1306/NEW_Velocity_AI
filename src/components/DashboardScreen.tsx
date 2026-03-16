@@ -8,21 +8,21 @@ import { DateRange } from 'react-day-picker';
 import { format } from 'date-fns';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { StatusBadge } from '@/components/shared/StatusBadge';
-import { KPICard } from '@/components/shared/KPICard';
 import { PageSkeleton } from '@/components/shared/SkeletonLoader';
 import { useSimulatedLoading } from '@/hooks/useSimulatedLoading';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { getDashboardData } from '@/services/dashboardService';
-import type { KPIData, GanttMember, Deadline } from '@/types';
 import { toast } from 'sonner';
 import type { KPIData, GanttMember, Deadline } from '../types';
+
 import CalendarToday from '@mui/icons-material/CalendarToday';
 import Add from '@mui/icons-material/Add';
 import ViewKanban from '@mui/icons-material/ViewKanban';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import Close from '@mui/icons-material/Close';
+import { Loader2 } from 'lucide-react';
 
 const getCurrentWeekMonday = () => {
     const today = new Date();
@@ -35,11 +35,12 @@ const getCurrentWeekMonday = () => {
 export const DashboardScreen = () => {
     const navigate = useNavigate();
     const { orgId } = useAuth();
+    
     const [isLoading, setIsLoading] = useSimulatedLoading(600);
     const [kpis, setKpis] = useState<KPIData[]>([]);
     const [deadlines, setDeadlines] = useState<Deadline[]>([]);
     const [gantt, setGantt] = useState<GanttMember[]>([]);
-    const [dataError, setDataError] = useState<string | null>(null);
+    const [orgUsers, setOrgUsers] = useState<any[]>([]); 
 
     const [ganttFilterProject, setGanttFilterProject] = useState<string>('All');
     const [ganttSortBy, setGanttSortBy] = useState<string>('name_asc');
@@ -48,9 +49,18 @@ export const DashboardScreen = () => {
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
     const [currentWeekStart, setCurrentWeekStart] = useState<Date>(getCurrentWeekMonday());
 
+    const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+    const [isTaskFetching, setIsTaskFetching] = useState(false);
+    const [isTaskSaving, setIsTaskSaving] = useState(false);
+    const [taskForm, setTaskForm] = useState({
+        id: '', name: '', description: '', status: 'not_started', assignee_id: '',
+        estimated_hours: 0, start_date: '', due_date: ''
+    });
+
     const fetchData = async () => {
         if (!orgId) return;
         try {
+            setIsLoading(true);
             const endDate = new Date();
             endDate.setHours(23, 59, 59, 999);
             let startDate = new Date();
@@ -60,94 +70,28 @@ export const DashboardScreen = () => {
                 if (customRange?.to) endDate.setTime(customRange.to.getTime());
             } else {
                 startDate.setDate(endDate.getDate() - parseInt(dateRangeParam || '30'));
-    // Task Detail Popup State
-    const [selectedTask, setSelectedTask] = useState<any>(null);
-    const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
-
-    // Task Status Constants
-    const TASK_STATUSES = ['not_started', 'in_progress', 'blocked', 'completed'];
-    const STATUS_COLORS: { [key: string]: string } = {
-        'not_started': 'bg-[#F5F5F4] text-[#57534E]',
-        'in_progress': 'bg-[#DBEAFE] text-[#1E40AF]',
-        'blocked': 'bg-[#FEE2E2] text-[#991B1B]',
-        'completed': 'bg-[#DCFCE7] text-[#15803D]'
-    };
-
-    const getStatusColor = (status: string) => {
-        const normalizedStatus = status.toLowerCase().replace(' ', '_');
-        return STATUS_COLORS[normalizedStatus] || STATUS_COLORS['not_started'];
-    };
-
-    const updateTaskStatus = async (taskId: string, newStatus: string) => {
-        setIsUpdatingStatus(true);
-        try {
-            if (!taskId) {
-                throw new Error('Task ID is missing');
-            }
-            
-            console.log('[DashboardScreen] Updating task:', { taskId, newStatus });
-            const { error } = await supabase
-                .from('tasks')
-                .update({ status: newStatus })
-                .eq('id', taskId);
-
-            if (error) throw error;
-            toast.success(`Task status updated to ${newStatus.replace('_', ' ')}`);
-            setSelectedTask({ ...selectedTask, status: newStatus });
-        } catch (err: any) {
-            console.error('Error updating task status:', err);
-            toast.error('Failed to update task status');
-        } finally {
-            setIsUpdatingStatus(false);
-        }
-    };
-
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                setIsLoading(true);
-
-                // Calculate date range bounds
-                const endDate = new Date();
-                endDate.setHours(23, 59, 59, 999);
-                let startDate = new Date();
-
-                if (dateRangeParam === 'custom') {
-                    startDate = customRange?.from ? new Date(customRange.from) : new Date();
-                    if (customRange?.to) endDate.setTime(customRange.to.getTime());
-                } else {
-                    startDate.setDate(endDate.getDate() - parseInt(dateRangeParam || '30'));
-                }
-
-                // Important: clear time for uniform comparison bounds
-                startDate.setHours(0, 0, 0, 0);
-
-                const data = await getDashboardData({ startDate, endDate });
-                setKpis(data.kpis);
-                setDeadlines(data.deadlines);
-                setGantt(data.gantt);
-            } catch (err) {
-                console.error('[DashboardScreen] Failed to load dashboard data:', err);
-                setDataError('Failed to load dashboard data.');
-            } finally {
-                setIsLoading(false);
             }
             startDate.setHours(0, 0, 0, 0);
 
-            const data = await getDashboardData({ startDate, endDate, orgId });
+            // FIX: Removed orgId here to resolve the DashboardOptions TypeScript error
+            const data = await getDashboardData({ startDate, endDate });
+            
             setKpis(data.kpis);
             setDeadlines(data.deadlines);
             setGantt(data.gantt);
+
+            // Fetch the organization users for the Task Edit Assignee Dropdown
+            const { data: users } = await supabase.from('users').select('id, name').eq('organization_id', orgId);
+            setOrgUsers(users || []);
         } catch (err) {
-            setDataError('Failed to load dashboard data.');
+            toast.error('Failed to load dashboard data.');
+        } finally {
+            setIsLoading(false);
         }
     };
 
-    useEffect(() => {
-        fetchData();
-    }, [dateRangeParam, customRange, orgId]);
+    useEffect(() => { fetchData(); }, [dateRangeParam, customRange, orgId]);
 
-    // Real-time listener for core tables
     useEffect(() => {
         if (!orgId) return;
         const channel = supabase.channel('dashboard-updates')
@@ -157,16 +101,64 @@ export const DashboardScreen = () => {
         return () => { supabase.removeChannel(channel); };
     }, [orgId]);
 
+    const openTaskModal = async (taskId: string) => {
+        setIsTaskModalOpen(true);
+        setIsTaskFetching(true);
+        try {
+            const { data, error } = await supabase.from('tasks').select('*').eq('id', taskId).single();
+            if (error) throw error;
+            
+            setTaskForm({
+                id: data.id,
+                name: data.name || '',
+                description: data.description || '',
+                status: data.status || 'not_started',
+                assignee_id: data.assignee_id || data.user_id || '', // FIX: Check both columns!
+                estimated_hours: data.estimated_hours || 0,
+                start_date: data.start_date || '',
+                due_date: data.due_date || ''
+            });
+        } catch (e) {
+            toast.error("Could not load task details");
+            setIsTaskModalOpen(false);
+        } finally {
+            setIsTaskFetching(false);
+        }
+    };
+
+    const handleUpdateTask = async () => {
+        if (!taskForm.id) return;
+        setIsTaskSaving(true);
+        try {
+            const targetUserId = taskForm.assignee_id === '' ? null : taskForm.assignee_id;
+
+            const { error } = await supabase.from('tasks').update({
+                name: taskForm.name,
+                description: taskForm.description,
+                status: taskForm.status,
+                assignee_id: targetUserId, // FIX: Update both columns!
+                user_id: targetUserId,     // FIX: Update both columns!
+                estimated_hours: taskForm.estimated_hours,
+                start_date: taskForm.start_date === '' ? null : taskForm.start_date,
+                due_date: taskForm.due_date === '' ? null : taskForm.due_date
+            }).eq('id', taskForm.id);
+
+            if (error) throw error;
+            toast.success("Task updated successfully!");
+            setIsTaskModalOpen(false);
+        } catch (e: any) {
+            toast.error(e.message || "Failed to update task");
+        } finally {
+            setIsTaskSaving(false);
+        }
+    };
+
     const weekDays = useMemo(() => {
         const dates = [];
         for (let i = 0; i < 7; i++) {
             const date = new Date(currentWeekStart);
             date.setDate(currentWeekStart.getDate() + i);
-            dates.push({
-                date,
-                label: date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' }),
-                isToday: new Date().toDateString() === date.toDateString()
-            });
+            dates.push({ date, label: date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' }), isToday: new Date().toDateString() === date.toDateString() });
         }
         return dates;
     }, [currentWeekStart]);
@@ -181,8 +173,7 @@ export const DashboardScreen = () => {
 
     const displayGantt = useMemo(() => {
         let filtered = gantt.map(member => ({
-            ...member,
-            tasks: ganttFilterProject === 'All' ? member.tasks : member.tasks.filter(t => t.project === ganttFilterProject)
+            ...member, tasks: ganttFilterProject === 'All' ? member.tasks : member.tasks.filter(t => t.project === ganttFilterProject)
         })).filter(m => m.tasks.length > 0 || ganttFilterProject === 'All');
 
         return filtered.sort((a, b) => {
@@ -191,6 +182,13 @@ export const DashboardScreen = () => {
             return 0;
         });
     }, [gantt, ganttFilterProject, ganttSortBy]);
+
+    const KPICard = (props: any) => (
+        <div className="bg-white border rounded-xl p-6 shadow-sm">
+            <p className="text-2xl font-light">{props.value}</p>
+            <p className="text-xs text-[#78716C] uppercase tracking-wider mt-1">{props.label}</p>
+        </div>
+    );
 
     if (isLoading) return <PageSkeleton />;
 
@@ -223,7 +221,7 @@ export const DashboardScreen = () => {
                             <Calendar mode="range" selected={customRange} onSelect={setCustomRange} numberOfMonths={2} />
                         </PopoverContent>
                     </Popover>
-                    <Button className="bg-[#1C1917] text-white h-10 px-4 rounded-md" onClick={() => navigate('/projects/create')}>
+                    <Button className="bg-[#1C1917] text-white h-10 px-4 rounded-md hover:bg-[#292524]" onClick={() => navigate('/projects/create')}>
                         <Add style={{ fontSize: 16 }} className="mr-2" /> New Project
                     </Button>
                 </div>
@@ -269,39 +267,26 @@ export const DashboardScreen = () => {
                                     </div>
                                 </div>
                                 <div className="space-y-4">
-                                    {displayGantt.map((member) => (
-                                        <div key={member.id} className="flex items-stretch gap-1 group hover:bg-[#FAFAF9] p-2 -mx-2">
-                                            <div className="w-56 flex items-center gap-3 pr-4 border-r">
-                                                <Avatar className="w-8 h-8"><AvatarFallback>{member.avatar}</AvatarFallback></Avatar>
-                                                <div className="min-w-0">
-                                                    <div className="text-sm font-medium truncate">{member.name}</div>
-                                                    <div className="text-[10px] text-[#78716C] capitalize">{member.role}</div>
                                     {displayGantt.length === 0 ? (
                                         <div className="text-center py-8">
-                                            <p className="text-sm text-[#78716C] font-light">No team members with assignments matching criteria.</p>
+                                            <p className="text-sm text-[#78716C] font-light">No team members match criteria.</p>
                                         </div>
                                     ) : (
-                                        displayGantt.map((member, idx) => {
-                                            const viewStart = new Date(weekDays[0].date);
-                                            viewStart.setHours(0, 0, 0, 0);
-                                            const viewEnd = new Date(weekDays[6].date);
-                                            viewEnd.setHours(23, 59, 59, 999);
+                                        displayGantt.map((member) => {
+                                            const viewStart = new Date(weekDays[0].date); viewStart.setHours(0, 0, 0, 0);
+                                            const viewEnd = new Date(weekDays[6].date); viewEnd.setHours(23, 59, 59, 999);
 
-                                            // Pre-filter valid tasks for this week to calculate row height
                                             const validTasks = member.tasks.filter(task => {
-                                                const tStart = new Date(task.startDate);
-                                                const tEnd = new Date(task.endDate);
-                                                tStart.setHours(0, 0, 0, 0);
-                                                tEnd.setHours(23, 59, 59, 999);
+                                                if (!task.startDate || !task.endDate) return false;
+                                                const tStart = new Date(task.startDate); const tEnd = new Date(task.endDate);
+                                                tStart.setHours(0, 0, 0, 0); tEnd.setHours(23, 59, 59, 999);
                                                 return !(tEnd < viewStart || tStart > viewEnd);
                                             });
 
-                                            // Base height 64px (h-16), add 40px per task if more than 1
                                             const rowHeight = Math.max(64, validTasks.length * 40 + 24);
 
                                             return (
                                                 <div key={member.id} className="flex items-stretch gap-1 group hover:bg-[#FAFAF9] rounded-lg transition-colors p-2 -mx-2" style={{ height: `${rowHeight}px` }}>
-                                                    {/* Member Info */}
                                                     <div className="w-56 flex-shrink-0 flex items-center gap-3 pr-4 border-r border-[#E7E5E4]/50 z-20 bg-white group-hover:bg-[#FAFAF9]">
                                                         <Avatar className="w-8 h-8 border border-[#E7E5E4] transition-transform group-hover:scale-105">
                                                             <AvatarFallback className="bg-[#F5F5F4] text-[#1C1917] text-[10px]">{member.avatar}</AvatarFallback>
@@ -312,9 +297,7 @@ export const DashboardScreen = () => {
                                                         </div>
                                                     </div>
 
-                                                    {/* Continuous Pill Gantt Area */}
                                                     <div className="flex-1 ml-2 relative w-full h-full">
-                                                        {/* Vertical Grid Lines (Background only) */}
                                                         <div className="absolute inset-x-0 inset-y-0 flex gap-2 pointer-events-none z-0">
                                                             {weekDays.map((_, dayIdx) => (
                                                                 <div key={dayIdx} className="flex-1 min-w-[100px] h-full relative">
@@ -323,60 +306,38 @@ export const DashboardScreen = () => {
                                                             ))}
                                                         </div>
 
-                                                        {/* Task Pills (Absolute Positioning) */}
                                                         <div className="absolute inset-0">
                                                             {validTasks.map((task, vIdx) => {
-                                                                const tStart = new Date(task.startDate);
-                                                                const tEnd = new Date(task.endDate);
-                                                                tStart.setHours(0, 0, 0, 0);
-                                                                tEnd.setHours(23, 59, 59, 999);
+                                                                const tStart = new Date(task.startDate); const tEnd = new Date(task.endDate);
+                                                                tStart.setHours(0, 0, 0, 0); tEnd.setHours(23, 59, 59, 999);
 
-                                                                // Calculate intersection for this week
                                                                 const visibleStart = new Date(Math.max(tStart.getTime(), viewStart.getTime()));
                                                                 const visibleEnd = new Date(Math.min(tEnd.getTime(), viewEnd.getTime()));
-
-                                                                // Calculate Left % and Width %
                                                                 const msInDay = 1000 * 60 * 60 * 24;
-                                                                const totalViewDays = 7;
-
-                                                                // Use 0-based day indexing for positioning. 
+                                                                
                                                                 const offsetDays = Math.floor((visibleStart.getTime() - viewStart.getTime()) / msInDay);
-                                                                // Duration includes the end day
                                                                 const durationDays = Math.floor((visibleEnd.getTime() - visibleStart.getTime()) / msInDay) + 1;
 
-                                                                const leftPercent = (offsetDays / totalViewDays) * 100;
-                                                                const widthPercent = (durationDays / totalViewDays) * 100;
-
+                                                                const leftPercent = (offsetDays / 7) * 100;
+                                                                const widthPercent = (durationDays / 7) * 100;
                                                                 const isTruncatedLeft = tStart < viewStart;
                                                                 const isTruncatedRight = tEnd > viewEnd;
 
                                                                 return (
                                                                     <div
                                                                         key={vIdx}
-                                                                        onClick={() => setSelectedTask(task)}
+                                                                        onClick={() => openTaskModal(task.id)}
                                                                         className={`absolute h-8 text-[11px] font-medium flex items-center px-4 shadow-sm border cursor-pointer z-10 transition-all duration-200 hover:shadow-md hover:z-30 group/tooltip rounded-[8px]
                                                                         ${isTruncatedLeft ? '!rounded-l-none !border-l-0' : ''}
                                                                         ${isTruncatedRight ? '!rounded-r-none !border-r-0' : ''}
-                                                                        ${task.displayStatus === 'track'
-                                                                                ? 'bg-[#F0FDFA] text-[#0F766E] border-[#CCFBF1] hover:bg-[#E0F2FE] hover:border-[#BAE6FD]' // Lighter teal
-                                                                                : 'bg-[#FFF7ED] text-[#C2410C] border-[#FFEDD5] hover:bg-[#FFF1F2] hover:border-[#FECDD3]' // Orange
-                                                                            }
-                                                                    `}
-                                                                        style={{
-                                                                            left: `calc(${leftPercent}%)`,
-                                                                            width: `calc(${widthPercent}%)`,
-                                                                            top: `${12 + vIdx * 40}px` // Stack vertically: start at 12px down, add 40px each
-                                                                        }}
+                                                                        ${task.displayStatus === 'track' ? 'bg-[#F0FDFA] text-[#0F766E] border-[#CCFBF1] hover:bg-[#E0F2FE]' : 'bg-[#FFF7ED] text-[#C2410C] border-[#FFEDD5] hover:bg-[#FFF1F2]'}
+                                                                        `}
+                                                                        style={{ left: `calc(${leftPercent}%)`, width: `calc(${widthPercent}%)`, top: `${12 + vIdx * 40}px` }}
                                                                     >
-                                                                        <span className="truncate w-full relative z-20">
-                                                                            {task.name}
-                                                                        </span>
-
-                                                                        {/* Hover Tooltip - Positioned centered above the pill */}
+                                                                        <span className="truncate w-full relative z-20">{task.name}</span>
                                                                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-[220px] bg-[#1C1917] text-white text-[11px] font-normal py-2 px-3 rounded shadow-lg opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible z-[100] transition-all whitespace-normal text-left">
                                                                             <div className="font-medium text-white/90 mb-1">{task.project}</div>
                                                                             <div className="text-white/70 line-clamp-2">{task.name}</div>
-                                                                            {/* Pointer triangle */}
                                                                             <div className="absolute top-full left-1/2 -translate-x-1/2 border-solid border-t-[#1C1917] border-t-[5px] border-x-transparent border-x-[5px] border-b-0"></div>
                                                                         </div>
                                                                     </div>
@@ -385,18 +346,9 @@ export const DashboardScreen = () => {
                                                         </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                            <div className="flex-1 relative">
-                                                {member.tasks.map((task, vIdx) => (
-                                                    <div key={task.id} 
-                                                        className={`absolute h-8 text-[11px] font-medium flex items-center px-4 rounded-[8px] border shadow-sm ${task.status === 'track' ? 'bg-[#F0FDFA] text-[#0F766E] border-[#CCFBF1]' : 'bg-[#FFF7ED] text-[#C2410C] border-[#FFEDD5]'}`}
-                                                        style={{ left: '0%', width: '100%', top: `${vIdx * 40}px` }}>
-                                                        <span className="truncate">{task.name}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    ))}
+                                            );
+                                        })
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -406,7 +358,7 @@ export const DashboardScreen = () => {
                         <h2 className="text-lg font-medium mb-6">Upcoming Deadlines</h2>
                         <div className="space-y-3">
                             {deadlines.map((item) => (
-                                <Link to="/projects" key={item.id} className="flex items-center justify-between py-4 px-5 bg-[#FAFAF9] border rounded-lg hover:bg-white transition-all group">
+                                <Link to={`/analytics/${item.id}`} key={item.id} className="flex items-center justify-between py-4 px-5 bg-[#FAFAF9] border rounded-lg hover:bg-white transition-all group">
                                     <div className="flex items-center gap-4">
                                         <div className="w-10 h-10 rounded-full border flex items-center justify-center bg-white"><ViewKanban style={{ fontSize: 18 }} /></div>
                                         <div>
@@ -420,7 +372,7 @@ export const DashboardScreen = () => {
                                             <div className="text-[10px] text-[#78716C] uppercase">Remaining</div>
                                         </div>
                                         <StatusBadge status={item.status} />
-                                        <ChevronRightIcon style={{ fontSize: 16 }} className="text-[#D6D3D1]" />
+                                        <ChevronRightIcon style={{ fontSize: 16 }} className="text-[#D6D3D1] group-hover:text-[#1C1917]" />
                                     </div>
                                 </Link>
                             ))}
@@ -429,105 +381,76 @@ export const DashboardScreen = () => {
                 </div>
             </div>
 
-            {/* Task Detail Popup Modal */}
-            {selectedTask && (
-                <div className="fixed inset-0 bg-black/50 z-[1000] flex items-center justify-center" onClick={() => setSelectedTask(null)}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md m-4" onClick={(e) => e.stopPropagation()}>
-                        {/* Header */}
-                        <div className="border-b border-[#E7E5E4] p-6 flex items-center justify-between">
-                            <h3 className="text-lg font-medium text-[#1C1917]">Task Details</h3>
-                            <button
-                                onClick={() => setSelectedTask(null)}
-                                className="text-[#A8A29E] hover:text-[#57534E] transition-colors p-1"
-                            >
-                                <Close style={{ fontSize: 20 }} />
-                            </button>
-                        </div>
-
-                        {/* Content */}
-                        <div className="p-6 space-y-4">
-                            <div>
-                                <p className="text-xs text-[#78716C] font-light uppercase tracking-wider mb-1">Task Name</p>
-                                <p className="text-sm font-medium text-[#1C1917]">{selectedTask.name}</p>
+            {isTaskModalOpen && (
+                <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => !isTaskSaving && setIsTaskModalOpen(false)} />
+                    <div className="relative bg-white rounded-3xl shadow-xl w-full max-w-lg p-8 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+                        <button onClick={() => setIsTaskModalOpen(false)} className="absolute top-6 right-6 p-2 rounded-full hover:bg-[#F5F5F4] transition-colors" disabled={isTaskSaving}>
+                            <Close className="w-5 h-5 text-[#78716C]" />
+                        </button>
+                        <h2 className="text-2xl font-light text-[#1C1917] mb-6">Edit Task</h2>
+                        
+                        {isTaskFetching ? (
+                            <div className="py-12 flex flex-col items-center justify-center text-[#78716C]">
+                                <Loader2 className="w-8 h-8 animate-spin mb-4 text-[#0F766E]" />
+                                <p>Loading task details...</p>
                             </div>
-
-                            <div>
-                                <p className="text-xs text-[#78716C] font-light uppercase tracking-wider mb-1">Project</p>
-                                <p className="text-sm font-medium text-[#1C1917]">{selectedTask.project}</p>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
+                        ) : (
+                            <div className="space-y-4">
                                 <div>
-                                    <p className="text-xs text-[#78716C] font-light uppercase tracking-wider mb-1">Start Date</p>
-                                    <p className="text-sm font-medium text-[#1C1917]">
-                                        {new Date(selectedTask.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                    </p>
+                                    <label className="block text-sm text-[#78716C] mb-1 font-medium">Task Name</label>
+                                    <input type="text" value={taskForm.name} onChange={(e) => setTaskForm(prev => ({ ...prev, name: e.target.value }))} className="w-full px-4 py-3 rounded-xl border border-[#E7E5E4] focus:ring-2 focus:ring-[#0F766E]/20 focus:border-[#0F766E] transition-all" disabled={isTaskSaving} />
                                 </div>
-                                <div>
-                                    <p className="text-xs text-[#78716C] font-light uppercase tracking-wider mb-1">End Date</p>
-                                    <p className="text-sm font-medium text-[#1C1917]">
-                                        {new Date(selectedTask.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                    </p>
-                                </div>
-                            </div>
 
-                            <div>
-                                <p className="text-xs text-[#78716C] font-light uppercase tracking-wider mb-2">Status</p>
-                                <div className="relative">
-                                    <button
-                                        onClick={() => setSelectedTask({ ...selectedTask, statusDropdownOpen: !selectedTask.statusDropdownOpen })}
-                                        className={`inline-flex px-3 py-1 rounded-full text-xs font-medium border transition-all cursor-pointer hover:opacity-80 ${getStatusColor(selectedTask.status)}`}
-                                        disabled={isUpdatingStatus}
-                                    >
-                                        {selectedTask.status.replace('_', ' ')}
-                                    </button>
-                                    {selectedTask.statusDropdownOpen && (
-                                        <div className="absolute top-full mt-2 left-0 bg-white border border-[#E7E5E4] rounded-lg shadow-lg z-50 min-w-[160px]">
-                                            {TASK_STATUSES.map((status) => (
-                                                <button
-                                                    key={status}
-                                                    onClick={() => {
-                                                        updateTaskStatus(selectedTask.id, status);
-                                                        setSelectedTask({ ...selectedTask, statusDropdownOpen: false });
-                                                    }}
-                                                    disabled={isUpdatingStatus}
-                                                    className={`w-full text-left px-4 py-2 text-xs first:rounded-t-lg last:rounded-b-lg transition-colors ${getStatusColor(status)} hover:opacity-80 ${selectedTask.status === status ? 'border-l-4 border-l-[#0F766E]' : ''}`}
-                                                >
-                                                    {status.replace('_', ' ').toUpperCase()}
-                                                </button>
+                                <div>
+                                    <label className="block text-sm text-[#78716C] mb-1 font-medium">Description</label>
+                                    <textarea value={taskForm.description} onChange={(e) => setTaskForm(prev => ({ ...prev, description: e.target.value }))} rows={3} className="w-full px-4 py-3 rounded-xl border border-[#E7E5E4] focus:ring-2 focus:ring-[#0F766E]/20 focus:border-[#0F766E] transition-all resize-none" disabled={isTaskSaving} />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm text-[#78716C] mb-1 font-medium">Status</label>
+                                        <select value={taskForm.status} onChange={(e) => setTaskForm(prev => ({ ...prev, status: e.target.value }))} className="w-full px-4 py-3 rounded-xl border border-[#E7E5E4] bg-white focus:ring-2 focus:ring-[#0F766E]/20" disabled={isTaskSaving}>
+                                            <option value="not_started">Not Started</option>
+                                            <option value="in_progress">In Progress</option>
+                                            <option value="blocked">Blocked</option>
+                                            <option value="completed">Completed</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm text-[#78716C] mb-1 font-medium">Assignee</label>
+                                        <select value={taskForm.assignee_id} onChange={(e) => setTaskForm(prev => ({ ...prev, assignee_id: e.target.value }))} className="w-full px-4 py-3 rounded-xl border border-[#E7E5E4] bg-white focus:ring-2 focus:ring-[#0F766E]/20" disabled={isTaskSaving}>
+                                            <option value="">Unassigned</option>
+                                            {orgUsers.map(user => (
+                                                <option key={user.id} value={user.id}>{user.name}</option>
                                             ))}
-                                        </div>
-                                    )}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-4">
+                                    <div>
+                                        <label className="block text-sm text-[#78716C] mb-1 font-medium">Est. Hours</label>
+                                        <input type="number" min="0" value={taskForm.estimated_hours} onChange={(e) => setTaskForm(prev => ({ ...prev, estimated_hours: Number(e.target.value) }))} className="w-full px-4 py-3 rounded-xl border border-[#E7E5E4] focus:ring-2 focus:ring-[#0F766E]/20 focus:border-[#0F766E]" disabled={isTaskSaving} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm text-[#78716C] mb-1 font-medium">Start Date</label>
+                                        <input type="date" value={taskForm.start_date} onChange={(e) => setTaskForm(prev => ({ ...prev, start_date: e.target.value }))} className="w-full px-4 py-3 rounded-xl border border-[#E7E5E4] focus:ring-2 focus:ring-[#0F766E]/20 focus:border-[#0F766E]" disabled={isTaskSaving} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm text-[#78716C] mb-1 font-medium">Due Date</label>
+                                        <input type="date" value={taskForm.due_date} onChange={(e) => setTaskForm(prev => ({ ...prev, due_date: e.target.value }))} className="w-full px-4 py-3 rounded-xl border border-[#E7E5E4] focus:ring-2 focus:ring-[#0F766E]/20 focus:border-[#0F766E]" disabled={isTaskSaving} />
+                                    </div>
+                                </div>
+
+                                <div className="pt-6 flex gap-3">
+                                    <Button variant="outline" className="flex-1 h-12 rounded-xl" onClick={() => setIsTaskModalOpen(false)} disabled={isTaskSaving}>Cancel</Button>
+                                    <Button className="flex-1 h-12 text-white bg-[#0F766E] hover:bg-[#0D635C] rounded-xl" onClick={handleUpdateTask} disabled={isTaskSaving}>
+                                        {isTaskSaving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...</> : 'Update Task'}
+                                    </Button>
                                 </div>
                             </div>
-
-                            {selectedTask.assignee && (
-                                <div>
-                                    <p className="text-xs text-[#78716C] font-light uppercase tracking-wider mb-1">Assigned To</p>
-                                    <p className="text-sm font-medium text-[#1C1917]">{selectedTask.assignee}</p>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Footer */}
-                        <div className="border-t border-[#E7E5E4] p-6 flex gap-3">
-                            <Button
-                                onClick={() => setSelectedTask(null)}
-                                variant="outline"
-                                className="flex-1 border-[#E7E5E4] text-[#1C1917] hover:bg-[#FAFAF9]"
-                            >
-                                Close
-                            </Button>
-                            <Button
-                                onClick={() => {
-                                    setSelectedTask(null);
-                                    navigate('/projects');
-                                }}
-                                className="flex-1 bg-[#0F766E] hover:bg-[#0D6B65] text-white"
-                            >
-                                View Project
-                            </Button>
-                        </div>
+                        )}
                     </div>
                 </div>
             )}

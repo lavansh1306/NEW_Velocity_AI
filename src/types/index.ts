@@ -468,6 +468,7 @@ export interface GanttTask {
 
 /** Upcoming deadline */
 export interface Deadline {
+    id: string;
     project: string;
     deadline: string;
     daysLeft: number;
