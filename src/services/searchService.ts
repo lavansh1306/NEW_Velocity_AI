@@ -99,7 +99,7 @@ export const searchService = {
                     id: m.id,
                     type: 'people',
                     title: m.name || m.email.split('@')[0],
-                    subtitle: m.designation || 'Member',
+                    subtitle: 'People',
                     path: `/people`
                 });
             });
