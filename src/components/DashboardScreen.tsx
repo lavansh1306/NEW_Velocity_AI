@@ -59,15 +59,43 @@ export const DashboardScreen = () => {
 
     const uniqueProjects = useMemo(() => {
         const projects = new Set<string>();
-        gantt.forEach((m: any) => m.tasks.forEach((t: any) => t.project && projects.add(t.project)));
+        if (Array.isArray(gantt)) {
+            gantt.forEach((m: any) => {
+                if (Array.isArray(m.tasks)) {
+                    m.tasks.forEach((t: any) => t.project && projects.add(t.project));
+                }
+            });
+        }
         return Array.from(projects).sort();
     }, [gantt]);
 
+    // FIX: Show all members when 'All' is selected, otherwise only show allocated members
     const displayGantt = useMemo(() => {
-        return gantt.map((member: any) => ({
-            ...member, tasks: ganttFilterProject === 'All' ? member.tasks : member.tasks.filter((t: any) => t.project === ganttFilterProject)
-        })).filter((m: any) => m.tasks.length > 0 || ganttFilterProject === 'All');
-    }, [gantt, ganttFilterProject]);
+        if (!Array.isArray(gantt)) return [];
+        
+        let filtered = gantt.map((member: any) => ({
+            ...member, 
+            tasks: ganttFilterProject === 'All' 
+                ? member.tasks 
+                : member.tasks.filter((t: any) => t.project === ganttFilterProject)
+        })).filter((m: any) => {
+            // If "All" is selected, keep everyone. If a specific project is selected, keep only if they have tasks for it.
+            if (ganttFilterProject === 'All') return true;
+            return m.tasks && m.tasks.length > 0;
+        });
+
+        // Apply Sort State (Name vs Role)
+        return filtered.sort((a, b) => {
+            if (ganttSort === 'Name') return (a.name || '').localeCompare(b.name || '');
+            if (ganttSort === 'Role') return (a.role || '').localeCompare(b.role || '');
+            return 0;
+        });
+    }, [gantt, ganttFilterProject, ganttSort]);
+
+    const sortedDeadlines = useMemo(() => {
+        if (!Array.isArray(deadlines)) return [];
+        return [...deadlines].sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
+    }, [deadlines]);
 
     // Strictly matched Figma KPI Card Component
     const KPICard = ({ label, value, trend, sublabel }: any) => (
@@ -148,7 +176,6 @@ export const DashboardScreen = () => {
                         {kpis.length > 0 ? (
                             kpis.map((kpi: any, i: number) => <KPICard key={i} {...kpi} />)
                         ) : (
-                            // Fallback if data fails to load or array is empty
                             Array(4).fill(0).map((_, i) => <KPICard key={i} label="Loading Data" value="--" />)
                         )}
                     </div>
@@ -170,7 +197,7 @@ export const DashboardScreen = () => {
                                         </SelectContent>
                                     </Select>
 
-                                    {/* Sort Dropdown (Added from Figma) */}
+                                    {/* Sort Dropdown */}
                                     <Select value={ganttSort} onValueChange={setGanttSort}>
                                         <SelectTrigger className="h-9 w-[100px] text-xs font-semibold bg-white border-[#E7E5E4] rounded-full shadow-sm text-[#78716C]">
                                             <SelectValue placeholder="Sort" />
@@ -194,7 +221,7 @@ export const DashboardScreen = () => {
                                 </div>
                             </div>
                             
-                            {/* Gantt Legend (Added from Figma) */}
+                            {/* Gantt Legend */}
                             <div className="flex items-center gap-6 mt-6 mb-2 text-xs font-semibold text-[#78716C]">
                                 <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-[#0F766E]"></div> On Track</div>
                                 <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-[#EAB308]"></div> At Risk</div>
@@ -218,8 +245,13 @@ export const DashboardScreen = () => {
                                 </div>
                                 
                                 <div className="space-y-2">
+                                    {/* FIX: Conditional rendering message based on selected filter */}
                                     {displayGantt.length === 0 ? (
-                                        <div className="text-center py-12 text-sm text-[#78716C]">No team members currently assigned to tasks.</div>
+                                        <div className="text-center py-12 text-sm text-[#78716C]">
+                                            {ganttFilterProject === 'All' 
+                                                ? 'No team members found.' 
+                                                : 'No members allocated to this project.'}
+                                        </div>
                                     ) : (
                                         displayGantt.map((member: any) => {
                                             const viewStart = new Date(weekDays[0].date); viewStart.setHours(0, 0, 0, 0);
@@ -232,6 +264,7 @@ export const DashboardScreen = () => {
                                                 return !(tEnd < viewStart || tStart > viewEnd);
                                             });
 
+                                            // If they have no valid tasks *in this specific week view*, we still show the user, just with an empty timeline
                                             const rowHeight = Math.max(56, validTasks.length * 36 + 20);
 
                                             return (
@@ -300,9 +333,9 @@ export const DashboardScreen = () => {
                             <span className="text-xs font-bold text-[#A8A29E] uppercase tracking-wider cursor-pointer hover:text-[#1C1917] transition-colors">View All</span>
                         </div>
                         <div className="space-y-4">
-                            {deadlines.length === 0 ? (
-                                <div className="text-center py-8 text-sm text-[#78716C]">No upcoming deadlines in the next 30 days.</div>
-                            ) : deadlines.map((item: any) => (
+                            {sortedDeadlines.length === 0 ? (
+                                <div className="text-center py-8 text-sm text-[#78716C]">No upcoming deadlines in the selected range.</div>
+                            ) : sortedDeadlines.map((item: any) => (
                                 <Link to={`/projects/${item.id}`} key={item.id} className="flex items-center justify-between py-4 px-6 bg-[#FAFAF9] border border-[#E7E5E4] rounded-2xl hover:bg-white hover:shadow-md transition-all group">
                                     <div className="flex items-center gap-4">
                                         <div className="w-12 h-12 rounded-xl border border-[#E7E5E4] flex items-center justify-center bg-white text-[#78716C] group-hover:text-[#1C1917] transition-colors shadow-sm">
