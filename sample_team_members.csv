@@ -1,0 +1,11 @@
+name,email,role,skills,utilization
+John Doe,john.doe@company.com,Frontend Developer,React React Native TypeScript,85
+Jane Smith,jane.smith@company.com,Backend Developer,Node.js Python PostgreSQL,90
+Bob Johnson,bob.johnson@company.com,Full Stack Developer,React Node.js MongoDB,80
+Alice Williams,alice.williams@company.com,Product Designer,Figma Design Systems UI/UX,75
+Charlie Brown,charlie.brown@company.com,QA Engineer,Selenium Jest Testing,70
+Diana Martinez,diana.martinez@company.com,DevOps Engineer,Docker Kubernetes AWS,88
+Eve Taylor,eve.taylor@company.com,Data Scientist,Python Pandas Machine Learning,82
+Frank Wilson,frank.wilson@company.com,Product Manager,Agile Roadmapping Analytics,78
+Grace Lee,grace.lee@company.com,Backend Developer,Java Spring Boot PostgreSQL,92
+Henry Clark,henry.clark@company.com,Frontend Developer,Vue.js JavaScript CSS,80

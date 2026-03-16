@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, X, Plus, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import { toast } from 'sonner';
 
 const PREDEFINED_ROLES = [
   "Engineer",
@@ -27,9 +28,105 @@ export default function OnboardingTeam() {
     { name: '', email: '', role: 'Product Manager' }
   ]);
   const [openRoleDropdown, setOpenRoleDropdown] = useState<number | null>(null);
+  const [isCSVMode, setIsCSVMode] = useState(false);
+  const [csvData, setCSVData] = useState<string>('');
+  const [csvInputMode, setCSVInputMode] = useState<'upload' | 'paste'>('upload');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const addMember = () => {
     setMembers([...members, { name: '', email: '', role: '' }]);
+  };
+
+  const handleCSVFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.csv') && !file.type.includes('text')) {
+      toast.error('Please upload a valid CSV file');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        setCSVData(content);
+        toast.success('CSV file loaded successfully');
+      } catch (error) {
+        toast.error('Failed to read CSV file');
+        console.error('File read error:', error);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const parseCSV = (csv: string) => {
+    const lines = csv.trim().split('\n');
+    if (lines.length < 2) {
+      toast.error('CSV must have header row and at least one data row');
+      return [];
+    }
+
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+    const parsedMembers = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(',').map(v => v.trim());
+      if (!values[0]) continue;
+
+      const nameIdx = headers.indexOf('name') >= 0 ? headers.indexOf('name') : 0;
+      const emailIdx = headers.indexOf('email') >= 0 ? headers.indexOf('email') : 1;
+      const roleIdx = headers.indexOf('role') >= 0 ? headers.indexOf('role') : 2;
+
+      parsedMembers.push({
+        name: values[nameIdx] || '',
+        email: values[emailIdx] || '',
+        role: values[roleIdx] || 'Engineer'
+      });
+    }
+
+    return parsedMembers;
+  };
+
+  const downloadSampleCSV = () => {
+    const sampleData = `name,email,role
+John Doe,john@example.com,Frontend Developer
+Jane Smith,jane@example.com,Backend Developer
+Mike Johnson,mike@example.com,Product Manager
+Sarah Williams,sarah@example.com,Designer
+Tom Brown,tom@example.com,QA Engineer
+Emily Davis,emily@example.com,DevOps Engineer
+Alex Martinez,alex@example.com,Full Stack Developer
+Chris Wilson,chris@example.com,Data Scientist
+Rachel Green,rachel@example.com,Engineering Manager
+David Lee,david@example.com,Frontend Developer`;
+
+    const blob = new Blob([sampleData], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'sample_team_members.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
+    toast.success('Sample CSV downloaded');
+  };
+
+  const handleCSVImport = () => {
+    if (!csvData.trim()) {
+      toast.error('Please upload or paste CSV data');
+      return;
+    }
+
+    const parsedMembers = parseCSV(csvData);
+    if (parsedMembers.length === 0) {
+      toast.error('No valid team members found in CSV');
+      return;
+    }
+
+    setMembers(parsedMembers);
+    setIsCSVMode(false);
+    setCSVData('');
+    toast.success(`${parsedMembers.length} team members imported`);
   };
 
   const removeMember = (index: number) => {
@@ -97,13 +194,14 @@ export default function OnboardingTeam() {
         </p>
 
         {/* Table */}
-        <div className="mb-6">
-          <div className="bg-[#FAFAF9] px-4 py-3 border-b border-[#E7E5E4] flex gap-4">
-            <div className="flex-1 text-xs font-normal text-[#78716C] uppercase">Name</div>
-            <div className="flex-1 text-xs font-normal text-[#78716C] uppercase">Email</div>
-            <div className="w-[200px] text-xs font-normal text-[#78716C] uppercase">Role</div>
-            <div className="w-8"></div>
-          </div>
+        {!isCSVMode && (
+          <div className="mb-6">
+            <div className="bg-[#FAFAF9] px-4 py-3 border-b border-[#E7E5E4] flex gap-4">
+              <div className="flex-1 text-xs font-normal text-[#78716C] uppercase">Name</div>
+              <div className="flex-1 text-xs font-normal text-[#78716C] uppercase">Email</div>
+              <div className="w-[200px] text-xs font-normal text-[#78716C] uppercase">Role</div>
+              <div className="w-8"></div>
+            </div>
           
           <div className="space-y-0 pb-32">
             {members.map((member, idx) => (
@@ -160,31 +258,149 @@ export default function OnboardingTeam() {
             ))}
           </div>
         </div>
+        </>
+        )}
 
-        <div className="flex justify-center mb-8">
-          <Button 
-            variant="outline" 
-            onClick={addMember}
-            className="h-10 px-6 border-[#E7E5E4] text-[#57534E] font-normal hover:bg-[#FAFAF9]"
-          >
-            <Plus className="h-4 w-4 mr-2" /> Add Team Member
-          </Button>
-        </div>
-
-        <div className="relative my-8">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-[#E7E5E4]"></div>
+        {!isCSVMode && (
+          <div className="flex justify-center mb-8">
+            <Button 
+              variant="outline" 
+              onClick={addMember}
+              className="h-10 px-6 border-[#E7E5E4] text-[#57534E] font-normal hover:bg-[#FAFAF9]"
+            >
+              <Plus className="h-4 w-4 mr-2" /> Add Team Member
+            </Button>
           </div>
-          <div className="relative flex justify-center text-xs">
-            <span className="px-4 bg-[#FDFDFB] text-[#A8A29E]">OR</span>
-          </div>
-        </div>
+        )}
 
-        <div className="flex justify-center mb-12">
-          <Button variant="outline" className="h-10 px-6 border-[#E7E5E4] text-[#57534E] font-normal hover:bg-[#FAFAF9]">
-            📄 Import from CSV
-          </Button>
-        </div>
+        {!isCSVMode && (
+          <>
+            <div className="relative my-8">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-[#E7E5E4]"></div>
+              </div>
+              <div className="relative flex justify-center text-xs">
+                <span className="px-4 bg-[#FDFDFB] text-[#A8A29E]">OR</span>
+              </div>
+            </div>
+
+            <div className="flex justify-center mb-12">
+              <Button 
+                onClick={() => setIsCSVMode(true)}
+                variant="outline" 
+                className="h-10 px-6 border-[#E7E5E4] text-[#57534E] font-normal hover:bg-[#FAFAF9]"
+              >
+                📄 Import from CSV
+              </Button>
+            </div>
+          </>
+        )}
+
+        {isCSVMode && (
+          <div className="mb-12 bg-[#FAFAF9] border border-[#E7E5E4] rounded-lg p-6 space-y-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-medium text-[#1C1917]">Import Team Members from CSV</h3>
+              <button
+                onClick={() => {
+                  setIsCSVMode(false);
+                  setCSVData('');
+                }}
+                className="text-[#78716C] hover:text-[#1C1917] transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="bg-[#2DD4BF]/5 border border-[#2DD4BF]/20 rounded-lg p-3">
+              <div className="text-xs font-medium text-[#292524] mb-2">CSV Format</div>
+              <div className="text-xs text-[#78716C] font-mono bg-white p-2 rounded border border-[#E5E5E5]">
+                name,email,role
+              </div>
+            </div>
+
+            <div className="flex gap-3 border-b border-[#E5E5E5]">
+              <button
+                onClick={() => setCSVInputMode('upload')}
+                className={`px-4 py-2 text-xs font-medium transition-all border-b-2 ${csvInputMode === 'upload' ? 'text-[#2DD4BF] border-[#2DD4BF]' : 'text-[#78716C] border-transparent hover:text-[#57534E]'}`}
+              >
+                Upload File
+              </button>
+              <button
+                onClick={() => setCSVInputMode('paste')}
+                className={`px-4 py-2 text-xs font-medium transition-all border-b-2 ${csvInputMode === 'paste' ? 'text-[#2DD4BF] border-[#2DD4BF]' : 'text-[#78716C] border-transparent hover:text-[#57534E]'}`}
+              >
+                Paste Data
+              </button>
+            </div>
+
+            {csvInputMode === 'upload' ? (
+              <div className="space-y-3">
+                <div className="border-2 border-dashed border-[#2DD4BF]/30 rounded-lg p-8 text-center hover:border-[#2DD4BF]/50 hover:bg-[#2DD4BF]/3 transition-all">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv"
+                    onChange={handleCSVFileUpload}
+                    className="hidden"
+                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={loading}
+                    className="inline-flex flex-col items-center gap-2 cursor-pointer"
+                  >
+                    <div className="text-3xl">📁</div>
+                    <div className="text-sm font-medium text-[#292524]">Click to upload CSV file</div>
+                    <div className="text-xs text-[#78716C]">or drag and drop</div>
+                  </button>
+                </div>
+                {csvData && (
+                  <div className="p-3 bg-[#7C9A82]/10 border border-[#7C9A82]/20 rounded-lg">
+                    <div className="text-xs font-medium text-[#7C9A82] mb-1">✓ File loaded</div>
+                    <div className="text-xs text-[#57534E] font-mono">{csvData.split('\n').length - 1} rows ready to import</div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <label className="text-xs font-medium text-[#737373] uppercase tracking-wide block">Paste CSV Data</label>
+                <textarea
+                  value={csvData}
+                  onChange={(e) => setCSVData(e.target.value)}
+                  className="w-full h-40 p-3 border-[#E5E5E5] bg-white rounded-lg border font-mono text-xs resize-none focus:outline-none focus:ring-2 focus:ring-[#2DD4BF]/20 focus:border-[#2DD4BF]"
+                  placeholder="name,email,role&#10;John Doe,john@example.com,Frontend Developer&#10;Jane Smith,jane@example.com,Backend Developer"
+                  disabled={loading}
+                />
+              </div>
+            )}
+
+            <button
+              onClick={downloadSampleCSV}
+              className="text-xs font-medium text-[#2DD4BF] hover:text-[#2DD4BF]/80 transition-colors"
+            >
+              ↓ Download Sample CSV
+            </button>
+
+            <div className="flex gap-3 pt-4">
+              <Button
+                onClick={handleCSVImport}
+                disabled={loading || !csvData.trim()}
+                className="flex-1 h-10 bg-[#2DD4BF] hover:bg-[#2DD4BF]/90 text-[#1C1917] font-medium rounded-lg transition-all"
+              >
+                {loading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Importing...</> : 'Import Members'}
+              </Button>
+              <Button
+                onClick={() => {
+                  setIsCSVMode(false);
+                  setCSVData('');
+                }}
+                variant="outline"
+                className="h-10 px-6 border-[#E7E5E4] text-[#57534E] font-normal hover:bg-[#FAFAF9]"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
 
         <div className="bg-[#F0FDFA] border border-[#CCFBF1] rounded-lg p-4 mb-8 text-center">
           <p className="text-sm text-[#134E4A] font-light">
