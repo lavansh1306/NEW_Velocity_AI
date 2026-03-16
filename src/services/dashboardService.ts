@@ -12,17 +12,22 @@ export const getDashboardData = async (options?: DashboardOptions) => {
         const orgId = getCurrentOrgId();
         if (!orgId) throw new Error("No organization ID found");
 
-        // Get the current logged-in user to filter upcoming deadlines
         const { data: { user: authUser } } = await supabase.auth.getUser();
 
-        // --- FETCH ALL DATA (Safe Manual Method to avoid foreign key errors) ---
+        // --- FETCH ALL DATA ---
+        // Added fetching organization settings for the dynamic target utilization
+        const { data: orgSettings } = await supabase
+            .from('organizations')
+            .select('target_utilization, work_hours_per_week')
+            .eq('id', orgId)
+            .single();
+
         const { data: projects } = await supabase.from('projects').select('*').eq('organization_id', orgId);
         const { data: allTasks } = await supabase.from('tasks').select('*').in('project_id', projects?.map(p => p.id) || []);
         const { data: teams } = await supabase.from('teams').select('*').eq('organization_id', orgId);
         const { data: teamMembers } = await supabase.from('team_members').select('*').in('team_id', teams?.map(t => t.id) || []).eq('status', 'active');
         const { data: users } = await supabase.from('users').select('*').in('id', teamMembers?.map(m => m.user_id).filter(Boolean) || []);
 
-        // Fetch allocations specifically for the logged-in user
         let myProjectIds: string[] = [];
         if (authUser?.id) {
             const { data: allocations } = await supabase
@@ -35,44 +40,59 @@ export const getDashboardData = async (options?: DashboardOptions) => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        // --- 1. KPIs (Matched to Figma UI - Org Wide) ---
+        // --- 1. DYNAMIC KPIs ---
         const activeProjectsCount = projects?.filter(p => p.status === 'active').length || 0;
         const projectsAtRiskCount = projects?.filter(p => p.status === 'draft' || p.status === 'archived').length || 0;
 
-        // Calculate Capacity & Utilization safely
-        const totalCapacity = users?.reduce((sum, u) => sum + (u.capacity_hours_per_week || 40), 0) || 0;
-        let totalEstimatedHours = 0;
-        let totalActualHours = 0;
-        
-        allTasks?.forEach(task => {
-            totalEstimatedHours += task.estimated_hours || 0;
-            totalActualHours += task.actual_hours || 0;
-        });
+        // DYNAMIC UTILIZATION LOGIC: 
+        // Based on 1 week (7 days) window
+        const sevenDaysFromNow = new Date(today);
+        sevenDaysFromNow.setDate(today.getDate() + 7);
 
-        const utilizationPercent = totalEstimatedHours > 0 ? Math.round((totalActualHours / totalEstimatedHours) * 100) : 0;
-        const availableCapacity = Math.max(0, totalCapacity - totalActualHours);
+        // Sum capacity from individual user settings (fallback to org default)
+        const totalWeeklyCapacity = users?.reduce((sum, u) => 
+            sum + (u.capacity_hours_per_week || orgSettings?.work_hours_per_week || 40), 0) || 0;
+
+        // Sum estimated hours for tasks active during THIS week
+        const totalAllocatedHours = allTasks?.reduce((sum, task) => {
+            if (!task.estimated_hours || !task.start_date || !task.due_date) return sum;
+            
+            const taskStart = new Date(task.start_date);
+            const taskDue = new Date(task.due_date);
+
+            // Check if task overlaps with the current 7-day window
+            const isActiveThisWeek = (taskStart <= sevenDaysFromNow && taskDue >= today);
+            return isActiveThisWeek ? sum + Number(task.estimated_hours) : sum;
+        }, 0) || 0;
+
+        const utilizationPercent = totalWeeklyCapacity > 0 
+            ? Math.round((totalAllocatedHours / totalWeeklyCapacity) * 100) 
+            : 0;
+
+        const target = orgSettings?.target_utilization || 85;
+        const availableCapacity = Math.max(0, totalWeeklyCapacity - totalAllocatedHours);
 
         const kpis = [
             { label: 'ACTIVE PROJECTS', value: activeProjectsCount, trend: activeProjectsCount > 0 ? 'up' : 'down' },
-            { label: 'TEAM UTILIZATION', value: `${utilizationPercent}%`, sublabel: 'Target: 85%', trend: utilizationPercent >= 80 ? 'up' : 'down' },
-            { label: 'AVAILABLE CAPACITY', value: `${availableCapacity}h`, sublabel: 'Next 2 weeks', trend: 'down' },
+            { 
+                label: 'TEAM UTILIZATION', 
+                value: `${utilizationPercent}%`, 
+                sublabel: `Target: ${target}%`, 
+                trend: utilizationPercent >= target ? 'up' : 'down' 
+            },
+            { label: 'AVAILABLE CAPACITY', value: `${availableCapacity}h`, sublabel: 'Next 7 days', trend: 'down' },
             { label: 'PROJECTS AT RISK', value: projectsAtRiskCount, trend: projectsAtRiskCount > 0 ? 'down' : 'up' }
         ];
 
         // --- 2. Deadlines (Filtered strictly for logged-in user's projects) ---
-        const thirtyDaysFromNow = new Date(today);
-        thirtyDaysFromNow.setDate(today.getDate() + 30);
-
         const deadlines = (projects || [])
             .filter(p => p.status !== 'completed' && p.status !== 'archived' && p.end_date)
-            // THE FIX: Only include projects where the logged-in user is explicitly allocated
             .filter(p => myProjectIds.includes(p.id)) 
             .map(p => {
-                const endDate = new Date(p.end_date);
+                const endDate = new Date(p.end_date!);
                 endDate.setHours(0, 0, 0, 0);
                 const daysLeft = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
                 
-                // Set urgency flag for the UI colors
                 let urgency = 'green';
                 if (daysLeft < 3 || daysLeft < 0) urgency = 'red';
                 else if (daysLeft <= 7) urgency = 'yellow';
@@ -86,17 +106,17 @@ export const getDashboardData = async (options?: DashboardOptions) => {
                     status: daysLeft < 0 ? 'At Risk' : daysLeft <= 7 ? 'Active' : 'On Track'
                 };
             })
-            .filter(d => d.daysLeft >= 0 && d.daysLeft <= 30) // Only next 30 days
+            .filter(d => d.daysLeft >= 0 && d.daysLeft <= 30)
             .sort((a, b) => a.daysLeft - b.daysLeft)
-            .slice(0, 5); // Limit to top 5 upcoming deadlines
+            .slice(0, 5);
 
-        // --- 3. Gantt Chart Data (Org Wide for Managers) ---
+        // --- 3. Gantt Chart Data ---
         const seenEmails = new Set<string>();
         const gantt = (teamMembers || [])
             .map(member => {
                 const userData = users?.find(u => u.id === member.user_id);
                 const memberEmail = userData?.email || member.email || '';
-                const memberName = userData?.name || userData?.email || member.email || 'Unknown';
+                const memberName = userData?.name || member.display_name || member.email || 'Unknown';
                 
                 return {
                     id: member.id,
@@ -106,24 +126,21 @@ export const getDashboardData = async (options?: DashboardOptions) => {
                     avatar: memberName.charAt(0).toUpperCase(),
                     tasks: (allTasks || [])
                         .filter(task => {
-                            // Account for various assignment field possibilities
-                            const isAssigned = task.assigned_to === member.user_id || 
-                                task.assigned_team_member_id === member.id ||
-                                task.assigned_to === member.id ||
-                                (task as any).assignee_id === member.user_id ||
-                                (task as any).assignee_id === member.id ||
-                                task.user_id === member.user_id;
-                            
-                            return isAssigned && task.start_date && task.due_date;
+                            return (
+                                task.assignee_id === member.user_id || 
+                                task.user_id === member.user_id ||
+                                task.project_id === member.team_id // Logic check based on your schema
+                            );
                         })
+                        .filter(task => task.start_date && task.due_date)
                         .map(task => ({
                             id: task.id,
                             name: task.name,
                             project: projects?.find(p => p.id === task.project_id)?.name || 'Unknown',
-                            startDate: new Date(task.start_date).toISOString(),
-                            endDate: new Date(task.due_date).toISOString(),
+                            startDate: new Date(task.start_date!).toISOString(),
+                            endDate: new Date(task.due_date!).toISOString(),
                             status: task.status || 'not_started',
-                            displayStatus: task.status === 'completed' || task.status === 'in_progress' ? 'track' : 'risk',
+                            displayStatus: task.status === 'completed' ? 'track' : 'risk',
                         }))
                 };
             })
@@ -140,8 +157,6 @@ export const getDashboardData = async (options?: DashboardOptions) => {
         return { kpis: [], deadlines: [], gantt: [] };
     }
 };
-
-// --- Add-on Functions for Sidebar/Header ---
 
 export const getGlobalSearchResults = async (query: string) => {
     const orgId = getCurrentOrgId();
