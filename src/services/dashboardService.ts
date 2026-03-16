@@ -12,6 +12,9 @@ export const getDashboardData = async (options?: DashboardOptions) => {
         const orgId = getCurrentOrgId();
         if (!orgId) throw new Error("No organization ID found");
 
+        // Get the current logged-in user to filter upcoming deadlines
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+
         // --- FETCH ALL DATA (Safe Manual Method to avoid foreign key errors) ---
         const { data: projects } = await supabase.from('projects').select('*').eq('organization_id', orgId);
         const { data: allTasks } = await supabase.from('tasks').select('*').in('project_id', projects?.map(p => p.id) || []);
@@ -19,10 +22,20 @@ export const getDashboardData = async (options?: DashboardOptions) => {
         const { data: teamMembers } = await supabase.from('team_members').select('*').in('team_id', teams?.map(t => t.id) || []).eq('status', 'active');
         const { data: users } = await supabase.from('users').select('*').in('id', teamMembers?.map(m => m.user_id).filter(Boolean) || []);
 
+        // Fetch allocations specifically for the logged-in user
+        let myProjectIds: string[] = [];
+        if (authUser?.id) {
+            const { data: allocations } = await supabase
+                .from('project_team_allocations')
+                .select('project_id')
+                .eq('user_id', authUser.id);
+            myProjectIds = allocations?.map(a => a.project_id) || [];
+        }
+
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        // --- 1. KPIs (Matched to Figma UI) ---
+        // --- 1. KPIs (Matched to Figma UI - Org Wide) ---
         const activeProjectsCount = projects?.filter(p => p.status === 'active').length || 0;
         const projectsAtRiskCount = projects?.filter(p => p.status === 'draft' || p.status === 'archived').length || 0;
 
@@ -46,12 +59,14 @@ export const getDashboardData = async (options?: DashboardOptions) => {
             { label: 'PROJECTS AT RISK', value: projectsAtRiskCount, trend: projectsAtRiskCount > 0 ? 'down' : 'up' }
         ];
 
-        // --- 2. Deadlines (Upcoming project end dates with Urgency Colors) ---
+        // --- 2. Deadlines (Filtered strictly for logged-in user's projects) ---
         const thirtyDaysFromNow = new Date(today);
         thirtyDaysFromNow.setDate(today.getDate() + 30);
 
         const deadlines = (projects || [])
             .filter(p => p.status !== 'completed' && p.status !== 'archived' && p.end_date)
+            // THE FIX: Only include projects where the logged-in user is explicitly allocated
+            .filter(p => myProjectIds.includes(p.id)) 
             .map(p => {
                 const endDate = new Date(p.end_date);
                 endDate.setHours(0, 0, 0, 0);
@@ -73,9 +88,9 @@ export const getDashboardData = async (options?: DashboardOptions) => {
             })
             .filter(d => d.daysLeft >= 0 && d.daysLeft <= 30) // Only next 30 days
             .sort((a, b) => a.daysLeft - b.daysLeft)
-            .slice(0, 5);
+            .slice(0, 5); // Limit to top 5 upcoming deadlines
 
-        // --- 3. Gantt Chart Data ---
+        // --- 3. Gantt Chart Data (Org Wide for Managers) ---
         const seenEmails = new Set<string>();
         const gantt = (teamMembers || [])
             .map(member => {
