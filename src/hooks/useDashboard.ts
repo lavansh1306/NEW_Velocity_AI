@@ -1,89 +1,99 @@
-import { supabase } from '@/lib/supabase';
+import { useState, useEffect } from 'react';
+import { DateRange } from 'react-day-picker';
+import { getDashboardData, getGlobalSearchResults, getNotifications } from '@/services/dashboardService';
+import { toast } from 'sonner';
 
-export const getDashboardData = async ({ startDate, endDate, orgId }: { startDate: Date, endDate: Date, orgId: string }) => {
-  // 1. Fetch Active Projects Count
-  const { data: projectsRes } = await supabase
-    .from('projects')
-    .select('id')
-    .eq('organization_id', orgId)
-    .neq('status', 'completed')
-    .neq('status', 'archived');
-
-  // 2. Fetch Project Deadlines
-  const { data: projectDeadlines } = await supabase
-    .from('projects')
-    .select('id, name, end_date, status')
-    .eq('organization_id', orgId)
-    .neq('status', 'completed')
-    .order('end_date', { ascending: true })
-    .limit(5);
-
-  // 3. Fetch Users + Tasks + Projects (Gantt Data)
-  // We use tasks!tasks_user_id_fkey to specify which foreign key to join on 
-  // since your schema has both assignee_id and user_id on the tasks table.
-  const { data: teamData, error } = await supabase
-    .from('users')
-    .select(`
-      id,
-      name,
-      role,
-      tasks!tasks_user_id_fkey (
-        id,
-        name,
-        start_date,
-        due_date,
-        status,
-        projects ( name )
-      )
-    `)
-    .eq('organization_id', orgId);
-
-  if (error) {
-    console.error("[Dashboard Service] Error fetching Gantt data:", error);
-  }
-
-  let activeTaskCount = 0;
-
-  // Transform Deadlines
-  const deadlines = (projectDeadlines || []).map(p => ({
-    id: p.id,
-    project: p.name,
-    deadline: p.end_date || new Date().toISOString(),
-    daysLeft: p.end_date ? Math.ceil((new Date(p.end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : 0,
-    status: p.status || 'active'
-  }));
-
-  // Transform Gantt Data
-  const gantt = (teamData || []).map((user: any) => {
-    const userTasks = user.tasks || [];
+export const useDashboard = () => {
+    const [isLoading, setIsLoading] = useState(true);
+    const [data, setData] = useState({ kpis: [], deadlines: [], gantt: [] });
     
-    // Count active tasks while we iterate
-    activeTaskCount += userTasks.filter((t: any) => t.status === 'in_progress').length;
+    // Date Range State
+    const [dateRangeParam, setDateRangeParam] = useState<string>('30');
+    const [tempCustomRange, setTempCustomRange] = useState<DateRange | undefined>();
+    const [appliedCustomRange, setAppliedCustomRange] = useState<DateRange | undefined>();
+    const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+
+    // Search State
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState({ projects: [], users: [], tasks: [] });
+    const [isSearchOpen, setIsSearchOpen] = useState(false);
+
+    // Notifications State
+    const [notifications, setNotifications] = useState<any[]>([]);
+    const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+
+    // Fetch Main Dashboard
+    const fetchDashboard = async () => {
+        setIsLoading(true);
+        try {
+            const endDate = new Date();
+            endDate.setHours(23, 59, 59, 999);
+            let startDate = new Date();
+
+            if (dateRangeParam === 'custom') {
+                startDate = appliedCustomRange?.from ? new Date(appliedCustomRange.from) : new Date();
+                if (appliedCustomRange?.to) endDate.setTime(appliedCustomRange.to.getTime());
+            } else {
+                startDate.setDate(endDate.getDate() - parseInt(dateRangeParam || '30'));
+            }
+            startDate.setHours(0, 0, 0, 0);
+
+            const result = await getDashboardData({ startDate, endDate });
+            setData(result as any);
+            
+            // Fetch notifications on load
+            const notifs = await getNotifications();
+            setNotifications(notifs);
+        } catch (error) {
+            toast.error("Failed to load dashboard data");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Debounced Global Search
+    useEffect(() => {
+        const delayDebounceFn = setTimeout(async () => {
+            if (searchQuery.trim().length > 1) {
+                const results = await getGlobalSearchResults(searchQuery);
+                setSearchResults(results);
+                setIsSearchOpen(true);
+            } else {
+                setIsSearchOpen(false);
+            }
+        }, 300); // Wait 300ms after user stops typing
+
+        return () => clearTimeout(delayDebounceFn);
+    }, [searchQuery]);
+
+    // Refetch when applied dates change
+    useEffect(() => {
+        fetchDashboard();
+    }, [dateRangeParam, appliedCustomRange]);
+
+    const markAllRead = () => {
+        setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    };
 
     return {
-      id: user.id,
-      name: user.name || 'Unknown User',
-      role: user.role || 'Employee',
-      avatar: user.name ? user.name.charAt(0).toUpperCase() : '?',
-      tasks: userTasks.map((t: any) => ({
-        id: t.id,
-        name: t.name || 'Untitled Task',
-        project: t.projects?.name || 'Internal',
-        startDate: t.start_date || new Date().toISOString(),
-        endDate: t.due_date || new Date().toISOString(), // Mapped due_date to endDate for UI
-        status: t.status === 'blocked' ? 'risk' : 'track'
-      }))
+        ...data,
+        isLoading,
+        dateRangeParam,
+        setDateRangeParam,
+        tempCustomRange,
+        setTempCustomRange,
+        appliedCustomRange,
+        setAppliedCustomRange,
+        isCalendarOpen,
+        setIsCalendarOpen,
+        searchQuery,
+        setSearchQuery,
+        searchResults,
+        isSearchOpen,
+        setIsSearchOpen,
+        notifications,
+        isNotificationsOpen,
+        setIsNotificationsOpen,
+        markAllRead
     };
-  });
-
-  return {
-    kpis: [
-      { label: 'Active Projects', value: projectsRes?.length || 0, change: '+2', trend: 'up' },
-      { label: 'Tasks in Progress', value: activeTaskCount, change: '-4', trend: 'down' },
-      { label: 'Team Utilization', value: '82%', change: '+5%', trend: 'up' },
-      { label: 'AI Confidence', value: '94%', change: '+1%', trend: 'up' }
-    ],
-    deadlines,
-    gantt
-  };
 };
