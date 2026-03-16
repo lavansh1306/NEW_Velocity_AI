@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -8,8 +8,6 @@ import { format } from 'date-fns';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { PageSkeleton } from '@/components/shared/SkeletonLoader';
 import { useDashboard } from '@/hooks/useDashboard';
-import { supabase } from '@/lib/supabase';
-import { toast } from 'sonner';
 
 // Icons
 import CalendarToday from '@mui/icons-material/CalendarToday';
@@ -17,8 +15,7 @@ import Add from '@mui/icons-material/Add';
 import ViewKanban from '@mui/icons-material/ViewKanban';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
-import Close from '@mui/icons-material/Close';
-import { ArrowUpRight, ArrowDownRight, Sparkles, Loader2 } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Sparkles } from 'lucide-react';
 
 const getCurrentWeekMonday = () => {
     const today = new Date();
@@ -30,6 +27,8 @@ const getCurrentWeekMonday = () => {
 
 export const DashboardScreen = () => {
     const navigate = useNavigate();
+    
+    // Pulling dynamic data directly from your hook
     const {
         kpis, deadlines, gantt, isLoading,
         dateRangeParam, setDateRangeParam,
@@ -40,23 +39,18 @@ export const DashboardScreen = () => {
 
     const [currentWeekStart, setCurrentWeekStart] = useState<Date>(getCurrentWeekMonday());
     const [ganttFilterProject, setGanttFilterProject] = useState<string>('All');
-    
-    // Task Modal States
-    const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
-    const [isTaskFetching, setIsTaskFetching] = useState(false);
-    const [isTaskSaving, setIsTaskSaving] = useState(false);
-    const [orgUsers, setOrgUsers] = useState<any[]>([]);
-    const [taskForm, setTaskForm] = useState({
-        id: '', name: '', description: '', status: 'not_started', assignee_id: '',
-        estimated_hours: 0, start_date: '', due_date: ''
-    });
+    const [ganttSort, setGanttSort] = useState<string>('Name');
 
     const weekDays = useMemo(() => {
         const dates = [];
         for (let i = 0; i < 7; i++) {
             const date = new Date(currentWeekStart);
             date.setDate(currentWeekStart.getDate() + i);
-            dates.push({ date, label: date.toLocaleDateString('en-US', { month: 'short', day: '2-digit' }), isToday: new Date().toDateString() === date.toDateString() });
+            dates.push({ 
+                date, 
+                label: date.toLocaleDateString('en-US', { month: 'short', day: '2-digit' }), 
+                isToday: new Date().toDateString() === date.toDateString() 
+            });
         }
         return dates;
     }, [currentWeekStart]);
@@ -75,28 +69,30 @@ export const DashboardScreen = () => {
         })).filter((m: any) => m.tasks.length > 0 || ganttFilterProject === 'All');
     }, [gantt, ganttFilterProject]);
 
-    // UI Component for the 4 Square KPI Boxes
+    // Strictly matched Figma KPI Card Component
     const KPICard = ({ label, value, trend, sublabel }: any) => (
-        <div className="bg-white border border-[#E7E5E4] rounded-2xl p-6 shadow-sm flex flex-col">
-            <div className="flex justify-between items-start mb-4">
-                <p className="text-[11px] font-bold text-[#78716C] uppercase tracking-wider">{label}</p>
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center ${trend === 'up' ? 'bg-[#F0FDFA] text-[#0F766E]' : 'bg-[#FEF2F2] text-[#DC2626]'}`}>
-                    {trend === 'up' ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
+        <div className="bg-white border border-[#E7E5E4] rounded-2xl p-6 shadow-sm flex flex-col justify-between min-h-[140px]">
+            <div>
+                <div className="flex justify-between items-start mb-2">
+                    <p className="text-[11px] font-bold text-[#78716C] uppercase tracking-wider">{label}</p>
+                    {trend && (
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center ${trend === 'up' ? 'bg-[#F0FDFA] text-[#0F766E]' : 'bg-[#FEF2F2] text-[#DC2626]'}`}>
+                            {trend === 'up' ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
+                        </div>
+                    )}
                 </div>
+                <h3 className="text-4xl font-light text-[#1C1917] mt-1">{value !== undefined ? value : '--'}</h3>
             </div>
-            <h3 className="text-4xl font-light text-[#1C1917]">{value}</h3>
-            {sublabel ? (
-                <p className="text-xs font-medium text-[#A8A29E] mt-3">{sublabel}</p>
-            ) : (
-                <div className="h-4 mt-3"></div> // Spacer to keep heights consistent
-            )}
+            <div className="h-4 mt-2">
+                {sublabel && <p className="text-xs font-medium text-[#A8A29E]">{sublabel}</p>}
+            </div>
         </div>
     );
 
     if (isLoading) return <PageSkeleton />;
 
     return (
-        <div className="p-8 relative max-w-[1600px] mx-auto">
+        <div className="p-8 relative max-w-[1600px] mx-auto bg-[#FAFAF9] min-h-screen">
             
             {/* Header section matching Figma */}
             <div className="flex items-center justify-between mb-8">
@@ -111,14 +107,14 @@ export const DashboardScreen = () => {
                                 setDateRangeParam(val);
                                 if (val === 'custom') setIsCalendarOpen(true);
                             }}>
-                                <SelectTrigger className="w-[220px] h-10 bg-white border-[#E7E5E4] rounded-md shadow-sm">
+                                <SelectTrigger className="w-[160px] h-10 bg-white border-[#E7E5E4] rounded-lg shadow-sm font-medium text-sm text-[#1C1917]">
                                     <CalendarToday style={{ fontSize: 16 }} className="mr-2 text-[#78716C]" />
                                     <SelectValue />
                                 </SelectTrigger>
-                                <SelectContent className="bg-white border-[#E7E5E4]">
+                                <SelectContent className="bg-white border-[#E7E5E4] rounded-lg">
                                     <SelectItem value="30">Last 30 Days</SelectItem>
                                     <SelectItem value="90">Last 90 Days</SelectItem>
-                                    <SelectItem value="custom">Custom Date Range</SelectItem>
+                                    <SelectItem value="custom">Custom Range</SelectItem>
                                 </SelectContent>
                             </Select>
                         </PopoverAnchor>
@@ -147,45 +143,74 @@ export const DashboardScreen = () => {
                 {/* Left Column (Main Content) */}
                 <div className="col-span-12 xl:col-span-8 space-y-6">
                     
-                    {/* The 4 Square KPI Boxes */}
+                    {/* The 4 Dynamic KPI Boxes */}
                     <div className="grid grid-cols-4 gap-4">
-                        {kpis.map((kpi: any, i: number) => <KPICard key={i} {...kpi} />)}
+                        {kpis.length > 0 ? (
+                            kpis.map((kpi: any, i: number) => <KPICard key={i} {...kpi} />)
+                        ) : (
+                            // Fallback if data fails to load or array is empty
+                            Array(4).fill(0).map((_, i) => <KPICard key={i} label="Loading Data" value="--" />)
+                        )}
                     </div>
 
                     {/* Team Capacity & Allocation */}
                     <div className="bg-white border border-[#E7E5E4] rounded-2xl p-8 shadow-sm">
-                        <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-lg font-semibold text-[#1C1917]">Team Capacity & Allocation</h2>
-                            <div className="flex items-center gap-3">
-                                <Select value={ganttFilterProject} onValueChange={setGanttFilterProject}>
-                                    <SelectTrigger className="h-8 w-[140px] text-xs font-medium bg-[#FAFAF9] border-[#E7E5E4] rounded-md">
-                                        <SelectValue placeholder="Filter..." />
-                                    </SelectTrigger>
-                                    <SelectContent className="bg-white rounded-md">
-                                        <SelectItem value="All">All Projects</SelectItem>
-                                        {uniqueProjects.map(p => <SelectItem key={p as string} value={p as string}>{p as string}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                                <div className="flex items-center gap-1 bg-white border border-[#E7E5E4] rounded-md p-1 shadow-sm">
-                                    <Button variant="ghost" className="h-6 w-6 p-0 hover:bg-[#F5F5F4] rounded" onClick={() => setCurrentWeekStart(new Date(new Date(currentWeekStart).setDate(currentWeekStart.getDate() - 7)))}>
-                                        <ChevronLeftIcon style={{ fontSize: 16 }} />
-                                    </Button>
-                                    <span className="text-[11px] font-bold px-3 text-[#1C1917] uppercase">{weekLabel}</span>
-                                    <Button variant="ghost" className="h-6 w-6 p-0 hover:bg-[#F5F5F4] rounded" onClick={() => setCurrentWeekStart(new Date(new Date(currentWeekStart).setDate(currentWeekStart.getDate() + 7)))}>
-                                        <ChevronRightIcon style={{ fontSize: 16 }} />
-                                    </Button>
+                        <div className="flex flex-col mb-6">
+                            <div className="flex justify-between items-center w-full">
+                                <h2 className="text-xl font-medium text-[#1C1917]">Team Capacity & Allocation</h2>
+                                <div className="flex items-center gap-3">
+                                    {/* Filter Dropdown */}
+                                    <Select value={ganttFilterProject} onValueChange={setGanttFilterProject}>
+                                        <SelectTrigger className="h-9 w-[120px] text-xs font-semibold bg-white border-[#E7E5E4] rounded-full shadow-sm text-[#78716C]">
+                                            <SelectValue placeholder="Filter" />
+                                        </SelectTrigger>
+                                        <SelectContent className="bg-white rounded-md">
+                                            <SelectItem value="All">All Projects</SelectItem>
+                                            {uniqueProjects.map(p => <SelectItem key={p as string} value={p as string}>{p as string}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+
+                                    {/* Sort Dropdown (Added from Figma) */}
+                                    <Select value={ganttSort} onValueChange={setGanttSort}>
+                                        <SelectTrigger className="h-9 w-[100px] text-xs font-semibold bg-white border-[#E7E5E4] rounded-full shadow-sm text-[#78716C]">
+                                            <SelectValue placeholder="Sort" />
+                                        </SelectTrigger>
+                                        <SelectContent className="bg-white rounded-md">
+                                            <SelectItem value="Name">Name</SelectItem>
+                                            <SelectItem value="Role">Role</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+
+                                    {/* Date Range Navigation */}
+                                    <div className="flex items-center gap-1 bg-white border border-[#E7E5E4] rounded-full p-1 shadow-sm h-9">
+                                        <Button variant="ghost" className="h-6 w-6 p-0 hover:bg-[#F5F5F4] rounded-full text-[#78716C]" onClick={() => setCurrentWeekStart(new Date(new Date(currentWeekStart).setDate(currentWeekStart.getDate() - 7)))}>
+                                            <ChevronLeftIcon style={{ fontSize: 16 }} />
+                                        </Button>
+                                        <span className="text-[11px] font-bold px-3 text-[#1C1917] uppercase tracking-wider whitespace-nowrap">{format(currentWeekStart, "MMM yyyy")}</span>
+                                        <Button variant="ghost" className="h-6 w-6 p-0 hover:bg-[#F5F5F4] rounded-full text-[#78716C]" onClick={() => setCurrentWeekStart(new Date(new Date(currentWeekStart).setDate(currentWeekStart.getDate() + 7)))}>
+                                            <ChevronRightIcon style={{ fontSize: 16 }} />
+                                        </Button>
+                                    </div>
                                 </div>
+                            </div>
+                            
+                            {/* Gantt Legend (Added from Figma) */}
+                            <div className="flex items-center gap-6 mt-6 mb-2 text-xs font-semibold text-[#78716C]">
+                                <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-[#0F766E]"></div> On Track</div>
+                                <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-[#EAB308]"></div> At Risk</div>
+                                <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-[#E7E5E4]"></div> Available</div>
                             </div>
                         </div>
 
                         {/* Gantt Chart Implementation */}
                         <div className="overflow-x-auto">
                             <div className="min-w-[700px]">
-                                <div className="flex gap-1 border-b border-[#E7E5E4] pb-3 mb-3 text-[#78716C] text-[10px] font-bold uppercase tracking-wider">
+                                <div className="flex gap-1 border-b border-[#E7E5E4] pb-3 mb-3 text-[#A8A29E] text-[10px] font-bold uppercase tracking-wider">
                                     <div className="w-56 pl-2">Team Member</div>
                                     <div className="flex flex-1 gap-2">
                                         {weekDays.map((day, i) => (
                                             <div key={i} className={`flex-1 text-center py-1 ${day.isToday ? 'text-[#0F766E] bg-[#F0FDFA] rounded-md font-bold' : ''}`}>
+                                                <div className="text-[9px] mb-0.5 opacity-70">Week ending</div>
                                                 {day.label}
                                             </div>
                                         ))}
@@ -194,7 +219,7 @@ export const DashboardScreen = () => {
                                 
                                 <div className="space-y-2">
                                     {displayGantt.length === 0 ? (
-                                        <div className="text-center py-12 text-sm text-[#78716C]">No team members match criteria.</div>
+                                        <div className="text-center py-12 text-sm text-[#78716C]">No team members currently assigned to tasks.</div>
                                     ) : (
                                         displayGantt.map((member: any) => {
                                             const viewStart = new Date(weekDays[0].date); viewStart.setHours(0, 0, 0, 0);
@@ -212,12 +237,12 @@ export const DashboardScreen = () => {
                                             return (
                                                 <div key={member.id} className="flex items-stretch gap-1 group hover:bg-[#FAFAF9] rounded-xl transition-colors p-2 -mx-2" style={{ height: `${rowHeight}px` }}>
                                                     <div className="w-56 flex-shrink-0 flex items-center gap-3 pr-4 border-r border-[#E7E5E4]/50 z-20 bg-white group-hover:bg-[#FAFAF9] transition-colors">
-                                                        <Avatar className="w-9 h-9 border border-[#E7E5E4]">
-                                                            <AvatarFallback className="bg-[#F5F5F4] text-[#1C1917] text-xs font-medium">{member.avatar}</AvatarFallback>
+                                                        <Avatar className="w-10 h-10 border border-[#E7E5E4]">
+                                                            <AvatarFallback className="bg-[#F5F5F4] text-[#1C1917] text-xs font-semibold">{member.avatar}</AvatarFallback>
                                                         </Avatar>
                                                         <div className="min-w-0">
-                                                            <div className="text-sm font-bold text-[#1C1917] truncate">{member.name}</div>
-                                                            <div className="text-[10px] font-normal text-[#78716C] truncate">{member.email}</div>
+                                                            <div className="text-sm font-semibold text-[#1C1917] truncate">{member.name}</div>
+                                                            <div className="text-[11px] font-medium text-[#78716C] truncate mt-0.5">{member.role}</div>
                                                         </div>
                                                     </div>
 
@@ -248,12 +273,12 @@ export const DashboardScreen = () => {
                                                                 return (
                                                                     <div
                                                                         key={vIdx}
-                                                                        className={`absolute h-7 text-[11px] font-semibold flex items-center px-3 shadow-sm border cursor-pointer z-10 transition-all rounded-full
+                                                                        className={`absolute h-7 text-[11px] font-semibold flex items-center px-4 shadow-sm border cursor-pointer z-10 transition-all rounded-full
                                                                         ${task.displayStatus === 'track' ? 'bg-[#F0FDFA] text-[#0F766E] border-[#CCFBF1]' : 'bg-[#FFF7ED] text-[#C2410C] border-[#FFEDD5]'}
                                                                         `}
                                                                         style={{ left: `calc(${leftPercent}%)`, width: `calc(${widthPercent}%)`, top: `${10 + vIdx * 36}px` }}
                                                                     >
-                                                                        <span className="truncate w-full relative z-20">{task.project}</span>
+                                                                        <span className="truncate w-full relative z-20 text-center">{task.project}</span>
                                                                     </div>
                                                                 );
                                                             })}
@@ -271,35 +296,35 @@ export const DashboardScreen = () => {
                     {/* Upcoming Deadlines */}
                     <div className="bg-white border border-[#E7E5E4] rounded-2xl p-8 shadow-sm">
                         <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-lg font-semibold text-[#1C1917]">Upcoming Deadlines</h2>
-                            <span className="text-xs font-bold text-[#78716C] uppercase tracking-wider cursor-pointer hover:text-[#1C1917] transition-colors">View All</span>
+                            <h2 className="text-xl font-medium text-[#1C1917]">Upcoming Deadlines</h2>
+                            <span className="text-xs font-bold text-[#A8A29E] uppercase tracking-wider cursor-pointer hover:text-[#1C1917] transition-colors">View All</span>
                         </div>
-                        <div className="space-y-3">
+                        <div className="space-y-4">
                             {deadlines.length === 0 ? (
                                 <div className="text-center py-8 text-sm text-[#78716C]">No upcoming deadlines in the next 30 days.</div>
                             ) : deadlines.map((item: any) => (
-                                <Link to={`/projects/${item.id}`} key={item.id} className="flex items-center justify-between py-4 px-5 bg-[#FAFAF9] border border-[#E7E5E4] rounded-xl hover:bg-white hover:shadow-sm transition-all group">
+                                <Link to={`/projects/${item.id}`} key={item.id} className="flex items-center justify-between py-4 px-6 bg-[#FAFAF9] border border-[#E7E5E4] rounded-2xl hover:bg-white hover:shadow-md transition-all group">
                                     <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 rounded-full border border-[#E7E5E4] flex items-center justify-center bg-white text-[#78716C] group-hover:text-[#1C1917] transition-colors">
-                                            <ViewKanban style={{ fontSize: 18 }} />
+                                        <div className="w-12 h-12 rounded-xl border border-[#E7E5E4] flex items-center justify-center bg-white text-[#78716C] group-hover:text-[#1C1917] transition-colors shadow-sm">
+                                            <ViewKanban style={{ fontSize: 20 }} />
                                         </div>
                                         <div>
-                                            <div className="text-sm font-semibold text-[#1C1917]">{item.project}</div>
-                                            <div className="text-xs font-medium text-[#A8A29E] mt-0.5">{format(new Date(item.deadline), "MMM d, yyyy")}</div>
+                                            <div className="text-[15px] font-semibold text-[#1C1917] mb-1">{item.project}</div>
+                                            <div className="text-xs font-medium text-[#78716C]">{format(new Date(item.deadline), "MMM d, yyyy")}</div>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-8">
-                                        <div className="text-right">
-                                            <div className="text-sm font-bold text-[#1C1917]">{item.daysLeft} days</div>
-                                            <div className="text-[10px] font-bold text-[#A8A29E] uppercase tracking-wider">Remaining</div>
+                                    <div className="flex items-center gap-10">
+                                        <div className="text-center flex flex-col items-center min-w-[60px]">
+                                            <span className="text-sm font-bold text-[#1C1917]">{item.daysLeft} days</span>
+                                            <span className="text-[9px] font-bold text-[#A8A29E] uppercase tracking-wider mt-0.5">Remaining</span>
                                         </div>
-                                        <div className={`px-3 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wider
+                                        <div className={`px-4 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider
                                             ${item.status === 'At Risk' ? 'bg-[#FEF2F2] text-[#DC2626]' : 
                                               item.status === 'Active' ? 'bg-[#F0FDFA] text-[#0F766E]' : 
                                               'bg-[#F1F5F9] text-[#64748B]'}`}>
                                             {item.status}
                                         </div>
-                                        <ChevronRightIcon style={{ fontSize: 18 }} className="text-[#D6D3D1] group-hover:text-[#1C1917] transition-colors" />
+                                        <ChevronRightIcon style={{ fontSize: 20 }} className="text-[#D6D3D1] group-hover:text-[#1C1917] transition-colors" />
                                     </div>
                                 </Link>
                             ))}
@@ -309,7 +334,7 @@ export const DashboardScreen = () => {
 
                 {/* Right Column (AI Insights to match Figma Layout) */}
                 <div className="col-span-12 xl:col-span-4">
-                    <div className="bg-[#FAFAF9] border border-[#E7E5E4] rounded-2xl p-6 shadow-sm h-full">
+                    <div className="bg-white border border-[#E7E5E4] rounded-2xl p-6 shadow-sm h-full">
                         <div className="flex items-center gap-2 mb-6">
                             <Sparkles className="text-[#0F766E]" size={20} />
                             <h2 className="text-lg font-semibold text-[#1C1917]">AI Insights</h2>
@@ -317,27 +342,45 @@ export const DashboardScreen = () => {
                         
                         {/* Static Placeholder Insights matching your Figma screenshot */}
                         <div className="space-y-4">
-                            <div className="bg-white border border-[#E7E5E4] rounded-xl p-5 shadow-sm">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <span className="bg-[#FEF2F2] text-[#DC2626] text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wider">Overload</span>
+                            <div className="bg-white border border-[#E7E5E4] rounded-2xl p-5 shadow-sm hover:shadow-md transition-all">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <span className="bg-[#FEF2F2] text-[#DC2626] text-[10px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wider flex items-center gap-1">
+                                        <ArrowUpRight size={12} /> Overload
+                                    </span>
                                 </div>
-                                <h3 className="text-sm font-bold text-[#1C1917] mb-2">Frontend capacity overload — immediate action needed</h3>
-                                <p className="text-xs text-[#78716C] mb-4 leading-relaxed">Sarah Chen is at 120% utilization and David Kim at 112%. Both have sustained overload for 3+ weeks.</p>
+                                <h3 className="text-sm font-bold text-[#1C1917] mb-2 leading-tight">Frontend capacity overload — immediate action needed</h3>
+                                <p className="text-xs text-[#78716C] mb-5 leading-relaxed">Sarah Chen is at 120% utilization and David Kim at 112%. Both have sustained overload for 3+ weeks.</p>
                                 <div className="flex gap-2">
-                                    <Button className="flex-1 bg-[#1C1917] hover:bg-[#292524] text-white h-8 text-xs rounded-lg">Review</Button>
-                                    <Button variant="outline" className="flex-1 h-8 text-xs rounded-lg">Ignore</Button>
+                                    <Button className="flex-1 bg-[#1C1917] hover:bg-[#292524] text-white h-9 text-xs font-semibold rounded-xl">Review</Button>
+                                    <Button variant="outline" className="flex-1 h-9 text-xs font-semibold rounded-xl border-[#E7E5E4] text-[#1C1917]">Ignore</Button>
                                 </div>
                             </div>
 
-                            <div className="bg-white border border-[#E7E5E4] rounded-xl p-5 shadow-sm">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <span className="bg-[#FEFCE8] text-[#CA8A04] text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wider">Risk Management</span>
+                            <div className="bg-white border border-[#E7E5E4] rounded-2xl p-5 shadow-sm hover:shadow-md transition-all">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <span className="bg-[#FEFCE8] text-[#CA8A04] text-[10px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wider flex items-center gap-1">
+                                        <Sparkles size={12} /> Risk Management
+                                    </span>
                                 </div>
-                                <h3 className="text-sm font-bold text-[#1C1917] mb-2">Timeline optimization opportunity</h3>
-                                <p className="text-xs text-[#78716C] mb-4 leading-relaxed">Platform Redesign is trending behind schedule at 69% with 36 days remaining.</p>
+                                <h3 className="text-sm font-bold text-[#1C1917] mb-2 leading-tight">Timeline optimization opportunity</h3>
+                                <p className="text-xs text-[#78716C] mb-5 leading-relaxed">Platform Redesign is trending behind schedule at 69% with 36 days remaining. API Docs are ...</p>
                                 <div className="flex gap-2">
-                                    <Button className="flex-1 bg-[#1C1917] hover:bg-[#292524] text-white h-8 text-xs rounded-lg">Review</Button>
-                                    <Button variant="outline" className="flex-1 h-8 text-xs rounded-lg">Ignore</Button>
+                                    <Button className="flex-1 bg-[#1C1917] hover:bg-[#292524] text-white h-9 text-xs font-semibold rounded-xl">Review</Button>
+                                    <Button variant="outline" className="flex-1 h-9 text-xs font-semibold rounded-xl border-[#E7E5E4] text-[#1C1917]">Ignore</Button>
+                                </div>
+                            </div>
+
+                             <div className="bg-white border border-[#E7E5E4] rounded-2xl p-5 shadow-sm hover:shadow-md transition-all">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <span className="bg-[#F0FDFA] text-[#0F766E] text-[10px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wider flex items-center gap-1">
+                                        <ArrowDownRight size={12} /> Reallocation
+                                    </span>
+                                </div>
+                                <h3 className="text-sm font-bold text-[#1C1917] mb-2 leading-tight">Underutilized capacity on Alex Park and Jessica Liu</h3>
+                                <p className="text-xs text-[#78716C] mb-5 leading-relaxed">Alex Park is at 65% (14h/wk slack) and Jessica Liu at 78% (9h/wk slack). Combined 23h/wk o...</p>
+                                <div className="flex gap-2">
+                                    <Button className="flex-1 bg-[#1C1917] hover:bg-[#292524] text-white h-9 text-xs font-semibold rounded-xl">Review</Button>
+                                    <Button variant="outline" className="flex-1 h-9 text-xs font-semibold rounded-xl border-[#E7E5E4] text-[#1C1917]">Ignore</Button>
                                 </div>
                             </div>
                         </div>
