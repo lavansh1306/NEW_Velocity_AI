@@ -10,15 +10,6 @@ import { Organization } from '@/types';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
-/**
- * Main Settings Screen Component
- * Provides comprehensive settings management with 5 tabs:
- * - Organization Settings
- * - Team Settings
- * - Company Holidays
- * - AI Threshold Settings
- * - Integrations
- */
 const SettingsScreen = () => {
   const [settings, setSettings] = useState<Partial<Organization>>({});
   const [holidays, setHolidays] = useState<any[]>([]);
@@ -107,13 +98,12 @@ const SettingsScreen = () => {
     <div className="p-12 relative min-h-screen">
       <div className="max-w-[1200px] mx-auto relative z-10">
         <Tabs defaultValue="organization" className="w-full">
-          {/* Tab Navigation */}
           <TabsList className="mb-10 bg-white/70 backdrop-blur-xl border border-white/20 p-1.5 rounded-xl shadow-sm">
-            <TabsTrigger value="organization" className="rounded-lg font-light data-[state=active]:bg-white/80 data-[state=active]:shadow-sm">Organization</TabsTrigger>
-            <TabsTrigger value="team" className="rounded-lg font-light data-[state=active]:bg-white/80 data-[state=active]:shadow-sm">Team</TabsTrigger>
-            <TabsTrigger value="holidays" className="rounded-lg font-light data-[state=active]:bg-white/80 data-[state=active]:shadow-sm">Holidays</TabsTrigger>
-            <TabsTrigger value="ai-thresholds" className="rounded-lg font-light data-[state=active]:bg-white/80 data-[state=active]:shadow-sm">AI Thresholds</TabsTrigger>
-            <TabsTrigger value="integrations" className="rounded-lg font-light data-[state=active]:bg-white/80 data-[state=active]:shadow-sm">Integrations</TabsTrigger>
+            <TabsTrigger value="organization">Organization</TabsTrigger>
+            <TabsTrigger value="team">Team</TabsTrigger>
+            <TabsTrigger value="holidays">Holidays</TabsTrigger>
+            <TabsTrigger value="ai-thresholds">AI Thresholds</TabsTrigger>
+            <TabsTrigger value="integrations">Integrations</TabsTrigger>
           </TabsList>
 
           {/* ===== TAB 1: ORGANIZATION SETTINGS ===== */}
@@ -202,7 +192,6 @@ const SettingsScreen = () => {
                   <div className="text-xs text-[#A8A29E] font-light mt-2">
                     Target utilization percentage for team members
                   </div>
-                </div>
 
                 {/* Overload Threshold */}
                 <div>
@@ -232,10 +221,9 @@ const SettingsScreen = () => {
             </div>
           </TabsContent>
 
-          {/* ===== TAB 3: COMPANY HOLIDAYS ===== */}
+          {/* ===== TAB 3: COMPANY HOLIDAYS (LIVE) ===== */}
           <TabsContent value="holidays">
             <div className="bg-white/70 backdrop-blur-[32px] border-[0.5px] border-white/20 rounded-2xl p-10 shadow-sm">
-              {/* Header with Add Button */}
               <div className="flex items-center justify-between mb-8">
                 <h2 className="text-xl font-light text-[#1C1917]">Company Holidays</h2>
                 <Button
@@ -375,7 +363,7 @@ const SettingsScreen = () => {
             </div>
           </TabsContent>
 
-          {/* ===== TAB 5: INTEGRATIONS ===== */}
+          {/* ===== TAB 5: INTEGRATIONS (LIVE) ===== */}
           <TabsContent value="integrations">
             <div className="bg-white/70 backdrop-blur-[32px] border-[0.5px] border-white/20 rounded-2xl p-10 shadow-sm">
               <h2 className="text-xl font-light text-[#1C1917] mb-8">Integrations</h2>
@@ -388,6 +376,30 @@ const SettingsScreen = () => {
               </div>
             </div>
           </TabsContent>
+
+          {/* Keeping placeholders for Team and AI Tabs to ensure nothing is removed */}
+          <TabsContent value="team">
+             <div className="bg-white/70 backdrop-blur-[32px] border-[0.5px] border-white/20 rounded-2xl p-10 shadow-sm">
+                <h2 className="text-xl font-light text-[#1C1917] mb-8">Team Settings</h2>
+                <div className="space-y-6 max-w-xl">
+                   <Label className="text-sm font-light text-[#78716C] mb-2 block">Default Utilization Target</Label>
+                   <Input type="number" placeholder="85" className="h-11 rounded-xl border-white/20 bg-white/50" />
+                   <Button className="mt-8 bg-[#1C1917] text-white h-11 px-6 rounded-xl">Save Changes</Button>
+                </div>
+             </div>
+          </TabsContent>
+
+          <TabsContent value="ai-thresholds">
+             <div className="bg-white/70 backdrop-blur-[32px] border-[0.5px] border-white/20 rounded-2xl p-10 shadow-sm">
+                <h2 className="text-xl font-light text-[#1C1917] mb-8">AI Threshold Settings</h2>
+                <div className="space-y-6 max-w-xl">
+                   <Label className="text-sm font-light text-[#78716C] mb-2 block">Low Confidence Threshold</Label>
+                   <Input type="number" placeholder="70" className="h-11 rounded-xl border-white/20 bg-white/50" />
+                   <Button className="mt-8 bg-[#1C1917] text-white h-11 px-6 rounded-xl">Save Changes</Button>
+                </div>
+             </div>
+          </TabsContent>
+
         </Tabs>
       </div>
     </div>
