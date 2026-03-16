@@ -3,112 +3,130 @@ import { getCurrentOrgId } from '@/lib/orgContext';
 import type { KPIData, Deadline, GanttMember } from '@/types';
 
 interface DashboardOptions {
-    startDate: Date;
-    endDate: Date;
+    startDate?: Date;
+    endDate?: Date;
 }
 
-export const getDashboardData = async ({ startDate, endDate }: DashboardOptions) => {
-    const orgId = getCurrentOrgId();
-    if (!orgId) throw new Error("No organization ID found");
+export const getDashboardData = async (options?: DashboardOptions) => {
+    try {
+        const orgId = getCurrentOrgId();
+        if (!orgId) throw new Error("No organization ID found");
 
-    // 1. KPIs: Active Projects & Projects at Risk
-    const { data: projects } = await supabase
-        .from('projects')
-        .select('id, status, end_date, name')
-        .eq('organization_id', orgId)
-        .neq('status', 'completed')
-        .neq('status', 'archived');
+        // --- FETCH ALL DATA (Safe Manual Method to avoid foreign key errors) ---
+        const { data: projects } = await supabase.from('projects').select('*').eq('organization_id', orgId);
+        const { data: allTasks } = await supabase.from('tasks').select('*').in('project_id', projects?.map(p => p.id) || []);
+        const { data: teams } = await supabase.from('teams').select('*').eq('organization_id', orgId);
+        const { data: teamMembers } = await supabase.from('team_members').select('*').in('team_id', teams?.map(t => t.id) || []).eq('status', 'active');
+        const { data: users } = await supabase.from('users').select('*').in('id', teamMembers?.map(m => m.user_id).filter(Boolean) || []);
 
-    const activeProjects = projects?.filter(p => p.status === 'active') || [];
-    const projectsAtRisk = projects?.filter(p => p.status === 'draft') || [];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
-    // 2. KPIs: Utilization & Capacity
-    const { data: users } = await supabase
-        .from('users')
-        .select('id, capacity_hours_per_week')
-        .eq('organization_id', orgId)
-        .eq('is_active', true);
+        // --- 1. KPIs (Matched to Figma UI) ---
+        const activeProjectsCount = projects?.filter(p => p.status === 'active').length || 0;
+        const projectsAtRiskCount = projects?.filter(p => p.status === 'draft' || p.status === 'archived').length || 0;
 
-    const totalCapacity = users?.reduce((sum, u) => sum + (u.capacity_hours_per_week || 40), 0) || 0;
+        // Calculate Capacity & Utilization safely
+        const totalCapacity = users?.reduce((sum, u) => sum + (u.capacity_hours_per_week || 40), 0) || 0;
+        let totalEstimatedHours = 0;
+        let totalActualHours = 0;
+        
+        allTasks?.forEach(task => {
+            totalEstimatedHours += task.estimated_hours || 0;
+            totalActualHours += task.actual_hours || 0;
+        });
 
-    const { data: assignments } = await supabase
-        .from('task_assignments')
-        .select('allocated_hours_per_week')
-        .lte('start_date', endDate.toISOString())
-        .gte('end_date', startDate.toISOString());
+        const utilizationPercent = totalEstimatedHours > 0 ? Math.round((totalActualHours / totalEstimatedHours) * 100) : 0;
+        const availableCapacity = Math.max(0, totalCapacity - totalActualHours);
 
-    const totalAllocated = assignments?.reduce((sum, a) => sum + Number(a.allocated_hours_per_week || 0), 0) || 0;
-    const utilizationPercent = totalCapacity > 0 ? Math.round((totalAllocated / totalCapacity) * 100) : 0;
-    const availableCapacity = Math.max(0, totalCapacity - totalAllocated);
+        const kpis = [
+            { label: 'ACTIVE PROJECTS', value: activeProjectsCount, trend: activeProjectsCount > 0 ? 'up' : 'down' },
+            { label: 'TEAM UTILIZATION', value: `${utilizationPercent}%`, sublabel: 'Target: 85%', trend: utilizationPercent >= 80 ? 'up' : 'down' },
+            { label: 'AVAILABLE CAPACITY', value: `${availableCapacity}h`, sublabel: 'Next 2 weeks', trend: 'down' },
+            { label: 'PROJECTS AT RISK', value: projectsAtRiskCount, trend: projectsAtRiskCount > 0 ? 'down' : 'up' }
+        ];
 
-    // 3. Deadlines (Next 30 Days)
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const thirtyDays = new Date(today);
-    thirtyDays.setDate(today.getDate() + 30);
+        // --- 2. Deadlines (Upcoming project end dates with Urgency Colors) ---
+        const thirtyDaysFromNow = new Date(today);
+        thirtyDaysFromNow.setDate(today.getDate() + 30);
 
-    const deadlines = (projects || [])
-        .filter(p => p.end_date)
-        .map(p => {
-            const end = new Date(p.end_date!);
-            const daysLeft = Math.ceil((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-            
-            let urgency = 'green';
-            if (daysLeft < 3 || daysLeft < 0) urgency = 'red';
-            else if (daysLeft <= 7) urgency = 'yellow';
+        const deadlines = (projects || [])
+            .filter(p => p.status !== 'completed' && p.status !== 'archived' && p.end_date)
+            .map(p => {
+                const endDate = new Date(p.end_date);
+                endDate.setHours(0, 0, 0, 0);
+                const daysLeft = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                
+                // Set urgency flag for the UI colors
+                let urgency = 'green';
+                if (daysLeft < 3 || daysLeft < 0) urgency = 'red';
+                else if (daysLeft <= 7) urgency = 'yellow';
 
-            return {
-                id: p.id,
-                project: p.name,
-                deadline: p.end_date!,
-                daysLeft,
-                urgency,
-                status: p.status || 'active'
-            };
-        })
-        .filter(d => d.daysLeft >= 0 && d.daysLeft <= 30)
-        .sort((a, b) => a.daysLeft - b.daysLeft)
-        .slice(0, 5);
+                return {
+                    id: p.id,
+                    project: p.name,
+                    deadline: endDate.toISOString(),
+                    daysLeft,
+                    urgency,
+                    status: daysLeft < 0 ? 'At Risk' : daysLeft <= 7 ? 'Active' : 'On Track'
+                };
+            })
+            .filter(d => d.daysLeft >= 0 && d.daysLeft <= 30) // Only next 30 days
+            .sort((a, b) => a.daysLeft - b.daysLeft)
+            .slice(0, 5);
 
-    // 4. Gantt Chart Data
-    const { data: teamData } = await supabase
-        .from('users')
-        .select(`
-            id, name, role, email,
-            tasks!tasks_user_id_fkey (
-                id, name, start_date, due_date, status,
-                projects ( name )
-            )
-        `)
-        .eq('organization_id', orgId);
+        // --- 3. Gantt Chart Data ---
+        const seenEmails = new Set<string>();
+        const gantt = (teamMembers || [])
+            .map(member => {
+                const userData = users?.find(u => u.id === member.user_id);
+                const memberEmail = userData?.email || member.email || '';
+                const memberName = userData?.name || userData?.email || member.email || 'Unknown';
+                
+                return {
+                    id: member.id,
+                    email: memberEmail,
+                    name: memberName,
+                    role: userData?.designation || userData?.role || member.role || 'Team Member',
+                    avatar: memberName.charAt(0).toUpperCase(),
+                    tasks: (allTasks || [])
+                        .filter(task => {
+                            // Account for various assignment field possibilities
+                            const isAssigned = task.assigned_to === member.user_id || 
+                                task.assigned_team_member_id === member.id ||
+                                task.assigned_to === member.id ||
+                                (task as any).assignee_id === member.user_id ||
+                                (task as any).assignee_id === member.id ||
+                                task.user_id === member.user_id;
+                            
+                            return isAssigned && task.start_date && task.due_date;
+                        })
+                        .map(task => ({
+                            id: task.id,
+                            name: task.name,
+                            project: projects?.find(p => p.id === task.project_id)?.name || 'Unknown',
+                            startDate: new Date(task.start_date).toISOString(),
+                            endDate: new Date(task.due_date).toISOString(),
+                            status: task.status || 'not_started',
+                            displayStatus: task.status === 'completed' || task.status === 'in_progress' ? 'track' : 'risk',
+                        }))
+                };
+            })
+            .filter(member => {
+                if (!member.email || seenEmails.has(member.email)) return false;
+                seenEmails.add(member.email);
+                return true;
+            });
 
-    const gantt = (teamData || []).map((user: any) => ({
-        id: user.id,
-        name: user.name || 'Unknown',
-        email: user.email || '',
-        role: user.role || 'employee',
-        avatar: user.name ? user.name.substring(0, 2).toUpperCase() : '??',
-        tasks: (user.tasks || []).map((t: any) => ({
-            id: t.id,
-            name: t.name || 'Untitled',
-            project: t.projects?.name || 'Internal',
-            startDate: t.start_date,
-            endDate: t.due_date,
-            displayStatus: t.status === 'blocked' ? 'risk' : 'track'
-        }))
-    }));
+        return { kpis, deadlines, gantt };
 
-    return {
-        kpis: [
-            { label: 'ACTIVE PROJECTS', value: activeProjects.length },
-            { label: 'TEAM UTILIZATION', value: `${utilizationPercent}%`, subtext: 'Target: 85%' },
-            { label: 'AVAILABLE CAPACITY', value: `${availableCapacity}h`, subtext: 'Next 2 weeks' },
-            { label: 'PROJECTS AT RISK', value: projectsAtRisk.length }
-        ],
-        deadlines,
-        gantt
-    };
+    } catch (error) {
+        console.error('[dashboardService] Failed to fetch dashboard data:', error);
+        return { kpis: [], deadlines: [], gantt: [] };
+    }
 };
+
+// --- Add-on Functions for Sidebar/Header ---
 
 export const getGlobalSearchResults = async (query: string) => {
     const orgId = getCurrentOrgId();
@@ -122,7 +140,7 @@ export const getGlobalSearchResults = async (query: string) => {
     return {
         projects: projectsRes.data || [],
         users: usersRes.data || [],
-        tasks: [] // Tasks require complex joining to filter by org_id securely
+        tasks: []
     };
 };
 

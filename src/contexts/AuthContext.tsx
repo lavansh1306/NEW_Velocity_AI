@@ -15,6 +15,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  orgLoading: boolean;
   orgId: string | null;
   orgRole: string | null;
   orgName: string | null;
@@ -34,6 +35,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [orgLoading, setOrgLoading] = useState(false);
   const [orgId, setOrgIdState] = useState<string | null>(getCurrentOrgId());
   const [orgRole, setOrgRoleState] = useState<string | null>(getCurrentOrgRole());
   const [orgName, setOrgNameState] = useState<string | null>(getCurrentOrgName());
@@ -45,45 +47,61 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const lookupOrg = async (userId: string, accessToken?: string) => {
     try {
       console.log('[Auth] Looking up org for user:', userId);
-      
-      // Only proceed if we have an access token
-      if (!accessToken) {
-        console.warn('[Auth] No access token available for org lookup');
+
+      let organizationId: string | null = null;
+      let organizationName = 'My Organization';
+      let role = 'employee';
+
+      // Try backend API first if we have a token
+      if (accessToken) {
+        const response = await fetch('/api/auth/lookup-org', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`,
+          },
+          credentials: 'include',
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success && result.data) {
+            organizationId = result.data.organizationId;
+            organizationName = result.data.organizationName || 'My Organization';
+            role = result.data.role || 'employee';
+          }
+        } else {
+          console.warn('[Auth] API lookup-org failed, falling back to direct Supabase query');
+        }
+      }
+
+      // Fallback: query Supabase directly (used when API fails or no token)
+      if (!organizationId) {
+        const { data } = await supabase
+          .from('users')
+          .select('organization_id, role, organizations(id, name)')
+          .eq('id', userId)
+          .maybeSingle();
+
+        if (data?.organization_id) {
+          organizationId = data.organization_id;
+          role = data.role || 'employee';
+          organizationName = (data as any).organizations?.name || 'My Organization';
+        }
+      }
+
+      if (!organizationId) {
+        console.warn('[Auth] No org found for user:', userId);
         return;
       }
 
-      // Call the backend API endpoint with JWT
-      const response = await fetch('/api/auth/lookup-org', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
-        },
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData?.error || `Lookup failed with status ${response.status}`);
-      }
-
-      const result = await response.json();
-      if (!result.success || !result.data) {
-        throw new Error('Invalid response from org lookup endpoint');
-      }
-
-      const { organizationId, organizationName, role, email } = result.data;
-
-      // Update local storage/context helpers
       setCurrentOrgId(organizationId);
-      setCurrentOrgRole(role || 'employee');
+      setCurrentOrgRole(role);
       setCurrentOrgName(organizationName);
-      
-      // Update state
       setOrgIdState(organizationId);
-      setOrgRoleState(role || 'employee');
+      setOrgRoleState(role);
       setOrgNameState(organizationName);
-      
+
       console.log(`[Auth] Org resolved: ${organizationName} (${organizationId})`);
     } catch (err) {
       console.warn('[Auth] lookupOrg error:', err instanceof Error ? err.message : err);
@@ -135,6 +153,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           const isGoogleAuth = session.user.app_metadata?.provider === 'google';
 
           // Use setTimeout to move async DB work outside the synchronous auth callback
+          setOrgLoading(true);
           setTimeout(async () => {
             try {
               if (isGoogleAuth) {
@@ -143,6 +162,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               await lookupOrg(userId, accessToken);
             } catch (err) {
               console.warn('[Auth] Background sync failed:', err);
+            } finally {
+              setOrgLoading(false);
+            }
+          }, 0);
+        }
+
+        if (event === 'INITIAL_SESSION' && session?.user && !getCurrentOrgId()) {
+          setOrgLoading(true);
+          setTimeout(async () => {
+            try {
+              await lookupOrg(session.user.id, session.access_token);
+            } catch (err) {
+              console.warn('[Auth] Background org lookup failed:', err);
+            } finally {
+              setOrgLoading(false);
             }
           }, 0);
         }
@@ -261,6 +295,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     user,
     session,
     loading,
+    orgLoading,
     orgId,
     orgRole,
     orgName,
@@ -272,7 +307,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     resetPassword,
     updatePassword,
     refreshOrg,
-  }), [user, session, loading, orgId, orgRole, orgName]);
+  }), [user, session, loading, orgLoading, orgId, orgRole, orgName]);
 
   return (
     <AuthContext.Provider value={value}>

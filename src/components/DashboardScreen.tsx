@@ -111,11 +111,11 @@ export const DashboardScreen = () => {
                                 setDateRangeParam(val);
                                 if (val === 'custom') setIsCalendarOpen(true);
                             }}>
-                                <SelectTrigger className="w-[180px] h-10 bg-white border-[#E7E5E4] rounded-lg shadow-sm font-medium text-sm">
+                                <SelectTrigger className="w-[220px] h-10 bg-white border-[#E7E5E4] rounded-md shadow-sm">
                                     <CalendarToday style={{ fontSize: 16 }} className="mr-2 text-[#78716C]" />
                                     <SelectValue />
                                 </SelectTrigger>
-                                <SelectContent className="bg-white border-[#E7E5E4] rounded-lg">
+                                <SelectContent className="bg-white border-[#E7E5E4]">
                                     <SelectItem value="30">Last 30 Days</SelectItem>
                                     <SelectItem value="90">Last 90 Days</SelectItem>
                                     <SelectItem value="custom">Custom Date Range</SelectItem>
@@ -216,8 +216,8 @@ export const DashboardScreen = () => {
                                                             <AvatarFallback className="bg-[#F5F5F4] text-[#1C1917] text-xs font-medium">{member.avatar}</AvatarFallback>
                                                         </Avatar>
                                                         <div className="min-w-0">
-                                                            <div className="text-sm font-semibold text-[#1C1917] truncate">{member.name}</div>
-                                                            <div className="text-[11px] font-medium text-[#78716C] truncate mt-0.5">{member.role}</div>
+                                                            <div className="text-sm font-bold text-[#1C1917] truncate">{member.name}</div>
+                                                            <div className="text-[10px] font-normal text-[#78716C] truncate">{member.email}</div>
                                                         </div>
                                                     </div>
 

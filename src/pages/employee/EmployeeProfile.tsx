@@ -20,6 +20,9 @@ export default function EmployeeProfile() {
   const [role, setRole] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // Designation
+  const [designation, setDesignation] = useState('');
+
   // Security
   const [newPass, setNewPass] = useState('');
   const [confirmPass, setConfirmPass] = useState('');
@@ -52,12 +55,23 @@ export default function EmployeeProfile() {
         }
         setLoading(false);
       });
+    supabase
+      .from('users')
+      .select('designation')
+      .eq('id', user.id)
+      .single()
+      .then(({ data }) => {
+        if (data) setDesignation((data as any).designation || '');
+      });
   }, [user, orgId]);
 
   const handleSave = async () => {
     if (!memberId) return;
     setSaving(true);
-    await supabase.from('organization_members').update({ display_name: displayName }).eq('id', memberId);
+    await Promise.all([
+      supabase.from('organization_members').update({ display_name: displayName }).eq('id', memberId),
+      supabase.from('users').update({ designation }).eq('id', user!.id),
+    ]);
     setSaving(false);
     setIsEditing(false);
   };
@@ -167,6 +181,21 @@ export default function EmployeeProfile() {
         {/* WORK */}
         <TabsContent value="work">
           <div className="bg-white/70 backdrop-blur-md border border-[#E7E5E4] rounded-xl p-8 shadow-sm space-y-6">
+            <div>
+              <Label className="text-xs text-[#A8A29E] uppercase tracking-wide mb-2 block">Designation</Label>
+              {isEditing ? (
+                <Input
+                  value={designation}
+                  onChange={e => setDesignation(e.target.value)}
+                  className="h-[44px] border-[#E7E5E4] font-light text-[#1C1917] bg-white"
+                  placeholder="e.g. Senior Developer"
+                />
+              ) : (
+                <div className="text-base text-[#1C1917] font-light">
+                  {designation || <span className="text-[#A8A29E]">Not set — click Edit Profile to add</span>}
+                </div>
+              )}
+            </div>
             <div>
               <Label className="text-xs text-[#A8A29E] uppercase tracking-wide mb-2 block">Role</Label>
               <div className="text-base text-[#1C1917] font-light capitalize">{role || 'Employee'}</div>

@@ -34,6 +34,7 @@ export interface User {
     email: string;
     name: string;
     role: string;
+    designation?: string;
     capacity_hours_per_week: number;
     is_active: boolean;
 }
