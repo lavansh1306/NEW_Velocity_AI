@@ -17,19 +17,20 @@ export const searchService = {
         if (!orgId) return [];
 
         const searchTerm = `%${query}%`;
+        const lowerQuery = query.toLowerCase();
 
         try {
             // Run searches in parallel for better performance
-            const [projectsRes, membersRes, issuesRes] = await Promise.all([
-                // 1. Search Projects (Matches 'jira_projects' schema)
+            const [projectsRes, membersRes, tasksRes] = await Promise.all([
+                // 1. Search Projects
                 supabase
-                    .from('jira_projects')
-                    .select('id, project_key, name')
+                    .from('projects')
+                    .select('id, name')
                     .eq('organization_id', orgId)
-                    .or(`name.ilike.${searchTerm},project_key.ilike.${searchTerm}`)
+                    .ilike('name', searchTerm)
                     .limit(5),
 
-                // 2. Search People (Matches 'users' table - more reliable than team_members)
+                // 2. Search People
                 supabase
                     .from('users')
                     .select('id, email, name, designation')
@@ -37,16 +38,49 @@ export const searchService = {
                     .or(`name.ilike.${searchTerm},email.ilike.${searchTerm}`)
                     .limit(5),
 
-                // 3. Search Tasks (Matches 'jira_issues' schema)
+                // 3. Search Tasks
                 supabase
-                    .from('jira_issues')
-                    .select('issue_key, summary')
-                    .eq('organization_id', orgId)
-                    .or(`summary.ilike.${searchTerm},issue_key.ilike.${searchTerm}`)
+                    .from('tasks')
+                    .select(`
+                        id, 
+                        name, 
+                        projects!inner(organization_id, id)
+                    `)
+                    .eq('projects.organization_id', orgId)
+                    .ilike('name', searchTerm)
                     .limit(5)
             ]);
 
             const results: SearchResult[] = [];
+
+            // Add static directory links if the query matches them
+            if ('projects'.includes(lowerQuery) || 'directory'.includes(lowerQuery)) {
+                results.push({
+                    id: 'dir-projects',
+                    type: 'project',
+                    title: 'Projects Directory',
+                    subtitle: 'Directory',
+                    path: '/projects'
+                });
+            }
+            if ('people'.includes(lowerQuery) || 'directory'.includes(lowerQuery) || 'team'.includes(lowerQuery)) {
+                results.push({
+                    id: 'dir-people',
+                    type: 'people',
+                    title: 'People Directory',
+                    subtitle: 'Directory',
+                    path: '/people'
+                });
+            }
+            if ('tasks'.includes(lowerQuery) || 'plan'.includes(lowerQuery)) {
+                results.push({
+                    id: 'dir-tasks',
+                    type: 'task',
+                    title: 'Tasks & Planning',
+                    subtitle: 'Directory',
+                    path: '/plan'
+                });
+            }
 
             // Map Projects
             projectsRes.data?.forEach(p => {
@@ -54,30 +88,33 @@ export const searchService = {
                     id: p.id,
                     type: 'project',
                     title: p.name || 'Untitled Project',
-                    subtitle: p.project_key,
-                    path: `/projects/${p.project_key}`
+                    subtitle: 'Project',
+                    path: `/projects/${p.id}`
                 });
             });
 
-            // Map People
+            // Map People (Navigates to People Directory because no individual profile page exists)
             membersRes.data?.forEach(m => {
                 results.push({
                     id: m.id,
                     type: 'people',
                     title: m.name || m.email.split('@')[0],
                     subtitle: m.designation || 'Member',
-                    path: `/people/${m.id}`
+                    path: `/people`
                 });
             });
 
             // Map Tasks
-            issuesRes.data?.forEach(i => {
+            tasksRes.data?.forEach((t: any) => {
+                // Ensure projects array or object is handled correctly 
+                // Using any to avoid type issues with joined table
+                const projectId = Array.isArray(t.projects) ? t.projects[0]?.id : t.projects?.id;
                 results.push({
-                    id: i.issue_key,
+                    id: t.id,
                     type: 'task',
-                    title: i.summary || 'No Summary',
-                    subtitle: i.issue_key,
-                    path: `/tasks/${i.issue_key}`
+                    title: t.name || 'Untitled Task',
+                    subtitle: 'Task',
+                    path: projectId ? `/projects/${projectId}` : `/projects`
                 });
             });
 
