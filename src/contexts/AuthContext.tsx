@@ -15,6 +15,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  orgLoading: boolean;
   orgId: string | null;
   orgRole: string | null;
   orgName: string | null;
@@ -34,6 +35,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [orgLoading, setOrgLoading] = useState(false);
   const [orgId, setOrgIdState] = useState<string | null>(getCurrentOrgId());
   const [orgRole, setOrgRoleState] = useState<string | null>(getCurrentOrgRole());
   const [orgName, setOrgNameState] = useState<string | null>(getCurrentOrgName());
@@ -121,6 +123,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           const isGoogleAuth = session.user.app_metadata?.provider === 'google';
 
           // Use setTimeout to move async DB work outside the synchronous auth callback
+          setOrgLoading(true);
           setTimeout(async () => {
             try {
               if (isGoogleAuth) {
@@ -129,6 +132,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               await lookupOrg(userId);
             } catch (err) {
               console.warn('[Auth] Background sync failed:', err);
+            } finally {
+              setOrgLoading(false);
+            }
+          }, 0);
+        }
+
+        if (event === 'INITIAL_SESSION' && session?.user && !getCurrentOrgId()) {
+          setOrgLoading(true);
+          setTimeout(async () => {
+            try {
+              await lookupOrg(session.user.id);
+            } catch (err) {
+              console.warn('[Auth] Background org lookup failed:', err);
+            } finally {
+              setOrgLoading(false);
             }
           }, 0);
         }
@@ -247,6 +265,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     user,
     session,
     loading,
+    orgLoading,
     orgId,
     orgRole,
     orgName,
@@ -258,7 +277,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     resetPassword,
     updatePassword,
     refreshOrg,
-  }), [user, session, loading, orgId, orgRole, orgName]);
+  }), [user, session, loading, orgLoading, orgId, orgRole, orgName]);
 
   return (
     <AuthContext.Provider value={value}>

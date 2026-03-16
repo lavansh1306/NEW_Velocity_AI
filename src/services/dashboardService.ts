@@ -172,13 +172,13 @@ export async function getDashboardData(options?: DashboardOptions): Promise<Dash
                 // Find user data for this team member from the users table
                 const userData = users?.find(u => u.id === member.user_id);
                 const memberEmail = userData?.email || member.email || '';
-                const memberName = userData?.display_name || userData?.email || member.display_name || member.email || 'Unknown';
+                const memberName = userData?.name || userData?.email || member.email || 'Unknown';
                 
                 return {
                     id: member.id, // Use team_member ID as unique identifier
                     email: memberEmail, // Include email for uniqueness check
                     name: memberName,
-                    role: member.role || 'Team Member',
+                    role: userData?.designation || userData?.role || member.role || 'Team Member',
                     avatar: memberName.charAt(0).toUpperCase(),
                     // Filter tasks assigned to THIS specific team member
                     tasks: (allTasks || [])
