@@ -1,20 +1,20 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Button } from './ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Popover, PopoverContent, PopoverTrigger, PopoverAnchor } from './ui/popover';
-import { Calendar } from './ui/calendar';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger, PopoverAnchor } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { DateRange } from 'react-day-picker';
 import { format } from 'date-fns';
-import { Avatar, AvatarFallback } from './ui/avatar';
-import { StatusBadge } from './shared/StatusBadge';
-import { KPICard } from './shared/KPICard';
-import { PageHeader } from './shared/PageHeader';
-import { PageSkeleton } from './shared/SkeletonLoader';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { StatusBadge } from '@/components/shared/StatusBadge';
+import { KPICard } from '@/components/shared/KPICard';
+import { PageSkeleton } from '@/components/shared/SkeletonLoader';
 import { useSimulatedLoading } from '@/hooks/useSimulatedLoading';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { getDashboardData } from '@/services/dashboardService';
+import type { KPIData, GanttMember, Deadline } from '@/types';
 import { toast } from 'sonner';
 import type { KPIData, GanttMember, Deadline } from '../types';
 import CalendarToday from '@mui/icons-material/CalendarToday';
@@ -24,7 +24,6 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import Close from '@mui/icons-material/Close';
 
-// Helper to get the Monday of the current week
 const getCurrentWeekMonday = () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -42,18 +41,25 @@ export const DashboardScreen = () => {
     const [gantt, setGantt] = useState<GanttMember[]>([]);
     const [dataError, setDataError] = useState<string | null>(null);
 
-    // Filter & Sort State
     const [ganttFilterProject, setGanttFilterProject] = useState<string>('All');
     const [ganttSortBy, setGanttSortBy] = useState<string>('name_asc');
-
-    // Date Range State
     const [dateRangeParam, setDateRangeParam] = useState<string>('30');
     const [customRange, setCustomRange] = useState<DateRange | undefined>();
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-
-    // Week Navigation State
     const [currentWeekStart, setCurrentWeekStart] = useState<Date>(getCurrentWeekMonday());
 
+    const fetchData = async () => {
+        if (!orgId) return;
+        try {
+            const endDate = new Date();
+            endDate.setHours(23, 59, 59, 999);
+            let startDate = new Date();
+
+            if (dateRangeParam === 'custom') {
+                startDate = customRange?.from ? new Date(customRange.from) : new Date();
+                if (customRange?.to) endDate.setTime(customRange.to.getTime());
+            } else {
+                startDate.setDate(endDate.getDate() - parseInt(dateRangeParam || '30'));
     // Task Detail Popup State
     const [selectedTask, setSelectedTask] = useState<any>(null);
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
@@ -126,92 +132,36 @@ export const DashboardScreen = () => {
             } finally {
                 setIsLoading(false);
             }
-        };
+            startDate.setHours(0, 0, 0, 0);
 
+            const data = await getDashboardData({ startDate, endDate, orgId });
+            setKpis(data.kpis);
+            setDeadlines(data.deadlines);
+            setGantt(data.gantt);
+        } catch (err) {
+            setDataError('Failed to load dashboard data.');
+        }
+    };
+
+    useEffect(() => {
         fetchData();
     }, [dateRangeParam, customRange, orgId]);
 
-    // Set up real-time subscriptions to auto-update when new projects/issues are created
+    // Real-time listener for core tables
     useEffect(() => {
         if (!orgId) return;
-
-        console.log('[DashboardScreen] Setting up real-time subscriptions for org:', orgId);
-
-        // Helper to refetch data
-        const refetchData = async () => {
-            try {
-                const endDate = new Date();
-                endDate.setHours(23, 59, 59, 999);
-                let startDate = new Date();
-
-                if (dateRangeParam === 'custom') {
-                    startDate = customRange?.from ? new Date(customRange.from) : new Date();
-                    if (customRange?.to) endDate.setTime(customRange.to.getTime());
-                } else {
-                    startDate.setDate(endDate.getDate() - parseInt(dateRangeParam || '30'));
-                }
-                startDate.setHours(0, 0, 0, 0);
-
-                const data = await getDashboardData({ startDate, endDate });
-                setKpis(data.kpis);
-                setDeadlines(data.deadlines);
-                setGantt(data.gantt);
-                console.log('[DashboardScreen] Dashboard data refreshed from real-time event');
-            } catch (err) {
-                console.error('[DashboardScreen] Failed to refresh data:', err);
-            }
-        };
-
-        // Subscribe to changes in jira_projects table
-        const projectSubscription = supabase
-            .channel(`jira_projects:org_id=eq.${orgId}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: '*',
-                    schema: 'public',
-                    table: 'jira_projects',
-                    filter: `org_id=eq.${orgId}`,
-                },
-                (payload) => {
-                    console.log('[DashboardScreen] Detected project change:', payload);
-                    refetchData();
-                }
-            )
+        const channel = supabase.channel('dashboard-updates')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, fetchData)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, fetchData)
             .subscribe();
+        return () => { supabase.removeChannel(channel); };
+    }, [orgId]);
 
-        // Subscribe to changes in jira_issues table
-        const issueSubscription = supabase
-            .channel(`jira_issues:org_id=eq.${orgId}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: '*',
-                    schema: 'public',
-                    table: 'jira_issues',
-                    filter: `org_id=eq.${orgId}`,
-                },
-                (payload) => {
-                    console.log('[DashboardScreen] Detected issue change:', payload);
-                    refetchData();
-                }
-            )
-            .subscribe();
-
-        // Cleanup subscriptions on unmount or when orgId changes
-        return () => {
-            console.log('[DashboardScreen] Cleaning up real-time subscriptions');
-            projectSubscription.unsubscribe();
-            issueSubscription.unsubscribe();
-        };
-    }, [orgId, dateRangeParam, customRange]);
-
-    // Helper to generate the 7 dates for the currently selected week
-    const generateWeekDates = (monday: Date) => {
+    const weekDays = useMemo(() => {
         const dates = [];
         for (let i = 0; i < 7; i++) {
-            const date = new Date(monday);
-            date.setDate(monday.getDate() + i);
+            const date = new Date(currentWeekStart);
+            date.setDate(currentWeekStart.getDate() + i);
             dates.push({
                 date,
                 label: date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' }),
@@ -219,234 +169,113 @@ export const DashboardScreen = () => {
             });
         }
         return dates;
-    };
+    }, [currentWeekStart]);
 
-    const weekDays = generateWeekDates(currentWeekStart);
-
-    // Format week header range (e.g. "Week ending Mar 09, 2026")
-    const weekEnd = new Date(currentWeekStart);
-    weekEnd.setDate(currentWeekStart.getDate() + 6);
-    const weekLabel = `Week ending ${weekEnd.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}, ${weekEnd.getFullYear()}`;
-
-    const handlePrevWeek = () => {
-        const newStart = new Date(currentWeekStart);
-        newStart.setDate(currentWeekStart.getDate() - 7);
-        setCurrentWeekStart(newStart);
-    };
-
-    const handleNextWeek = () => {
-        const newStart = new Date(currentWeekStart);
-        newStart.setDate(currentWeekStart.getDate() + 7);
-        setCurrentWeekStart(newStart);
-    };
+    const weekLabel = `Week ending ${format(new Date(currentWeekStart).setDate(currentWeekStart.getDate() + 6), "MMM d, yyyy")}`;
 
     const uniqueProjects = useMemo(() => {
         const projects = new Set<string>();
-        gantt.forEach(member => {
-            member.tasks.forEach(task => {
-                if (task.project) projects.add(task.project);
-            });
-        });
+        gantt.forEach(m => m.tasks.forEach(t => t.project && projects.add(t.project)));
         return Array.from(projects).sort();
     }, [gantt]);
 
     const displayGantt = useMemo(() => {
-        let filtered = [...gantt];
+        let filtered = gantt.map(member => ({
+            ...member,
+            tasks: ganttFilterProject === 'All' ? member.tasks : member.tasks.filter(t => t.project === ganttFilterProject)
+        })).filter(m => m.tasks.length > 0 || ganttFilterProject === 'All');
 
-        // 1. Filter by Project
-        if (ganttFilterProject !== 'All') {
-            filtered = filtered
-                .map(member => ({
-                    ...member,
-                    tasks: member.tasks.filter(t => t.project === ganttFilterProject)
-                }))
-                .filter(member => member.tasks.length > 0);
-        }
-
-        // 2. Sort
-        filtered.sort((a, b) => {
-            if (ganttSortBy === 'name_asc') {
-                return a.name.localeCompare(b.name);
-            } else if (ganttSortBy === 'capacity_desc') {
-                return b.tasks.length - a.tasks.length;
-            } else if (ganttSortBy === 'capacity_asc') {
-                return a.tasks.length - b.tasks.length;
-            }
+        return filtered.sort((a, b) => {
+            if (ganttSortBy === 'name_asc') return a.name.localeCompare(b.name);
+            if (ganttSortBy === 'capacity_desc') return b.tasks.length - a.tasks.length;
             return 0;
         });
-
-        return filtered;
     }, [gantt, ganttFilterProject, ganttSortBy]);
 
     if (isLoading) return <PageSkeleton />;
-
-    if (dataError) {
-        return (
-            <div className="p-10 max-w-[1600px] mx-auto text-center">
-                <p className="text-[#78716C] text-sm">{dataError}</p>
-                <Button
-                    variant="outline"
-                    className="mt-4"
-                    onClick={() => window.location.reload()}
-                >
-                    Retry
-                </Button>
-            </div>
-        );
-    }
 
     return (
         <div className="p-10 relative max-w-[1600px] mx-auto">
             <div className="flex items-center justify-between mb-8">
                 <div>
                     <h2 className="text-2xl font-medium text-[#1C1917]">Overview</h2>
-                    <p className="text-[#78716C] text-sm mt-1">Summary of your team's capacity and project health.</p>
+                    <p className="text-[#78716C] text-sm mt-1">Summary of team capacity and project health.</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                         <PopoverAnchor asChild>
-                            <div>
-                                <Select value={dateRangeParam} onValueChange={(val) => {
-                                    setDateRangeParam(val);
-                                    if (val === 'custom') {
-                                        setIsCalendarOpen(true);
-                                    }
-                                }}>
-                                    <SelectTrigger className="w-[220px] h-10 bg-white border-[#E7E5E4] text-[#1C1917] hover:border-[#D6D3D1] transition-all focus:ring-0 shadow-sm font-medium rounded-md">
-                                        <div className="flex items-center">
-                                            <CalendarToday style={{ fontSize: 16 }} className="mr-2 text-[#78716C]" />
-                                            {dateRangeParam === 'custom' && customRange?.from ? (
-                                                <span className="truncate">
-                                                    {format(customRange.from, "MMM d")} {customRange.to ? `- ${format(customRange.to, "MMM d")}` : ''}
-                                                </span>
-                                            ) : (
-                                                <SelectValue placeholder="Select Range" />
-                                            )}
-                                        </div>
-                                    </SelectTrigger>
-                                    <SelectContent className="bg-white border-[#E7E5E4] shadow-lg rounded-xl overflow-hidden p-1 z-50">
-                                        <SelectItem value="30" className="rounded-md focus:bg-[#F5F5F4] cursor-pointer">Last 30 Days</SelectItem>
-                                        <SelectItem value="60" className="rounded-md focus:bg-[#F5F5F4] cursor-pointer">Last 60 Days</SelectItem>
-                                        <SelectItem value="90" className="rounded-md focus:bg-[#F5F5F4] cursor-pointer">Last 90 Days</SelectItem>
-                                        <div className="h-px bg-[#E7E5E4] my-1 mx-2" />
-                                        <SelectItem value="custom" className="rounded-md focus:bg-[#F5F5F4] cursor-pointer">Custom Date Range</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                            <Select value={dateRangeParam} onValueChange={(val) => {
+                                setDateRangeParam(val);
+                                if (val === 'custom') setIsCalendarOpen(true);
+                            }}>
+                                <SelectTrigger className="w-[220px] h-10 bg-white border-[#E7E5E4] rounded-md shadow-sm">
+                                    <CalendarToday style={{ fontSize: 16 }} className="mr-2 text-[#78716C]" />
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-white border-[#E7E5E4]">
+                                    <SelectItem value="30">Last 30 Days</SelectItem>
+                                    <SelectItem value="90">Last 90 Days</SelectItem>
+                                    <SelectItem value="custom">Custom Date Range</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </PopoverAnchor>
-
-                        <PopoverContent className="w-auto p-0 bg-white border-[#E7E5E4] rounded-xl shadow-xl z-50 mt-1" align="start" sideOffset={8}>
-                            <Calendar
-                                initialFocus
-                                mode="range"
-                                defaultMonth={customRange?.from}
-                                selected={customRange}
-                                onSelect={(range) => setCustomRange(range)}
-                                numberOfMonths={2}
-                            />
+                        <PopoverContent className="w-auto p-0 bg-white" align="start">
+                            <Calendar mode="range" selected={customRange} onSelect={setCustomRange} numberOfMonths={2} />
                         </PopoverContent>
                     </Popover>
-
-                    <Button
-                        className="bg-[#1C1917] text-white hover:bg-[#292524] shadow-md hover:shadow-lg transition-all h-10"
-                        onClick={() => navigate('/projects/create')}
-                    >
-                        <Add style={{ fontSize: 16 }} className="mr-2" />
-                        New Project
+                    <Button className="bg-[#1C1917] text-white h-10 px-4 rounded-md" onClick={() => navigate('/projects/create')}>
+                        <Add style={{ fontSize: 16 }} className="mr-2" /> New Project
                     </Button>
                 </div>
             </div>
 
             <div className="grid grid-cols-12 gap-8">
-                {/* Main Content */}
                 <div className="col-span-12 space-y-8">
-                    {/* KPI Cards */}
                     <div className="grid grid-cols-4 gap-6">
-                        {kpis.map((kpi) => (
-                            <KPICard key={kpi.label} {...kpi} />
-                        ))}
+                        {kpis.map((kpi) => <KPICard key={kpi.label} {...kpi} />)}
                     </div>
 
-                    {/* Capacity Overview Chart - 7 DAY VIEW */}
                     <div className="bg-white border border-[#E7E5E4] rounded-xl p-8 shadow-sm">
-                        <div className="flex flex-col gap-6 mb-8">
-                            <div className="flex justify-between items-center">
-                                <h2 className="text-lg font-medium text-[#1C1917]">Capacity Overview</h2>
-                                <div className="flex items-center gap-3">
-                                    <Select value={ganttFilterProject} onValueChange={setGanttFilterProject}>
-                                        <SelectTrigger className="h-8 w-[140px] text-xs border-[#E7E5E4] text-[#78716C] hover:text-[#1C1917] hover:bg-white transition-colors bg-white focus:ring-0">
-                                            <SelectValue placeholder="Filter" />
-                                        </SelectTrigger>
-                                        <SelectContent className="bg-white border-[#E7E5E4] shadow-lg rounded-xl z-50">
-                                            <SelectItem value="All" className="text-xs cursor-pointer">All Projects</SelectItem>
-                                            <div className="h-px bg-[#E7E5E4] my-1 mx-2" />
-                                            {uniqueProjects.map(proj => (
-                                                <SelectItem key={proj} value={proj} className="text-xs cursor-pointer">{proj}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-
-                                    <Select value={ganttSortBy} onValueChange={setGanttSortBy}>
-                                        <SelectTrigger className="h-8 w-[140px] text-xs border-[#E7E5E4] text-[#78716C] hover:text-[#1C1917] hover:bg-white transition-colors bg-white focus:ring-0">
-                                            <SelectValue placeholder="Sort" />
-                                        </SelectTrigger>
-                                        <SelectContent className="bg-white border-[#E7E5E4] shadow-lg rounded-xl z-50">
-                                            <SelectItem value="name_asc" className="text-xs cursor-pointer">Name (A-Z)</SelectItem>
-                                            <SelectItem value="capacity_desc" className="text-xs cursor-pointer">Busiest First</SelectItem>
-                                            <SelectItem value="capacity_asc" className="text-xs cursor-pointer">Most Available</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <div className="h-4 w-px bg-[#E7E5E4] mx-1"></div>
-                                    <div className="flex items-center gap-1 bg-[#FAFAF9] rounded-md p-0.5 border border-[#E7E5E4]">
-                                        <Button variant="ghost" className="h-6 w-6 p-0 hover:bg-white text-[#78716C]" onClick={handlePrevWeek}>
-                                            <ChevronLeftIcon style={{ fontSize: 16 }} />
-                                        </Button>
-                                        <span className="text-xs font-medium text-[#1C1917] px-2">{weekLabel}</span>
-                                        <Button variant="ghost" className="h-6 w-6 p-0 hover:bg-white text-[#78716C]" onClick={handleNextWeek}>
-                                            <ChevronRightIcon style={{ fontSize: 16 }} />
-                                        </Button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center gap-4">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-2.5 h-2.5 bg-[#0F766E] rounded-full"></div>
-                                    <span className="text-xs text-[#78716C]">On Track</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <div className="w-2.5 h-2.5 bg-[#F59E0B] rounded-full"></div>
-                                    <span className="text-xs text-[#78716C]">At Risk</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <div className="w-2.5 h-2.5 bg-[#F5F5F4] border border-[#E7E5E4] rounded-full"></div>
-                                    <span className="text-xs text-[#78716C]">Available</span>
+                        <div className="flex justify-between items-center mb-8">
+                            <h2 className="text-lg font-medium">Capacity Overview</h2>
+                            <div className="flex items-center gap-2">
+                                <Select value={ganttFilterProject} onValueChange={setGanttFilterProject}>
+                                    <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue /></SelectTrigger>
+                                    <SelectContent className="bg-white">
+                                        <SelectItem value="All">All Projects</SelectItem>
+                                        {uniqueProjects.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                                <div className="flex items-center gap-1 bg-[#FAFAF9] border rounded-md p-1">
+                                    <Button variant="ghost" className="h-6 w-6 p-0" onClick={() => setCurrentWeekStart(new Date(new Date(currentWeekStart).setDate(currentWeekStart.getDate() - 7)))}>
+                                        <ChevronLeftIcon style={{ fontSize: 16 }} />
+                                    </Button>
+                                    <span className="text-xs font-medium px-2">{weekLabel}</span>
+                                    <Button variant="ghost" className="h-6 w-6 p-0" onClick={() => setCurrentWeekStart(new Date(new Date(currentWeekStart).setDate(currentWeekStart.getDate() + 7)))}>
+                                        <ChevronRightIcon style={{ fontSize: 16 }} />
+                                    </Button>
                                 </div>
                             </div>
                         </div>
 
                         <div className="overflow-x-auto">
-                            <div className="min-w-[800px] pb-4">
-                                {/* Timeline Header */}
-                                <div className="flex gap-1 border-b border-[#E7E5E4] pb-2 mb-2">
-                                    <div className="w-56 flex-shrink-0 text-xs font-medium text-[#78716C] uppercase tracking-wide pl-2 flex items-end pb-1">
-                                        Team Member
-                                    </div>
-
-                                    <div className="flex gap-2 flex-1 relative">
+                            <div className="min-w-[800px]">
+                                <div className="flex gap-1 border-b pb-2 mb-2 text-[#78716C] text-xs font-medium uppercase">
+                                    <div className="w-56 pl-2">Team Member</div>
+                                    <div className="flex flex-1 gap-2">
                                         {weekDays.map((day, i) => (
-                                            <div key={i} className="flex-1 min-w-[100px] text-center relative z-10">
-                                                <div className={`text-xs font-medium inline-block px-2 ${day.isToday ? 'text-[#0F766E] font-bold bg-[#F0FDFA] rounded-md py-1' : 'text-[#78716C] py-1'}`}>
-                                                    {day.label}
-                                                    {day.isToday && <span className="ml-1 text-[10px] uppercase font-bold text-[#0F766E]">(Today)</span>}
-                                                </div>
-                                            </div>
+                                            <div key={i} className={`flex-1 text-center ${day.isToday ? 'text-[#0F766E] bg-[#F0FDFA] rounded' : ''}`}>{day.label}</div>
                                         ))}
                                     </div>
                                 </div>
-
-                                {/* Team Rows */}
                                 <div className="space-y-4">
+                                    {displayGantt.map((member) => (
+                                        <div key={member.id} className="flex items-stretch gap-1 group hover:bg-[#FAFAF9] p-2 -mx-2">
+                                            <div className="w-56 flex items-center gap-3 pr-4 border-r">
+                                                <Avatar className="w-8 h-8"><AvatarFallback>{member.avatar}</AvatarFallback></Avatar>
+                                                <div className="min-w-0">
+                                                    <div className="text-sm font-medium truncate">{member.name}</div>
+                                                    <div className="text-[10px] text-[#78716C] capitalize">{member.role}</div>
                                     {displayGantt.length === 0 ? (
                                         <div className="text-center py-8">
                                             <p className="text-sm text-[#78716C] font-light">No team members with assignments matching criteria.</p>
@@ -556,54 +385,45 @@ export const DashboardScreen = () => {
                                                         </div>
                                                     </div>
                                                 </div>
-                                            );
-                                        })
-                                    )}
+                                            </div>
+                                            <div className="flex-1 relative">
+                                                {member.tasks.map((task, vIdx) => (
+                                                    <div key={task.id} 
+                                                        className={`absolute h-8 text-[11px] font-medium flex items-center px-4 rounded-[8px] border shadow-sm ${task.status === 'track' ? 'bg-[#F0FDFA] text-[#0F766E] border-[#CCFBF1]' : 'bg-[#FFF7ED] text-[#C2410C] border-[#FFEDD5]'}`}
+                                                        style={{ left: '0%', width: '100%', top: `${vIdx * 40}px` }}>
+                                                        <span className="truncate">{task.name}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    {/* Upcoming Deadlines */}
                     <div className="bg-white border border-[#E7E5E4] rounded-xl p-8 shadow-sm">
-                        <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-lg font-medium text-[#1C1917]">Upcoming Deadlines</h2>
-                            <Button variant="ghost" className="text-xs text-[#78716C] hover:text-[#1C1917]" onClick={() => navigate('/projects')}>View All</Button>
-                        </div>
-
+                        <h2 className="text-lg font-medium mb-6">Upcoming Deadlines</h2>
                         <div className="space-y-3">
-                            {deadlines.length === 0 ? (
-                                <div className="text-center py-8">
-                                    <p className="text-sm text-[#78716C] font-light">No upcoming deadlines</p>
-                                </div>
-                            ) : (
-                                deadlines.map((item, idx) => {
-                                    const isDelayed = item.daysLeft < 0;
-                                    const displayDays = Math.abs(item.daysLeft);
-
-                                    return (
-                                        <Link to="/projects" key={idx} className="flex items-center justify-between py-4 px-5 bg-[#FAFAF9] border border-[#E7E5E4]/50 rounded-lg hover:border-[#D6D3D1] hover:bg-white transition-all duration-200 cursor-pointer group">
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-10 h-10 rounded-full bg-white border border-[#E7E5E4] flex items-center justify-center text-[#78716C] group-hover:text-[#0F766E] group-hover:border-[#CCFBF1] transition-colors">
-                                                    <ViewKanban style={{ fontSize: 18 }} />
-                                                </div>
-                                                <div>
-                                                    <div className="text-[#1C1917] text-sm font-medium mb-0.5">{item.project}</div>
-                                                    <div className="text-xs text-[#78716C]">{item.deadline}</div>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-8">
-                                                <div className="text-right">
-                                                    <div className="text-sm text-[#1C1917] font-medium">{displayDays} days</div>
-                                                    <div className="text-[10px] text-[#78716C] uppercase tracking-wide">{isDelayed ? 'Delayed' : 'Remaining'}</div>
-                                                </div>
-                                                <StatusBadge status={item.status} />
-                                                <ChevronRightIcon style={{ fontSize: 16 }} className="text-[#D6D3D1] group-hover:text-[#78716C] transition-colors" />
-                                            </div>
-                                        </Link>
-                                    );
-                                })
-                            )}
+                            {deadlines.map((item) => (
+                                <Link to="/projects" key={item.id} className="flex items-center justify-between py-4 px-5 bg-[#FAFAF9] border rounded-lg hover:bg-white transition-all group">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-10 h-10 rounded-full border flex items-center justify-center bg-white"><ViewKanban style={{ fontSize: 18 }} /></div>
+                                        <div>
+                                            <div className="text-sm font-medium">{item.project}</div>
+                                            <div className="text-xs text-[#78716C]">{format(new Date(item.deadline), "MMM d, yyyy")}</div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-8">
+                                        <div className="text-right">
+                                            <div className="text-sm font-medium">{item.daysLeft} days</div>
+                                            <div className="text-[10px] text-[#78716C] uppercase">Remaining</div>
+                                        </div>
+                                        <StatusBadge status={item.status} />
+                                        <ChevronRightIcon style={{ fontSize: 16 }} className="text-[#D6D3D1]" />
+                                    </div>
+                                </Link>
+                            ))}
                         </div>
                     </div>
                 </div>
