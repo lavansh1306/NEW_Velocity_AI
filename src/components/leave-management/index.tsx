@@ -375,28 +375,48 @@ export default function LeaveManagementTab() {
                         return cellDate >= s && cellDate <= e;
                       });
 
+                      // Get tasks on this day
+                      const dayTasks = tasks.filter(t => {
+                        if (!t.created_date || !t.due_date) return false;
+                        const tStart = new Date(t.created_date); tStart.setHours(0,0,0,0);
+                        const tEnd = new Date(t.due_date); tEnd.setHours(23,59,59,999);
+                        return cellDate >= tStart && cellDate <= tEnd;
+                      });
+
                       cells.push(
                         <div key={i} className={`bg-white h-32 p-3 border-r border-b border-[#E7E5E4] relative hover:bg-[#FAFAF9] transition-colors ${isToday ? 'bg-[#F0FDFA]/20' : ''}`}>
                           <span className={`text-xs font-semibold ${isToday ? 'text-emerald-600' : 'text-[#78716C]'}`}>
                             {i}
                           </span>
-                          <div className="mt-2 space-y-1 overflow-y-auto max-h-[80px]">
+                          <div className="mt-2 space-y-1 overflow-y-auto max-h-[82px] hide-scrollbar flex flex-col gap-1">
+                            {/* Leaves */}
                             {dayLeaves.map(l => (
                               <div 
                                 key={l.id} 
-                                className={`text-[10px] font-medium px-2 py-1 rounded-full truncate border ${
+                                className={`text-[9px] font-medium px-1.5 py-0.5 rounded-md truncate border ${
                                   l.status === 'approved' 
-                                    ? 'bg-[#FAFAF9] text-[#121212] border-[#E7E5E4]' 
-                                    : 'bg-stripes-gray border-[#E7E5E4] text-[#78716C] bg-[#FAFAF9]'
+                                    ? 'bg-green-50 text-green-800 border-green-200' 
+                                    : 'bg-amber-50 text-amber-800 border-amber-200'
                                 }`}
                                 style={{
                                   backgroundImage: l.status === 'pending' 
-                                    ? 'linear-gradient(45deg, #f3f4f6 25%, transparent 25%, transparent 50%, #f3f4f6 50%, #f3f4f6 75%, transparent 75%, transparent)' 
+                                    ? 'linear-gradient(45deg, #FEF3C7 25%, transparent 25%, transparent 50%, #FEF3C7 50%, #FEF3C7 75%, transparent 75%, transparent)' 
                                     : 'none',
                                   backgroundSize: '10px 10px'
                                 }}
                               >
-                                {l.name.split(' ')[0]}
+                                {l.name.split(' ')[0]}: Leave
+                              </div>
+                            ))}
+
+                            {/* Tasks */}
+                            {dayTasks.map((t, idx) => (
+                              <div 
+                                key={`t-${idx}`} 
+                                className="text-[9px] font-medium px-1.5 py-0.5 rounded-md truncate border bg-blue-50 text-blue-900 border-blue-100"
+                                title={`${t.assigneeName || t.assignee}: ${t.taskName}`}
+                              >
+                                {t.assigneeName ? t.assigneeName.split(' ')[0] : t.assignee.split('@')[0]}: {t.taskName}
                               </div>
                             ))}
                           </div>

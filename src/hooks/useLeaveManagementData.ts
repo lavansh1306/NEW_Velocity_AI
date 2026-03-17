@@ -140,6 +140,7 @@ export function useLeaveManagementData() {
           projectName: project?.name || 'Unknown Project',
           taskName: task.name,
           assignee: assigneeUser?.email || 'Unassigned',
+          assigneeName: assigneeUser?.name, // NEW
           hours: Number(task.estimated_hours || 0),
           status: task.status || 'not_started',
           created_date: task.created_at,
