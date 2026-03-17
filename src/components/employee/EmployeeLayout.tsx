@@ -10,8 +10,6 @@ import {
   Bell,
   ChevronRight,
   LogOut,
-  ChevronsLeft,
-  ChevronsRight,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -77,7 +75,12 @@ export function EmployeeLayout() {
             return (
               <button
                 key={path}
-                onClick={() => navigate(path)}
+                onClick={() => {
+                  if (isActive) {
+                    setCollapsed(!collapsed);
+                  }
+                  navigate(path);
+                }}
                 title={label}
                 className={`w-full relative px-3 py-3 flex items-center ${collapsed ? 'justify-center' : 'gap-3'
                   } rounded-lg transition-all duration-200 outline-none ${isActive
@@ -108,23 +111,8 @@ export function EmployeeLayout() {
           })}
         </div>
 
-        {/* Bottom: collapse toggle + logout + user */}
+        {/* Bottom: logout + user */}
         <div className="w-full flex flex-col gap-1 px-4 mt-auto">
-          {/* Collapse toggle */}
-          <button
-            onClick={() => setCollapsed(!collapsed)}
-            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            className={`w-full relative px-3 py-3 flex items-center ${collapsed ? 'justify-center' : 'gap-3'
-              } rounded-lg text-[#78716C] hover:text-[#E7E5E4] hover:bg-[#292524]/50 transition-colors`}
-          >
-            {collapsed ? (
-              <ChevronsRight className="h-5 w-5 flex-shrink-0" strokeWidth={1.75} />
-            ) : (
-              <ChevronsLeft className="h-5 w-5 flex-shrink-0" strokeWidth={1.75} />
-            )}
-            {!collapsed && <span className="text-sm font-normal">Collapse</span>}
-          </button>
-
           {/* Logout */}
           <button
             className={`w-full relative px-3 py-3 flex items-center ${collapsed ? 'justify-center' : 'gap-3'

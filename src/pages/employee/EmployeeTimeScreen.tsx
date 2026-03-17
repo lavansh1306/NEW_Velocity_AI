@@ -313,6 +313,9 @@ const LeaveRequestCard = ({
   request: LeaveRequest;
   onWithdraw: () => void;
 }) => {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+
   const statusConfig: Record<string, { label: string; icon: React.ReactNode; bg: string; text: string; border: string; cardBg: string; cardBorder: string }> = {
     approved: { label: 'Approved', icon: <CheckCircle2 className="w-3.5 h-3.5" />, bg: 'bg-[#F0FDFA]', text: 'text-[#0F766E]', border: 'border-[#CCFBF1]', cardBg: 'bg-white', cardBorder: 'border-[#E7E5E4]' },
     pending: { label: 'Pending', icon: <Clock className="w-3.5 h-3.5" />, bg: 'bg-[#FEF3C7]', text: 'text-[#92400E]', border: 'border-[#FDE68A]', cardBg: 'bg-[#FFFBEB]', cardBorder: 'border-[#D6D3D1]' },
@@ -335,41 +338,82 @@ const LeaveRequestCard = ({
     current.setDate(current.getDate() + 1);
   }
 
+  const canCancel = request.status === 'pending' || (request.status === 'approved' && new Date(request.start_date) >= new Date());
+  const cancelLabel = request.status === 'approved' ? 'Cancel Leave' : 'Withdraw Request';
+
+  const handleConfirmCancel = async () => {
+    setCancelling(true);
+    await onWithdraw();
+    setCancelling(false);
+    setConfirmOpen(false);
+  };
+
   return (
-    <div className={`${config.cardBg} border ${config.cardBorder} rounded-xl p-5 shadow-[0_2px_8px_rgba(0,0,0,0.04)]`}>
-      <div className="flex items-start justify-between mb-3">
-        <div className="text-sm font-medium text-[#1C1917]">{request.leave_type_name || 'Leave'}</div>
-        <span className={`flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full font-medium ${config.bg} ${config.text} border ${config.border}`}>
-          {config.icon}
-          {config.label}
-        </span>
-      </div>
-      <div className="space-y-1.5 mb-3">
-        <p className="text-sm text-[#57534E] font-light">
-          {startDate}{startDate !== endDate ? ` – ${endDate}` : ''} &middot; {days} day{days !== 1 ? 's' : ''}
-        </p>
-        {request.reason && <p className="text-xs text-[#78716C] font-light">Reason: {request.reason}</p>}
+    <>
+      <div className={`${config.cardBg} border ${config.cardBorder} rounded-xl p-5 shadow-[0_2px_8px_rgba(0,0,0,0.04)]`}>
+        <div className="flex items-start justify-between mb-3">
+          <div className="text-sm font-medium text-[#1C1917]">{request.leave_type_name || 'Leave'}</div>
+          <span className={`flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full font-medium ${config.bg} ${config.text} border ${config.border}`}>
+            {config.icon}
+            {config.label}
+          </span>
+        </div>
+        <div className="space-y-1.5">
+          <p className="text-sm text-[#57534E] font-light">
+            {startDate}{startDate !== endDate ? ` – ${endDate}` : ''} &middot; {days} day{days !== 1 ? 's' : ''}
+          </p>
+          {request.reason && <p className="text-xs text-[#78716C] font-light">Reason: {request.reason}</p>}
+        </div>
+
+        {canCancel && (
+          <div className="flex justify-end pt-3 mt-3 border-t border-[#E7E5E4]">
+            <button
+              onClick={() => setConfirmOpen(true)}
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-[#C2410C] hover:text-[#9A3412] bg-[#FFF7ED] hover:bg-[#FFEDD5] border border-[#FED7AA] px-3 py-1.5 rounded-lg transition-all"
+            >
+              <X className="w-3.5 h-3.5" />
+              {cancelLabel}
+            </button>
+          </div>
+        )}
       </div>
 
-      <div className="flex items-center gap-3 pt-2">
-        {request.status === 'pending' && (
-          <button
-            onClick={onWithdraw}
-            className="text-xs text-[#78716C] hover:text-[#1C1917] font-light transition-colors rounded px-1"
-          >
-            Withdraw
-          </button>
-        )}
-        {request.status === 'approved' && (
-          <button
-            onClick={() => toast.info('Details view coming soon')}
-            className="text-xs text-[#0F766E] hover:text-[#0D9488] font-medium transition-colors rounded px-1"
-          >
-            View Full Details
-          </button>
-        )}
-      </div>
-    </div>
+      {/* Confirmation Dialog */}
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="bg-white border border-[#E7E5E4] rounded-2xl shadow-2xl max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-medium text-[#1C1917]">{cancelLabel}?</DialogTitle>
+          </DialogHeader>
+          <div className="py-3">
+            <p className="text-sm text-[#57534E] font-light">
+              Are you sure you want to cancel your <strong className="font-medium">{request.leave_type_name}</strong> leave
+              from <strong className="font-medium">{startDate}</strong> to <strong className="font-medium">{endDate}</strong> ({days} day{days !== 1 ? 's' : ''})?
+            </p>
+            {request.status === 'approved' && (
+              <p className="text-xs text-[#78716C] font-light mt-2">
+                Your leave balance will be restored.
+              </p>
+            )}
+          </div>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setConfirmOpen(false)}
+              className="border-[#E7E5E4] text-[#57534E] font-light"
+            >
+              Keep Leave
+            </Button>
+            <Button
+              onClick={handleConfirmCancel}
+              disabled={cancelling}
+              className="bg-[#C2410C] hover:bg-[#9A3412] text-white font-light"
+            >
+              {cancelling ? 'Cancelling...' : 'Yes, Cancel'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 
@@ -685,7 +729,7 @@ const TimesheetsListScreen = ({
   const dateLabels = weekDates.map(d => d.label);
 
   const weekMeta = timeData.timesheetWeeks[timeData.currentWeekOffset];
-  const rows = weekMeta?.rows ?? [];
+  const rows = useMemo(() => weekMeta?.rows ?? [], [weekMeta?.rows]);
   const weekStatus = weekMeta?.status ?? 'No Data';
 
   const [notesByWeek, setNotesByWeek] = useState<Record<number, Record<string, string>>>({});

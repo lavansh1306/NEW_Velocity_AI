@@ -95,7 +95,7 @@ export async function withdrawLeaveRequest(requestId: string, userId: string) {
   // First verify the request belongs to this user
   const { data: existing, error: fetchError } = await client
     .from('leave_requests')
-    .select('id, user_id, status')
+    .select('id, user_id, status, leave_type_id, start_date, end_date')
     .eq('id', requestId)
     .maybeSingle();
 
@@ -106,7 +106,11 @@ export async function withdrawLeaveRequest(requestId: string, userId: string) {
 
   if (!existing) throw new Error('Leave request not found');
   if (existing.user_id !== userId) throw new Error('Not authorized to withdraw this request');
-  if (existing.status !== 'pending') throw new Error('Only pending requests can be withdrawn');
+  if (existing.status !== 'pending' && existing.status !== 'approved') {
+    throw new Error('Only pending or approved requests can be withdrawn');
+  }
+
+  const wasApproved = existing.status === 'approved';
 
   const { data, error } = await client
     .from('leave_requests')
@@ -120,6 +124,32 @@ export async function withdrawLeaveRequest(requestId: string, userId: string) {
     console.error('[EmployeeDB] withdrawLeaveRequest update error:', error.message);
     throw error;
   }
+
+  // Restore leave balance if the request was already approved
+  if (wasApproved && existing.leave_type_id && existing.start_date && existing.end_date) {
+    const start = new Date(existing.start_date);
+    const end = new Date(existing.end_date);
+    const leaveDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    const currentYear = new Date().getFullYear();
+
+    const { data: balance } = await client
+      .from('employee_leave_balances')
+      .select('id, used_days')
+      .eq('user_id', userId)
+      .eq('leave_type_id', existing.leave_type_id)
+      .eq('year', currentYear)
+      .maybeSingle();
+
+    if (balance) {
+      const newUsed = Math.max(0, (balance.used_days || 0) - leaveDays);
+      await client
+        .from('employee_leave_balances')
+        .update({ used_days: newUsed })
+        .eq('id', balance.id);
+      console.log(`[EmployeeDB] Restored ${leaveDays} day(s) to balance for user ${userId}`);
+    }
+  }
+
   return data;
 }
 
@@ -151,34 +181,59 @@ export async function getLeaveTypes(organizationId: string) {
 
 export async function getLeaveBalances(organizationId: string, userId: string) {
   const client = getClient();
-  // Using select('*') to avoid strict column matching errors if schema changes
-  const { data, error } = await client
-    .from('employee_leave_balances')
-    .select(`
-      *,
-      leave_types ( name )
-    `)
-    .eq('organization_id', organizationId)
-    .eq('user_id', userId);
+  const currentYear = new Date().getFullYear();
+  const yearStart = `${currentYear}-01-01`;
+  const yearEnd = `${currentYear}-12-31`;
 
-  if (error) {
-    // If table doesn't exist, just return empty array instead of failing
-    if (error.code === '42P01') {
+  // Fetch balances and approved leave requests in parallel
+  const [balancesRes, leavesRes] = await Promise.all([
+    client
+      .from('employee_leave_balances')
+      .select(`*, leave_types ( name )`)
+      .eq('organization_id', organizationId)
+      .eq('user_id', userId)
+      .eq('year', currentYear),
+    client
+      .from('leave_requests')
+      .select('leave_type_id, start_date, end_date')
+      .eq('organization_id', organizationId)
+      .eq('user_id', userId)
+      .eq('status', 'approved')
+      .gte('start_date', yearStart)
+      .lte('start_date', yearEnd),
+  ]);
+
+  if (balancesRes.error) {
+    if (balancesRes.error.code === '42P01') {
       console.warn('[EmployeeDB] employee_leave_balances table missing, returning empty []');
       return [];
     }
-    console.error('[EmployeeDB] getLeaveBalances error:', error.message);
-    throw error;
+    console.error('[EmployeeDB] getLeaveBalances error:', balancesRes.error.message);
+    throw balancesRes.error;
   }
 
-  return (data || []).map((row: any) => ({
-    id: row.id,
-    leave_type_id: row.leave_type_id,
-    leave_type_name: row.leave_types?.name ?? null,
-    total_days: row.total_days || row.annual_quota || 0, // Fallback fields
-    used_days: row.used_days || 0,
-    remaining_days: row.remaining_days || 0,
-  }));
+  // Compute actual used days per leave type from approved requests
+  const usedByType: Record<string, number> = {};
+  for (const req of (leavesRes.data || [])) {
+    if (!req.leave_type_id || !req.start_date || !req.end_date) continue;
+    const start = new Date(req.start_date);
+    const end = new Date(req.end_date);
+    const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    usedByType[req.leave_type_id] = (usedByType[req.leave_type_id] || 0) + days;
+  }
+
+  return (balancesRes.data || []).map((row: any) => {
+    const total = row.total_allocated || row.total_days || row.annual_quota || 0;
+    const used = usedByType[row.leave_type_id] || 0;
+    return {
+      id: row.id,
+      leave_type_id: row.leave_type_id,
+      leave_type_name: row.leave_types?.name ?? null,
+      total_days: total,
+      used_days: used,
+      remaining_days: Math.max(0, total - used),
+    };
+  });
 }
 
 // ---------- Holidays ----------
