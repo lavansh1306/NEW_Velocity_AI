@@ -35,6 +35,7 @@ interface EmployeeLeavePortalProps {
     leave_type_id: string; // NEW: Required by DB
     affectedTasks: Task[];
     project: string;
+    customLeaveType?: string; // NEW
   }) => void;
 }
 
@@ -68,13 +69,16 @@ export function EmployeeLeavePortal({
   const [endLeaveDate, setEndLeaveDate] = useState<string>('');
   const [leaveReason, setLeaveReason] = useState<string>('');
   const [selectedLeaveTypeId, setSelectedLeaveTypeId] = useState<string>('');
+  const [customLeaveType, setCustomLeaveType] = useState<string>(''); // NEW
+  const [reason, setReason] = useState<string>('');
   const [currentMonth, setCurrentMonth] = useState(new Date());
   
   const [pendingLeaveRanges, setPendingLeaveRanges] = useState<Array<{
-    start: string, 
-    end: string, 
-    reason: string,
-    typeId: string
+    start: string; 
+    end: string; 
+    reason: string;
+    typeId: string;
+    customLeaveType?: string; // NEW
   }>>([]);
 
   // Modal State
@@ -223,7 +227,8 @@ export function EmployeeLeavePortal({
       start: startLeaveDate, 
       end: finalEndDate, 
       reason: leaveReason,
-      typeId: selectedLeaveTypeId
+      typeId: selectedLeaveTypeId,
+      customLeaveType: selectedLeaveTypeId === 'other' ? customLeaveType : undefined // NEW
     }]);
 
     // Reset fields
@@ -231,6 +236,7 @@ export function EmployeeLeavePortal({
     setEndLeaveDate('');
     setLeaveReason('');
     setSelectedLeaveTypeId('');
+    setCustomLeaveType(''); // Reset
   };
 
   const handleSubmitAllLeaves = () => {
@@ -238,13 +244,14 @@ export function EmployeeLeavePortal({
 
     pendingLeaveRanges.forEach(range => {
       onLeaveRequest({
-        employeeName: selectedEmployee,
+        employeeName: currentUserProfile?.name || 'Current User',
         startDate: range.start,
         endDate: range.end,
         reason: range.reason,
-        leave_type_id: range.typeId,
-        affectedTasks: tasksOnLeaveDate, // Note: This logic might need adjustment if multiple ranges affect different tasks
+        leave_type_id: range.typeId === 'other' ? '' : range.typeId, // Pass empty to trigger custom string check inside hook
+        affectedTasks: tasksOnLeaveDate,
         project: 'All',
+        customLeaveType: range.customLeaveType // NEW
       });
     });
 
@@ -423,9 +430,23 @@ export function EmployeeLeavePortal({
                         </SelectItem>
                       );
                     })}
+                    <SelectItem value="other" className="text-sm">Other</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Custom Leave Type Name Input */}
+              {selectedLeaveTypeId === 'other' && (
+                <div className="space-y-1.5 animate-in slide-in-from-top-1 duration-200">
+                  <label className="text-xs text-[#78716C] font-semibold uppercase tracking-wider">Specify Other Type</label>
+                  <input 
+                    placeholder="Enter leave type name" 
+                    value={customLeaveType} 
+                    onChange={(e) => setCustomLeaveType(e.target.value)}
+                    className="flex h-10 w-full rounded-xl border border-[#E7E5E4] bg-white px-3 py-2 text-sm shadow-sm placeholder:text-[#A8A29E] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500"
+                  />
+                </div>
+              )}
 
               {/* Reason */}
               <div className="space-y-1.5">
@@ -454,7 +475,7 @@ export function EmployeeLeavePortal({
               <Button 
                 onClick={handleAddLeaveToQueue}
                 className="w-full bg-[#121212] hover:bg-[#262626] text-white rounded-xl shadow-sm h-10"
-                disabled={!startLeaveDate || !leaveReason || !selectedLeaveTypeId}
+                disabled={!startLeaveDate || !leaveReason || !selectedLeaveTypeId || (selectedLeaveTypeId === 'other' && !customLeaveType.trim())}
               >
                 Add to Queue
               </Button>

@@ -417,10 +417,16 @@ export default function LeaveManagementTab() {
               tasks={tasks}
               employees={employees}
               currentUserEmail={user?.email || ''}
-              onLeaveRequest={() => setApplyOpen(true)}
+              onLeaveRequest={(leaveData) => handleApplyLeave({
+                startDate: leaveData.startDate,
+                endDate: leaveData.endDate,
+                reason: leaveData.reason,
+                leave_type_id: leaveData.leave_type_id,
+                customLeaveType: leaveData.customLeaveType
+              })}
               existingLeaves={leaves.filter(l => l.user_id === user?.id)}
               leaveBalances={balances}
-              leaveTypes={leaveTypes} // NEW
+              leaveTypes={leaveTypes}
             />
           </div>
         )}
@@ -431,7 +437,9 @@ export default function LeaveManagementTab() {
         open={applyOpen}
         onOpenChange={setApplyOpen}
         leaveBalances={balances}
-        leaveTypes={leaveTypes} // NEW
+        leaveTypes={leaveTypes}
+        employees={employees} // NEW
+        canSelectEmployee={activePersona === 'manager'} // NEW
         onSubmit={handleApplyLeave}
       />
 

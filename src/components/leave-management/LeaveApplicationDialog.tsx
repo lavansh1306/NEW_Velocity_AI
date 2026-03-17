@@ -17,9 +17,11 @@ import { LeaveRequest, LeaveBalance } from './types';
 interface LeaveApplicationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  leaveBalances: LeaveBalance[]; // NEW: Pass balances to get Leave Types
-  leaveTypes?: any[]; // NEW: Fetch all types for dropdown
-  onSubmit: (request: Omit<LeaveRequest, 'id' | 'status' | 'name' | 'organization_id' | 'user_id'>) => void;
+  leaveBalances: LeaveBalance[];
+  leaveTypes?: any[];
+  employees?: any[]; // NEW
+  canSelectEmployee?: boolean; // NEW
+  onSubmit: (request: any) => void;
 }
 
 interface LeaveEntry {
@@ -27,19 +29,23 @@ interface LeaveEntry {
   startDate: string;
   endDate: string;
   reason: string;
-  leaveTypeId: string; // NEW: Track the type ID
+  leaveTypeId: string;
 }
 
 export const LeaveApplicationDialog: React.FC<LeaveApplicationDialogProps> = ({ 
   open, 
   onOpenChange, 
   leaveBalances, 
-  leaveTypes = [], // NEW
+  leaveTypes = [],
+  employees = [], // NEW
+  canSelectEmployee = false, // NEW
   onSubmit 
 }) => {
   const [leaves, setLeaves] = useState<LeaveEntry[]>([
     { id: `leave-${Date.now()}`, startDate: '', endDate: '', reason: '', leaveTypeId: '' }
   ]);
+  const [selectedUserId, setSelectedUserId] = useState<string>(''); // NEW
+  const [customLeaveType, setCustomLeaveType] = useState<string>(''); // NEW
   const [submitted, setSubmitted] = useState(false);
   const [submittedCount, setSubmittedCount] = useState(0);
 
@@ -68,10 +74,13 @@ export const LeaveApplicationDialog: React.FC<LeaveApplicationDialogProps> = ({
   };
 
   const handleSubmit = () => {
-    const filledLeaves = leaves.filter(l => l.startDate.trim() && l.endDate.trim() && l.reason.trim() && l.leaveTypeId);
+    const filledLeaves = leaves.filter(l => 
+      l.startDate.trim() && l.endDate.trim() && l.reason.trim() && 
+      (l.leaveTypeId !== 'other' || customLeaveType.trim() !== '') && l.leaveTypeId
+    );
     
     if (filledLeaves.length === 0) {
-      alert('Please fill in all fields including Leave Type');
+      alert('Please fill in all fields including Leave Type and custom name if selecting Other');
       return;
     }
 
@@ -81,12 +90,15 @@ export const LeaveApplicationDialog: React.FC<LeaveApplicationDialogProps> = ({
         startDate: leave.startDate,
         endDate: leave.endDate,
         reason: leave.reason,
-        leave_type_id: leave.leaveTypeId
+        leave_type_id: leave.leaveTypeId === 'other' ? '' : leave.leaveTypeId, // Pass empty if other to trigger custom string check inside hook
+        user_id: selectedUserId && selectedUserId !== 'current_user' ? selectedUserId : undefined, 
+        customLeaveType: leave.leaveTypeId === 'other' ? customLeaveType : undefined
       });
     });
     
     setSubmitted(true);
     setSubmittedCount(filledLeaves.length);
+    setCustomLeaveType(''); // Reset
     
     setTimeout(() => {
       setLeaves([{ id: `leave-${Date.now()}`, startDate: '', endDate: '', reason: '', leaveTypeId: '' }]);
@@ -98,7 +110,7 @@ export const LeaveApplicationDialog: React.FC<LeaveApplicationDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[650px] bg-white rounded-2xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-md bg-white p-6 rounded-2xl flex flex-col max-h-[90vh]">
         <DialogHeader>
           <div className="flex items-center gap-2">
             <div className="p-2 bg-blue-100 rounded-lg"><Plane className="w-5 h-5 text-blue-600"/></div>
@@ -127,15 +139,22 @@ export const LeaveApplicationDialog: React.FC<LeaveApplicationDialogProps> = ({
                 {/* Single Form Layout based on Screenshot 3 */}
                 <div className="space-y-4">
                   
-                  {/* Employee Select (Locked to Current User for now, or searchable) */}
+                  {/* Employee Select */}
                   <div className="space-y-1.5">
                     <Label className="text-xs font-semibold text-[#78716C] uppercase">Employee</Label>
-                    <Select disabled value="current_user">
+                    <Select 
+                      disabled={!canSelectEmployee} 
+                      value={selectedUserId || 'current_user'} 
+                      onValueChange={setSelectedUserId}
+                    >
                       <SelectTrigger className="bg-white border-[#E7E5E4] rounded-xl h-10">
                         <SelectValue placeholder="Select employee" />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="current_user">Current User</SelectItem>
+                      <SelectContent className="bg-white">
+                        {!canSelectEmployee && <SelectItem value="current_user">Current User</SelectItem>}
+                        {canSelectEmployee && (employees || []).map(emp => (
+                          <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -159,9 +178,23 @@ export const LeaveApplicationDialog: React.FC<LeaveApplicationDialogProps> = ({
                             </SelectItem>
                           );
                         })}
+                        <SelectItem value="other">Other</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {/* Custom Leave Type Name Input */}
+                  {leaves[0].leaveTypeId === 'other' && (
+                    <div className="space-y-1.5 animate-in slide-in-from-top-1 duration-200">
+                      <Label className="text-xs font-semibold text-[#78716C] uppercase">Specify Other Type</Label>
+                      <Input 
+                        placeholder="Enter leave type name" 
+                        value={customLeaveType} 
+                        onChange={(e) => setCustomLeaveType(e.target.value)}
+                        className="bg-white border-[#E7E5E4] rounded-xl h-10"
+                      />
+                    </div>
+                  )}
 
                   {/* Date Range */}
                   <div className="space-y-1.5">

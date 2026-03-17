@@ -187,15 +187,38 @@ export function useLeaveManagementData() {
     endDate: string;
     reason: string;
     leave_type_id: string;
+    user_id?: string; // NEW: Allow manager selection
+    customLeaveType?: string; // NEW: On-the-fly type creation
   }) => {
-    if (!state.currentOrgId || !state.currentUser?.id) {
+    if (!state.currentOrgId) {
       throw new Error("Active organization session required.");
     }
 
+    let finalLeaveTypeId = request.leave_type_id;
+
+    // 1. Create custom leave type if specified
+    if (request.customLeaveType && request.customLeaveType.trim() !== '') {
+      const { data: newType, error: typeError } = await supabase
+        .from('leave_types')
+        .insert([{
+          organization_id: state.currentOrgId,
+          name: request.customLeaveType.trim()
+        }])
+        .select('id')
+        .single();
+
+      if (typeError) throw typeError;
+      if (newType) finalLeaveTypeId = newType.id;
+    }
+
+    const targetUserId = request.user_id || state.currentUser?.id;
+    if (!targetUserId) throw new Error("Target user ID is missing.");
+
+    // 2. Insert Leave Request
     const { error } = await supabase.from('leave_requests').insert([{
       organization_id: state.currentOrgId,
-      user_id: state.currentUser.id,
-      leave_type_id: request.leave_type_id,
+      user_id: targetUserId,
+      leave_type_id: finalLeaveTypeId,
       start_date: request.startDate,
       end_date: request.endDate,
       reason: request.reason,
