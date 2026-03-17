@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import {
   ArrowLeft, LayoutGrid, Users, CheckSquare,
-  Clock, Lightbulb, AlertCircle, Sparkles, Loader2, ChevronDown, ChevronUp
+  Clock, Lightbulb, AlertCircle, Sparkles, Loader2, ChevronDown, ChevronUp, X
 } from 'lucide-react';
 
 export default function ProjectAnalytics() {
@@ -19,7 +19,117 @@ export default function ProjectAnalytics() {
   const [updatingTask, setUpdatingTask] = useState(false);
   const statusDropdownRef = useRef<HTMLDivElement>(null);
 
+  // Missing States for Modals
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [editForm, setEditForm] = useState({ title: '', description: '', status: 'active' });
+  const [isFetchingDetails, setIsFetchingDetails] = useState(false);
+
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [isTaskFetching, setIsTaskFetching] = useState(false);
+  const [isTaskSaving, setIsTaskSaving] = useState(false);
+  const [taskForm, setTaskForm] = useState({ id: '', name: '', description: '', status: 'not_started', assignee_id: '', estimated_hours: 0, start_date: '', due_date: '' });
+
   const { loading, error, project, issues, metrics, teamMembers, allocatedTeamMembers } = useProjectAnalytics(id);
+
+  const openEditModal = async () => {
+    if (!project) return;
+    setIsEditModalOpen(true);
+    setIsFetchingDetails(true);
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('id', project.id)
+        .single();
+      if (error) throw error;
+      setEditForm({
+        title: data.name || '',
+        description: data.description || '',
+        status: data.status || 'active'
+      });
+    } catch (err: any) {
+      toast.error('Failed to fetch project details');
+      setIsEditModalOpen(false);
+    } finally {
+      setIsFetchingDetails(false);
+    }
+  };
+
+  const handleUpdateProject = async () => {
+    if (!project) return;
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .update({
+          name: editForm.title,
+          description: editForm.description,
+          status: editForm.status
+        })
+        .eq('id', project.id);
+      if (error) throw error;
+      toast.success('Project updated successfully');
+      setIsEditModalOpen(false);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update project');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const openTaskModal = async (issue: any) => {
+    setIsTaskModalOpen(true);
+    setIsTaskFetching(true);
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('id', issue.id)
+        .single();
+      if (error) throw error;
+      setTaskForm({
+        id: data.id,
+        name: data.name || '',
+        description: data.description || '',
+        status: data.status || 'not_started',
+        assignee_id: data.assignee_id || '',
+        estimated_hours: data.estimated_hours || 0,
+        start_date: data.start_date ? data.start_date.split('T')[0] : '',
+        due_date: data.due_date ? data.due_date.split('T')[0] : ''
+      });
+    } catch (err: any) {
+      toast.error('Failed to fetch task details');
+      setIsTaskModalOpen(false);
+    } finally {
+      setIsTaskFetching(false);
+    }
+  };
+
+  const handleUpdateTask = async () => {
+    setIsTaskSaving(true);
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({
+          name: taskForm.name,
+          description: taskForm.description,
+          status: taskForm.status,
+          assignee_id: taskForm.assignee_id || null,
+          estimated_hours: taskForm.estimated_hours,
+          start_date: taskForm.start_date || null,
+          due_date: taskForm.due_date || null
+        })
+        .eq('id', taskForm.id);
+      if (error) throw error;
+      toast.success('Task updated successfully');
+      setIsTaskModalOpen(false);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update task');
+    } finally {
+      setIsTaskSaving(false);
+    }
+  };
 
   // Close dropdown when clicking outside
   useEffect(() => {
