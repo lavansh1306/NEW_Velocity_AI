@@ -1,9 +1,9 @@
 // src/api/jira/routes.ts
 // API routes for Jira multi-tenant integration — all data scoped by org_id
 import express, { Request, Response } from 'express';
-import { jiraAuth } from './auth';
-import { upsertProjects, upsertIssues, getProjects, getIssues, getAllIssues, getJiraConnection, findUserOrg, type DBJiraIssue } from './db';
-import * as db from './db';
+import { jiraAuth } from './auth.js';
+import { upsertProjects, upsertIssues, getProjects, getIssues, getAllIssues, getJiraConnection, findUserOrg, type DBJiraIssue } from './db.js';
+import * as db from './db.js';
 
 const router = express.Router();
 
