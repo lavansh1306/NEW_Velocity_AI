@@ -186,34 +186,29 @@ export const OnboardingProvider = ({ children }: { children: React.ReactNode }) 
       setCurrentOrgRole('owner');
       setCurrentOrgName(org.name);
 
-      // Generate default invite code and persist it server-side
+      // Generate default invite code and update organization directly
       try {
-        console.log('[Onboarding] Calling /api/invites/create for org:', org.id);
-        const resp = await fetch(apiUrl('/api/invites/create'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ organizationId: org.id, role: 'owner' }),
-        });
+        const code = generateCode(name);
+        console.log('[Onboarding] Updating organization with invite code:', code);
         
-        if (!resp.ok) {
-          console.error('[Onboarding] Invite creation failed with status:', resp.status);
-          const errorBody = await resp.json().catch(() => ({}));
-          console.error('[Onboarding] Error response:', errorBody);
-          throw new Error(`Failed to create invite: ${resp.status}`);
-        }
+        const { error: inviteError } = await supabase
+          .from('organizations')
+          .update({
+            invite_code: code,
+            invite_role: 'owner',
+            invite_is_active: true,
+            invite_use_count: 0,
+            invite_created_by: user.id,
+            invite_updated_at: new Date().toISOString(),
+          })
+          .eq('id', org.id);
+
+        if (inviteError) throw inviteError;
         
-        const body = await resp.json();
-        console.log('[Onboarding] Invite creation response:', body);
-        
-        if (body.success && body.inviteCode) {
-          setInviteCode(body.inviteCode);
-          console.log('[Onboarding] ✓ Invite code successfully persisted to database:', body.inviteCode);
-        } else {
-          throw new Error(`Invalid response from server: ${JSON.stringify(body)}`);
-        }
+        setInviteCode(code);
+        console.log('[Onboarding] ✓ Invite code successfully persisted directly to database:', code);
       } catch (err) {
         console.error('[Onboarding] Failed to create and persist invite code:', err);
-        // Do NOT fall back to local-only code - we need it persisted to database
         throw new Error(`Could not generate invite code: ${err instanceof Error ? err.message : String(err)}`);
       }
 
@@ -458,31 +453,26 @@ export const OnboardingProvider = ({ children }: { children: React.ReactNode }) 
     setError(null);
 
     try {
-      console.log('[Onboarding] Generating new invite code for org:', orgId);
-      // Call server-side service to create invite (do not call Supabase from frontend)
-      const resp = await fetch(apiUrl('/api/invites/create'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ organizationId: orgId, role: 'employee' }),
-      });
+      const code = generateCode(orgName || 'TEAM');
+      console.log('[Onboarding] Updating organization with new invite code:', code);
       
-      if (!resp.ok) {
-        const errorBody = await resp.json().catch(() => ({}));
-        const err = errorBody?.error || `HTTP ${resp.status}`;
-        console.error('[Onboarding] Server invite create failed:', err);
-        throw new Error(err);
-      }
+      const { error: inviteError } = await supabase
+        .from('organizations')
+        .update({
+          invite_code: code,
+          invite_role: 'employee',
+          invite_is_active: true,
+          invite_use_count: 0,
+          invite_created_by: user.id,
+          invite_updated_at: new Date().toISOString(),
+        })
+        .eq('id', orgId);
+
+      if (inviteError) throw inviteError;
       
-      const body = await resp.json();
-      console.log('[Onboarding] Invite generation response:', body);
-      
-      if (body.success && body.inviteCode) {
-        setInviteCode(body.inviteCode);
-        console.log('[Onboarding] ✓ New invite code generated:', body.inviteCode);
-        return body.inviteCode;
-      } else {
-        throw new Error(body?.error || 'Invalid server response');
-      }
+      setInviteCode(code);
+      console.log('[Onboarding] ✓ New invite code generated and updated directly:', code);
+      return code;
     } catch (err: any) {
       const msg = err.message || 'Failed to generate invite code';
       console.error('[Onboarding] Error in generateInviteCode:', err);
