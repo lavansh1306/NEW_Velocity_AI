@@ -12,12 +12,13 @@ export default function OnboardingWelcome() {
   const { user, loading: authLoading } = useAuth();
   const { createOrganization, loading, error, clearError, orgId } = useOnboarding();
   const [orgName, setOrgName] = useState('');
+  const [teamName, setTeamName] = useState('');
 
   const handleStart = async () => {
-    if (!orgName.trim() || !user) return;
+    if (!orgName.trim() || !teamName.trim() || !user) return;
     clearError();
     try {
-      await createOrganization(orgName.trim());
+      await createOrganization(orgName.trim(), teamName.trim());
       navigate('/onboarding/team');
     } catch {
       // error is already set in context
@@ -27,7 +28,7 @@ export default function OnboardingWelcome() {
   const handleSkip = async () => {
     if (!orgId && orgName.trim()) {
       try {
-        await createOrganization(orgName.trim());
+        await createOrganization(orgName.trim(), teamName.trim() || undefined);
       } catch {
         // proceed anyway
       }
@@ -69,7 +70,7 @@ export default function OnboardingWelcome() {
         </p>
 
         {/* Organization Name Input */}
-        <div className="w-[450px] mb-8">
+        <div className="w-[450px] mb-4">
           <OrganizationPicker
             value={orgName}
             onSelect={(org) => {
@@ -78,6 +79,17 @@ export default function OnboardingWelcome() {
             }}
             onCreate={(name) => setOrgName(name)}
             onClear={() => setOrgName('')}
+          />
+        </div>
+
+        {/* Team Name Input */}
+        <div className="w-[450px] mb-8">
+          <label className="block text-sm text-[#78716C] mb-2 font-light">Team Name</label>
+          <Input
+            value={teamName}
+            onChange={(e) => setTeamName(e.target.value)}
+            placeholder="e.g. Engineering, Design, Product"
+            className="h-11 bg-white border-[#E7E5E4] text-[#1C1917] placeholder:text-[#A8A29E] focus:border-[#1C1917] focus:ring-0"
           />
         </div>
 
@@ -107,7 +119,7 @@ export default function OnboardingWelcome() {
 
         <Button 
           onClick={handleStart}
-          disabled={loading || authLoading || !user || !orgName.trim()}
+          disabled={loading || authLoading || !user || !orgName.trim() || !teamName.trim()}
           className="h-12 px-8 bg-[#1C1917] hover:bg-[#292524] text-white rounded-lg font-normal text-base transition-all duration-200 shadow-md disabled:opacity-50"
         >
           {loading ? (

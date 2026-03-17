@@ -36,7 +36,7 @@ interface OnboardingContextType {
   inviteCode: string | null;
   loading: boolean;
   error: string | null;
-  createOrganization: (name: string) => Promise<string>;
+  createOrganization: (name: string, teamName?: string) => Promise<string>;
   saveTeamMembers: (members: TeamMember[]) => Promise<void>;
   saveSettings: (settings: OrgSettings) => Promise<void>;
   saveHolidays: (holidays: Holiday[]) => Promise<void>;
@@ -80,7 +80,7 @@ export const OnboardingProvider = ({ children }: { children: React.ReactNode }) 
   const clearError = useCallback(() => setError(null), []);
 
   // Step 1: Create org + create default team + add current user as team lead
-  const createOrganization = useCallback(async (name: string): Promise<string> => {
+  const createOrganization = useCallback(async (name: string, teamName?: string): Promise<string> => {
     if (!user) throw new Error('You must be logged in');
     setLoading(true);
     setError(null);
@@ -118,7 +118,7 @@ export const OnboardingProvider = ({ children }: { children: React.ReactNode }) 
         .from('teams')
         .insert({
           organization_id: org.id,
-          name: `${name} Team`,
+          name: teamName?.trim() || `${name} Team`,
         })
         .select('id')
         .single();
