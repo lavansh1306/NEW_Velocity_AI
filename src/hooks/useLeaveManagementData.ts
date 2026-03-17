@@ -143,7 +143,7 @@ export function useLeaveManagementData() {
           assigneeName: assigneeUser?.name, // NEW
           hours: Number(task.estimated_hours || 0),
           status: task.status || 'not_started',
-          created_date: task.created_at,
+          created_date: task.start_date || task.created_at, // Use scheduled start_date for proper shifting
           due_date: task.due_date
         };
       });
