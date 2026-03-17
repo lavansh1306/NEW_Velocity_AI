@@ -295,9 +295,19 @@ export const DashboardScreen = () => {
                                                                     <div
                                                                         key={vIdx}
                                                                         className={`absolute h-7 text-[11px] font-semibold flex items-center px-4 shadow-sm border cursor-pointer z-10 transition-all rounded-full
-                                                                        ${task.displayStatus === 'track' ? 'bg-[#F0FDFA] text-[#0F766E] border-[#CCFBF1]' : 'bg-[#FFF7ED] text-[#C2410C] border-[#FFEDD5]'}
+                                                                        ${task.displayStatus === 'track' ? 'bg-[#F0FDFA] text-[#0F766E] border-[#CCFBF1]' : 
+                                                                          task.displayStatus === 'leave' ? 'bg-[#FAFAF9] text-[#78716C] border-[#E7E5E4]' : 
+                                                                          'bg-[#FFF7ED] text-[#C2410C] border-[#FFEDD5]'}
                                                                         `}
-                                                                        style={{ left: `calc(${leftPercent}%)`, width: `calc(${widthPercent}%)`, top: `${10 + vIdx * 36}px` }}
+                                                                        style={{ 
+                                                                            left: `calc(${leftPercent}%)`, 
+                                                                            width: `calc(${widthPercent}%)`, 
+                                                                            top: `${10 + vIdx * 36}px`,
+                                                                            backgroundImage: task.displayStatus === 'leave' && task.status === 'pending'
+                                                                                ? 'linear-gradient(45deg, #f3f4f6 25%, transparent 25%, transparent 50%, #f3f4f6 50%, #f3f4f6 75%, transparent 75%, transparent)' 
+                                                                                : 'none',
+                                                                            backgroundSize: '10px 10px'
+                                                                        }}
                                                                     >
                                                                         <span className="truncate w-full relative z-20 text-center">{task.project}</span>
                                                                     </div>

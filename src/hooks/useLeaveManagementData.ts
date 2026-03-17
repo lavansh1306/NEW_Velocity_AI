@@ -57,7 +57,16 @@ export function useLeaveManagementData() {
 
       const orgId = userData.organization_id;
 
-      // 2. Execute parallel queries for all module data
+      // 2. Fetch Projects sequential to get IDs for tasks lookup
+      const { data: projects, error: projectsError } = await supabase
+        .from('projects')
+        .select('id, name')
+        .eq('organization_id', orgId);
+
+      if (projectsError) throw projectsError;
+      const projectIds = projects?.map(p => p.id) || [];
+
+      // 3. Execute parallel queries for remaining module data
       const [leavesRes, balancesRes, tasksRes, employeesRes] = await Promise.all([
         // Fetch Leave Requests with related User and Leave Type names
         supabase
@@ -79,11 +88,11 @@ export function useLeaveManagementData() {
           `)
           .eq('user_id', userData.id),
 
-        // Fetch Tasks (Jira Issues) linked to the organization
+        // Fetch Tasks linked to the organization's projects
         supabase
-          .from('jira_issues')
+          .from('tasks')
           .select('*')
-          .eq('organization_id', orgId),
+          .in('project_id', projectIds),
 
         // Fetch all active employees in the organization
         supabase
@@ -99,7 +108,7 @@ export function useLeaveManagementData() {
       if (tasksRes.error) throw tasksRes.error;
       if (employeesRes.error) throw employeesRes.error;
 
-      // 3. Data Transformation / Mapping to Frontend Types
+      // 4. Data Transformation / Mapping to Frontend Types
       const formattedLeaves: LeaveRequest[] = (leavesRes.data || []).map((l: any) => ({
         id: l.id,
         organization_id: l.organization_id,
@@ -113,18 +122,23 @@ export function useLeaveManagementData() {
         leave_type_name: l.leave_types?.name || 'Unspecified'
       }));
 
-      const formattedTasks: Task[] = (tasksRes.data || []).map((issue: any) => ({
-        id: issue.id,
-        projectName: issue.site_url || 'Internal Project',
-        taskName: issue.summary,
-        assignee: issue.assignee_email || 'Unassigned',
-        hours: (issue.original_estimate_seconds || 0) / 3600,
-        status: issue.status || 'Open',
-        created_date: issue.created_at,
-        due_date: issue.due_date
-      }));
+      const formattedTasks: Task[] = (tasksRes.data || []).map((task: any) => {
+        const project = projects?.find(p => p.id === task.project_id);
+        const assigneeUser = employeesRes.data?.find(u => u.id === task.assignee_id || u.id === task.user_id);
+        
+        return {
+          id: task.id,
+          projectName: project?.name || 'Unknown Project',
+          taskName: task.name,
+          assignee: assigneeUser?.email || 'Unassigned',
+          hours: Number(task.estimated_hours || 0),
+          status: task.status || 'not_started',
+          created_date: task.created_at,
+          due_date: task.due_date
+        };
+      });
 
-      // 4. Update State
+      // 5. Update State
       setState({
         tasks: formattedTasks,
         employees: employeesRes.data || [],
