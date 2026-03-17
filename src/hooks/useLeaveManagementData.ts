@@ -13,6 +13,7 @@ interface LeaveDataState {
   employees: EmployeeProfile[];
   leaves: LeaveRequest[];
   balances: LeaveBalance[];
+  leaveTypes: any[]; // NEW
   currentUser: EmployeeProfile | null;
   currentOrgId: string | null;
   isLoading: boolean;
@@ -27,6 +28,7 @@ export function useLeaveManagementData() {
     employees: [],
     leaves: [],
     balances: [],
+    leaveTypes: [], // NEW
     currentUser: null,
     currentOrgId: null,
     isLoading: true,
@@ -67,7 +69,7 @@ export function useLeaveManagementData() {
       const projectIds = projects?.map(p => p.id) || [];
 
       // 3. Execute parallel queries for remaining module data
-      const [leavesRes, balancesRes, tasksRes, employeesRes] = await Promise.all([
+      const [leavesRes, balancesRes, tasksRes, employeesRes, leaveTypesRes] = await Promise.all([
         // Fetch Leave Requests with related User and Leave Type names
         supabase
           .from('leave_requests')
@@ -99,7 +101,13 @@ export function useLeaveManagementData() {
           .from('users')
           .select('id, organization_id, email, name, role, capacity_hours_per_week, is_active')
           .eq('organization_id', orgId)
-          .eq('is_active', true)
+          .eq('is_active', true),
+
+        // Fetch ALL Leave Types for the organization to populate dropdowns
+        supabase
+          .from('leave_types')
+          .select('*')
+          .eq('organization_id', orgId)
       ]);
 
       // Check for query errors
@@ -107,6 +115,7 @@ export function useLeaveManagementData() {
       if (balancesRes.error) throw balancesRes.error;
       if (tasksRes.error) throw tasksRes.error;
       if (employeesRes.error) throw employeesRes.error;
+      if (leaveTypesRes.error) throw leaveTypesRes.error;
 
       // 4. Data Transformation / Mapping to Frontend Types
       const formattedLeaves: LeaveRequest[] = (leavesRes.data || []).map((l: any) => ({
@@ -144,6 +153,7 @@ export function useLeaveManagementData() {
         employees: employeesRes.data || [],
         leaves: formattedLeaves,
         balances: balancesRes.data || [],
+        leaveTypes: leaveTypesRes.data || [],
         currentUser: userData as EmployeeProfile,
         currentOrgId: orgId,
         isLoading: false,

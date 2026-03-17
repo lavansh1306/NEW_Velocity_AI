@@ -18,6 +18,7 @@ interface LeaveApplicationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   leaveBalances: LeaveBalance[]; // NEW: Pass balances to get Leave Types
+  leaveTypes?: any[]; // NEW: Fetch all types for dropdown
   onSubmit: (request: Omit<LeaveRequest, 'id' | 'status' | 'name' | 'organization_id' | 'user_id'>) => void;
 }
 
@@ -33,6 +34,7 @@ export const LeaveApplicationDialog: React.FC<LeaveApplicationDialogProps> = ({
   open, 
   onOpenChange, 
   leaveBalances, 
+  leaveTypes = [], // NEW
   onSubmit 
 }) => {
   const [leaves, setLeaves] = useState<LeaveEntry[]>([
@@ -149,11 +151,14 @@ export const LeaveApplicationDialog: React.FC<LeaveApplicationDialogProps> = ({
                         <SelectValue placeholder="Select type" />
                       </SelectTrigger>
                       <SelectContent className="bg-white">
-                        {leaveBalances.map((bal) => (
-                          <SelectItem key={bal.leave_type_id} value={bal.leave_type_id}>
-                            {bal.leave_types?.name} ({bal.total_allocated - (bal.used_days || 0)} days left)
-                          </SelectItem>
-                        ))}
+                        {(leaveTypes || []).map((type: any) => {
+                          const bal = leaveBalances?.find(b => b.leave_type_id === type.id);
+                          return (
+                            <SelectItem key={type.id} value={type.id}>
+                              {type.name} {bal ? `(${bal.total_allocated - (bal.used_days || 0)} days left)` : ''}
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                   </div>

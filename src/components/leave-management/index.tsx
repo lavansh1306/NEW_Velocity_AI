@@ -26,6 +26,7 @@ export default function LeaveManagementTab() {
     employees,
     leaves,
     balances,
+    leaveTypes, // NEW
     currentUser,
     currentOrgId,
     isLoading: isLoadingData,
@@ -411,37 +412,16 @@ export default function LeaveManagementTab() {
 
         {/* EMPLOYEE VIEW */}
         {activePersona === 'employee' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2">
-              <EmployeeLeavePortal
-                tasks={tasks}
-                employees={employees}
-                currentUserEmail={user?.email || ''}
-                onLeaveRequest={() => setApplyOpen(true)}
-                existingLeaves={leaves.filter(l => l.user_id === user?.id)}
-              />
-            </div>
-            <div className="space-y-6">
-              <div className="bg-white p-6 rounded-2xl border shadow-sm">
-                <h4 className="text-sm font-medium mb-4">Your Balances</h4>
-                <div className="space-y-4">
-                  {balances.map(bal => (
-                    <div key={bal.id} className="space-y-1">
-                      <div className="flex justify-between text-xs text-slate-500">
-                        <span>{bal.leave_types?.name}</span>
-                        <span>{bal.used_days} / {bal.total_allocated} days</span>
-                      </div>
-                      <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                        <div 
-                          className="bg-blue-500 h-full" 
-                          style={{ width: `${(bal.used_days / bal.total_allocated) * 100}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+          <div className="w-full">
+            <EmployeeLeavePortal
+              tasks={tasks}
+              employees={employees}
+              currentUserEmail={user?.email || ''}
+              onLeaveRequest={() => setApplyOpen(true)}
+              existingLeaves={leaves.filter(l => l.user_id === user?.id)}
+              leaveBalances={balances}
+              leaveTypes={leaveTypes} // NEW
+            />
           </div>
         )}
       </div>
@@ -451,6 +431,7 @@ export default function LeaveManagementTab() {
         open={applyOpen}
         onOpenChange={setApplyOpen}
         leaveBalances={balances}
+        leaveTypes={leaveTypes} // NEW
         onSubmit={handleApplyLeave}
       />
 
