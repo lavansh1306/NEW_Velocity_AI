@@ -633,6 +633,20 @@ async function callback(req: Request, res: Response): Promise<any> {
           );
         }
 
+        // Start async data sync (fetch projects and issues)
+        // Fire-and-forget to not block redirect
+        console.log('[Jira OAuth Callback] Starting async data sync...');
+        void (async () => {
+          try {
+            const integration = await import('./integration.js');
+            const jiraUserEmail = (await getJiraUserInfo(tokenResp.access_token, tokenResp))?.email || undefined;
+            const syncResult = await integration.syncAllJiraData(orgId, cloudId, tokenResp.access_token, jiraUserEmail);
+            console.log('[Jira OAuth Callback] ✓ Data sync complete:', syncResult);
+          } catch (err) {
+            console.warn('[Jira OAuth Callback] Data sync failed (non-blocking):', err instanceof Error ? err.message : String(err));
+          }
+        })();
+
         // Deduplicate issues on reconnect (fire-and-forget to not block redirect)
         console.log('[Jira OAuth Callback] Starting deduplication for org:', orgId, 'cloud:', cloudId);
         void (async () => {

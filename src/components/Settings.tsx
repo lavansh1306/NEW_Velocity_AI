@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useJiraConnection } from '@/hooks/useJiraConnection';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -10,6 +11,7 @@ import { toast } from 'sonner';
 
 const SettingsScreen = () => {
   const [loading, setLoading] = useState(true);
+  const { state: jiraConnectionState, connectingJira, disconnectingJira, connect: connectJira, disconnect: disconnectJira } = useJiraConnection();
   
   // Saving states for different tabs
   const [savingOrg, setSavingOrg] = useState(false);
@@ -440,14 +442,43 @@ const SettingsScreen = () => {
                     <div>
                       <div className="text-[#292524] text-sm mb-1.5 font-light">{integration.name}</div>
                       <div className="text-xs text-[#78716C] font-light">{integration.description}</div>
+                      {integration.name === 'Jira' && jiraConnectionState.connected && jiraConnectionState.siteName && (
+                        <div className="text-xs text-[#0F766E] mt-2">
+                          Connected to: <strong>{jiraConnectionState.siteName}</strong>
+                        </div>
+                      )}
                     </div>
-                    {integration.connected ? (
+                    {integration.name === 'Jira' ? (
                       <div className="flex items-center gap-4">
-                        <StatusBadge status="Active" />
-                        <Button variant="outline" className="text-xs h-9 px-4 rounded-xl border-white/20">Configure</Button>
+                        {integration.connected && (
+                          <>
+                            <StatusBadge status="Active" />
+                            <Button 
+                              onClick={disconnectJira}
+                              disabled={disconnectingJira}
+                              variant="outline" 
+                              className="text-xs h-9 px-4 rounded-xl border-red-200 text-red-600 hover:bg-red-50"
+                            >
+                              {disconnectingJira ? <Loader2 className="w-3 h-3 animate-spin mr-2" /> : null}
+                              Disconnect
+                            </Button>
+                          </>
+                        )}
+                        {!integration.connected && (
+                          <Button 
+                            onClick={connectJira}
+                            disabled={connectingJira}
+                            className="bg-[#1C1917] text-white h-9 px-5 rounded-xl"
+                          >
+                            {connectingJira ? <Loader2 className="w-3 h-3 animate-spin mr-2" /> : null}
+                            Connect
+                          </Button>
+                        )}
                       </div>
                     ) : (
-                      <Button className="bg-[#1C1917] text-white h-9 px-5 rounded-xl">Connect</Button>
+                      !integration.connected && (
+                        <Button className="bg-[#1C1917] text-white h-9 px-5 rounded-xl">Connect</Button>
+                      )
                     )}
                   </div>
                 ))}
