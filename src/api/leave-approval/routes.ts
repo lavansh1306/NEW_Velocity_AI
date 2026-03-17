@@ -6,7 +6,7 @@ import {
   registerValidationRule,
   type LeaveRequest,
   type ApprovalResult,
-} from "../../lib/leaveApprovalAgent"
+} from "../../lib/leaveApprovalAgent.js"
 
 const router = express.Router()
 

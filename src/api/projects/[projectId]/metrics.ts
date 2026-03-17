@@ -1,10 +1,10 @@
 import type {
   ProjectHealthReport,
-} from '../../../lib/types';
+} from '../../../lib/types.js';
 
 import {
   calculateProjectHealthScore,
-} from '../../../services/healthService';
+} from '../../../services/healthService.js';
 
 // ========================================
 // API Handler

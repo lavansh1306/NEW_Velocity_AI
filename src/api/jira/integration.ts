@@ -3,7 +3,7 @@
 // Called when user connects Jira account
 
 import { Request } from 'express';
-import * as db from './db';
+import * as db from './db.js';
 
 interface SearchResult {
   issues: Array<{
