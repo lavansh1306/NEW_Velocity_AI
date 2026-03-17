@@ -16,6 +16,7 @@ export interface Task {
   projectName: string;
   taskName: string;
   assignee: string; // Usually email from jira_issues
+  assigneeName?: string; // NEW: Name from users table
   hours: number; 
   status: string;
   requiredSkills?: string[];

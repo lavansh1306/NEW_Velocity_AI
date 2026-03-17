@@ -10,6 +10,7 @@ export const GlobalSearch = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [results, setResults] = useState<SearchResult[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [selectedIndex, setSelectedIndex] = useState(-1);
     const navigate = useNavigate();
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -19,11 +20,13 @@ export const GlobalSearch = () => {
                 setIsLoading(true);
                 const searchResults = await searchService.searchAll(query);
                 setResults(searchResults);
+                setSelectedIndex(-1);
                 setIsOpen(true);
                 setIsLoading(false);
             } else {
                 setResults([]);
                 setIsOpen(false);
+                setSelectedIndex(-1);
             }
         }, 300); // 300ms debounce
 
@@ -44,6 +47,29 @@ export const GlobalSearch = () => {
         navigate(path);
         setIsOpen(false);
         setQuery('');
+        setSelectedIndex(-1);
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (!isOpen || results.length === 0) return;
+        
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setSelectedIndex(prev => (prev < results.length - 1 ? prev + 1 : prev));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setSelectedIndex(prev => (prev > 0 ? prev - 1 : prev));
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (selectedIndex >= 0 && selectedIndex < results.length) {
+                handleSelect(results[selectedIndex].path);
+            } else if (results.length > 0) {
+                // If no item is selected, default to the first one
+                handleSelect(results[0].path);
+            }
+        } else if (e.key === 'Escape') {
+            setIsOpen(false);
+        }
     };
 
     return (
@@ -56,6 +82,7 @@ export const GlobalSearch = () => {
                 <Input
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
+                    onKeyDown={handleKeyDown}
                     placeholder="Search projects, people, tasks..."
                     className="pl-10 h-10 bg-white border border-[#E7E5E4] rounded-lg text-sm focus:bg-white focus:border-[#2DD4BF] focus:ring-1 focus:ring-[#2DD4BF]/20 focus:shadow-sm transition-all placeholder:text-[#D6D3D1] font-light shadow-sm"
                 />
@@ -71,11 +98,11 @@ export const GlobalSearch = () => {
                             </div>
                         ) : results.length > 0 ? (
                             <div className="flex flex-col gap-1">
-                                {results.map((result) => (
+                                {results.map((result, idx) => (
                                     <button
                                         key={`${result.type}-${result.id}`}
                                         onClick={() => handleSelect(result.path)}
-                                        className="flex items-center gap-3 p-3 hover:bg-[#FAFAF9] rounded-lg transition-all duration-200 text-left"
+                                        className={`flex items-center gap-3 p-3 rounded-lg transition-all duration-200 text-left ${idx === selectedIndex ? 'bg-[#FAFAF9] ring-1 ring-[#E7E5E4]' : 'hover:bg-[#FAFAF9]'}`}
                                     >
                                         <div className="w-8 h-8 rounded bg-[#F5F5F4] flex items-center justify-center text-[#78716C]">
                                             {result.type === 'project' && <Briefcase className="w-4 h-4" strokeWidth={1.5} />}
@@ -100,6 +127,8 @@ export const GlobalSearch = () => {
                         <span className="text-[10px] text-[#A8A29E] font-medium uppercase tracking-widest">Global Search</span>
                         <div className="flex gap-2">
                             <span className="px-1.5 py-0.5 rounded border border-[#E7E5E4] text-[9px] text-[#78716C] bg-white">ESC to close</span>
+                            <span className="px-1.5 py-0.5 rounded border border-[#E7E5E4] text-[9px] text-[#78716C] bg-white">↕ to navigate</span>
+                            <span className="px-1.5 py-0.5 rounded border border-[#E7E5E4] text-[9px] text-[#78716C] bg-white">↵ to select</span>
                         </div>
                     </div>
                 </div>

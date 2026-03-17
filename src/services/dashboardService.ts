@@ -37,30 +37,29 @@ export const getDashboardData = async (options?: DashboardOptions) => {
             myProjectIds = allocations?.map(a => a.project_id) || [];
         }
 
+        const { data: leaves } = await supabase
+            .from('leave_requests')
+            .select('*, leave_types(name)')
+            .in('user_id', users?.map(u => u.id) || []);
+
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
         // --- 1. DYNAMIC KPIs ---
+        // ... (preserving existing kpi logic)
         const activeProjectsCount = projects?.filter(p => p.status === 'active').length || 0;
         const projectsAtRiskCount = projects?.filter(p => p.status === 'draft' || p.status === 'archived').length || 0;
 
-        // DYNAMIC UTILIZATION LOGIC: 
-        // Based on 1 week (7 days) window
         const sevenDaysFromNow = new Date(today);
         sevenDaysFromNow.setDate(today.getDate() + 7);
 
-        // Sum capacity from individual user settings (fallback to org default)
         const totalWeeklyCapacity = users?.reduce((sum, u) => 
             sum + (u.capacity_hours_per_week || orgSettings?.work_hours_per_week || 40), 0) || 0;
 
-        // Sum estimated hours for tasks active during THIS week
         const totalAllocatedHours = allTasks?.reduce((sum, task) => {
             if (!task.estimated_hours || !task.start_date || !task.due_date) return sum;
-            
             const taskStart = new Date(task.start_date);
             const taskDue = new Date(task.due_date);
-
-            // Check if task overlaps with the current 7-day window
             const isActiveThisWeek = (taskStart <= sevenDaysFromNow && taskDue >= today);
             return isActiveThisWeek ? sum + Number(task.estimated_hours) : sum;
         }, 0) || 0;
@@ -84,7 +83,7 @@ export const getDashboardData = async (options?: DashboardOptions) => {
             { label: 'PROJECTS AT RISK', value: projectsAtRiskCount, trend: projectsAtRiskCount > 0 ? 'down' : 'up' }
         ];
 
-        // --- 2. Deadlines (Filtered strictly for logged-in user's projects) ---
+        // --- 2. Deadlines ---
         const deadlines = (projects || [])
             .filter(p => p.status !== 'completed' && p.status !== 'archived' && p.end_date)
             .filter(p => myProjectIds.includes(p.id)) 
@@ -118,30 +117,43 @@ export const getDashboardData = async (options?: DashboardOptions) => {
                 const memberEmail = userData?.email || member.email || '';
                 const memberName = userData?.name || member.display_name || member.email || 'Unknown';
                 
+                const memberLeaves = (leaves || [])
+                    .filter(l => l.user_id === member.user_id && l.status !== 'rejected')
+                    .map(l => ({
+                        id: l.id,
+                        name: 'Leave',
+                        project: `Leave (${(l.leave_types as any)?.name || 'Vacation'})`,
+                        startDate: new Date(l.start_date).toISOString(),
+                        endDate: new Date(l.end_date).toISOString(),
+                        status: l.status,
+                        displayStatus: 'leave'
+                    }));
+
+                const memberTasks = (allTasks || [])
+                    .filter(task => {
+                        return (
+                            task.assignee_id === member.user_id || 
+                            task.user_id === member.user_id
+                        );
+                    })
+                    .filter(task => task.start_date && task.due_date)
+                    .map(task => ({
+                        id: task.id,
+                        name: task.name,
+                        project: projects?.find(p => p.id === task.project_id)?.name || 'Unknown',
+                        startDate: new Date(task.start_date!).toISOString(),
+                        endDate: new Date(task.due_date!).toISOString(),
+                        status: task.status || 'not_started',
+                        displayStatus: task.status === 'completed' ? 'track' : 'risk',
+                    }));
+
                 return {
                     id: member.id,
                     email: memberEmail,
                     name: memberName,
                     role: userData?.designation || userData?.role || member.role || 'Team Member',
                     avatar: memberName.charAt(0).toUpperCase(),
-                    tasks: (allTasks || [])
-                        .filter(task => {
-                            return (
-                                task.assignee_id === member.user_id || 
-                                task.user_id === member.user_id ||
-                                task.project_id === member.team_id // Logic check based on your schema
-                            );
-                        })
-                        .filter(task => task.start_date && task.due_date)
-                        .map(task => ({
-                            id: task.id,
-                            name: task.name,
-                            project: projects?.find(p => p.id === task.project_id)?.name || 'Unknown',
-                            startDate: new Date(task.start_date!).toISOString(),
-                            endDate: new Date(task.due_date!).toISOString(),
-                            status: task.status || 'not_started',
-                            displayStatus: task.status === 'completed' ? 'track' : 'risk',
-                        }))
+                    tasks: [...memberTasks, ...memberLeaves]
                 };
             })
             .filter(member => {

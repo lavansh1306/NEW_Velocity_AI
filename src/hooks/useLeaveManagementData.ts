@@ -13,6 +13,7 @@ interface LeaveDataState {
   employees: EmployeeProfile[];
   leaves: LeaveRequest[];
   balances: LeaveBalance[];
+  leaveTypes: any[]; // NEW
   currentUser: EmployeeProfile | null;
   currentOrgId: string | null;
   isLoading: boolean;
@@ -27,6 +28,7 @@ export function useLeaveManagementData() {
     employees: [],
     leaves: [],
     balances: [],
+    leaveTypes: [], // NEW
     currentUser: null,
     currentOrgId: null,
     isLoading: true,
@@ -57,8 +59,17 @@ export function useLeaveManagementData() {
 
       const orgId = userData.organization_id;
 
-      // 2. Execute parallel queries for all module data
-      const [leavesRes, balancesRes, tasksRes, employeesRes] = await Promise.all([
+      // 2. Fetch Projects sequential to get IDs for tasks lookup
+      const { data: projects, error: projectsError } = await supabase
+        .from('projects')
+        .select('id, name')
+        .eq('organization_id', orgId);
+
+      if (projectsError) throw projectsError;
+      const projectIds = projects?.map(p => p.id) || [];
+
+      // 3. Execute parallel queries for remaining module data
+      const [leavesRes, balancesRes, tasksRes, employeesRes, leaveTypesRes] = await Promise.all([
         // Fetch Leave Requests with related User and Leave Type names
         supabase
           .from('leave_requests')
@@ -79,18 +90,24 @@ export function useLeaveManagementData() {
           `)
           .eq('user_id', userData.id),
 
-        // Fetch Tasks (Jira Issues) linked to the organization
+        // Fetch Tasks linked to the organization's projects
         supabase
-          .from('jira_issues')
+          .from('tasks')
           .select('*')
-          .eq('organization_id', orgId),
+          .in('project_id', projectIds),
 
         // Fetch all active employees in the organization
         supabase
           .from('users')
           .select('id, organization_id, email, name, role, capacity_hours_per_week, is_active')
           .eq('organization_id', orgId)
-          .eq('is_active', true)
+          .eq('is_active', true),
+
+        // Fetch ALL Leave Types for the organization to populate dropdowns
+        supabase
+          .from('leave_types')
+          .select('*')
+          .eq('organization_id', orgId)
       ]);
 
       // Check for query errors
@@ -98,8 +115,9 @@ export function useLeaveManagementData() {
       if (balancesRes.error) throw balancesRes.error;
       if (tasksRes.error) throw tasksRes.error;
       if (employeesRes.error) throw employeesRes.error;
+      if (leaveTypesRes.error) throw leaveTypesRes.error;
 
-      // 3. Data Transformation / Mapping to Frontend Types
+      // 4. Data Transformation / Mapping to Frontend Types
       const formattedLeaves: LeaveRequest[] = (leavesRes.data || []).map((l: any) => ({
         id: l.id,
         organization_id: l.organization_id,
@@ -113,23 +131,30 @@ export function useLeaveManagementData() {
         leave_type_name: l.leave_types?.name || 'Unspecified'
       }));
 
-      const formattedTasks: Task[] = (tasksRes.data || []).map((issue: any) => ({
-        id: issue.id,
-        projectName: issue.site_url || 'Internal Project',
-        taskName: issue.summary,
-        assignee: issue.assignee_email || 'Unassigned',
-        hours: (issue.original_estimate_seconds || 0) / 3600,
-        status: issue.status || 'Open',
-        created_date: issue.created_at,
-        due_date: issue.due_date
-      }));
+      const formattedTasks: Task[] = (tasksRes.data || []).map((task: any) => {
+        const project = projects?.find(p => p.id === task.project_id);
+        const assigneeUser = employeesRes.data?.find(u => u.id === task.assignee_id || u.id === task.user_id);
+        
+        return {
+          id: task.id,
+          projectName: project?.name || 'Unknown Project',
+          taskName: task.name,
+          assignee: assigneeUser?.email || 'Unassigned',
+          assigneeName: assigneeUser?.name, // NEW
+          hours: Number(task.estimated_hours || 0),
+          status: task.status || 'not_started',
+          created_date: task.start_date || task.created_at, // Use scheduled start_date for proper shifting
+          due_date: task.due_date
+        };
+      });
 
-      // 4. Update State
+      // 5. Update State
       setState({
         tasks: formattedTasks,
         employees: employeesRes.data || [],
         leaves: formattedLeaves,
         balances: balancesRes.data || [],
+        leaveTypes: leaveTypesRes.data || [],
         currentUser: userData as EmployeeProfile,
         currentOrgId: orgId,
         isLoading: false,
@@ -163,15 +188,38 @@ export function useLeaveManagementData() {
     endDate: string;
     reason: string;
     leave_type_id: string;
+    user_id?: string; // NEW: Allow manager selection
+    customLeaveType?: string; // NEW: On-the-fly type creation
   }) => {
-    if (!state.currentOrgId || !state.currentUser?.id) {
+    if (!state.currentOrgId) {
       throw new Error("Active organization session required.");
     }
 
+    let finalLeaveTypeId = request.leave_type_id;
+
+    // 1. Create custom leave type if specified
+    if (request.customLeaveType && request.customLeaveType.trim() !== '') {
+      const { data: newType, error: typeError } = await supabase
+        .from('leave_types')
+        .insert([{
+          organization_id: state.currentOrgId,
+          name: request.customLeaveType.trim()
+        }])
+        .select('id')
+        .single();
+
+      if (typeError) throw typeError;
+      if (newType) finalLeaveTypeId = newType.id;
+    }
+
+    const targetUserId = request.user_id || state.currentUser?.id;
+    if (!targetUserId) throw new Error("Target user ID is missing.");
+
+    // 2. Insert Leave Request
     const { error } = await supabase.from('leave_requests').insert([{
       organization_id: state.currentOrgId,
-      user_id: state.currentUser.id,
-      leave_type_id: request.leave_type_id,
+      user_id: targetUserId,
+      leave_type_id: finalLeaveTypeId,
       start_date: request.startDate,
       end_date: request.endDate,
       reason: request.reason,
