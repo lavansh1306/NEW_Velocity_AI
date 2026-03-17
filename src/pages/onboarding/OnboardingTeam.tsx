@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { toast } from 'sonner';
+import { getSkillsForRole } from '@/services/skillSuggester';
+import { Badge } from '@/components/ui/badge';
 
 const PREDEFINED_ROLES = [
   "Engineer",
@@ -22,10 +24,10 @@ const PREDEFINED_ROLES = [
 export default function OnboardingTeam() {
   const navigate = useNavigate();
   const { saveTeamMembers, loading, error, clearError } = useOnboarding();
-  const [members, setMembers] = useState([
-    { name: '', email: '', role: 'Engineer' },
-    { name: '', email: '', role: 'Designer' },
-    { name: '', email: '', role: 'Product Manager' }
+  const [members, setMembers] = useState<Array<{ name: string; email: string; role: string; skills: string[] }>>([
+    { name: '', email: '', role: 'Engineer', skills: getSkillsForRole('Engineer') },
+    { name: '', email: '', role: 'Designer', skills: getSkillsForRole('Designer') },
+    { name: '', email: '', role: 'Product Manager', skills: getSkillsForRole('Product Manager') }
   ]);
   const [openRoleDropdown, setOpenRoleDropdown] = useState<number | null>(null);
   const [isCSVMode, setIsCSVMode] = useState(false);
@@ -34,7 +36,7 @@ export default function OnboardingTeam() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const addMember = () => {
-    setMembers([...members, { name: '', email: '', role: '' }]);
+    setMembers([...members, { name: '', email: '', role: '', skills: [] }]);
   };
 
   const handleCSVFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -81,7 +83,8 @@ export default function OnboardingTeam() {
       parsedMembers.push({
         name: values[nameIdx] || '',
         email: values[emailIdx] || '',
-        role: values[roleIdx] || 'Engineer'
+        role: values[roleIdx] || 'Engineer',
+        skills: getSkillsForRole(values[roleIdx] || 'Engineer')
       });
     }
 
@@ -135,10 +138,14 @@ David Lee,david@example.com,Frontend Developer`;
     setMembers(newMembers);
   };
 
-  const updateMember = (index: number, field: string, value: string) => {
+  const updateMember = (index: number, field: string, value: any) => {
     const newMembers = members.map((member, i) => {
       if (i === index) {
-        return { ...member, [field]: value };
+        const updated = { ...member, [field]: value };
+        if (field === 'role') {
+          updated.skills = getSkillsForRole(value);
+        }
+        return updated;
       }
       return member;
     });
@@ -199,7 +206,8 @@ David Lee,david@example.com,Frontend Developer`;
             <div className="bg-[#FAFAF9] px-4 py-3 border-b border-[#E7E5E4] flex gap-4">
               <div className="flex-1 text-xs font-normal text-[#78716C] uppercase">Name</div>
               <div className="flex-1 text-xs font-normal text-[#78716C] uppercase">Email</div>
-              <div className="w-[200px] text-xs font-normal text-[#78716C] uppercase">Role</div>
+              <div className="w-[160px] text-xs font-normal text-[#78716C] uppercase">Role</div>
+              <div className="flex-1 text-xs font-normal text-[#78716C] uppercase">Skills</div>
               <div className="w-8"></div>
             </div>
           
@@ -222,7 +230,7 @@ David Lee,david@example.com,Frontend Developer`;
                     className="h-10 border-transparent hover:border-[#E7E5E4] focus:border-[#0F766E] bg-transparent px-2"
                   />
                 </div>
-                <div className="w-[200px] relative">
+                <div className="w-[160px] relative">
                   <Input 
                     placeholder="Select or type role"
                     value={member.role || ''}
@@ -246,6 +254,30 @@ David Lee,david@example.com,Frontend Developer`;
                         </div>
                       ))}
                     </div>
+                  )}
+                </div>
+
+                {/* --- SKILLS COLUMN --- */}
+                <div className="flex-1 flex flex-wrap gap-1 max-h-[60px] overflow-y-auto py-1">
+                  {member.skills?.map((skill) => (
+                    <div 
+                      key={skill} 
+                      className="flex items-center gap-1 bg-teal-50 border border-teal-100 text-teal-700 px-2 py-0.5 rounded-full text-xs"
+                    >
+                      <span className="truncate max-w-[100px]">{skill}</span>
+                      <button 
+                        onClick={() => {
+                          const newSkills = member.skills?.filter(s => s !== skill);
+                          updateMember(idx, 'skills', newSkills);
+                        }}
+                        className="text-teal-500 hover:text-teal-900 transition-colors"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                  {(!member.skills || member.skills.length === 0) && (
+                    <span className="text-xs text-[#A8A29E] italic">None</span>
                   )}
                 </div>
                 <button 
