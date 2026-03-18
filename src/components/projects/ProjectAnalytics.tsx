@@ -2,13 +2,14 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { VelocityAISidebar } from '@/components/dashboard/VelocityAISidebar';
 import { Button } from '@/components/ui/button';
+import { BannerEditIcon } from './BannerEditIcon';
 import { useProjectAnalytics } from '@/hooks/useProjectAnalytics';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import {
   ArrowLeft, LayoutGrid, Users, CheckSquare,
-  Clock, Lightbulb, Sparkles, Loader2, ChevronDown, ChevronUp, X, Plus, AlertTriangle, TrendingDown, Edit
+  Clock, Lightbulb, Sparkles, Loader2, ChevronDown, ChevronUp, X, Plus, AlertTriangle, TrendingDown
 } from 'lucide-react';
 
 export default function ProjectAnalytics() {
@@ -53,6 +54,7 @@ export default function ProjectAnalytics() {
   // Completion Warning Modal
   const [showCompletionWarning, setShowCompletionWarning] = useState(false);
   const [incompleteTasks, setIncompleteTasks] = useState<any[]>([]);
+  const [isConfirmingCompletion, setIsConfirmingCompletion] = useState(false);
 
   // Add Team Member Modal
   const [isAddTeamMemberModalOpen, setIsAddTeamMemberModalOpen] = useState(false);
@@ -69,6 +71,9 @@ export default function ProjectAnalytics() {
 
   // Local state for issues/tasks to enable refetching
   const [localIssues, setLocalIssues] = useState<any[]>([]);
+  const [showAbandonedTasks, setShowAbandonedTasks] = useState(false);
+  const [showAbandonConfirmation, setShowAbandonConfirmation] = useState(false);
+  const [taskToAbandon, setTaskToAbandon] = useState<any>(null);
 
   const { loading, error, project, issues, metrics, teamMembers, allocatedTeamMembers } = useProjectAnalytics(id);
   const { orgId } = useAuth();
@@ -167,6 +172,14 @@ export default function ProjectAnalytics() {
   const getStatusColor = (status: string) => {
     const normalizedStatus = status.toLowerCase().replace(' ', '_');
     return STATUS_COLORS[normalizedStatus] || STATUS_COLORS['not_started'];
+  };
+
+  const getAbandonedTasks = (tasks: any[]): any[] => {
+    return tasks.filter(task => task.status?.toLowerCase() === 'abandoned');
+  };
+
+  const getActiveTasks = (tasks: any[]): any[] => {
+    return tasks.filter(task => task.status?.toLowerCase() !== 'abandoned');
   };
 
   const updateTaskStatus = async (taskId: string, newStatus: string) => {
@@ -306,14 +319,29 @@ export default function ProjectAnalytics() {
   };
 
   const handleCompleteProject = () => {
-    const incomplete = localIssues.filter(i => !['done', 'resolved', 'closed', 'complete', 'completed'].some(s => i.status?.toLowerCase().includes(s)));
+    // Filter incomplete tasks, excluding abandoned ones
+    const incomplete = localIssues.filter(i => {
+      const isAbandoned = i.status?.toLowerCase() === 'abandoned';
+      const isDone = ['done', 'resolved', 'closed', 'complete', 'completed'].some(s => i.status?.toLowerCase().includes(s));
+      return !isDone && !isAbandoned;
+    });
+    
     if (incomplete.length > 0) {
       setIncompleteTasks(incomplete);
       setShowCompletionWarning(true);
+      setIsConfirmingCompletion(false); // Reset confirmation state
     } else {
-      // All tasks complete, allow completion
+      // All active tasks complete, allow completion
       completeProjectWithConfirmation();
     }
+  };
+
+  const handleCompleteAnyway = () => {
+    setIsConfirmingCompletion(true);
+  };
+
+  const handleConfirmCompletion = async () => {
+    await completeProjectWithConfirmation();
   };
 
   const completeProjectWithConfirmation = async () => {
@@ -327,6 +355,7 @@ export default function ProjectAnalytics() {
       if (error) throw error;
       toast.success('Project marked as completed');
       setShowCompletionWarning(false);
+      setIsConfirmingCompletion(false);
       // Optionally navigate back
       setTimeout(() => navigate('/projects'), 1500);
     } catch (err: any) {
@@ -334,6 +363,54 @@ export default function ProjectAnalytics() {
       toast.error('Failed to complete project');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleMarkAsAbandoned = (task: any) => {
+    setTaskToAbandon(task);
+    setShowAbandonConfirmation(true);
+  };
+
+  const handleConfirmAbandon = async () => {
+    if (!taskToAbandon) return;
+
+    setUpdatingTask(true);
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({ status: 'abandoned' })
+        .eq('id', taskToAbandon.id);
+
+      if (error) throw error;
+      toast.success(`Task "${taskToAbandon.summary}" marked as abandoned`);
+      setShowAbandonConfirmation(false);
+      setTaskToAbandon(null);
+      setIsTaskModalOpen(false);
+      await refetchTasks();
+    } catch (err: any) {
+      console.error('Error abandoning task:', err);
+      toast.error('Failed to abandon task');
+    } finally {
+      setUpdatingTask(false);
+    }
+  };
+
+  const handleRestoreTask = async (task: any) => {
+    setUpdatingTask(true);
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({ status: 'not_started' })
+        .eq('id', task.id);
+
+      if (error) throw error;
+      toast.success(`Task "${task.summary}" restored`);
+      await refetchTasks();
+    } catch (err: any) {
+      console.error('Error restoring task:', err);
+      toast.error('Failed to restore task');
+    } finally {
+      setUpdatingTask(false);
     }
   };
 
@@ -502,7 +579,12 @@ export default function ProjectAnalytics() {
                   <ArrowLeft className="w-4 h-4" /> Back to Projects
                 </button>
 
-                <div className="bg-white rounded-[24px] border border-[#E7E5E4] p-8 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                <div className="bg-white rounded-[24px] border border-[#E7E5E4] p-8 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative group">
+                  {/* Edit Icon - Top Right Corner */}
+                  <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <BannerEditIcon onEdit={openEditModal} isLoading={isSaving} />
+                  </div>
+
                   <div className="space-y-4">
                     <span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${metrics.isAtRisk ? 'bg-[#FFF1F2] text-[#BE123C]' : 'bg-[#F0FDFA] text-[#0F766E]'}`}>
                       {metrics.isAtRisk ? 'At Risk' : 'On Track'}
@@ -523,10 +605,6 @@ export default function ProjectAnalytics() {
                       </div>
                       <p className="text-xs text-[#A8A29E] mt-2">Feasibility {metrics.feasibility}%</p>
                     </div>
-                    <Button onClick={openEditModal} className="bg-[#1C1917] hover:bg-[#292524] text-white rounded-xl px-6 py-6 h-auto font-light transition-all flex items-center gap-2">
-                      <Edit size={20} />
-                      Edit Project
-                    </Button>
                   </div>
                 </div>
 
@@ -909,56 +987,85 @@ export default function ProjectAnalytics() {
                 {activeTab === 'tasks' && (
                   <div className="space-y-6 animate-in fade-in duration-300">
                     <div className="flex items-center justify-between">
-                      <h2 className="text-lg font-light text-[#1C1917]">Tasks</h2>
+                      <div className="flex items-center gap-4">
+                        <h2 className="text-lg font-light text-[#1C1917]">Tasks</h2>
+                        {getAbandonedTasks(localIssues).length > 0 && (
+                          <button
+                            onClick={() => setShowAbandonedTasks(!showAbandonedTasks)}
+                            className={`text-xs px-3 py-1.5 rounded-lg border transition-all ${
+                              showAbandonedTasks
+                                ? 'bg-[#E5E7EB] text-[#6B7280] border-gray-300'
+                                : 'bg-white text-[#78716C] border-[#E7E5E4] hover:border-[#6B7280]'
+                            }`}
+                            title={`${getAbandonedTasks(localIssues).length} abandoned task${getAbandonedTasks(localIssues).length !== 1 ? 's' : ''}`}
+                          >
+                            {showAbandonedTasks ? '✓' : '○'} Abandoned ({getAbandonedTasks(localIssues).length})
+                          </button>
+                        )}
+                      </div>
                       <Button onClick={() => setIsNewTaskModalOpen(true)} className="bg-[#0F766E] hover:bg-[#0D635C] text-white rounded-xl px-4 py-2 h-auto font-light transition-all flex items-center gap-2">
                         <Plus className="w-4 h-4" /> Add Task
                       </Button>
                     </div>
                     <div className="bg-white rounded-[24px] border border-[#E7E5E4] p-8 shadow-sm">
                       <div className="space-y-2">
-                        {localIssues.map(issue => {
-                          const estHours = issue.original_estimate_seconds ? Math.round(issue.original_estimate_seconds / 3600) : 0;
-                          const isAbandoned = issue.status?.toLowerCase() === 'abandoned';
+                        {(() => {
+                          const tasksToDisplay = showAbandonedTasks ? localIssues : getActiveTasks(localIssues);
                           return (
-                            <div 
-                              key={issue.id} 
-                              onClick={() => openTaskModal(issue)}
-                              className={`cursor-pointer flex justify-between items-center p-4 hover:bg-[#FAFAF9] rounded-xl border border-transparent hover:border-[#E7E5E4] transition-all ${isAbandoned ? 'opacity-60' : ''}`}
-                            >
-                              <div className="flex-1">
-                                <div className="flex items-center gap-3">
-                                  <span className="text-xs font-mono text-[#0F766E] bg-[#F0FDFA] px-2 py-1 rounded-md border border-teal-100">
-                                    {issue.issue_key}
-                                  </span>
-                                  <span className={`text-[#1C1917] font-medium ${isAbandoned ? 'line-through text-[#A8A29E]' : ''}`}>
-                                    {issue.summary}
-                                  </span>
-                                </div>
-                                <div className="text-xs text-[#78716C] mt-2 pl-1 flex items-center gap-2">
-                                  <span>{issue.issue_type}</span>
-                                  <span>·</span>
-                                  <span>Assigned to <span className="font-medium text-[#1C1917]">{issue.assignee || 'Unassigned'}</span></span>
-                                  <span>·</span>
-                                  <span className="flex items-center gap-1 font-medium text-[#1C1917]">
-                                    <Clock className="w-3 h-3 text-[#A8A29E]" />
-                                    {estHours}h est.
-                                  </span>
-                                </div>
-                              </div>
-                              <div className="text-right flex-shrink-0">
-                                <span className={`text-xs px-2 py-1 rounded border ${
-                                  isAbandoned ? 'bg-[#E5E7EB] text-[#6B7280] border-gray-300' :
-                                  ['done', 'resolved', 'closed', 'complete'].some(s => issue.status?.toLowerCase().includes(s))
-                                    ? 'bg-[#F0FDFA] text-[#0F766E] border-teal-100'
-                                    : 'bg-[#FFF7ED] text-[#C2410C] border-orange-100'
-                                  }`}>
-                                  {issue.status}
-                                </span>
-                              </div>
-                            </div>
+                            <>
+                              {tasksToDisplay.map(issue => {
+                                const estHours = issue.original_estimate_seconds ? Math.round(issue.original_estimate_seconds / 3600) : 0;
+                                const isAbandoned = issue.status?.toLowerCase() === 'abandoned';
+                                return (
+                                  <div 
+                                    key={issue.id} 
+                                    onClick={() => openTaskModal(issue)}
+                                    className={`cursor-pointer flex justify-between items-center p-4 hover:bg-[#FAFAF9] rounded-xl border border-transparent hover:border-[#E7E5E4] transition-all ${isAbandoned ? 'opacity-60' : ''}`}
+                                  >
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-3">
+                                        <span className="text-xs font-mono text-[#0F766E] bg-[#F0FDFA] px-2 py-1 rounded-md border border-teal-100">
+                                          {issue.issue_key}
+                                        </span>
+                                        <span className={`text-[#1C1917] font-medium ${isAbandoned ? 'line-through text-[#A8A29E]' : ''}`}>
+                                          {issue.summary}
+                                        </span>
+                                        {isAbandoned && (
+                                          <span className="text-xs px-2 py-0.5 rounded-full bg-[#E5E7EB] text-[#6B7280] font-medium">Abandoned</span>
+                                        )}
+                                      </div>
+                                      <div className="text-xs text-[#78716C] mt-2 pl-1 flex items-center gap-2">
+                                        <span>{issue.issue_type}</span>
+                                        <span>·</span>
+                                        <span>Assigned to <span className="font-medium text-[#1C1917]">{issue.assignee || 'Unassigned'}</span></span>
+                                        <span>·</span>
+                                        <span className="flex items-center gap-1 font-medium text-[#1C1917]">
+                                          <Clock className="w-3 h-3 text-[#A8A29E]" />
+                                          {estHours}h est.
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <div className="text-right flex-shrink-0">
+                                      <span className={`text-xs px-2 py-1 rounded border ${
+                                        isAbandoned ? 'bg-[#E5E7EB] text-[#6B7280] border-gray-300' :
+                                        ['done', 'resolved', 'closed', 'complete'].some(s => issue.status?.toLowerCase().includes(s))
+                                          ? 'bg-[#F0FDFA] text-[#0F766E] border-teal-100'
+                                          : 'bg-[#FFF7ED] text-[#C2410C] border-orange-100'
+                                        }`}>
+                                        {issue.status}
+                                      </span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              {tasksToDisplay.length === 0 && (
+                                <p className="text-center text-[#A8A29E] py-8">
+                                  {showAbandonedTasks && localIssues.some(t => t.status?.toLowerCase() === 'abandoned') ? 'No abandoned tasks.' : 'No active tasks found. Create your first task using the Add Task button.'}
+                                </p>
+                              )}
+                            </>
                           );
-                        })}
-                        {localIssues.length === 0 && <p className="text-center text-[#A8A29E] py-8">No issues found. Create your first task using the Add Task button.</p>}
+                        })()}
                       </div>
                     </div>
                   </div>
@@ -1182,51 +1289,167 @@ export default function ProjectAnalytics() {
       </div>
 
       {/* --- COMPLETION WARNING MODAL --- */}
-      {showCompletionWarning && (
+      {showCompletionWarning && !isConfirmingCompletion && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowCompletionWarning(false)} />
           <div className="relative bg-white rounded-3xl shadow-xl w-full max-w-lg p-8 animate-in zoom-in-95 duration-200">
-            <button onClick={() => setShowCompletionWarning(false)} className="absolute top-6 right-6 p-2 rounded-full hover:bg-[#F5F5F4] transition-colors">
+            <button onClick={() => setShowCompletionWarning(false)} className="absolute top-6 right-6 p-2 rounded-full hover:bg-[#F5F5F4] transition-colors" disabled={isSaving}>
               <X className="w-5 h-5 text-[#78716C]" />
             </button>
+
             <div className="flex items-start gap-4 mb-6">
-              <div className="bg-[#FEE2E2] p-3 rounded-lg text-[#BE123C]">
+              <div className="bg-[#FEE2E2] p-3 rounded-lg text-[#BE123C] flex-shrink-0 mt-1">
                 <AlertTriangle className="w-6 h-6" />
               </div>
               <div>
-                <h2 className="text-2xl font-light text-[#1C1917]">Cannot Complete Project</h2>
-                <p className="text-sm text-[#78716C] mt-1">You have {incompleteTasks.length} incomplete task(s)</p>
+                <h2 className="text-2xl font-light text-[#1C1917]">Incomplete Tasks Remaining</h2>
+                <p className="text-sm text-[#78716C] mt-2">
+                  This project has <span className="font-semibold text-[#1C1917]">{incompleteTasks.length}</span> incomplete task{incompleteTasks.length !== 1 ? 's' : ''} that need attention before completion.
+                </p>
               </div>
             </div>
 
             <div className="bg-[#FFF1F2] border border-pink-200 rounded-xl p-4 mb-6">
-              <p className="text-sm text-[#BE123C] font-medium mb-3">Incomplete Tasks:</p>
-              <ul className="space-y-2 max-h-48 overflow-y-auto">
+              <p className="text-sm font-medium text-[#BE123C] mb-3">Incomplete Tasks List</p>
+              <ul className="space-y-2 max-h-56 overflow-y-auto">
                 {incompleteTasks.slice(0, 5).map((task, idx) => (
-                  <li key={idx} className="text-xs text-[#BE123C] flex gap-2">
-                    <span className="flex-shrink-0">•</span>
-                    <span>{task.summary}</span>
+                  <li key={idx} className="text-xs text-[#78716C] flex gap-2 items-start">
+                    <span className="flex-shrink-0 text-[#BE123C] mt-0.5">•</span>
+                    <span className="flex-1">{task.summary || task.name || 'Unnamed task'}</span>
                   </li>
                 ))}
                 {incompleteTasks.length > 5 && (
-                  <li className="text-xs text-[#BE123C] font-medium">+{incompleteTasks.length - 5} more...</li>
+                  <li className="text-xs text-[#BE123C] font-medium pt-2 border-t border-pink-200">
+                    +{incompleteTasks.length - 5} more incomplete task{incompleteTasks.length - 5 !== 1 ? 's' : ''}
+                  </li>
                 )}
               </ul>
             </div>
 
-            <div className="flex gap-3">
-              <Button variant="outline" className="flex-1 h-12 rounded-xl" onClick={() => setShowCompletionWarning(false)}>
+            <div className="bg-[#F5F5F4] rounded-xl p-4 mb-6">
+              <p className="text-xs text-[#78716C] mb-2">What would you like to do?</p>
+              <ul className="text-xs text-[#78716C] space-y-1 list-disc list-inside">
+                <li>Review and complete remaining tasks</li>
+                <li>Or mark project complete anyway (not recommended)</li>
+              </ul>
+            </div>
+
+            <div className="flex flex-col gap-3 md:flex-row">
+              <Button variant="outline" className="md:flex-1 h-12 rounded-xl" onClick={() => setShowCompletionWarning(false)} disabled={isSaving}>
                 Cancel
               </Button>
-              <Button className="flex-1 h-12 text-white bg-[#0F766E] hover:bg-[#0D635C] rounded-xl" onClick={() => setActiveTab('tasks')}>
+              <Button className="md:flex-1 h-12 text-white bg-[#0F766E] hover:bg-[#0D635C] rounded-xl" onClick={() => { setShowCompletionWarning(false); setActiveTab('tasks'); }} disabled={isSaving}>
                 View Tasks
               </Button>
               <Button 
-                className="flex-1 h-12 text-white bg-[#BE123C] hover:bg-[#9D1A2F] rounded-xl" 
-                onClick={completeProjectWithConfirmation}
+                className="md:flex-1 h-12 text-white bg-[#BE123C] hover:bg-[#9D1A2F] rounded-xl disabled:opacity-50" 
+                onClick={handleCompleteAnyway}
                 disabled={isSaving}
               >
-                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Complete Anyway'}
+                Complete Anyway
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- COMPLETION CONFIRMATION MODAL --- */}
+      {isConfirmingCompletion && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-in fade-in duration-200" />
+          <div className="relative bg-white rounded-3xl shadow-xl w-full max-w-sm p-8 animate-in zoom-in-95 duration-200">
+            <div className="flex items-start gap-4 mb-6">
+              <div className="bg-[#FEE2E2] p-3 rounded-lg text-[#BE123C] flex-shrink-0 mt-1">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="text-xl font-light text-[#1C1917]">Confirm Project Completion?</h2>
+                <p className="text-sm text-[#78716C] mt-2">
+                  You're about to mark this project as complete with {incompleteTasks.length} incomplete task{incompleteTasks.length !== 1 ? 's' : ''}. This action is not easily reversible.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-[#FFF5F5] border border-pink-200 rounded-xl p-4 mb-6">
+              <p className="text-sm font-medium text-[#BE123C] mb-2">⚠️ Are you sure?</p>
+              <p className="text-xs text-[#78716C]">
+                Incomplete tasks won't be archived. Consider completing them first or removing them from the project.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <Button 
+                variant="outline" 
+                className="w-full h-12 rounded-xl" 
+                onClick={() => setIsConfirmingCompletion(false)} 
+                disabled={isSaving}
+              >
+                Go Back
+              </Button>
+              <Button 
+                className="w-full h-12 text-white bg-[#BE123C] hover:bg-[#9D1A2F] rounded-xl disabled:opacity-50" 
+                onClick={handleConfirmCompletion}
+                disabled={isSaving}
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Completing...
+                  </>
+                ) : (
+                  'Yes, Complete Project'
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- ABANDON TASK CONFIRMATION MODAL --- */}
+      {showAbandonConfirmation && taskToAbandon && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-in fade-in duration-200" />
+          <div className="relative bg-white rounded-3xl shadow-xl w-full max-w-sm p-8 animate-in zoom-in-95 duration-200">
+            <div className="flex items-start gap-4 mb-6">
+              <div className="bg-[#FEE2E2] p-3 rounded-lg text-[#BE123C] flex-shrink-0 mt-1">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="text-xl font-light text-[#1C1917]">Abandon Task?</h2>
+                <p className="text-sm text-[#78716C] mt-2">
+                  Mark "<span className="font-semibold">{taskToAbandon.summary}</span>" as abandoned. It will be excluded from completion metrics.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-[#FFF5F5] border border-pink-200 rounded-xl p-4 mb-6">
+              <p className="text-xs text-[#78716C]">
+                Abandoned tasks are hidden by default but can be restored later. They won't affect project completion percentage.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <Button 
+                variant="outline" 
+                className="w-full h-12 rounded-xl" 
+                onClick={() => { setShowAbandonConfirmation(false); setTaskToAbandon(null); }} 
+                disabled={updatingTask}
+              >
+                Cancel
+              </Button>
+              <Button 
+                className="w-full h-12 text-white bg-[#BE123C] hover:bg-[#9D1A2F] rounded-xl disabled:opacity-50" 
+                onClick={handleConfirmAbandon}
+                disabled={updatingTask}
+              >
+                {updatingTask ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Abandoning...
+                  </>
+                ) : (
+                  'Yes, Abandon Task'
+                )}
               </Button>
             </div>
           </div>
@@ -1391,11 +1614,36 @@ export default function ProjectAnalytics() {
                   </div>
                 </div>
 
-                <div className="pt-6 flex gap-3">
-                  <Button variant="outline" className="flex-1 h-12 rounded-xl" onClick={() => setIsTaskModalOpen(false)} disabled={isTaskSaving}>Cancel</Button>
-                  <Button className="flex-1 h-12 text-white bg-[#0F766E] hover:bg-[#0D635C] rounded-xl" onClick={handleUpdateTask} disabled={isTaskSaving}>
-                    {isTaskSaving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...</> : 'Update Task'}
-                  </Button>
+                <div className="pt-6 flex flex-col gap-3">
+                  <div className="flex gap-3">
+                    <Button variant="outline" className="flex-1 h-12 rounded-xl" onClick={() => setIsTaskModalOpen(false)} disabled={isTaskSaving}>Cancel</Button>
+                    <Button className="flex-1 h-12 text-white bg-[#0F766E] hover:bg-[#0D635C] rounded-xl" onClick={handleUpdateTask} disabled={isTaskSaving}>
+                      {isTaskSaving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...</> : 'Update Task'}
+                    </Button>
+                  </div>
+                  
+                  {/* Abandon or Restore Task Button */}
+                  {selectedTask && (
+                    selectedTask.status?.toLowerCase() === 'abandoned' ? (
+                      <Button 
+                        variant="outline"
+                        className="w-full h-12 rounded-xl text-[#0F766E] border-[#0F766E] hover:bg-[#F0FDFA]"
+                        onClick={() => handleRestoreTask(selectedTask)}
+                        disabled={isTaskSaving}
+                      >
+                        Restore Task
+                      </Button>
+                    ) : (
+                      <Button 
+                        variant="outline"
+                        className="w-full h-12 rounded-xl text-[#BE123C] border-[#BE123C] hover:bg-[#FFF1F2]"
+                        onClick={() => handleMarkAsAbandoned(selectedTask)}
+                        disabled={isTaskSaving}
+                      >
+                        Mark as Abandoned
+                      </Button>
+                    )
+                  )}
                 </div>
               </div>
             )}
