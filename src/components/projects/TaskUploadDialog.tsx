@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Upload, X, Loader2, AlertCircle } from 'lucide-react';
+import { Upload, X, Loader2, AlertCircle, FileUp, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -95,29 +95,30 @@ export const TaskUploadDialog: React.FC<TaskUploadDialogProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Upload Project Tasks</DialogTitle>
-          <DialogDescription>
-            Import tasks from CSV, XLSX, or PDF files. The file will be analyzed by AI to extract and structure task information.
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white border-[#E7E5E4]">
+        <DialogHeader className="border-b border-[#E7E5E4] pb-4">
+          <DialogTitle className="text-2xl font-light text-[#1C1917] tracking-tight">Upload Project Tasks</DialogTitle>
+          <DialogDescription className="text-[#78716C] leading-relaxed">
+            Import tasks from CSV, XLSX, or PDF files. Our AI will intelligently extract and structure the task information.
           </DialogDescription>
         </DialogHeader>
 
         {!parsedData ? (
-          <div className="space-y-4 py-4">
+          <div className="space-y-5 py-6">
             {error && (
-              <div className="flex gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
-                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <div className="flex gap-3 p-4 bg-rose-50 border border-rose-200 rounded-xl">
+                <AlertCircle className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" />
                 <div className="space-y-1">
-                  <p className="text-sm font-medium text-red-900">Error</p>
-                  <p className="text-sm text-red-700">{error}</p>
+                  <p className="text-sm font-medium text-rose-900">Error Parsing File</p>
+                  <p className="text-sm text-rose-700">{error}</p>
                 </div>
               </div>
             )}
 
+            {/* Upload Area */}
             <div
               onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-[#E7E5E4] rounded-xl p-8 cursor-pointer hover:bg-[#FAFAF9] transition-colors bg-white"
+              className="border-2 border-dashed border-[#E7E5E4] rounded-2xl p-12 cursor-pointer hover:bg-[#FAFAF9] hover:border-[#0F766E]/30 transition-all bg-white group"
             >
               <input
                 ref={fileInputRef}
@@ -128,23 +129,29 @@ export const TaskUploadDialog: React.FC<TaskUploadDialogProps> = ({
                 disabled={isUploading}
               />
 
-              <div className="flex flex-col items-center gap-3">
+              <div className="flex flex-col items-center gap-4">
                 {isUploading ? (
                   <>
-                    <Loader2 className="w-8 h-8 text-[#0F766E] animate-spin" />
-                    <p className="text-sm font-medium text-[#1C1917]">
-                      Parsing your file with AI...
-                    </p>
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-[#0F766E]/10 rounded-full animate-pulse" />
+                      <Loader2 className="w-12 h-12 text-[#0F766E] animate-spin relative" />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-medium text-[#1C1917]">Parsing your file with AI...</p>
+                      <p className="text-xs text-[#A8A29E] mt-1">This may take a few seconds</p>
+                    </div>
                   </>
                 ) : (
                   <>
-                    <Upload className="w-8 h-8 text-[#78716C]" />
+                    <div className="p-3 bg-[#FAFAF9] rounded-xl group-hover:bg-[#0F766E]/10 transition-colors">
+                      <FileUp className="w-8 h-8 text-[#0F766E]" />
+                    </div>
                     <div className="text-center">
                       <p className="text-sm font-medium text-[#1C1917]">
                         Click to upload or drag and drop
                       </p>
-                      <p className="text-xs text-[#A8A29E] mt-1">
-                        CSV, XLSX, or PDF files (Max. 10MB)
+                      <p className="text-xs text-[#A8A29E] mt-2">
+                        CSV, XLSX, or PDF files up to 10MB
                       </p>
                     </div>
                   </>
@@ -152,28 +159,39 @@ export const TaskUploadDialog: React.FC<TaskUploadDialogProps> = ({
               </div>
             </div>
 
-            <div className="text-xs text-[#A8A29E] space-y-1">
-              <p className="font-medium">Supported formats:</p>
-              <ul className="list-disc list-inside space-y-0.5">
-                <li>CSV with task name, assignee, hours, dates, timeline</li>
-                <li>Excel spreadsheets with task information</li>
-                <li>PDF documents with project scope or task lists</li>
+            {/* Supported Formats Info */}
+            <div className="bg-[#FAFAF9] border border-[#E7E5E4] rounded-xl p-4 space-y-2">
+              <p className="text-xs font-bold text-[#A8A29E] uppercase tracking-wider">Supported Formats</p>
+              <ul className="text-xs text-[#78716C] space-y-1">
+                <li className="flex items-center gap-2">
+                  <span className="w-1 h-1 bg-[#0F766E] rounded-full" />
+                  CSV with task name, assignee, hours, dates, timeline
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-1 h-1 bg-[#0F766E] rounded-full" />
+                  Excel spreadsheets with task information
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-1 h-1 bg-[#0F766E] rounded-full" />
+                  PDF documents with project scope or task lists
+                </li>
               </ul>
             </div>
           </div>
         ) : (
-          <div className="space-y-4 py-4">
+          <div className="space-y-5 py-6">
             {error && (
-              <div className="flex gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
-                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-red-700">{error}</p>
+              <div className="flex gap-3 p-4 bg-rose-50 border border-rose-200 rounded-xl">
+                <AlertCircle className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-rose-700">{error}</p>
               </div>
             )}
 
+            {/* Project Details from File */}
             {parsedData.projectName && (
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-[#1C1917]">
-                  Project Name (from file)
+                <label className="block text-xs font-bold text-[#A8A29E] uppercase tracking-wider">
+                  Project Name (Detected)
                 </label>
                 <input
                   type="text"
@@ -181,15 +199,15 @@ export const TaskUploadDialog: React.FC<TaskUploadDialogProps> = ({
                   onChange={(e) =>
                     setParsedData({ ...parsedData, projectName: e.target.value })
                   }
-                  className="w-full h-10 px-3 bg-[#FAFAF9] border border-[#E7E5E4] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0F766E] text-[#1C1917]"
+                  className="w-full h-11 px-4 bg-[#FAFAF9] border border-[#E7E5E4] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#0F766E] text-[#1C1917] placeholder:text-[#A8A29E] transition-all"
                 />
               </div>
             )}
 
             {parsedData.projectDescription && (
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-[#1C1917]">
-                  Description (from file)
+                <label className="block text-xs font-bold text-[#A8A29E] uppercase tracking-wider">
+                  Description (Detected)
                 </label>
                 <textarea
                   value={parsedData.projectDescription}
@@ -199,16 +217,20 @@ export const TaskUploadDialog: React.FC<TaskUploadDialogProps> = ({
                       projectDescription: e.target.value,
                     })
                   }
-                  className="w-full h-20 px-3 py-2 bg-[#FAFAF9] border border-[#E7E5E4] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0F766E] text-[#1C1917] resize-none"
+                  className="w-full h-20 px-4 py-3 bg-[#FAFAF9] border border-[#E7E5E4] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#0F766E] text-[#1C1917] placeholder:text-[#A8A29E] resize-none transition-all"
                 />
               </div>
             )}
 
-            <div className="space-y-3">
+            {/* Tasks Section */}
+            <div className="space-y-3 border-t border-[#E7E5E4] pt-5">
               <div className="flex justify-between items-center">
-                <label className="block text-sm font-medium text-[#1C1917]">
-                  Parsed Tasks ({editedTasks.length})
-                </label>
+                <div>
+                  <h3 className="text-sm font-medium text-[#1C1917]">Parsed Tasks</h3>
+                  <p className="text-xs text-[#A8A29E] mt-1">
+                    Review and edit tasks before importing ({editedTasks.length} task{editedTasks.length !== 1 ? 's' : ''})
+                  </p>
+                </div>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -216,14 +238,15 @@ export const TaskUploadDialog: React.FC<TaskUploadDialogProps> = ({
                     setEditedTasks([]);
                     setParsedData(null);
                   }}
-                  className="text-[#78716C] hover:text-[#1C1917]"
+                  className="text-[#78716C] hover:text-[#1C1917] hover:bg-[#FAFAF9] h-8"
                 >
+                  <FileUp className="w-4 h-4 mr-1" />
                   Upload Different File
                 </Button>
               </div>
 
-              {/* Column headers */}
-              <div className="grid grid-cols-12 gap-2 px-3 py-2 text-[10px] font-bold text-[#A8A29E] uppercase tracking-wider bg-[#FAFAF9] rounded-lg">
+              {/* Column Headers */}
+              <div className="grid grid-cols-12 gap-3 px-4 py-3 text-[10px] font-bold text-[#A8A29E] uppercase tracking-wider bg-[#FAFAF9] rounded-xl sticky top-0 z-10">
                 <div className="col-span-3">Task Name</div>
                 <div className="col-span-2">Assignee</div>
                 <div className="col-span-1">Hours</div>
@@ -232,107 +255,119 @@ export const TaskUploadDialog: React.FC<TaskUploadDialogProps> = ({
                 <div className="col-span-2">Timeline</div>
               </div>
 
-              {/* Tasks list */}
-              <div className="space-y-2 max-h-96 overflow-y-auto border border-[#E7E5E4] rounded-lg">
-                {editedTasks.map((task, index) => (
-                  <div
-                    key={index}
-                    className="grid grid-cols-12 gap-2 px-3 py-2 bg-white items-center border-b border-[#E7E5E4] last:border-b-0"
-                  >
-                    <div className="col-span-3">
-                      <input
-                        type="text"
-                        value={task.name}
-                        onChange={(e) =>
-                          handleTaskChange(index, 'name', e.target.value)
-                        }
-                        placeholder="Task name"
-                        className="w-full text-xs bg-transparent focus:outline-none text-[#1C1917] placeholder:text-[#A8A29E] border-b border-transparent hover:border-[#E7E5E4] focus:border-[#1C1917]"
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <select
-                        value={task.assignee}
-                        onChange={(e) =>
-                          handleTaskChange(index, 'assignee', e.target.value)
-                        }
-                        className="w-full text-xs bg-transparent focus:outline-none text-[#78716C] border-b border-transparent hover:border-[#E7E5E4] focus:border-[#1C1917]"
-                      >
-                        <option value="Unassigned">Unassigned</option>
-                        {employees.map((emp) => (
-                          <option key={emp.id} value={emp.name}>
-                            {emp.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="col-span-1">
-                      <input
-                        type="number"
-                        min="0"
-                        value={task.hours}
-                        onChange={(e) =>
-                          handleTaskChange(index, 'hours', e.target.value)
-                        }
-                        placeholder="0"
-                        className="w-full text-xs bg-transparent focus:outline-none text-[#1C1917] border-b border-transparent hover:border-[#E7E5E4] focus:border-[#1C1917]"
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <input
-                        type="date"
-                        value={task.startDate}
-                        onChange={(e) =>
-                          handleTaskChange(index, 'startDate', e.target.value)
-                        }
-                        className="w-full text-xs bg-transparent focus:outline-none text-[#1C1917] border-b border-transparent hover:border-[#E7E5E4] focus:border-[#1C1917]"
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <input
-                        type="date"
-                        value={task.dueDate}
-                        onChange={(e) =>
-                          handleTaskChange(index, 'dueDate', e.target.value)
-                        }
-                        className="w-full text-xs bg-transparent focus:outline-none text-[#1C1917] border-b border-transparent hover:border-[#E7E5E4] focus:border-[#1C1917]"
-                      />
-                    </div>
-                    <div className="col-span-2 flex justify-between items-center">
-                      <input
-                        type="text"
-                        value={task.timeline}
-                        onChange={(e) =>
-                          handleTaskChange(index, 'timeline', e.target.value)
-                        }
-                        placeholder="Week 1"
-                        className="w-full text-xs bg-transparent focus:outline-none text-[#1C1917] placeholder:text-[#A8A29E] border-b border-transparent hover:border-[#E7E5E4] focus:border-[#1C1917]"
-                      />
-                      <button
-                        onClick={() => handleRemoveTask(index)}
-                        disabled={editedTasks.length <= 1}
-                        className="text-rose-400 hover:text-rose-600 disabled:opacity-20 disabled:cursor-not-allowed transition-colors ml-1"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
+              {/* Tasks List */}
+              <div className="space-y-1 max-h-96 overflow-y-auto border border-[#E7E5E4] rounded-xl bg-white">
+                {editedTasks.length === 0 ? (
+                  <div className="flex items-center justify-center h-32 text-[#A8A29E]">
+                    <p className="text-sm">No tasks to display</p>
                   </div>
-                ))}
+                ) : (
+                  editedTasks.map((task, index) => (
+                    <div
+                      key={index}
+                      className="grid grid-cols-12 gap-3 px-4 py-3 items-center hover:bg-[#FAFAF9] border-b border-[#E7E5E4] last:border-b-0 transition-colors"
+                    >
+                      <div className="col-span-3">
+                        <input
+                          type="text"
+                          value={task.name}
+                          onChange={(e) =>
+                            handleTaskChange(index, 'name', e.target.value)
+                          }
+                          placeholder="Task name"
+                          className="w-full text-sm bg-transparent focus:outline-none text-[#1C1917] placeholder:text-[#A8A29E] font-medium"
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <select
+                          value={task.assignee}
+                          onChange={(e) =>
+                            handleTaskChange(index, 'assignee', e.target.value)
+                          }
+                          className="w-full text-sm bg-transparent focus:outline-none text-[#78716C] cursor-pointer"
+                        >
+                          <option value="Unassigned">Unassigned</option>
+                          {employees.map((emp) => (
+                            <option key={emp.id} value={emp.name}>
+                              {emp.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="col-span-1">
+                        <input
+                          type="number"
+                          min="0"
+                          value={task.hours}
+                          onChange={(e) =>
+                            handleTaskChange(index, 'hours', e.target.value)
+                          }
+                          placeholder="0"
+                          className="w-full text-sm bg-transparent focus:outline-none text-[#1C1917] text-center placeholder:text-[#A8A29E]"
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <input
+                          type="date"
+                          value={task.startDate}
+                          onChange={(e) =>
+                            handleTaskChange(index, 'startDate', e.target.value)
+                          }
+                          className="w-full text-sm bg-transparent focus:outline-none text-[#1C1917]"
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <input
+                          type="date"
+                          value={task.dueDate}
+                          onChange={(e) =>
+                            handleTaskChange(index, 'dueDate', e.target.value)
+                          }
+                          className="w-full text-sm bg-transparent focus:outline-none text-[#1C1917]"
+                        />
+                      </div>
+                      <div className="col-span-2 flex justify-between items-center">
+                        <input
+                          type="text"
+                          value={task.timeline}
+                          onChange={(e) =>
+                            handleTaskChange(index, 'timeline', e.target.value)
+                          }
+                          placeholder="Week 1"
+                          className="w-full text-sm bg-transparent focus:outline-none text-[#1C1917] placeholder:text-[#A8A29E]"
+                        />
+                        <button
+                          onClick={() => handleRemoveTask(index)}
+                          disabled={editedTasks.length <= 1}
+                          className="text-rose-400 hover:text-rose-600 disabled:opacity-20 disabled:cursor-not-allowed transition-colors ml-2"
+                          title="Remove task"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>
         )}
 
-        <DialogFooter className="gap-2">
-          <Button variant="ghost" onClick={handleClose}>
+        <DialogFooter className="border-t border-[#E7E5E4] pt-4 gap-2">
+          <Button 
+            variant="ghost" 
+            onClick={handleClose}
+            className="text-[#78716C] hover:text-[#1C1917] hover:bg-[#FAFAF9] h-11 rounded-lg"
+          >
             {parsedData ? 'Cancel' : 'Close'}
           </Button>
           {parsedData && (
             <Button
               onClick={handleAddTasks}
               disabled={editedTasks.length === 0}
-              className="bg-[#0F766E] text-white hover:bg-[#0D635E]"
+              className="bg-[#0F766E] hover:bg-[#0D635E] text-white px-6 h-11 rounded-lg gap-2 disabled:opacity-50 font-medium"
             >
+              <Check className="w-4 h-4" />
               Add {editedTasks.length} Task{editedTasks.length !== 1 ? 's' : ''}
             </Button>
           )}

@@ -46,9 +46,15 @@ class FileParsingService {
       throw new Error('Unsupported file format');
     }
 
-    // Use Gemini to parse and structure the content
-    const parsedData = await this.parseWithGemini(fileContent);
-    return parsedData;
+    // Try to use Gemini to parse and structure the content
+    try {
+      const parsedData = await this.parseWithGemini(fileContent);
+      return parsedData;
+    } catch (geminiError: any) {
+      console.warn('Gemini parsing failed, falling back to rule-based parser:', geminiError.message);
+      // Fall back to basic CSV/XLSX parsing if Gemini is not available
+      return this.parseBasic(fileContent);
+    }
   }
 
   private getFileType(filename: string): string {
@@ -117,7 +123,17 @@ class FileParsingService {
       throw new Error('Gemini API is not configured. Please set VITE_GEMINI_API_KEY environment variable.');
     }
 
-    const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    // Try gemini-1.5-pro first, fall back to gemini-pro if not available
+    let model;
+    try {
+      model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-pro-latest' });
+    } catch {
+      try {
+        model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
+      } catch {
+        model = this.genAI.getGenerativeModel({ model: 'gemini-pro' });
+      }
+    }
 
     const prompt = `
 You are an expert project parser. Analyze the following document content and extract project tasks and information.
@@ -168,6 +184,61 @@ Ensure the response is valid JSON that can be parsed.`;
     } catch (error: any) {
       throw new Error(`Failed to parse with Gemini: ${error.message}`);
     }
+  }
+
+  private parseBasic(content: string): ParsedProjectData {
+    // Simple CSV/structured text parser as fallback when Gemini is not available
+    const lines = content.split('\n').filter(line => line.trim());
+    const tasks: ParsedTask[] = [];
+    
+    // Try to parse CSV format
+    try {
+      const rows = lines.map(line => line.split(',').map(cell => cell.trim()));
+      if (rows.length > 0) {
+        // Assume first row might be headers
+        const firstRow = rows[0];
+        const possibleHeaders = ['name', 'task', 'assignee', 'person', 'user', 'owner', 'hours', 'days', 'duration', 'startdate', 'start', 'duedate', 'due', 'timeline', 'phase'];
+        
+        // Check if first row looks like headers
+        const isHeader = firstRow.some(cell => possibleHeaders.some(h => cell.toLowerCase().includes(h)));
+        const startIndex = isHeader ? 1 : 0;
+        
+        for (let i = startIndex; i < rows.length; i++) {
+          const row = rows[i];
+          if (row.length > 0 && row[0]) {
+            tasks.push({
+              name: row[0] || 'Untitled Task',
+              assignee: row[1] || 'Unassigned',
+              hours: row[2] || '0',
+              startDate: this.validateDate(row[3]) ? row[3] : '',
+              dueDate: this.validateDate(row[4]) ? row[4] : '',
+              timeline: row[5] || '',
+            });
+          }
+        }
+      }
+    } catch (e) {
+      // If CSV parsing fails, extract basic tasks from text
+      console.warn('Basic CSV parsing failed, extracting from text');
+    }
+    
+    // If no tasks found, create at least one from the content
+    if (tasks.length === 0) {
+      tasks.push({
+        name: content.substring(0, 100) || 'Task from imported file',
+        assignee: 'Unassigned',
+        hours: '0',
+        startDate: '',
+        dueDate: '',
+        timeline: '',
+      });
+    }
+    
+    return {
+      projectName: 'Imported Project',
+      projectDescription: 'Project imported from file',
+      tasks,
+    };
   }
 
   private validateParsedData(data: any): ParsedProjectData {
