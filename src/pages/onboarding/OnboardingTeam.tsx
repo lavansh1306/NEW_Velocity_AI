@@ -24,10 +24,8 @@ const PREDEFINED_ROLES = [
 export default function OnboardingTeam() {
   const navigate = useNavigate();
   const { saveTeamMembers, loading, error, clearError } = useOnboarding();
-  const [members, setMembers] = useState<Array<{ name: string; email: string; role: string; skills: string[] }>>([
-    { name: '', email: '', role: 'Engineer', skills: getSkillsForRole('Engineer') },
-    { name: '', email: '', role: 'Designer', skills: getSkillsForRole('Designer') },
-    { name: '', email: '', role: 'Product Manager', skills: getSkillsForRole('Product Manager') }
+  const [members, setMembers] = useState<Array<{ name: string; email: string; role: string; type?: string; skills: string[] }>>([
+    { name: '', email: '', role: 'Engineer', type: 'employee', skills: getSkillsForRole('Engineer') }
   ]);
   const [openRoleDropdown, setOpenRoleDropdown] = useState<number | null>(null);
   const [isCSVMode, setIsCSVMode] = useState(false);
@@ -38,7 +36,7 @@ export default function OnboardingTeam() {
   const [newSkillText, setNewSkillText] = useState<string>('');
 
   const addMember = () => {
-    setMembers([...members, { name: '', email: '', role: '', skills: [] }]);
+    setMembers([...members, { name: '', email: '', role: '', type: 'employee', skills: [] }]);
   };
 
   const handleCSVFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -81,10 +79,12 @@ export default function OnboardingTeam() {
       const nameIdx = headers.indexOf('name') >= 0 ? headers.indexOf('name') : 0;
       const emailIdx = headers.indexOf('email') >= 0 ? headers.indexOf('email') : 1;
       const roleIdx = headers.indexOf('role') >= 0 ? headers.indexOf('role') : 2;
+      const typeIdx = headers.indexOf('type') >= 0 ? headers.indexOf('type') : -1;
 
       parsedMembers.push({
         name: values[nameIdx] || '',
         email: values[emailIdx] || '',
+        type: typeIdx >= 0 ? values[typeIdx] || 'employee' : 'employee',
         role: values[roleIdx] || 'Engineer',
         skills: getSkillsForRole(values[roleIdx] || 'Engineer')
       });
@@ -94,17 +94,17 @@ export default function OnboardingTeam() {
   };
 
   const downloadSampleCSV = () => {
-    const sampleData = `name,email,role
-John Doe,john@example.com,Frontend Developer
-Jane Smith,jane@example.com,Backend Developer
-Mike Johnson,mike@example.com,Product Manager
-Sarah Williams,sarah@example.com,Designer
-Tom Brown,tom@example.com,QA Engineer
-Emily Davis,emily@example.com,DevOps Engineer
-Alex Martinez,alex@example.com,Full Stack Developer
-Chris Wilson,chris@example.com,Data Scientist
-Rachel Green,rachel@example.com,Engineering Manager
-David Lee,david@example.com,Frontend Developer`;
+    const sampleData = `name,email,type,role
+John Doe,john@example.com,employee,Frontend Developer
+Jane Smith,jane@example.com,contractor,Backend Developer
+Mike Johnson,mike@example.com,employee,Product Manager
+Sarah Williams,sarah@example.com,employee,Designer
+Tom Brown,tom@example.com,contractor,QA Engineer
+Emily Davis,emily@example.com,employee,DevOps Engineer
+Alex Martinez,alex@example.com,employee,Full Stack Developer
+Chris Wilson,chris@example.com,employee,Data Scientist
+Rachel Green,rachel@example.com,employee,Engineering Manager
+David Lee,david@example.com,employee,Frontend Developer`;
 
     const blob = new Blob([sampleData], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
@@ -208,6 +208,7 @@ David Lee,david@example.com,Frontend Developer`;
             <div className="bg-[#FAFAF9] px-4 py-3 border-b border-[#E7E5E4] flex gap-4">
               <div className="flex-1 text-xs font-normal text-[#78716C] uppercase">Name</div>
               <div className="flex-1 text-xs font-normal text-[#78716C] uppercase">Email</div>
+              <div className="w-[120px] text-xs font-normal text-[#78716C] uppercase">Type</div>
               <div className="w-[160px] text-xs font-normal text-[#78716C] uppercase">Role</div>
               <div className="flex-1 text-xs font-normal text-[#78716C] uppercase">Skills</div>
               <div className="w-8"></div>
@@ -231,6 +232,16 @@ David Lee,david@example.com,Frontend Developer`;
                     onChange={(e) => updateMember(idx, 'email', e.target.value)}
                     className="h-10 border-transparent hover:border-[#E7E5E4] focus:border-[#0F766E] bg-transparent px-2"
                   />
+                </div>
+                <div className="w-[120px]">
+                  <select 
+                    value={member.type || 'employee'} 
+                    onChange={(e) => updateMember(idx, 'type', e.target.value)}
+                    className="h-10 border-transparent hover:border-[#E7E5E4] focus:border-[#0F766E] bg-transparent px-2 w-full text-sm rounded-md cursor-pointer outline-none"
+                  >
+                    <option value="employee">Employee</option>
+                    <option value="contractor">Contractor</option>
+                  </select>
                 </div>
                 <div className="w-[160px] relative">
                   <Input 
@@ -396,7 +407,7 @@ David Lee,david@example.com,Frontend Developer`;
             <div className="bg-[#2DD4BF]/5 border border-[#2DD4BF]/20 rounded-lg p-3">
               <div className="text-xs font-medium text-[#292524] mb-2">CSV Format</div>
               <div className="text-xs text-[#78716C] font-mono bg-white p-2 rounded border border-[#E5E5E5]">
-                name,email,role
+                name,email,type,role
               </div>
             </div>
 

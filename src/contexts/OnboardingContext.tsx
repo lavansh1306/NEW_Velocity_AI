@@ -13,7 +13,8 @@ import { apiUrl } from '@/lib/api';
 export interface TeamMember {
   name: string;
   email: string;
-  role: string;
+  role: string; // Specific job title (e.g. Engineer)
+  type?: string; // High-level category (e.g. employee, contractor)
   skills?: string[];
 }
 
@@ -270,7 +271,7 @@ export const OnboardingProvider = ({ children }: { children: React.ReactNode }) 
           organization_id: orgId,
           email: m.email.trim().toLowerCase(),
           name: m.name.trim(),
-          role: 'employee',
+          role: m.type || 'employee',
           is_active: true,
         }));
 
