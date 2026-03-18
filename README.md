@@ -15,7 +15,8 @@
 **AI-powered project analytics and prod
 ctivty intelligence platformm
 
-[Features](#-features) • [Tech Stack](#-tech-stack) • [Gettin Started](#-getting-started • [Architecture](#-architecture)
+[Features](#-features) •
+[Tech Stack](#-tech-stack) • [Gettin Started](#-getting-started • [Architecture](#-architecture)
 
 </div>
 
