@@ -61,6 +61,8 @@ export interface JiraIssue {
   time_spent_seconds: number | null;
   original_estimate_seconds: number | null;
   created_date: string;
+  start_date?: string | null;
+  due_date?: string | null;
 }
 
 interface ProjectData {
@@ -68,6 +70,7 @@ interface ProjectData {
   key: string;
   title: string;
   created_at: string;
+  status?: string;
   team_id?: string;
   organization_id?: string;
 }
@@ -251,7 +254,28 @@ export function useProjectAnalytics(projectId: string | undefined) {
           // --- FETCH TEAM MEMBERS OR FALLBACK ---
           let fetchedAllocatedMembers: AllocatedTeamMember[] = [];
           
-          if (projData.team_id) {
+          // First try project_team_allocations
+          const { data: allocations } = await supabase
+            .from('project_team_allocations')
+            .select('id, user_id, allocation_percentage, start_date, end_date, users(id, name, email)')
+            .eq('project_id', projData.id);
+
+          if (allocations && allocations.length > 0) {
+            fetchedAllocatedMembers = allocations.map((a: any) => ({
+              id: a.id,
+              user_id: a.user_id,
+              name: a.users?.name || 'Unknown',
+              email: a.users?.email,
+              role: 'Team Member',
+              allocated_hours: Math.round((40 * a.allocation_percentage) / 100),
+              start_date: a.start_date,
+              end_date: a.end_date,
+              allocation_percentage: a.allocation_percentage
+            }));
+          }
+          
+          // Fallback to team_members if no allocations found
+          if (fetchedAllocatedMembers.length === 0 && projData.team_id) {
             const { data: memberEntries } = await supabase
               .from('team_members')
               .select('id, user_id, role, users(id, name, email, role, capacity_hours_per_week)')
@@ -302,7 +326,9 @@ export function useProjectAnalytics(projectId: string | undefined) {
               assignee: assignedUser?.name || 'Unassigned', // Will ALWAYS resolve if ID exists
               time_spent_seconds: (t.actual_hours || 0) * 3600,
               original_estimate_seconds: (t.estimated_hours || 0) * 3600,
-              created_date: t.created_at
+              created_date: t.created_at,
+              start_date: t.start_date || null,
+              due_date: t.due_date || null
             };
           });
           
@@ -332,7 +358,7 @@ export function useProjectAnalytics(projectId: string | undefined) {
             const { data: orgMembers, error: omError } = await supabase
               .from('organization_members')
               .select('user_id, role, users(id, name, email)')
-              .eq('organization_id', projData.organization_id);
+              .eq('org_id', projData.organization_id);
               
             console.log('🏢 Organization members fetched:', orgMembers?.length, 'Error:', omError);
             if (orgMembers && orgMembers.length > 0) {
@@ -365,7 +391,9 @@ export function useProjectAnalytics(projectId: string | undefined) {
                     assignee: assignedUser?.name || 'Unassigned',
                     time_spent_seconds: (t.actual_hours || 0) * 3600,
                     original_estimate_seconds: (t.estimated_hours || 0) * 3600,
-                    created_date: t.created_at
+                    created_date: t.created_at,
+                    start_date: t.start_date || null,
+                    due_date: t.due_date || null
                   };
                 });
 
