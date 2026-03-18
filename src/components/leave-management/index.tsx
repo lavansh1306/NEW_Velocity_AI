@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { AlertCircle, RefreshCw, ChevronLeft, ChevronRight, X, Zap } from 'lucide-react';
 import { Button } from '../ui/button';
-import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback } from '../ui/avatar';
+import { toast as sonnerToast } from 'sonner';
 
 // Supabase and Auth
 import { supabase } from '@/lib/supabase';
@@ -18,7 +18,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useLeaveManagementData } from '@/hooks/useLeaveManagementData';
 
 export default function LeaveManagementTab() {
-  const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
 
   const {
@@ -52,16 +51,42 @@ export default function LeaveManagementTab() {
     try {
       const { error } = await supabase
         .from('leave_requests')
-        .update({ status: 'approved' }) // Matches DB check constraint
+        .update({ status: 'approved' })
         .eq('id', leave.id);
 
       if (error) throw error;
+
+      // Deduct leave days from employee_leave_balances
+      const start = new Date(leave.startDate);
+      const end = new Date(leave.endDate);
+      const leaveDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      const currentYear = new Date().getFullYear();
+
+      if (leave.leave_type_id && leave.user_id) {
+        const { data: balance } = await supabase
+          .from('employee_leave_balances')
+          .select('id, used_days, total_allocated')
+          .eq('user_id', leave.user_id)
+          .eq('leave_type_id', leave.leave_type_id)
+          .eq('year', currentYear)
+          .maybeSingle();
+
+        if (balance) {
+          const newUsed = (balance.used_days || 0) + leaveDays;
+          await supabase
+            .from('employee_leave_balances')
+            .update({ used_days: newUsed })
+            .eq('id', balance.id);
+        }
+      }
+
+      setApproveDialogOpen(false);
       await refresh();
-      setShowSuccessBanner(true);
-      setTimeout(() => setShowSuccessBanner(false), 5000);
-      toast({ title: "✅ Approved", description: "Leave status updated and capacity recalculated." });
+      sonnerToast.success('Leave approved', {
+        description: `${leaveDays} day(s) deducted from balance.`,
+      });
     } catch (err: any) {
-      toast({ title: "❌ Approval Failed", description: err.message, variant: "destructive" });
+      sonnerToast.error('Approval failed', { description: err.message });
     }
   };
 
@@ -69,23 +94,25 @@ export default function LeaveManagementTab() {
     try {
       const { error } = await supabase
         .from('leave_requests')
-        .update({ status: 'rejected' }) // Matches DB check constraint
+        .update({ status: 'rejected' })
         .eq('id', leave.id);
 
       if (error) throw error;
       await refresh();
-      toast({ title: "❌ Rejected", description: "Leave request denied." });
+      sonnerToast('Leave rejected', { description: 'Leave request has been denied.' });
     } catch (err: any) {
-      toast({ title: "❌ Rejection Failed", description: err.message, variant: "destructive" });
+      sonnerToast.error('Rejection failed', { description: err.message });
     }
   };
 
   const handleApplyLeave = async (request: any) => {
     try {
       await addLeaveRequest(request);
-      toast({ title: "✅ Success", description: `Leave request submitted.` });
+      sonnerToast.success('Leave request submitted', {
+        description: 'Your manager will review it shortly.',
+      });
     } catch (err: any) {
-      toast({ title: "❌ Submission Failed", description: err.message, variant: "destructive" });
+      sonnerToast.error('Submission failed', { description: err.message });
     }
   };
 
@@ -177,12 +204,33 @@ export default function LeaveManagementTab() {
 
       if (approveError) throw approveError;
 
+      // Deduct leave days from balance
+      const currentYear = new Date().getFullYear();
+      if (leave.leave_type_id && leave.user_id) {
+        const { data: balance } = await supabase
+          .from('employee_leave_balances')
+          .select('id, used_days')
+          .eq('user_id', leave.user_id)
+          .eq('leave_type_id', leave.leave_type_id)
+          .eq('year', currentYear)
+          .maybeSingle();
+
+        if (balance) {
+          await supabase
+            .from('employee_leave_balances')
+            .update({ used_days: (balance.used_days || 0) + durationDays })
+            .eq('id', balance.id);
+        }
+      }
+
       await refresh();
       setApproveDialogOpen(false);
-      toast({ title: "✅ Approved", description: `Leave approved and tasks shifted (${mode}).` });
+      sonnerToast.success('Leave approved', {
+        description: `${durationDays} day(s) deducted. Tasks shifted (${mode}).`,
+      });
 
     } catch (err: any) {
-      toast({ title: "❌ Shift Failed", description: err.message, variant: "destructive" });
+      sonnerToast.error('Shift failed', { description: err.message });
     }
   };
 

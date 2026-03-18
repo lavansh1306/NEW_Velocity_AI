@@ -66,12 +66,12 @@ export default function EmployeeProfile() {
   }, [user, orgId]);
 
   const handleSave = async () => {
-    if (!memberId) return;
+    if (!user) return;
     setSaving(true);
-    await Promise.all([
-      supabase.from('organization_members').update({ display_name: displayName }).eq('id', memberId),
-      supabase.from('users').update({ designation }).eq('id', user!.id),
-    ]);
+    await supabase.from('users').update({ name: displayName, designation }).eq('id', user.id);
+    if (memberId) {
+      await supabase.from('organization_members').update({ display_name: displayName }).eq('id', memberId);
+    }
     setSaving(false);
     setIsEditing(false);
   };

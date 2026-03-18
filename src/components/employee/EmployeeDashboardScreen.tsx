@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Calendar, Clock } from 'lucide-react';
 import { PageSkeleton } from '@/components/shared/SkeletonLoader';
 import { useEmployeeDashboard } from '@/hooks/useEmployeeDashboard';
+import { EmptyDashboardState } from './EmptyDashboardState';
 
 export function EmployeeDashboardScreen() {
   const navigate = useNavigate();
@@ -39,6 +40,12 @@ export function EmployeeDashboardScreen() {
   const empDashboardAlerts = data.alerts || [];
   const empDashboardActivities = data.activities || [];
   const userName = data.userName || 'Employee';
+
+  const isEmpty = (data.projects?.length || 0) === 0 && empDashboardTasks.length === 0;
+
+  if (isEmpty) {
+    return <EmptyDashboardState userName={userName} />;
+  }
 
   return (
     <div className="max-w-[1200px] mx-auto pb-10">
