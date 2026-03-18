@@ -6,6 +6,7 @@ import leaveApprovalRoutes from '../src/api/leave-approval/routes.js';
 import invitesRoutes from '../src/api/invites/routes.js';
 import employeeRoutes from '../src/api/employee/routes.js';
 import organizationRoutes from '../src/api/organization/routes.js';
+import authRoutes from '../src/api/auth/routes.js';
 
 // Create a fresh Express app instance for this serverless function
 const app = express();
@@ -71,6 +72,7 @@ app.get('/health', (_req: Request, res: Response) => {
 });
 
 // Mount API routers with /api prefix to match the expected routes
+app.use('/api/auth', authRoutes);
 app.use('/api/jira', jiraRoutes);
 app.use('/api/leave-approval', leaveApprovalRoutes);
 app.use('/api/invites', invitesRoutes);

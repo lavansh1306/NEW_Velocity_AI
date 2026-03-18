@@ -2,12 +2,16 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { VelocityAISidebar } from '@/components/dashboard/VelocityAISidebar';
 import { Button } from '@/components/ui/button';
+import { BannerEditIcon } from './BannerEditIcon';
 import { useProjectAnalytics } from '@/hooks/useProjectAnalytics';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
+import { TimelineContainer } from './timeline';
+import { AIInsights } from './insights';
 import {
   ArrowLeft, LayoutGrid, Users, CheckSquare,
-  Clock, Lightbulb, AlertCircle, Sparkles, Loader2, ChevronDown, ChevronUp, X
+  Clock, Lightbulb, Sparkles, Loader2, ChevronDown, ChevronUp, X, Plus, AlertTriangle, TrendingDown
 } from 'lucide-react';
 
 export default function ProjectAnalytics() {
@@ -19,117 +23,67 @@ export default function ProjectAnalytics() {
   const [updatingTask, setUpdatingTask] = useState(false);
   const statusDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Missing States for Modals
+  // Modal states
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [editForm, setEditForm] = useState({ title: '', description: '', status: 'active' });
   const [isFetchingDetails, setIsFetchingDetails] = useState(false);
+  const [editForm, setEditForm] = useState({ name: '', description: '', status: 'active' });
 
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
-  const [isTaskFetching, setIsTaskFetching] = useState(false);
   const [isTaskSaving, setIsTaskSaving] = useState(false);
-  const [taskForm, setTaskForm] = useState({ id: '', name: '', description: '', status: 'not_started', assignee_id: '', estimated_hours: 0, start_date: '', due_date: '' });
+  const [isTaskFetching, setIsTaskFetching] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<any>(null);
+  const [taskForm, setTaskForm] = useState({
+    name: '',
+    description: '',
+    status: 'not_started',
+    assignee_id: '',
+    estimated_hours: 0,
+    start_date: '',
+    due_date: ''
+  });
+
+  // New Task Modal
+  const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
+  const [newTaskForm, setNewTaskForm] = useState({
+    name: '',
+    description: '',
+    estimated_hours: 0,
+    assignee_id: '',
+    due_date: ''
+  });
+
+  // Completion Warning Modal
+  const [showCompletionWarning, setShowCompletionWarning] = useState(false);
+  const [incompleteTasks, setIncompleteTasks] = useState<any[]>([]);
+  const [isConfirmingCompletion, setIsConfirmingCompletion] = useState(false);
+
+  // Add Team Member Modal
+  const [isAddTeamMemberModalOpen, setIsAddTeamMemberModalOpen] = useState(false);
+  const [isAddingTeamMember, setIsAddingTeamMember] = useState(false);
+  const [orgMembers, setOrgMembers] = useState<any[]>([]);
+  const [loadingOrgMembers, setLoadingOrgMembers] = useState(false);
+  const [localAllocatedMembers, setLocalAllocatedMembers] = useState<any[]>([]);
+  const [addTeamMemberForm, setAddTeamMemberForm] = useState({
+    user_id: '',
+    allocation_percentage: 50,
+    start_date: new Date().toISOString().split('T')[0],
+    end_date: ''
+  });
+
+  // Local state for issues/tasks to enable refetching
+  const [localIssues, setLocalIssues] = useState<any[]>([]);
+  const [showAbandonedTasks, setShowAbandonedTasks] = useState(false);
+  const [showAbandonConfirmation, setShowAbandonConfirmation] = useState(false);
+  const [taskToAbandon, setTaskToAbandon] = useState<any>(null);
 
   const { loading, error, project, issues, metrics, teamMembers, allocatedTeamMembers } = useProjectAnalytics(id);
+  const { orgId } = useAuth();
 
-  const openEditModal = async () => {
-    if (!project) return;
-    setIsEditModalOpen(true);
-    setIsFetchingDetails(true);
-    try {
-      const { data, error } = await supabase
-        .from('projects')
-        .select('*')
-        .eq('id', project.id)
-        .single();
-      if (error) throw error;
-      setEditForm({
-        title: data.name || '',
-        description: data.description || '',
-        status: data.status || 'active'
-      });
-    } catch (err: any) {
-      toast.error('Failed to fetch project details');
-      setIsEditModalOpen(false);
-    } finally {
-      setIsFetchingDetails(false);
-    }
-  };
-
-  const handleUpdateProject = async () => {
-    if (!project) return;
-    setIsSaving(true);
-    try {
-      const { error } = await supabase
-        .from('projects')
-        .update({
-          name: editForm.title,
-          description: editForm.description,
-          status: editForm.status
-        })
-        .eq('id', project.id);
-      if (error) throw error;
-      toast.success('Project updated successfully');
-      setIsEditModalOpen(false);
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to update project');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const openTaskModal = async (issue: any) => {
-    setIsTaskModalOpen(true);
-    setIsTaskFetching(true);
-    try {
-      const { data, error } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('id', issue.id)
-        .single();
-      if (error) throw error;
-      setTaskForm({
-        id: data.id,
-        name: data.name || '',
-        description: data.description || '',
-        status: data.status || 'not_started',
-        assignee_id: data.assignee_id || '',
-        estimated_hours: data.estimated_hours || 0,
-        start_date: data.start_date ? data.start_date.split('T')[0] : '',
-        due_date: data.due_date ? data.due_date.split('T')[0] : ''
-      });
-    } catch (err: any) {
-      toast.error('Failed to fetch task details');
-      setIsTaskModalOpen(false);
-    } finally {
-      setIsTaskFetching(false);
-    }
-  };
-
-  const handleUpdateTask = async () => {
-    setIsTaskSaving(true);
-    try {
-      const { error } = await supabase
-        .from('tasks')
-        .update({
-          name: taskForm.name,
-          description: taskForm.description,
-          status: taskForm.status,
-          assignee_id: taskForm.assignee_id || null,
-          estimated_hours: taskForm.estimated_hours,
-          start_date: taskForm.start_date || null,
-          due_date: taskForm.due_date || null
-        })
-        .eq('id', taskForm.id);
-      if (error) throw error;
-      toast.success('Task updated successfully');
-      setIsTaskModalOpen(false);
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to update task');
-    } finally {
-      setIsTaskSaving(false);
-    }
-  };
+  // Sync local issues with hook data
+  useEffect(() => {
+    setLocalIssues(issues);
+  }, [issues]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -145,17 +99,89 @@ export default function ProjectAnalytics() {
     }
   }, [selectedTaskStatus]);
 
-  const TASK_STATUSES = ['not_started', 'in_progress', 'blocked', 'completed'];
+  // Fetch organization members when modal opens
+  useEffect(() => {
+    if (isAddTeamMemberModalOpen && project) {
+      fetchOrgMembers();
+    }
+  }, [isAddTeamMemberModalOpen, project]);
+
+  // Sync local allocated members with hook data
+  useEffect(() => {
+    setLocalAllocatedMembers(allocatedTeamMembers);
+  }, [allocatedTeamMembers]);
+
+  // Refetch team data when Team tab opens
+  useEffect(() => {
+    if (activeTab === 'team' && project?.id) {
+      refetchAllocatedTeamMembers();
+    }
+  }, [activeTab, project?.id]);
+
+  // Refetch tasks when Tasks tab opens
+  useEffect(() => {
+    if (activeTab === 'tasks' && project?.id) {
+      refetchTasks();
+    }
+  }, [activeTab, project?.id]);
+
+  const fetchOrgMembers = async () => {
+    setLoadingOrgMembers(true);
+    try {
+      // Use orgId from auth context, fallback to project.organization_id
+      const organizationId = orgId || project?.organization_id;
+      
+      if (!organizationId) {
+        console.error('No organization ID available');
+        toast.error('Unable to load organization members - missing organization context');
+        return;
+      }
+
+      // Fetch from users table instead of organization_members
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, name, email')
+        .eq('organization_id', organizationId)
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+      
+      // Map the response to get user details
+      const members = data?.map((user: any) => ({
+        id: user.id,
+        email: user.email,
+        name: user.name || 'Unknown Member'
+      })) || [];
+      
+      setOrgMembers(members);
+    } catch (err: any) {
+      console.error('Error fetching organization members:', err);
+      toast.error('Failed to load organization members');
+    } finally {
+      setLoadingOrgMembers(false);
+    }
+  };
+
+  const TASK_STATUSES = ['not_started', 'in_progress', 'blocked', 'completed', 'abandoned'];
   const STATUS_COLORS: { [key: string]: string } = {
     'not_started': 'bg-[#F5F5F4] text-[#57534E]',
     'in_progress': 'bg-[#DBEAFE] text-[#1E40AF]',
     'blocked': 'bg-[#FEE2E2] text-[#991B1B]',
-    'completed': 'bg-[#DCFCE7] text-[#15803D]'
+    'completed': 'bg-[#DCFCE7] text-[#15803D]',
+    'abandoned': 'bg-[#E5E7EB] text-[#6B7280]'
   };
 
   const getStatusColor = (status: string) => {
     const normalizedStatus = status.toLowerCase().replace(' ', '_');
     return STATUS_COLORS[normalizedStatus] || STATUS_COLORS['not_started'];
+  };
+
+  const getAbandonedTasks = (tasks: any[]): any[] => {
+    return tasks.filter(task => task.status?.toLowerCase() === 'abandoned');
+  };
+
+  const getActiveTasks = (tasks: any[]): any[] => {
+    return tasks.filter(task => task.status?.toLowerCase() !== 'abandoned');
   };
 
   const updateTaskStatus = async (taskId: string, newStatus: string) => {
@@ -169,6 +195,7 @@ export default function ProjectAnalytics() {
       if (error) throw error;
       toast.success(`Task status updated to ${newStatus}`);
       setSelectedTaskStatus(null);
+      await refetchTasks();
     } catch (err: any) {
       console.error('Error updating task status:', err);
       toast.error('Failed to update task status');
@@ -177,26 +204,368 @@ export default function ProjectAnalytics() {
     }
   };
 
+  // Modal handlers
+  const openEditModal = () => {
+    if (project) {
+      setEditForm({
+        name: project.name || '',
+        description: (project as any).description || '',
+        status: (project as any).status || 'active'
+      });
+      setIsEditModalOpen(true);
+    }
+  };
+
+  const handleUpdateProject = async () => {
+    if (!project) return;
+    
+    // If status is being changed to "completed", trigger the completion check instead
+    if (editForm.status === 'completed' && project.status !== 'completed') {
+      setIsEditModalOpen(false);
+      handleCompleteProject();
+      return;
+    }
+    
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .update(editForm)
+        .eq('id', project.id);
+
+      if (error) throw error;
+      toast.success('Project updated successfully');
+      setIsEditModalOpen(false);
+    } catch (err: any) {
+      console.error('Error updating project:', err);
+      toast.error('Failed to update project');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const openTaskModal = (task: any) => {
+    setSelectedTask(task);
+    setTaskForm({
+      name: task.summary || '',
+      description: task.description || '',
+      status: task.status || 'not_started',
+      assignee_id: task.assignee_id || '',
+      estimated_hours: task.original_estimate_seconds ? Math.round(task.original_estimate_seconds / 3600) : 0,
+      start_date: task.start_date || '',
+      due_date: task.due_date || ''
+    });
+    setIsTaskModalOpen(true);
+  };
+
+  const handleUpdateTask = async () => {
+    if (!selectedTask) return;
+    setIsTaskSaving(true);
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({
+          name: taskForm.name,
+          description: taskForm.description,
+          status: taskForm.status,
+          assignee_id: taskForm.assignee_id || null,
+          estimated_hours: taskForm.estimated_hours,
+          start_date: taskForm.start_date || null,
+          due_date: taskForm.due_date || null
+        })
+        .eq('id', selectedTask.id);
+
+      if (error) throw error;
+      toast.success('Task updated successfully');
+      setIsTaskModalOpen(false);
+      await refetchTasks();
+    } catch (err: any) {
+      console.error('Error updating task:', err);
+      toast.error('Failed to update task');
+    } finally {
+      setIsTaskSaving(false);
+    }
+  };
+
+  const handleCreateTask = async () => {
+    if (!newTaskForm.name || !id) {
+      toast.error('Task name is required');
+      return;
+    }
+
+    setIsTaskSaving(true);
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .insert({
+          project_id: id,
+          name: newTaskForm.name,
+          description: newTaskForm.description,
+          estimated_hours: newTaskForm.estimated_hours,
+          assignee_id: newTaskForm.assignee_id || null,
+          due_date: newTaskForm.due_date || null,
+          status: 'not_started'
+        });
+
+      if (error) throw error;
+      toast.success('Task created successfully');
+      setIsNewTaskModalOpen(false);
+      setNewTaskForm({ name: '', description: '', estimated_hours: 0, assignee_id: '', due_date: '' });
+      await refetchTasks();
+    } catch (err: any) {
+      console.error('Error creating task:', err);
+      toast.error('Failed to create task');
+    } finally {
+      setIsTaskSaving(false);
+    }
+  };
+
+  const handleCompleteProject = () => {
+    // Filter incomplete tasks, excluding abandoned ones
+    const incomplete = localIssues.filter(i => {
+      const isAbandoned = i.status?.toLowerCase() === 'abandoned';
+      const isDone = ['done', 'resolved', 'closed', 'complete', 'completed'].some(s => i.status?.toLowerCase().includes(s));
+      return !isDone && !isAbandoned;
+    });
+    
+    if (incomplete.length > 0) {
+      setIncompleteTasks(incomplete);
+      setShowCompletionWarning(true);
+      setIsConfirmingCompletion(false); // Reset confirmation state
+    } else {
+      // All active tasks complete, allow completion
+      completeProjectWithConfirmation();
+    }
+  };
+
+  const handleCompleteAnyway = () => {
+    setIsConfirmingCompletion(true);
+  };
+
+  const handleConfirmCompletion = async () => {
+    await completeProjectWithConfirmation();
+  };
+
+  const completeProjectWithConfirmation = async () => {
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .update({ status: 'completed' })
+        .eq('id', project?.id);
+
+      if (error) throw error;
+      toast.success('Project marked as completed');
+      setShowCompletionWarning(false);
+      setIsConfirmingCompletion(false);
+      // Optionally navigate back
+      setTimeout(() => navigate('/projects'), 1500);
+    } catch (err: any) {
+      console.error('Error completing project:', err);
+      toast.error('Failed to complete project');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleMarkAsAbandoned = (task: any) => {
+    setTaskToAbandon(task);
+    setShowAbandonConfirmation(true);
+  };
+
+  const handleConfirmAbandon = async () => {
+    if (!taskToAbandon) return;
+
+    setUpdatingTask(true);
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({ status: 'abandoned' })
+        .eq('id', taskToAbandon.id);
+
+      if (error) throw error;
+      toast.success(`Task "${taskToAbandon.summary}" marked as abandoned`);
+      setShowAbandonConfirmation(false);
+      setTaskToAbandon(null);
+      setIsTaskModalOpen(false);
+      await refetchTasks();
+    } catch (err: any) {
+      console.error('Error abandoning task:', err);
+      toast.error('Failed to abandon task');
+    } finally {
+      setUpdatingTask(false);
+    }
+  };
+
+  const handleRestoreTask = async (task: any) => {
+    setUpdatingTask(true);
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({ status: 'not_started' })
+        .eq('id', task.id);
+
+      if (error) throw error;
+      toast.success(`Task "${task.summary}" restored`);
+      await refetchTasks();
+    } catch (err: any) {
+      console.error('Error restoring task:', err);
+      toast.error('Failed to restore task');
+    } finally {
+      setUpdatingTask(false);
+    }
+  };
+
+  const refetchAllocatedTeamMembers = async () => {
+    if (!project?.id) return;
+    
+    try {
+      // Fetch fresh data from project_team_allocations
+      const { data: allocations, error } = await supabase
+        .from('project_team_allocations')
+        .select('id, user_id, allocation_percentage, start_date, end_date, users(id, name, email)')
+        .eq('project_id', project.id);
+
+      if (error) throw error;
+
+      const freshMembers = allocations?.map((a: any) => ({
+        id: a.id,
+        user_id: a.user_id,
+        name: a.users?.name || 'Unknown',
+        email: a.users?.email,
+        role: 'Team Member',
+        allocated_hours: Math.round((40 * a.allocation_percentage) / 100),
+        start_date: a.start_date,
+        end_date: a.end_date,
+        allocation_percentage: a.allocation_percentage
+      })) || [];
+
+      setLocalAllocatedMembers(freshMembers);
+    } catch (err: any) {
+      console.error('Error refetching team members:', err);
+    }
+  };
+
+  const refetchTasks = async () => {
+    if (!project?.id) return;
+    
+    try {
+      // Fetch fresh task data
+      const { data: tasksData, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('project_id', project.id);
+
+      if (error) throw error;
+
+      // Fetch all organization users for mapping assignees
+      const { data: orgUsers } = await supabase
+        .from('users')
+        .select('id, name, email')
+        .eq('organization_id', project.organization_id);
+
+      const orgUsersMap = new Map(orgUsers?.map(u => [u.id, u]) || []);
+
+      // Map tasks to issues format
+      const freshIssues = (tasksData || []).map(t => {
+        const assignedUser = orgUsersMap.get(t.assignee_id);
+        return {
+          id: t.id,
+          issue_key: `TASK-${t.id.substring(0, 4)}`,
+          issue_type: 'Task',
+          summary: t.name,
+          status: t.status || 'not_started',
+          assignee: assignedUser?.name || 'Unassigned',
+          time_spent_seconds: (t.actual_hours || 0) * 3600,
+          original_estimate_seconds: (t.estimated_hours || 0) * 3600,
+          created_date: t.created_at,
+          description: t.description,
+          assignee_id: t.assignee_id,
+          estimated_hours: t.estimated_hours,
+          actual_hours: t.actual_hours,
+          start_date: t.start_date,
+          due_date: t.due_date
+        };
+      });
+
+      setLocalIssues(freshIssues);
+    } catch (err: any) {
+      console.error('Error refetching tasks:', err);
+    }
+  };
+
+  const handleAddTeamMember = async () => {
+    if (!addTeamMemberForm.user_id || !addTeamMemberForm.end_date || !project) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    setIsAddingTeamMember(true);
+    try {
+      // Validate organization context before insert
+      if (!project.organization_id) {
+        console.warn('Project missing organization_id:', project.id);
+        toast.error('Project configuration error: missing organization context');
+        return;
+      }
+
+      const { error } = await supabase
+        .from('project_team_allocations')
+        .insert({
+          project_id: project.id,
+          user_id: addTeamMemberForm.user_id,
+          allocation_percentage: addTeamMemberForm.allocation_percentage,
+          start_date: addTeamMemberForm.start_date,
+          end_date: addTeamMemberForm.end_date
+        });
+
+      if (error) {
+        console.error('Supabase error details:', {
+          message: error.message,
+          details: error.details,
+          code: error.code,
+          hint: error.hint,
+          fullError: error
+        });
+        throw error;
+      }
+      
+      toast.success('Team member added successfully');
+      setIsAddTeamMemberModalOpen(false);
+      setAddTeamMemberForm({
+        user_id: '',
+        allocation_percentage: 50,
+        start_date: new Date().toISOString().split('T')[0],
+        end_date: ''
+      });
+      
+      // Refetch allocated team members to show the newly added member
+      await refetchAllocatedTeamMembers();
+    } catch (err: any) {
+      console.error('Error adding team member:', err);
+      
+      // Show more detailed error message
+      let errorMsg = 'Failed to add team member';
+      if (err.message) {
+        errorMsg = err.message;
+        if (err.message.includes('policy')) {
+          errorMsg = 'Permission denied: ' + err.message + ' (Check if user and project are in the same organization)';
+        } else if (err.message.includes('UNIQUE')) {
+          errorMsg = 'This team member is already allocated to this project';
+        }
+      }
+      
+      toast.error(errorMsg);
+    } finally {
+      setIsAddingTeamMember(false);
+    }
+  };
+
 
   return (
     <VelocityAISidebar>
       <div className="bg-[#FAFAF9] min-h-screen p-8 md:p-12 font-['Inter',sans-serif] animate-in fade-in duration-300 relative">
         <div className="max-w-[1200px] mx-auto space-y-8">
-
-          {error && (
-            <div className="bg-white border border-red-200 rounded-[24px] p-6 text-red-800">
-              <div className="flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                <div>
-                  <h3 className="font-semibold">Unable to Load Project</h3>
-                  <p className="text-sm mt-1">{error}</p>
-                  <button onClick={() => navigate('/projects')} className="text-sm font-medium mt-3 hover:underline">
-                    Return to Projects →
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
 
           {!loading && !project && !error && (
             <div className="text-center py-12">
@@ -212,13 +581,18 @@ export default function ProjectAnalytics() {
                   <ArrowLeft className="w-4 h-4" /> Back to Projects
                 </button>
 
-                <div className="bg-white rounded-[24px] border border-[#E7E5E4] p-8 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                <div className="bg-white rounded-[24px] border border-[#E7E5E4] p-8 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative group">
+                  {/* Edit Icon - Top Right Corner */}
+                  <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <BannerEditIcon onEdit={openEditModal} isLoading={isSaving} />
+                  </div>
+
                   <div className="space-y-4">
                     <span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${metrics.isAtRisk ? 'bg-[#FFF1F2] text-[#BE123C]' : 'bg-[#F0FDFA] text-[#0F766E]'}`}>
                       {metrics.isAtRisk ? 'At Risk' : 'On Track'}
                     </span>
                     <h1 className="text-3xl md:text-4xl font-light text-[#1C1917] tracking-tight">
-                      {project.title || project.key}
+                      {project.name}
                     </h1>
                     <p className="text-sm text-[#78716C]">
                       {startDate} &rarr; Active · <span className="text-[#A8A29E]">{metrics.totalTasks} issues tracked</span>
@@ -233,9 +607,6 @@ export default function ProjectAnalytics() {
                       </div>
                       <p className="text-xs text-[#A8A29E] mt-2">Feasibility {metrics.feasibility}%</p>
                     </div>
-                    <Button onClick={openEditModal} className="bg-[#1C1917] hover:bg-[#292524] text-white rounded-xl px-6 py-6 h-auto font-light transition-all">
-                      Edit Project
-                    </Button>
                   </div>
                 </div>
 
@@ -407,16 +778,21 @@ export default function ProjectAnalytics() {
                     )}
 
                     {/* Allocated Team Members Section */}
-                    {allocatedTeamMembers.length > 0 && (
+                    {localAllocatedMembers.length > 0 && (
                       <div className="space-y-4">
-                        <div className="flex items-center gap-3">
-                          <h3 className="text-lg font-light text-[#1C1917]">Allocated Team Members</h3>
-                          <span className="text-xs font-medium bg-[#F0FDFA] text-[#0F766E] px-3 py-1 rounded-full border border-teal-100">
-                            {allocatedTeamMembers.length} members
-                          </span>
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <h3 className="text-lg font-light text-[#1C1917]">Project Team</h3>
+                            <span className="text-xs font-medium bg-[#F0FDFA] text-[#0F766E] px-3 py-1 rounded-full border border-teal-100">
+                              {localAllocatedMembers.length} members
+                            </span>
+                          </div>
+                          <Button onClick={() => setIsAddTeamMemberModalOpen(true)} className="bg-[#0F766E] hover:bg-[#0D635C] text-white rounded-xl px-4 py-2 h-auto font-light text-sm flex items-center gap-2">
+                            <Plus className="w-4 h-4" /> Add Team Member
+                          </Button>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                          {allocatedTeamMembers.map((member) => {
+                          {localAllocatedMembers.map((member) => {
                             const startD = new Date(member.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                             const endD = new Date(member.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
                             return (
@@ -597,9 +973,13 @@ export default function ProjectAnalytics() {
                       </div>
                     )}
 
-                    {allocatedTeamMembers.length === 0 && teamMembers.length === 0 && (
-                      <div className="col-span-full text-center py-12 text-[#A8A29E] bg-white rounded-[24px] border border-[#E7E5E4] border-dashed">
-                        No team members allocated or assigned to this project. Start by allocating team members or assigning tasks.
+                    {localAllocatedMembers.length === 0 && teamMembers.length === 0 && (
+                      <div className="col-span-full text-center py-16 text-[#A8A29E] bg-white rounded-[24px] border border-[#E7E5E4] border-dashed">
+                        <Users className="w-12 h-12 mx-auto mb-4 text-[#A8A29E] opacity-50" />
+                        <p className="mb-6">No team members allocated or assigned to this project yet.</p>
+                        <Button onClick={() => setIsAddTeamMemberModalOpen(true)} className="bg-[#0F766E] hover:bg-[#0D635C] text-white rounded-xl px-6 py-2 h-auto font-light flex items-center gap-2 mx-auto">
+                          <Plus className="w-4 h-4" /> Add Team Member
+                        </Button>
                       </div>
                     )}
                   </div>
@@ -607,55 +987,136 @@ export default function ProjectAnalytics() {
 
                 {/* --- TAB CONTENT: TASKS --- */}
                 {activeTab === 'tasks' && (
-                  <div className="bg-white rounded-[24px] border border-[#E7E5E4] p-8 shadow-sm animate-in fade-in duration-300">
-                    <div className="space-y-2">
-                      {issues.map(issue => {
-                        const estHours = issue.original_estimate_seconds ? Math.round(issue.original_estimate_seconds / 3600) : 0;
-                        return (
-                          // ADDED onClick and cursor-pointer to open the task edit modal
-                          <div 
-                            key={issue.id} 
-                            onClick={() => openTaskModal(issue)}
-                            className="cursor-pointer flex justify-between items-center p-4 hover:bg-[#FAFAF9] rounded-xl border border-transparent hover:border-[#E7E5E4] transition-all"
+                  <div className="space-y-6 animate-in fade-in duration-300">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <h2 className="text-lg font-light text-[#1C1917]">Tasks</h2>
+                        {getAbandonedTasks(localIssues).length > 0 && (
+                          <button
+                            onClick={() => setShowAbandonedTasks(!showAbandonedTasks)}
+                            className={`text-xs px-3 py-1.5 rounded-lg border transition-all ${
+                              showAbandonedTasks
+                                ? 'bg-[#E5E7EB] text-[#6B7280] border-gray-300'
+                                : 'bg-white text-[#78716C] border-[#E7E5E4] hover:border-[#6B7280]'
+                            }`}
+                            title={`${getAbandonedTasks(localIssues).length} abandoned task${getAbandonedTasks(localIssues).length !== 1 ? 's' : ''}`}
                           >
-                            <div>
-                              <div className="flex items-center gap-3">
-                                <span className="text-xs font-mono text-[#0F766E] bg-[#F0FDFA] px-2 py-1 rounded-md border border-teal-100">
-                                  {issue.issue_key}
-                                </span>
-                                <span className="text-[#1C1917] font-medium">{issue.summary}</span>
-                              </div>
-                              <div className="text-xs text-[#78716C] mt-2 pl-1 flex items-center gap-2">
-                                <span>{issue.issue_type}</span>
-                                <span>·</span>
-                                <span>Assigned to <span className="font-medium text-[#1C1917]">{issue.assignee || 'Unassigned'}</span></span>
-                                <span>·</span>
-                                <span className="flex items-center gap-1 font-medium text-[#1C1917]">
-                                  <Clock className="w-3 h-3 text-[#A8A29E]" />
-                                  {estHours}h est.
-                                </span>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <span className={`text-xs px-2 py-1 rounded border ${['done', 'resolved', 'closed', 'complete'].some(s => issue.status?.toLowerCase().includes(s))
-                                ? 'bg-[#F0FDFA] text-[#0F766E] border-teal-100'
-                                : 'bg-[#FFF7ED] text-[#C2410C] border-orange-100'
-                                }`}>
-                                {issue.status}
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                      {issues.length === 0 && <p className="text-center text-[#A8A29E] py-8">No issues found.</p>}
+                            {showAbandonedTasks ? '✓' : '○'} Abandoned ({getAbandonedTasks(localIssues).length})
+                          </button>
+                        )}
+                      </div>
+                      <Button onClick={() => setIsNewTaskModalOpen(true)} className="bg-[#0F766E] hover:bg-[#0D635C] text-white rounded-xl px-4 py-2 h-auto font-light transition-all flex items-center gap-2">
+                        <Plus className="w-4 h-4" /> Add Task
+                      </Button>
+                    </div>
+                    <div className="bg-white rounded-[24px] border border-[#E7E5E4] p-8 shadow-sm">
+                      <div className="space-y-2">
+                        {(() => {
+                          const tasksToDisplay = showAbandonedTasks ? localIssues : getActiveTasks(localIssues);
+                          return (
+                            <>
+                              {tasksToDisplay.map(issue => {
+                                const estHours = issue.original_estimate_seconds ? Math.round(issue.original_estimate_seconds / 3600) : 0;
+                                const isAbandoned = issue.status?.toLowerCase() === 'abandoned';
+                                return (
+                                  <div 
+                                    key={issue.id} 
+                                    onClick={() => openTaskModal(issue)}
+                                    className={`cursor-pointer flex justify-between items-center p-4 hover:bg-[#FAFAF9] rounded-xl border border-transparent hover:border-[#E7E5E4] transition-all ${isAbandoned ? 'opacity-60' : ''}`}
+                                  >
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-3">
+                                        <span className="text-xs font-mono text-[#0F766E] bg-[#F0FDFA] px-2 py-1 rounded-md border border-teal-100">
+                                          {issue.issue_key}
+                                        </span>
+                                        <span className={`text-[#1C1917] font-medium ${isAbandoned ? 'line-through text-[#A8A29E]' : ''}`}>
+                                          {issue.summary}
+                                        </span>
+                                        {isAbandoned && (
+                                          <span className="text-xs px-2 py-0.5 rounded-full bg-[#E5E7EB] text-[#6B7280] font-medium">Abandoned</span>
+                                        )}
+                                      </div>
+                                      <div className="text-xs text-[#78716C] mt-2 pl-1 flex items-center gap-2">
+                                        <span>{issue.issue_type}</span>
+                                        <span>·</span>
+                                        <span>Assigned to <span className="font-medium text-[#1C1917]">{issue.assignee || 'Unassigned'}</span></span>
+                                        <span>·</span>
+                                        <span className="flex items-center gap-1 font-medium text-[#1C1917]">
+                                          <Clock className="w-3 h-3 text-[#A8A29E]" />
+                                          {estHours}h est.
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <div className="text-right flex-shrink-0">
+                                      <span className={`text-xs px-2 py-1 rounded border ${
+                                        isAbandoned ? 'bg-[#E5E7EB] text-[#6B7280] border-gray-300' :
+                                        ['done', 'resolved', 'closed', 'complete'].some(s => issue.status?.toLowerCase().includes(s))
+                                          ? 'bg-[#F0FDFA] text-[#0F766E] border-teal-100'
+                                          : 'bg-[#FFF7ED] text-[#C2410C] border-orange-100'
+                                        }`}>
+                                        {issue.status}
+                                      </span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              {tasksToDisplay.length === 0 && (
+                                <p className="text-center text-[#A8A29E] py-8">
+                                  {showAbandonedTasks && localIssues.some(t => t.status?.toLowerCase() === 'abandoned') ? 'No abandoned tasks.' : 'No active tasks found. Create your first task using the Add Task button.'}
+                                </p>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </div>
                     </div>
                   </div>
                 )}
 
-                {/* --- TAB CONTENT: PLACEHOLDER --- */}
-                {(activeTab === 'timeline' || activeTab === 'insights') && (
-                  <div className="bg-white rounded-[24px] border border-[#E7E5E4] p-24 text-center shadow-sm">
-                    <p className="text-[#78716C]">Advanced module coming soon</p>
+                {/* --- TAB CONTENT: TIMELINE --- */}
+                {activeTab === 'timeline' && (
+                  <div className="animate-in fade-in duration-300">
+                    <TimelineContainer
+                      tasks={localIssues.map(issue => ({
+                        id: issue.id,
+                        name: issue.summary,
+                        status: (issue.status?.toLowerCase()?.replace(' ', '_') || 'not_started') as 'not_started' | 'in_progress' | 'completed' | 'abandoned',
+                        start_date: issue.start_date || null,
+                        due_date: issue.due_date || null,
+                        assignee: issue.assignee || 'Unassigned',
+                        issue_key: issue.issue_key
+                      }))}
+                      loading={loading}
+                      projectName={project?.title}
+                    />
+                  </div>
+                )}
+
+                {/* --- TAB CONTENT: AI INSIGHTS --- */}
+                {activeTab === 'insights' && (
+                  <div className="animate-in fade-in duration-300">
+                    <AIInsights
+                      tasks={localIssues.map(issue => ({
+                        id: issue.id,
+                        name: issue.summary,
+                        status: issue.status || 'not_started',
+                        start_date: issue.start_date || null,
+                        due_date: issue.due_date || null,
+                        estimated_hours: (issue.original_estimate_seconds || 0) / 3600,
+                        actual_hours: (issue.time_spent_seconds || 0) / 3600,
+                        assignee: issue.assignee || 'Unassigned',
+                        issue_key: issue.issue_key
+                      }))}
+                      teamMembers={teamMembers.map(member => ({
+                        name: member.name,
+                        tasks_assigned: member.tasks_assigned,
+                        tasks_completed: member.tasks_completed,
+                        actual_hours: member.actual_hours,
+                        status: member.status
+                      }))}
+                      loading={loading}
+                      projectName={project?.title}
+                    />
                   </div>
                 )}
               </>
@@ -664,7 +1125,226 @@ export default function ProjectAnalytics() {
         </div>
       </div>
 
-      {/* --- PROJECT EDIT MODAL --- */}
+      {/* --- COMPLETION WARNING MODAL --- */}
+      {showCompletionWarning && !isConfirmingCompletion && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowCompletionWarning(false)} />
+          <div className="relative bg-white rounded-3xl shadow-xl w-full max-w-lg p-8 animate-in zoom-in-95 duration-200">
+            <button onClick={() => setShowCompletionWarning(false)} className="absolute top-6 right-6 p-2 rounded-full hover:bg-[#F5F5F4] transition-colors" disabled={isSaving}>
+              <X className="w-5 h-5 text-[#78716C]" />
+            </button>
+
+            <div className="flex items-start gap-4 mb-6">
+              <div className="bg-[#FEE2E2] p-3 rounded-lg text-[#BE123C] flex-shrink-0 mt-1">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-light text-[#1C1917]">Incomplete Tasks Remaining</h2>
+                <p className="text-sm text-[#78716C] mt-2">
+                  This project has <span className="font-semibold text-[#1C1917]">{incompleteTasks.length}</span> incomplete task{incompleteTasks.length !== 1 ? 's' : ''} that need attention before completion.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-[#FFF1F2] border border-pink-200 rounded-xl p-4 mb-6">
+              <p className="text-sm font-medium text-[#BE123C] mb-3">Incomplete Tasks List</p>
+              <ul className="space-y-2 max-h-56 overflow-y-auto">
+                {incompleteTasks.slice(0, 5).map((task, idx) => (
+                  <li key={idx} className="text-xs text-[#78716C] flex gap-2 items-start">
+                    <span className="flex-shrink-0 text-[#BE123C] mt-0.5">•</span>
+                    <span className="flex-1">{task.summary || task.name || 'Unnamed task'}</span>
+                  </li>
+                ))}
+                {incompleteTasks.length > 5 && (
+                  <li className="text-xs text-[#BE123C] font-medium pt-2 border-t border-pink-200">
+                    +{incompleteTasks.length - 5} more incomplete task{incompleteTasks.length - 5 !== 1 ? 's' : ''}
+                  </li>
+                )}
+              </ul>
+            </div>
+
+            <div className="bg-[#F5F5F4] rounded-xl p-4 mb-6">
+              <p className="text-xs text-[#78716C] mb-2">What would you like to do?</p>
+              <ul className="text-xs text-[#78716C] space-y-1 list-disc list-inside">
+                <li>Review and complete remaining tasks</li>
+                <li>Or mark project complete anyway (not recommended)</li>
+              </ul>
+            </div>
+
+            <div className="flex flex-col gap-3 md:flex-row">
+              <Button variant="outline" className="md:flex-1 h-12 rounded-xl" onClick={() => setShowCompletionWarning(false)} disabled={isSaving}>
+                Cancel
+              </Button>
+              <Button className="md:flex-1 h-12 text-white bg-[#0F766E] hover:bg-[#0D635C] rounded-xl" onClick={() => { setShowCompletionWarning(false); setActiveTab('tasks'); }} disabled={isSaving}>
+                View Tasks
+              </Button>
+              <Button 
+                className="md:flex-1 h-12 text-white bg-[#BE123C] hover:bg-[#9D1A2F] rounded-xl disabled:opacity-50" 
+                onClick={handleCompleteAnyway}
+                disabled={isSaving}
+              >
+                Complete Anyway
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- COMPLETION CONFIRMATION MODAL --- */}
+      {isConfirmingCompletion && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-in fade-in duration-200" />
+          <div className="relative bg-white rounded-3xl shadow-xl w-full max-w-sm p-8 animate-in zoom-in-95 duration-200">
+            <div className="flex items-start gap-4 mb-6">
+              <div className="bg-[#FEE2E2] p-3 rounded-lg text-[#BE123C] flex-shrink-0 mt-1">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="text-xl font-light text-[#1C1917]">Confirm Project Completion?</h2>
+                <p className="text-sm text-[#78716C] mt-2">
+                  You're about to mark this project as complete with {incompleteTasks.length} incomplete task{incompleteTasks.length !== 1 ? 's' : ''}. This action is not easily reversible.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-[#FFF5F5] border border-pink-200 rounded-xl p-4 mb-6">
+              <p className="text-sm font-medium text-[#BE123C] mb-2">⚠️ Are you sure?</p>
+              <p className="text-xs text-[#78716C]">
+                Incomplete tasks won't be archived. Consider completing them first or removing them from the project.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <Button 
+                variant="outline" 
+                className="w-full h-12 rounded-xl" 
+                onClick={() => setIsConfirmingCompletion(false)} 
+                disabled={isSaving}
+              >
+                Go Back
+              </Button>
+              <Button 
+                className="w-full h-12 text-white bg-[#BE123C] hover:bg-[#9D1A2F] rounded-xl disabled:opacity-50" 
+                onClick={handleConfirmCompletion}
+                disabled={isSaving}
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Completing...
+                  </>
+                ) : (
+                  'Yes, Complete Project'
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- ABANDON TASK CONFIRMATION MODAL --- */}
+      {showAbandonConfirmation && taskToAbandon && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-in fade-in duration-200" />
+          <div className="relative bg-white rounded-3xl shadow-xl w-full max-w-sm p-8 animate-in zoom-in-95 duration-200">
+            <div className="flex items-start gap-4 mb-6">
+              <div className="bg-[#FEE2E2] p-3 rounded-lg text-[#BE123C] flex-shrink-0 mt-1">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="text-xl font-light text-[#1C1917]">Abandon Task?</h2>
+                <p className="text-sm text-[#78716C] mt-2">
+                  Mark "<span className="font-semibold">{taskToAbandon.summary}</span>" as abandoned. It will be excluded from completion metrics.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-[#FFF5F5] border border-pink-200 rounded-xl p-4 mb-6">
+              <p className="text-xs text-[#78716C]">
+                Abandoned tasks are hidden by default but can be restored later. They won't affect project completion percentage.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <Button 
+                variant="outline" 
+                className="w-full h-12 rounded-xl" 
+                onClick={() => { setShowAbandonConfirmation(false); setTaskToAbandon(null); }} 
+                disabled={updatingTask}
+              >
+                Cancel
+              </Button>
+              <Button 
+                className="w-full h-12 text-white bg-[#BE123C] hover:bg-[#9D1A2F] rounded-xl disabled:opacity-50" 
+                onClick={handleConfirmAbandon}
+                disabled={updatingTask}
+              >
+                {updatingTask ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Abandoning...
+                  </>
+                ) : (
+                  'Yes, Abandon Task'
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- NEW TASK MODAL --- */}
+      {isNewTaskModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => !isTaskSaving && setIsNewTaskModalOpen(false)} />
+          <div className="relative bg-white rounded-3xl shadow-xl w-full max-w-lg p-8 animate-in zoom-in-95 duration-200">
+            <button onClick={() => setIsNewTaskModalOpen(false)} className="absolute top-6 right-6 p-2 rounded-full hover:bg-[#F5F5F4] transition-colors" disabled={isTaskSaving}>
+              <X className="w-5 h-5 text-[#78716C]" />
+            </button>
+            <h2 className="text-2xl font-light text-[#1C1917] mb-6">Add Task</h2>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-[#78716C] mb-1 font-medium">Task Name</label>
+                <input type="text" value={newTaskForm.name} onChange={(e) => setNewTaskForm(prev => ({ ...prev, name: e.target.value }))} className="w-full px-4 py-3 rounded-xl border border-[#E7E5E4] focus:ring-2 focus:ring-[#0F766E]/20 focus:border-[#0F766E] transition-all" disabled={isTaskSaving} placeholder="Enter task name" />
+              </div>
+
+              <div>
+                <label className="block text-sm text-[#78716C] mb-1 font-medium">Description</label>
+                <textarea value={newTaskForm.description} onChange={(e) => setNewTaskForm(prev => ({ ...prev, description: e.target.value }))} rows={3} className="w-full px-4 py-3 rounded-xl border border-[#E7E5E4] focus:ring-2 focus:ring-[#0F766E]/20 focus:border-[#0F766E] transition-all resize-none" disabled={isTaskSaving} placeholder="Enter task description" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-[#78716C] mb-1 font-medium">Est. Hours</label>
+                  <input type="number" min="0" value={newTaskForm.estimated_hours} onChange={(e) => setNewTaskForm(prev => ({ ...prev, estimated_hours: Number(e.target.value) }))} className="w-full px-4 py-3 rounded-xl border border-[#E7E5E4] focus:ring-2 focus:ring-[#0F766E]/20 focus:border-[#0F766E]" disabled={isTaskSaving} />
+                </div>
+                <div>
+                  <label className="block text-sm text-[#78716C] mb-1 font-medium">Assignee</label>
+                  <select value={newTaskForm.assignee_id} onChange={(e) => setNewTaskForm(prev => ({ ...prev, assignee_id: e.target.value }))} className="w-full px-4 py-3 rounded-xl border border-[#E7E5E4] bg-white focus:ring-2 focus:ring-[#0F766E]/20" disabled={isTaskSaving}>
+                    <option value="">Unassigned</option>
+                    {localAllocatedMembers.map(member => (
+                      <option key={member.user_id} value={member.user_id}>{member.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm text-[#78716C] mb-1 font-medium">Due Date</label>
+                <input type="date" value={newTaskForm.due_date} onChange={(e) => setNewTaskForm(prev => ({ ...prev, due_date: e.target.value }))} className="w-full px-4 py-3 rounded-xl border border-[#E7E5E4] focus:ring-2 focus:ring-[#0F766E]/20 focus:border-[#0F766E]" disabled={isTaskSaving} />
+              </div>
+
+              <div className="pt-6 flex gap-3">
+                <Button variant="outline" className="flex-1 h-12 rounded-xl" onClick={() => setIsNewTaskModalOpen(false)} disabled={isTaskSaving}>Cancel</Button>
+                <Button className="flex-1 h-12 text-white bg-[#0F766E] hover:bg-[#0D635C] rounded-xl" onClick={handleCreateTask} disabled={isTaskSaving}>
+                  {isTaskSaving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Creating...</> : 'Create Task'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {isEditModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => !isSaving && setIsEditModalOpen(false)} />
@@ -678,8 +1358,8 @@ export default function ProjectAnalytics() {
             ) : (
               <div className="space-y-5">
                 <div>
-                  <label className="block text-sm text-[#78716C] mb-2 font-medium">Project Title</label>
-                  <input type="text" value={editForm.title} onChange={(e) => setEditForm(prev => ({ ...prev, title: e.target.value }))} className="w-full px-4 py-3 rounded-xl border border-[#E7E5E4] focus:ring-2 focus:ring-[#0F766E]/20 focus:border-[#0F766E] transition-all" disabled={isSaving} />
+                  <label className="block text-sm text-[#78716C] mb-2 font-medium">Project Name</label>
+                  <input type="text" value={editForm.name} onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))} className="w-full px-4 py-3 rounded-xl border border-[#E7E5E4] focus:ring-2 focus:ring-[#0F766E]/20 focus:border-[#0F766E] transition-all" disabled={isSaving} />
                 </div>
                 <div>
                   <label className="block text-sm text-[#78716C] mb-2 font-medium">Description</label>
@@ -741,6 +1421,7 @@ export default function ProjectAnalytics() {
                       <option value="in_progress">In Progress</option>
                       <option value="blocked">Blocked</option>
                       <option value="completed">Completed</option>
+                      <option value="abandoned">Abandoned</option>
                     </select>
                   </div>
                   <div>
@@ -748,7 +1429,7 @@ export default function ProjectAnalytics() {
                     <select value={taskForm.assignee_id} onChange={(e) => setTaskForm(prev => ({ ...prev, assignee_id: e.target.value }))} className="w-full px-4 py-3 rounded-xl border border-[#E7E5E4] bg-white focus:ring-2 focus:ring-[#0F766E]/20" disabled={isTaskSaving}>
                       <option value="">Unassigned</option>
                       {/* Pull from the Team we fetched in the hook! */}
-                      {allocatedTeamMembers.map(member => (
+                      {localAllocatedMembers.map(member => (
                         <option key={member.user_id} value={member.user_id}>{member.name}</option>
                       ))}
                     </select>
@@ -770,14 +1451,91 @@ export default function ProjectAnalytics() {
                   </div>
                 </div>
 
-                <div className="pt-6 flex gap-3">
-                  <Button variant="outline" className="flex-1 h-12 rounded-xl" onClick={() => setIsTaskModalOpen(false)} disabled={isTaskSaving}>Cancel</Button>
-                  <Button className="flex-1 h-12 text-white bg-[#0F766E] hover:bg-[#0D635C] rounded-xl" onClick={handleUpdateTask} disabled={isTaskSaving}>
-                    {isTaskSaving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...</> : 'Update Task'}
-                  </Button>
+                <div className="pt-6 flex flex-col gap-3">
+                  <div className="flex gap-3">
+                    <Button variant="outline" className="flex-1 h-12 rounded-xl" onClick={() => setIsTaskModalOpen(false)} disabled={isTaskSaving}>Cancel</Button>
+                    <Button className="flex-1 h-12 text-white bg-[#0F766E] hover:bg-[#0D635C] rounded-xl" onClick={handleUpdateTask} disabled={isTaskSaving}>
+                      {isTaskSaving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...</> : 'Update Task'}
+                    </Button>
+                  </div>
+                  
+                  {/* Abandon or Restore Task Button */}
+                  {selectedTask && (
+                    selectedTask.status?.toLowerCase() === 'abandoned' ? (
+                      <Button 
+                        variant="outline"
+                        className="w-full h-12 rounded-xl text-[#0F766E] border-[#0F766E] hover:bg-[#F0FDFA]"
+                        onClick={() => handleRestoreTask(selectedTask)}
+                        disabled={isTaskSaving}
+                      >
+                        Restore Task
+                      </Button>
+                    ) : (
+                      <Button 
+                        variant="outline"
+                        className="w-full h-12 rounded-xl text-[#BE123C] border-[#BE123C] hover:bg-[#FFF1F2]"
+                        onClick={() => handleMarkAsAbandoned(selectedTask)}
+                        disabled={isTaskSaving}
+                      >
+                        Mark as Abandoned
+                      </Button>
+                    )
+                  )}
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* --- ADD TEAM MEMBER MODAL --- */}
+      {isAddTeamMemberModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => !isAddingTeamMember && setIsAddTeamMemberModalOpen(false)} />
+          <div className="relative bg-white rounded-3xl shadow-xl w-full max-w-lg p-8 animate-in zoom-in-95 duration-200">
+            <button onClick={() => setIsAddTeamMemberModalOpen(false)} className="absolute top-6 right-6 p-2 rounded-full hover:bg-[#F5F5F4] transition-colors" disabled={isAddingTeamMember}>
+              <X className="w-5 h-5 text-[#78716C]" />
+            </button>
+            <h2 className="text-2xl font-light text-[#1C1917] mb-6">Add Team Member</h2>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-[#78716C] mb-1 font-medium">Team Member *</label>
+                <select value={addTeamMemberForm.user_id} onChange={(e) => setAddTeamMemberForm(prev => ({ ...prev, user_id: e.target.value }))} className="w-full px-4 py-3 rounded-xl border border-[#E7E5E4] bg-white focus:ring-2 focus:ring-[#0F766E]/20 focus:border-[#0F766E]" disabled={isAddingTeamMember || loadingOrgMembers}>
+                  <option value="">{loadingOrgMembers ? 'Loading members...' : 'Select a member from organization'}</option>
+                  {orgMembers.map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {member.name} {member.email ? `(${member.email})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-[#78716C] mb-1 font-medium">Allocation %</label>
+                  <input type="number" min="0" max="100" value={addTeamMemberForm.allocation_percentage} onChange={(e) => setAddTeamMemberForm(prev => ({ ...prev, allocation_percentage: Number(e.target.value) }))} className="w-full px-4 py-3 rounded-xl border border-[#E7E5E4] focus:ring-2 focus:ring-[#0F766E]/20 focus:border-[#0F766E]" disabled={isAddingTeamMember} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-[#78716C] mb-1 font-medium">Start Date *</label>
+                  <input type="date" value={addTeamMemberForm.start_date} onChange={(e) => setAddTeamMemberForm(prev => ({ ...prev, start_date: e.target.value }))} className="w-full px-4 py-3 rounded-xl border border-[#E7E5E4] focus:ring-2 focus:ring-[#0F766E]/20 focus:border-[#0F766E]" disabled={isAddingTeamMember} />
+                </div>
+                <div>
+                  <label className="block text-sm text-[#78716C] mb-1 font-medium">End Date *</label>
+                  <input type="date" value={addTeamMemberForm.end_date} onChange={(e) => setAddTeamMemberForm(prev => ({ ...prev, end_date: e.target.value }))} className="w-full px-4 py-3 rounded-xl border border-[#E7E5E4] focus:ring-2 focus:ring-[#0F766E]/20 focus:border-[#0F766E]" disabled={isAddingTeamMember} />
+                </div>
+              </div>
+
+              <div className="pt-6 flex gap-3">
+                <Button variant="outline" className="flex-1 h-12 rounded-xl" onClick={() => setIsAddTeamMemberModalOpen(false)} disabled={isAddingTeamMember}>Cancel</Button>
+                <Button className="flex-1 h-12 text-white bg-[#0F766E] hover:bg-[#0D635C] rounded-xl" onClick={handleAddTeamMember} disabled={isAddingTeamMember}>
+                  {isAddingTeamMember ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Adding...</> : 'Add Member'}
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       )}

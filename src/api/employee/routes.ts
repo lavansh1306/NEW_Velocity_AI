@@ -7,6 +7,7 @@
 import express, { Request, Response } from 'express';
 import { verifySupabaseToken } from '../authMiddleware.js';
 import * as db from './db.js';
+import { ensureLeaveTypesExist, ensureLeaveBalancesExist } from '../leave/provisioning.js';
 
 const router = express.Router();
 
@@ -81,7 +82,18 @@ router.post('/leave-requests/:id/withdraw', async (req: Request, res: Response) 
 router.get('/leave-types', async (_req: Request, res: Response) => {
   try {
     const { organizationId } = res.locals;
-    const data = await db.getLeaveTypes(organizationId);
+    let data = await db.getLeaveTypes(organizationId);
+
+    // Auto-provision default leave types if none exist yet
+    if (!data || data.length === 0) {
+      try {
+        await ensureLeaveTypesExist(organizationId);
+        data = await db.getLeaveTypes(organizationId);
+      } catch (provErr: any) {
+        console.warn('[Employee] Non-blocking: leave type provisioning failed:', provErr?.message);
+      }
+    }
+
     res.json({ success: true, data });
   } catch (err: any) {
     console.error('[Employee] GET leave-types error:', err?.message || err);
@@ -95,7 +107,18 @@ router.get('/leave-types', async (_req: Request, res: Response) => {
 router.get('/leave-balances', async (_req: Request, res: Response) => {
   try {
     const { authUserId, organizationId } = res.locals;
-    const data = await db.getLeaveBalances(organizationId, authUserId);
+    let data = await db.getLeaveBalances(organizationId, authUserId);
+
+    // Auto-provision leave balances if none exist yet (handles existing employees)
+    if (!data || data.length === 0) {
+      try {
+        await ensureLeaveBalancesExist(organizationId, authUserId);
+        data = await db.getLeaveBalances(organizationId, authUserId);
+      } catch (provErr: any) {
+        console.warn('[Employee] Non-blocking: leave provisioning failed:', provErr?.message);
+      }
+    }
+
     res.json({ success: true, data });
   } catch (err: any) {
     console.error('[Employee] GET leave-balances error:', err?.message || err);

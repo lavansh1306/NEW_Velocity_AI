@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Popover, PopoverContent, PopoverTrigger, PopoverAnchor } from '@/components/ui/popover';
+import { Popover, PopoverContent } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -129,7 +129,7 @@ export const DashboardScreen = () => {
                 </div>
                 <div className="flex items-center gap-3">
                     <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-                        <PopoverAnchor asChild>
+                        <div>
                             <Select value={dateRangeParam} onValueChange={(val) => {
                                 setDateRangeParam(val);
                                 if (val === 'custom') setIsCalendarOpen(true);
@@ -144,7 +144,7 @@ export const DashboardScreen = () => {
                                     <SelectItem value="custom">Custom Range</SelectItem>
                                 </SelectContent>
                             </Select>
-                        </PopoverAnchor>
+                        </div>
                         <PopoverContent className="w-auto p-4 bg-white shadow-xl rounded-2xl border-[#E7E5E4]" align="end">
                             <Calendar mode="range" selected={tempCustomRange} onSelect={setTempCustomRange} numberOfMonths={2} className="mb-4" />
                             <div className="flex justify-end gap-2 pt-4 border-t border-[#E7E5E4]">

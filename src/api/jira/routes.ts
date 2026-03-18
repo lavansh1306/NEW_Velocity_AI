@@ -1,9 +1,9 @@
 // src/api/jira/routes.ts
 // API routes for Jira multi-tenant integration — all data scoped by org_id
 import express, { Request, Response } from 'express';
-import { jiraAuth } from './auth';
-import { upsertProjects, upsertIssues, getProjects, getIssues, getAllIssues, getJiraConnection, findUserOrg, type DBJiraIssue } from './db';
-import * as db from './db';
+import { jiraAuth } from './auth.js';
+import { upsertProjects, upsertIssues, getProjects, getIssues, getAllIssues, getJiraConnection, findUserOrg, type DBJiraIssue } from './db.js';
+import * as db from './db.js';
 
 const router = express.Router();
 
@@ -929,6 +929,54 @@ router.get('/db/all-issues', async (req: Request, res: Response) => {
   } catch (err) {
     console.error('[Jira DB] Error reading all issues:', err);
     res.status(500).json({ error: 'Failed to read issues from database' });
+  }
+});
+
+// Debug endpoint - check Jira data status
+router.get('/debug/data-status', async (req: Request, res: Response) => {
+  try {
+    console.log('[Jira Debug] Checking data status...');
+    
+    const orgId = req.session?.orgId;
+    if (!orgId) {
+      return res.status(400).json({ error: 'No organization found in session' });
+    }
+
+    console.log('[Jira Debug] Org ID:', orgId);
+
+    // Get connections
+    const connections = await db.getJiraConnections(orgId);
+    console.log('[Jira Debug] Found', connections.length, 'connections');
+
+    // Get projects count
+    const projects = await db.getProjects(orgId);
+    console.log('[Jira Debug] Found', projects.length, 'projects');
+
+    // Get issues count
+    const issues = await db.getAllIssues(orgId);
+    console.log('[Jira Debug] Found', issues.length, 'issues');
+
+    res.json({
+      orgId,
+      connections: {
+        count: connections.length,
+        data: connections.map((c) => ({
+          id: c.id,
+          cloudId: c.cloud_id,
+          siteName: c.site_name,
+          connected: true,
+        })),
+      },
+      projects: {
+        count: projects.length,
+      },
+      issues: {
+        count: issues.length,
+      },
+    });
+  } catch (err) {
+    console.error('[Jira Debug] Error:', err);
+    res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
   }
 });
 
