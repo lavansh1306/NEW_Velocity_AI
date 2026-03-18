@@ -61,6 +61,8 @@ export interface JiraIssue {
   time_spent_seconds: number | null;
   original_estimate_seconds: number | null;
   created_date: string;
+  start_date?: string | null;
+  due_date?: string | null;
 }
 
 interface ProjectData {
@@ -324,7 +326,9 @@ export function useProjectAnalytics(projectId: string | undefined) {
               assignee: assignedUser?.name || 'Unassigned', // Will ALWAYS resolve if ID exists
               time_spent_seconds: (t.actual_hours || 0) * 3600,
               original_estimate_seconds: (t.estimated_hours || 0) * 3600,
-              created_date: t.created_at
+              created_date: t.created_at,
+              start_date: t.start_date || null,
+              due_date: t.due_date || null
             };
           });
           
@@ -387,7 +391,9 @@ export function useProjectAnalytics(projectId: string | undefined) {
                     assignee: assignedUser?.name || 'Unassigned',
                     time_spent_seconds: (t.actual_hours || 0) * 3600,
                     original_estimate_seconds: (t.estimated_hours || 0) * 3600,
-                    created_date: t.created_at
+                    created_date: t.created_at,
+                    start_date: t.start_date || null,
+                    due_date: t.due_date || null
                   };
                 });
 

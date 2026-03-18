@@ -7,6 +7,8 @@ import { useProjectAnalytics } from '@/hooks/useProjectAnalytics';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
+import { TimelineContainer } from './timeline';
+import { AIInsights } from './insights';
 import {
   ArrowLeft, LayoutGrid, Users, CheckSquare,
   Clock, Lightbulb, Sparkles, Loader2, ChevronDown, ChevronUp, X, Plus, AlertTriangle, TrendingDown
@@ -1073,213 +1075,48 @@ export default function ProjectAnalytics() {
 
                 {/* --- TAB CONTENT: TIMELINE --- */}
                 {activeTab === 'timeline' && (
-                  <div className="space-y-6 animate-in fade-in duration-300">
-                    <div className="bg-white rounded-[24px] border border-[#E7E5E4] p-8 shadow-sm">
-                      <h3 className="text-lg font-light text-[#1C1917] mb-6">Project Timeline</h3>
-                      <div className="space-y-6">
-                        {/* Gantt Chart Container */}
-                        <div className="overflow-x-auto">
-                          <div className="min-w-full">
-                            {/* Timeline Header */}
-                            <div className="flex gap-4 mb-4">
-                              <div className="w-40 flex-shrink-0">
-                                <p className="text-xs font-medium text-[#78716C] uppercase">Phases & Milestones</p>
-                              </div>
-                              <div className="flex-1 grid grid-cols-12 gap-2 text-xs text-[#78716C] font-medium uppercase">
-                                {Array.from({ length: 12 }).map((_, i) => (
-                                  <div key={i} className="text-center">W{i + 1}</div>
-                                ))}
-                              </div>
-                            </div>
-
-                            {/* Sample Phase Rows */}
-                            {[
-                              { name: 'Planning & Setup', progress: 100, color: 'bg-[#0F766E]' },
-                              { name: 'Development', progress: 65, color: 'bg-[#0E7490]' },
-                              { name: 'Testing & QA', progress: 35, color: 'bg-[#D97706]' },
-                              { name: 'Deployment', progress: 0, color: 'bg-[#7C3AED]' }
-                            ].map((phase, idx) => (
-                              <div key={idx} className="flex gap-4 mb-4 items-center">
-                                <div className="w-40 flex-shrink-0">
-                                  <p className="text-sm font-medium text-[#1C1917]">{phase.name}</p>
-                                </div>
-                                <div className="flex-1 grid grid-cols-12 gap-2">
-                                  {Array.from({ length: 12 }).map((_, i) => {
-                                    const isActive = i < Math.ceil(12 * phase.progress / 100);
-                                    return (
-                                      <div 
-                                        key={i} 
-                                        className={`h-6 rounded ${isActive ? phase.color : 'bg-[#E7E5E4]'} transition-colors`}
-                                      />
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Timeline Statistics */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-6 border-t border-[#E7E5E4]">
-                          <div>
-                            <p className="text-xs text-[#78716C] font-light">Project Start</p>
-                            <p className="text-sm font-medium text-[#1C1917] mt-1">
-                              {project?.created_at ? new Date(project.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-'}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-[#78716C] font-light">Current Progress</p>
-                            <p className="text-sm font-medium text-[#1C1917] mt-1">{metrics.completionPct}%</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-[#78716C] font-light">Weeks Remaining</p>
-                            <p className="text-sm font-medium text-[#1C1917] mt-1">~4 weeks</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-[#78716C] font-light">Status</p>
-                            <span className={`text-xs font-medium px-2 py-1 rounded-full mt-1 inline-block ${metrics.isAtRisk ? 'bg-[#FFF1F2] text-[#BE123C]' : 'bg-[#F0FDFA] text-[#0F766E]'}`}>
-                              {metrics.isAtRisk ? 'At Risk' : 'On Track'}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                  <div className="animate-in fade-in duration-300">
+                    <TimelineContainer
+                      tasks={localIssues.map(issue => ({
+                        id: issue.id,
+                        name: issue.summary,
+                        status: (issue.status?.toLowerCase()?.replace(' ', '_') || 'not_started') as 'not_started' | 'in_progress' | 'completed' | 'abandoned',
+                        start_date: issue.start_date || null,
+                        due_date: issue.due_date || null,
+                        assignee: issue.assignee || 'Unassigned',
+                        issue_key: issue.issue_key
+                      }))}
+                      loading={loading}
+                      projectName={project?.title}
+                    />
                   </div>
                 )}
 
                 {/* --- TAB CONTENT: AI INSIGHTS --- */}
                 {activeTab === 'insights' && (
-                  <div className="space-y-6 animate-in fade-in duration-300">
-                    {/* Risk Detection */}
-                    <div className="bg-white rounded-[24px] border border-[#E7E5E4] p-8 shadow-sm">
-                      <div className="flex items-center gap-3 mb-6">
-                        <div className="bg-[#FEE2E2] p-2 rounded-lg text-[#BE123C]">
-                          <AlertTriangle className="w-5 h-5" />
-                        </div>
-                        <h3 className="text-lg font-light text-[#1C1917]">Risk Detection</h3>
-                      </div>
-
-                      <div className="space-y-4">
-                        {(() => {
-                          const risks = [];
-                          
-                          if (metrics.actualHours > metrics.totalEstHours * 0.9) {
-                            risks.push({
-                              level: 'critical',
-                              title: 'Hours Overrun',
-                              description: `Project is using ${Math.round((metrics.actualHours / metrics.totalEstHours) * 100)}% of estimated hours.`,
-                              icon: TrendingDown
-                            });
-                          }
-                          
-                          if (metrics.completionPct < 50 && metrics.completionPct > 0) {
-                            risks.push({
-                              level: 'warning',
-                              title: 'Slower Than Expected Progress',
-                              description: `Only ${metrics.completionPct}% of tasks completed. Recommend accelerating delivery.`,
-                              icon: Clock
-                            });
-                          }
-
-                          const overloadedCount = teamMembers.filter(m => m.status === 'Overloaded').length;
-                          if (overloadedCount > 0) {
-                            risks.push({
-                              level: 'warning',
-                              title: 'Team Overload',
-                              description: `${overloadedCount} team member(s) are overloaded. Consider redistributing tasks.`,
-                              icon: Users  
-                            });
-                          }
-
-                          if (metrics.completionPct === 0) {
-                            risks.push({
-                              level: 'info',
-                              title: 'Project Just Started',
-                              description: 'No tasks completed yet. Begin work on high-priority items.',
-                              icon: Sparkles
-                            });
-                          }
-
-                          return risks.length > 0 ? (
-                            risks.map((risk, idx) => {
-                              const RiskIcon = risk.icon;
-                              const isWarning = risk.level === 'critical';
-                              return (
-                                <div key={idx} className={`border-l-4 p-4 rounded-lg ${
-                                  isWarning ? 'border-[#BE123C] bg-[#FFF1F2]' :
-                                  risk.level === 'warning' ? 'border-[#D97706] bg-[#FFF7ED]' :
-                                  'border-[#0F766E] bg-[#F0FDFA]'
-                                }`}>
-                                  <div className="flex items-start gap-3">
-                                    <RiskIcon className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
-                                      isWarning ? 'text-[#BE123C]' :
-                                      risk.level === 'warning' ? 'text-[#D97706]' :
-                                      'text-[#0F766E]'
-                                    }`} />
-                                    <div className="flex-1">
-                                      <p className={`font-medium text-sm ${
-                                        isWarning ? 'text-[#BE123C]' :
-                                        risk.level === 'warning' ? 'text-[#D97706]' :
-                                        'text-[#0F766E]'
-                                      }`}>
-                                        {risk.title}
-                                      </p>
-                                      <p className="text-xs text-[#78716C] mt-1">{risk.description}</p>
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })
-                          ) : (
-                            <div className="text-center py-8 text-[#A8A29E]">
-                              <p className="text-sm">Project is healthy! No critical risks detected.</p>
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    </div>
-
-                    {/* Recommendations */}
-                    <div className="bg-white rounded-[24px] border border-[#E7E5E4] p-8 shadow-sm">
-                      <div className="flex items-center gap-3 mb-6">
-                        <div className="bg-[#F0FDFA] p-2 rounded-lg text-[#0F766E]">
-                          <Sparkles className="w-5 h-5" />
-                        </div>
-                        <h3 className="text-lg font-light text-[#1C1917]">AI Recommendations</h3>
-                      </div>
-
-                      <ul className="space-y-3">
-                        {(() => {
-                          const recommendations = [];
-                          
-                          if (metrics.actualHours > metrics.totalEstHours) {
-                            recommendations.push('Review scope and consider descoping lower-priority features to stay within budget');
-                          }
-                          
-                          if (metrics.completionPct < 30) {
-                            recommendations.push('Prioritize high-impact tasks and unblock any dependencies');
-                          }
-
-                          const underutilized = teamMembers.filter(m => m.status === 'Underutilized').length;
-                          if (underutilized > 0) {
-                            recommendations.push(`Utilize ${underutilized} underutilized team member(s) to accelerate progress`);
-                          }
-
-                          if (incompleteTasks.length > 0) {
-                            recommendations.push('Create a plan to complete remaining tasks before project closure');
-                          }
-
-                          recommendations.push('Schedule weekly check-ins to monitor progress against timeline');
-
-                          return recommendations.map((rec, idx) => (
-                            <li key={idx} className="flex gap-3 text-sm">
-                              <span className="text-[#0F766E] font-bold flex-shrink-0">•</span>
-                              <span className="text-[#1C1917]">{rec}</span>
-                            </li>
-                          ));
-                        })()}
-                      </ul>
-                    </div>
+                  <div className="animate-in fade-in duration-300">
+                    <AIInsights
+                      tasks={localIssues.map(issue => ({
+                        id: issue.id,
+                        name: issue.summary,
+                        status: issue.status || 'not_started',
+                        start_date: issue.start_date || null,
+                        due_date: issue.due_date || null,
+                        estimated_hours: (issue.original_estimate_seconds || 0) / 3600,
+                        actual_hours: (issue.time_spent_seconds || 0) / 3600,
+                        assignee: issue.assignee || 'Unassigned',
+                        issue_key: issue.issue_key
+                      }))}
+                      teamMembers={teamMembers.map(member => ({
+                        name: member.name,
+                        tasks_assigned: member.tasks_assigned,
+                        tasks_completed: member.tasks_completed,
+                        actual_hours: member.actual_hours,
+                        status: member.status
+                      }))}
+                      loading={loading}
+                      projectName={project?.title}
+                    />
                   </div>
                 )}
               </>
