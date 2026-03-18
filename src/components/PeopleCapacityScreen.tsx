@@ -37,7 +37,6 @@ import { useSimulatedLoading } from '@/hooks/useSimulatedLoading';
 import { supabase } from '@/lib/supabase';
 import { getCurrentOrgId } from '@/lib/orgContext';
 import { peopleService } from '../services/peopleService';
-import { teamMembersView, pendingSkillsView, personDetailsMap } from '../data/mockData';
 import type { TeamMemberView, PendingSkillView, PersonDetailView } from '../types';
 
 const UtilizationBar = ({ value }: { value: number }) => {
@@ -605,9 +604,9 @@ export const PeopleCapacityScreen = () => {
             setTeamMembers(membersWithProjects);
             setPendingSkills(filteredSkills);
         } catch (error) {
-            toast.error('Failed to load live data. Falling back to mock data.');
-            setTeamMembers(teamMembersView);
-            setPendingSkills(pendingSkillsView);
+            console.error('Error loading team data:', error);
+            toast.error('Failed to load team members data.');
+            // No fallback - use only dynamic data
         } finally {
             setIsLoading(false);
         }
@@ -679,7 +678,8 @@ export const PeopleCapacityScreen = () => {
     const fetchDetail = async (name: string, userId?: string) => {
         if (allPersonDetails[name]) return;
         try {
-            const detail = await peopleService.fetchPersonDetails(name);
+            // Use userId if available (more reliable than name matching)
+            const detail = await peopleService.fetchPersonDetails(userId || name);
             
             // Fetch dynamic capacity timeline if userId is provided
             if (userId) {
@@ -690,8 +690,8 @@ export const PeopleCapacityScreen = () => {
             setAllPersonDetails(prev => ({ ...prev, [name]: detail }));
         } catch (error) {
             console.error('Error fetching detail:', error);
-            // Fallback
-            setAllPersonDetails(prev => ({ ...prev, [name]: personDetailsMap[name] || personDetailsMap[Object.keys(personDetailsMap)[0]] }));
+            toast.error('Failed to load person details.');
+            // No fallback - use only dynamic data
         }
     };
 

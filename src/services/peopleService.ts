@@ -113,16 +113,27 @@ export const peopleService = {
         }));
     },
 
-    async fetchPersonDetails(userName: string): Promise<PersonDetailView> {
-        // First find user by name or email
-        const { data: user, error: userError } = await supabase
-            .from('users')
-            .select('id')
-            .or(`name.eq."${userName}",email.eq."${userName}"`)
-            .single();
+    async fetchPersonDetails(userIdOrName: string): Promise<PersonDetailView> {
+        // Determine if input is a UUID or a name
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userIdOrName);
+        
+        let userId: string;
+        
+        if (isUUID) {
+            // Direct UUID, use it
+            userId = userIdOrName;
+        } else {
+            // Name provided, find user by name (prefer exact name match over email to reduce ambiguity)
+            const { data: user, error: userError } = await supabase
+                .from('users')
+                .select('id')
+                .eq('name', userIdOrName)
+                .single();
 
-        if (userError || !user) {
-            throw userError || new Error('User not found');
+            if (userError || !user) {
+                throw userError || new Error(`User "${userIdOrName}" not found`);
+            }
+            userId = user.id;
         }
 
         const { data: details, error: detailsError } = await supabase
@@ -143,7 +154,7 @@ export const peopleService = {
           proficiency_level
         )
       `)
-            .eq('id', user.id)
+            .eq('id', userId)
             .single();
 
         if (detailsError) {
