@@ -68,7 +68,7 @@ export interface JiraIssue {
 interface ProjectData {
   id: string;
   key: string;
-  title: string;
+  name: string;
   created_at: string;
   status?: string;
   team_id?: string;
@@ -224,7 +224,7 @@ export function useProjectAnalytics(projectId: string | undefined) {
           projData = {
             id: internalProj.id,
             key: internalProj.id.substring(0, 5).toUpperCase(),
-            title: internalProj.name,
+            name: internalProj.name,
             created_at: internalProj.created_at,
             team_id: internalProj.team_id,
             organization_id: internalProj.organization_id
@@ -233,7 +233,7 @@ export function useProjectAnalytics(projectId: string | undefined) {
         } else {
           const { data: jiraProj } = await supabase.from('jira_projects').select('*').eq(isUUID ? 'id' : 'project_key', projectId).single();
           if (jiraProj) {
-            projData = { id: jiraProj.id, key: jiraProj.project_key, title: jiraProj.name, created_at: jiraProj.created_at };
+            projData = { id: jiraProj.id, key: jiraProj.project_key, name: jiraProj.name, created_at: jiraProj.created_at };
           }
         }
 
