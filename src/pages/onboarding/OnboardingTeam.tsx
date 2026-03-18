@@ -34,6 +34,8 @@ export default function OnboardingTeam() {
   const [csvData, setCSVData] = useState<string>('');
   const [csvInputMode, setCSVInputMode] = useState<'upload' | 'paste'>('upload');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [activeSkillInput, setActiveSkillInput] = useState<number | null>(null);
+  const [newSkillText, setNewSkillText] = useState<string>('');
 
   const addMember = () => {
     setMembers([...members, { name: '', email: '', role: '', skills: [] }]);
@@ -279,6 +281,55 @@ David Lee,david@example.com,Frontend Developer`;
                   {(!member.skills || member.skills.length === 0) && (
                     <span className="text-xs text-[#A8A29E] italic">None</span>
                   )}
+                  {/* Add Skill Button */}
+                  <div className="relative inline-block self-center">
+                    {activeSkillInput === idx ? (
+                      <Input
+                        value={newSkillText}
+                        onChange={(e) => setNewSkillText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            const trimmed = newSkillText.trim();
+                            if (trimmed) {
+                              const currentSkills = member.skills || [];
+                              if (!currentSkills.includes(trimmed)) {
+                                updateMember(idx, 'skills', [...currentSkills, trimmed]);
+                              }
+                            }
+                            setNewSkillText('');
+                            setActiveSkillInput(null);
+                          } else if (e.key === 'Escape') {
+                            setNewSkillText('');
+                            setActiveSkillInput(null);
+                          }
+                        }}
+                        onBlur={() => {
+                          const trimmed = newSkillText.trim();
+                          if (trimmed) {
+                            const currentSkills = member.skills || [];
+                            if (!currentSkills.includes(trimmed)) {
+                              updateMember(idx, 'skills', [...currentSkills, trimmed]);
+                            }
+                          }
+                          setNewSkillText('');
+                          setActiveSkillInput(null);
+                        }}
+                        autoFocus
+                        className="h-6 w-20 px-1 py-0 text-xs border-[#E7E5E4] focus:border-[#0F766E] focus:ring-1 focus:ring-[#0F766E]"
+                      />
+                    ) : (
+                      <button 
+                        onClick={() => {
+                          setActiveSkillInput(idx);
+                          setNewSkillText('');
+                        }}
+                        className="flex items-center justify-center p-1 rounded-full border border-dashed border-teal-200 bg-teal-50/30 text-teal-600 hover:bg-teal-100 transition-colors"
+                        title="Add Skill"
+                      >
+                        <Plus className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <button 
                   onClick={() => removeMember(idx)}
