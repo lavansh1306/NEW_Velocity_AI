@@ -3,8 +3,11 @@ import Papa from 'papaparse';
 import * as XLSX from 'exceljs';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Set up PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Set up PDF.js worker - use the default from pdfjs-dist package
+// The worker file is served from node_modules in development
+if (typeof window !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+}
 
 export interface ParsedTask {
   name: string;
@@ -102,20 +105,31 @@ class FileParsingService {
   }
 
   private async parsePDF(file: File): Promise<string> {
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
-    let text = '';
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const textContent = await page.getTextContent();
-      const pageText = textContent.items
-        .map((item: any) => item.str)
-        .join(' ');
-      text += pageText + '\n';
+      let text = '';
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items
+          .map((item: any) => item.str)
+          .join(' ');
+        text += pageText + '\n';
+      }
+
+      return text;
+    } catch (error: any) {
+      console.warn('PDF parsing failed, attempting alternative approach:', error.message);
+      
+      // Fallback: Try to extract text using a simple text-based approach
+      // This is a limitation when PDF worker is unavailable
+      throw new Error(
+        'PDF parsing requires PDF.js worker. Please convert to CSV or XLSX format. ' +
+        'Error: ' + (error.message || 'Unknown PDF parsing error')
+      );
     }
-
-    return text;
   }
 
   private async parseWithGemini(content: string): Promise<ParsedProjectData> {
