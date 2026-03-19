@@ -310,6 +310,103 @@ export async function bulkUpdateStatus(organizationId: string, userId: string, s
   return data;
 }
 
+// ---------- Task Actions ----------
+
+export async function updateTaskStatus(taskId: string, userId: string, status: string) {
+  const client = getClient();
+
+  // Verify ownership
+  const { data: task, error: fetchErr } = await client
+    .from('tasks')
+    .select('id, assignee_id')
+    .eq('id', taskId)
+    .maybeSingle();
+
+  if (fetchErr) throw fetchErr;
+  if (!task) throw new Error('Task not found');
+  if (task.assignee_id !== userId) throw new Error('Not authorized to update this task');
+
+  const { data, error } = await client
+    .from('tasks')
+    .update({ status })
+    .eq('id', taskId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function addTaskBlocker(
+  taskId: string,
+  userId: string,
+  blockerDescription: string,
+  blockingUserName?: string,
+) {
+  const client = getClient();
+
+  // Verify ownership
+  const { data: task, error: fetchErr } = await client
+    .from('tasks')
+    .select('id, assignee_id')
+    .eq('id', taskId)
+    .maybeSingle();
+
+  if (fetchErr) throw fetchErr;
+  if (!task) throw new Error('Task not found');
+  if (task.assignee_id !== userId) throw new Error('Not authorized');
+
+  // Insert blocker
+  const { data: blocker, error: blockerErr } = await client
+    .from('task_blockers')
+    .insert({
+      task_id: taskId,
+      blocker_description: blockerDescription,
+      blocking_user_name: blockingUserName || null,
+      created_by: userId,
+    })
+    .select()
+    .single();
+
+  if (blockerErr) throw blockerErr;
+
+  // Mark task as blocked
+  await client.from('tasks').update({ is_blocked: true }).eq('id', taskId);
+
+  return blocker;
+}
+
+export async function resolveTaskBlocker(blockerId: string, taskId: string, userId: string) {
+  const client = getClient();
+
+  // Verify ownership
+  const { data: task } = await client
+    .from('tasks')
+    .select('id, assignee_id')
+    .eq('id', taskId)
+    .maybeSingle();
+
+  if (!task || task.assignee_id !== userId) throw new Error('Not authorized');
+
+  await client
+    .from('task_blockers')
+    .update({ resolved: true, resolved_at: new Date().toISOString() })
+    .eq('id', blockerId);
+
+  // Check if any unresolved blockers remain
+  const { data: remaining } = await client
+    .from('task_blockers')
+    .select('id')
+    .eq('task_id', taskId)
+    .eq('resolved', false);
+
+  if (!remaining || remaining.length === 0) {
+    await client.from('tasks').update({ is_blocked: false }).eq('id', taskId);
+  }
+
+  return { success: true };
+}
+
 // ---------- Dashboard Data ----------
 
 export async function getEmployeeTasks(organizationId: string, userId: string) {
@@ -342,13 +439,292 @@ export async function getEmployeeTasks(organizationId: string, userId: string) {
 }
 
 export async function getEmployeeAlerts(organizationId: string, userId: string) {
-  // alerts table exists but is empty, return empty array
-  return [];
+  const client = getClient();
+  const alerts: Array<{
+    id: string; type: 'warning' | 'info' | 'success';
+    icon: string; title: string; description: string;
+    secondaryText?: string; actionLabel?: string; actionPath?: string;
+    bgColor: string; borderColor: string;
+    _severity: number; // internal sort key (lower = more urgent)
+  }> = [];
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayISO = today.toISOString().split('T')[0];
+
+  try {
+    // Run all queries in parallel
+    const [overdueRes, upcomingRes, timesheetRes, balancesRes, leavesRes, pendingLeavesRes] = await Promise.all([
+      // 1. Overdue tasks
+      client
+        .from('tasks')
+        .select('id, name, due_date, projects ( name )')
+        .eq('assignee_id', userId)
+        .not('status', 'ilike', '%completed%')
+        .not('status', 'ilike', '%done%')
+        .not('status', 'ilike', '%abandoned%')
+        .lt('due_date', todayISO)
+        .order('due_date', { ascending: true })
+        .limit(5),
+
+      // 2. Upcoming deadlines (next 3 days)
+      client
+        .from('tasks')
+        .select('id, name, due_date, projects ( name )')
+        .eq('assignee_id', userId)
+        .not('status', 'ilike', '%completed%')
+        .not('status', 'ilike', '%done%')
+        .not('status', 'ilike', '%abandoned%')
+        .gte('due_date', todayISO)
+        .lte('due_date', new Date(today.getTime() + 3 * 86400000).toISOString().split('T')[0])
+        .order('due_date', { ascending: true })
+        .limit(5),
+
+      // 3. Timesheet check — any entries for current week?
+      (() => {
+        const dayOfWeek = today.getDay(); // 0=Sun
+        const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+        const weekStart = new Date(today.getTime() + mondayOffset * 86400000);
+        const weekEnd = new Date(weekStart.getTime() + 6 * 86400000);
+        return client
+          .from('timesheets')
+          .select('id, status')
+          .eq('organization_id', organizationId)
+          .eq('user_id', userId)
+          .gte('work_date', weekStart.toISOString().split('T')[0])
+          .lte('work_date', weekEnd.toISOString().split('T')[0])
+          .limit(1);
+      })(),
+
+      // 4. Leave balances (current year)
+      client
+        .from('employee_leave_balances')
+        .select('id, leave_type_id, total_allocated, leave_types ( name )')
+        .eq('organization_id', organizationId)
+        .eq('user_id', userId)
+        .eq('year', today.getFullYear()),
+
+      // 5. Approved leave requests for used-days calc
+      client
+        .from('leave_requests')
+        .select('leave_type_id, start_date, end_date')
+        .eq('organization_id', organizationId)
+        .eq('user_id', userId)
+        .eq('status', 'approved')
+        .gte('start_date', `${today.getFullYear()}-01-01`)
+        .lte('start_date', `${today.getFullYear()}-12-31`),
+
+      // 6. Pending leave requests older than 2 days
+      client
+        .from('leave_requests')
+        .select('id, leave_type_id, start_date, end_date, created_at, leave_types ( name )')
+        .eq('organization_id', organizationId)
+        .eq('user_id', userId)
+        .eq('status', 'pending')
+        .lt('created_at', new Date(today.getTime() - 2 * 86400000).toISOString())
+        .limit(5),
+    ]);
+
+    // --- 1. Overdue tasks ---
+    for (const task of (overdueRes.data || [])) {
+      if (!task.due_date) continue;
+      const daysOverdue = Math.floor((today.getTime() - new Date(task.due_date).getTime()) / 86400000);
+      const projectName = (task as any).projects?.name || 'Unknown Project';
+      alerts.push({
+        id: `overdue-${task.id}`,
+        type: 'warning',
+        icon: '🔴',
+        title: 'Overdue Task',
+        description: `${task.name} is overdue by ${daysOverdue} day${daysOverdue !== 1 ? 's' : ''}`,
+        secondaryText: projectName,
+        actionLabel: 'View Projects',
+        actionPath: '/app/employee/my-projects',
+        bgColor: 'bg-[#FEF2F2]',
+        borderColor: 'border-[#FECACA]',
+        _severity: 1,
+      });
+    }
+
+    // --- 2. Upcoming deadlines ---
+    for (const task of (upcomingRes.data || [])) {
+      if (!task.due_date) continue;
+      const daysUntil = Math.ceil((new Date(task.due_date).getTime() - today.getTime()) / 86400000);
+      const projectName = (task as any).projects?.name || 'Unknown Project';
+      const label = daysUntil === 0 ? 'due today' : `due in ${daysUntil} day${daysUntil !== 1 ? 's' : ''}`;
+      alerts.push({
+        id: `upcoming-${task.id}`,
+        type: 'warning',
+        icon: '🟡',
+        title: 'Upcoming Deadline',
+        description: `${task.name} ${label}`,
+        secondaryText: projectName,
+        actionLabel: 'View Projects',
+        actionPath: '/app/employee/my-projects',
+        bgColor: 'bg-[#FFFBEB]',
+        borderColor: 'border-[#FDE68A]',
+        _severity: 2,
+      });
+    }
+
+    // --- 3. Pending timesheet (Wed–Fri only) ---
+    const dayOfWeek = today.getDay();
+    if (dayOfWeek >= 3 && dayOfWeek <= 5) {
+      const hasEntries = (timesheetRes.data || []).length > 0;
+      const allSubmitted = hasEntries && (timesheetRes.data || []).every((e: any) => e.status === 'Submitted');
+      if (!hasEntries || !allSubmitted) {
+        const mondayOffset = 1 - dayOfWeek;
+        const weekStart = new Date(today.getTime() + mondayOffset * 86400000);
+        const weekEnd = new Date(weekStart.getTime() + 4 * 86400000);
+        const fmt = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        alerts.push({
+          id: `timesheet-${weekStart.toISOString().split('T')[0]}`,
+          type: 'warning',
+          icon: '⏰',
+          title: 'Timesheet Due',
+          description: `Submit your timesheet for ${fmt(weekStart)} – ${fmt(weekEnd)} by Friday`,
+          actionLabel: 'Open Timesheet',
+          actionPath: '/app/employee/time',
+          bgColor: 'bg-[#FFFBEB]',
+          borderColor: 'border-[#D6D3D1]',
+          _severity: 3,
+        });
+      }
+    }
+
+    // --- 4. Low leave balance ---
+    const usedByType: Record<string, number> = {};
+    for (const req of (leavesRes.data || [])) {
+      if (!req.leave_type_id || !req.start_date || !req.end_date) continue;
+      const days = Math.ceil((new Date(req.end_date).getTime() - new Date(req.start_date).getTime()) / 86400000) + 1;
+      usedByType[req.leave_type_id] = (usedByType[req.leave_type_id] || 0) + days;
+    }
+    for (const bal of (balancesRes.data || [])) {
+      const total = (bal as any).total_allocated || 0;
+      const used = usedByType[bal.leave_type_id] || 0;
+      const remaining = Math.max(0, total - used);
+      const typeName = (bal as any).leave_types?.name || 'Leave';
+      if (remaining <= 2) {
+        alerts.push({
+          id: `low-leave-${bal.leave_type_id}`,
+          type: 'info',
+          icon: '📋',
+          title: 'Low Leave Balance',
+          description: `You have ${remaining === 0 ? 'no' : `only ${remaining}`} ${typeName} day${remaining !== 1 ? 's' : ''} remaining`,
+          actionLabel: 'View Balance',
+          actionPath: '/app/employee/time?tab=leave',
+          bgColor: 'bg-[#F0FDFA]',
+          borderColor: 'border-[#99F6E4]',
+          _severity: 4,
+        });
+      }
+    }
+
+    // --- 5. Pending leave requests (> 2 days old) ---
+    for (const leave of (pendingLeavesRes.data || [])) {
+      const typeName = (leave as any).leave_types?.name || 'Leave';
+      const fmt = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const daysPending = Math.floor((today.getTime() - new Date(leave.created_at).getTime()) / 86400000);
+      alerts.push({
+        id: `pending-leave-${leave.id}`,
+        type: 'info',
+        icon: '📋',
+        title: 'Leave Request Pending',
+        description: `Your ${typeName} request for ${fmt(leave.start_date)} – ${fmt(leave.end_date)} is awaiting approval`,
+        secondaryText: `Pending for ${daysPending} day${daysPending !== 1 ? 's' : ''}`,
+        actionLabel: 'View Request',
+        actionPath: '/app/employee/time?tab=leave',
+        bgColor: 'bg-[#F0FDFA]',
+        borderColor: 'border-[#99F6E4]',
+        _severity: 5,
+      });
+    }
+  } catch (err: any) {
+    console.error('[EmployeeDB] getEmployeeAlerts error:', err?.message);
+    // Non-fatal: return whatever we have so far
+  }
+
+  // Sort by severity, limit to 10
+  alerts.sort((a, b) => a._severity - b._severity);
+  return alerts.slice(0, 10).map(({ _severity, ...alert }) => alert);
 }
 
 export async function getEmployeeActivities(organizationId: string, userId: string, limit: number = 5) {
-  // activities table exists but is empty, return empty array
-  return [];
+  const client = getClient();
+  const activities: Array<{ id: string; timestamp: string; description: string; _sortDate: string }> = [];
+
+  try {
+    // Fetch recent leave requests and timesheet entries in parallel
+    const [leaveRes, timesheetRes] = await Promise.all([
+      client
+        .from('leave_requests')
+        .select('id, status, start_date, end_date, created_at, leave_types ( name )')
+        .eq('organization_id', organizationId)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(limit),
+
+      client
+        .from('timesheets')
+        .select('id, work_date, status, updated_at')
+        .eq('organization_id', organizationId)
+        .eq('user_id', userId)
+        .eq('status', 'Submitted')
+        .order('updated_at', { ascending: false })
+        .limit(limit),
+    ]);
+
+    const fmtTime = (iso: string) => {
+      const d = new Date(iso);
+      const now = new Date();
+      const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000);
+      const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      if (diffDays === 0) return `Today, ${time}`;
+      if (diffDays === 1) return `Yesterday, ${time}`;
+      return `${diffDays} days ago`;
+    };
+
+    const fmtDate = (iso: string) =>
+      new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+    // Leave request activities
+    for (const lr of (leaveRes.data || [])) {
+      const typeName = (lr as any).leave_types?.name || 'Leave';
+      const range = `${fmtDate(lr.start_date)} – ${fmtDate(lr.end_date)}`;
+      let desc = '';
+      if (lr.status === 'pending') desc = `Requested ${typeName} for ${range}`;
+      else if (lr.status === 'approved') desc = `${typeName} for ${range} was approved`;
+      else if (lr.status === 'rejected') desc = `${typeName} for ${range} was declined`;
+      else if (lr.status === 'withdrawn') desc = `Withdrew ${typeName} request for ${range}`;
+      else desc = `${typeName} request updated (${lr.status})`;
+
+      activities.push({
+        id: `leave-${lr.id}`,
+        timestamp: fmtTime(lr.created_at),
+        description: desc,
+        _sortDate: lr.created_at,
+      });
+    }
+
+    // Timesheet submission activities (group by week)
+    const seenWeeks = new Set<string>();
+    for (const ts of (timesheetRes.data || [])) {
+      const weekKey = ts.work_date?.slice(0, 7); // month-level dedup
+      if (seenWeeks.has(weekKey)) continue;
+      seenWeeks.add(weekKey);
+      activities.push({
+        id: `timesheet-${ts.id}`,
+        timestamp: fmtTime(ts.updated_at || ts.work_date),
+        description: `Submitted timesheet for week of ${fmtDate(ts.work_date)}`,
+        _sortDate: ts.updated_at || ts.work_date,
+      });
+    }
+  } catch (err: any) {
+    console.error('[EmployeeDB] getEmployeeActivities error:', err?.message);
+  }
+
+  // Sort by most recent, limit
+  activities.sort((a, b) => new Date(b._sortDate).getTime() - new Date(a._sortDate).getTime());
+  return activities.slice(0, limit).map(({ _sortDate, ...a }) => a);
 }
 
 export async function getUserProfile(organizationId: string, userId: string) {

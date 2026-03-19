@@ -200,6 +200,65 @@ router.post('/timesheets/submit', async (req: Request, res: Response) => {
   }
 });
 
+// ---------- Task Actions ----------
+
+// PUT /api/employee/tasks/:id/status
+router.put('/tasks/:id/status', async (req: Request, res: Response) => {
+  try {
+    const { authUserId } = res.locals;
+    const id = req.params.id as string;
+    const { status } = req.body;
+    if (!status) return res.status(400).json({ error: 'status is required' });
+    const data = await db.updateTaskStatus(id, authUserId, status);
+    res.json({ success: true, data });
+  } catch (err: any) {
+    console.error('[Employee] PUT tasks/:id/status error:', err?.message);
+    res.status(err?.message?.includes('authorized') ? 403 : 500).json({ error: err?.message || 'Failed to update task' });
+  }
+});
+
+// POST /api/employee/tasks/:id/complete
+router.post('/tasks/:id/complete', async (req: Request, res: Response) => {
+  try {
+    const { authUserId } = res.locals;
+    const id = req.params.id as string;
+    const data = await db.updateTaskStatus(id, authUserId, 'Completed');
+    res.json({ success: true, data });
+  } catch (err: any) {
+    console.error('[Employee] POST tasks/:id/complete error:', err?.message);
+    res.status(err?.message?.includes('authorized') ? 403 : 500).json({ error: err?.message || 'Failed to complete task' });
+  }
+});
+
+// POST /api/employee/tasks/:id/blockers
+router.post('/tasks/:id/blockers', async (req: Request, res: Response) => {
+  try {
+    const { authUserId } = res.locals;
+    const id = req.params.id as string;
+    const { blocker_description, blocking_user_name } = req.body;
+    if (!blocker_description) return res.status(400).json({ error: 'blocker_description is required' });
+    const data = await db.addTaskBlocker(id, authUserId, blocker_description, blocking_user_name);
+    res.json({ success: true, data });
+  } catch (err: any) {
+    console.error('[Employee] POST tasks/:id/blockers error:', err?.message);
+    res.status(err?.message?.includes('authorized') ? 403 : 500).json({ error: err?.message || 'Failed to add blocker' });
+  }
+});
+
+// PUT /api/employee/tasks/:id/blockers/:blockerId/resolve
+router.put('/tasks/:id/blockers/:blockerId/resolve', async (req: Request, res: Response) => {
+  try {
+    const { authUserId } = res.locals;
+    const id = req.params.id as string;
+    const blockerId = req.params.blockerId as string;
+    await db.resolveTaskBlocker(blockerId, id, authUserId);
+    res.json({ success: true });
+  } catch (err: any) {
+    console.error('[Employee] PUT tasks/:id/blockers/:blockerId/resolve error:', err?.message);
+    res.status(err?.message?.includes('authorized') ? 403 : 500).json({ error: err?.message || 'Failed to resolve blocker' });
+  }
+});
+
 // ---------- Dashboard ----------
 
 // GET /api/employee/dashboard
