@@ -5,9 +5,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Plus, X, Copy, RefreshCw, Users, Loader2 } from 'lucide-react';
+import { Plus, X, Copy, RefreshCw, Users, Loader2, Check } from 'lucide-react';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
+import { apiUrl } from '@/lib/api';
 
 const SettingsScreen = () => {
   const [loading, setLoading] = useState(true);
@@ -28,6 +30,11 @@ const SettingsScreen = () => {
   const [showHolidayForm, setShowHolidayForm] = useState(false);
   const [newHolidayName, setNewHolidayName] = useState('');
   const [newHolidayDate, setNewHolidayDate] = useState('');
+
+  // Team invite data
+  const [teams, setTeams] = useState<any[]>([]);
+  const [copiedTeamId, setCopiedTeamId] = useState<string | null>(null);
+  const { session } = useAuth();
 
   // Dummy states for UI elements not present in DB schema
   const [overloadThreshold, setOverloadThreshold] = useState(110);
@@ -61,6 +68,14 @@ const SettingsScreen = () => {
 
         if (orgRes.data) setOrgData(orgRes.data);
         if (holidayRes.data) setHolidays(holidayRes.data);
+
+        // Fetch teams with invite info
+        const { data: teamData } = await supabase
+          .from('teams')
+          .select('*')
+          .eq('organization_id', orgId)
+          .order('created_at', { ascending: true });
+        if (teamData) setTeams(teamData);
 
         setIntegrations([
           { name: 'Jira', description: 'Import projects and track tasks', connected: (jiraRes.data?.length ?? 0) > 0 },
@@ -175,26 +190,33 @@ const SettingsScreen = () => {
     }
   };
 
-  // 6. Invite Code Management
-  const generateNewInviteCode = async () => {
+  // 6. Team Invite Code Management
+  const regenerateTeamInvite = async (teamId: string, teamName: string) => {
     try {
-      const newCode = `ORG-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-      const { error } = await supabase
-        .from('organizations')
-        .update({ invite_code: newCode })
-        .eq('id', orgData.id);
+      const resp = await fetch(apiUrl(`/api/organization/teams/${teamId}/regenerate-invite`), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({ teamName }),
+      });
+      const body = await resp.json();
+      if (!resp.ok || !body.success) throw new Error(body.error || 'Failed');
 
-      if (error) throw error;
-      setOrgData({ ...orgData, invite_code: newCode });
-      toast.success("Generated new invite code");
-    } catch (error) {
-      toast.error("Failed to generate invite code");
+      // Update local state
+      setTeams(prev => prev.map(t => t.id === teamId ? body.team : t));
+      toast.success('Invite code regenerated');
+    } catch {
+      toast.error('Failed to regenerate invite code');
     }
   };
 
-  const copyInviteCode = () => {
-    navigator.clipboard.writeText(orgData?.invite_code || "");
-    toast.success("Invite code copied!");
+  const copyTeamInviteCode = (teamId: string, code: string) => {
+    navigator.clipboard.writeText(code);
+    setCopiedTeamId(teamId);
+    setTimeout(() => setCopiedTeamId(null), 2000);
+    toast.success('Invite code copied!');
   };
 
   if (loading) {
@@ -263,47 +285,59 @@ const SettingsScreen = () => {
                   </Button>
                 </form>
 
-                {/* Invite Code Showcase */}
+                {/* Team Invite Codes */}
                 <div className="space-y-6 p-8 rounded-2xl bg-stone-50/50 border border-stone-100">
                   <div className="flex items-center gap-2 mb-2">
                     <Users className="w-5 h-5 text-[#1C1917]" />
-                    <h3 className="text-sm font-medium text-[#1C1917]">Team Recruitment</h3>
+                    <h3 className="text-sm font-medium text-[#1C1917]">Team Invite Codes</h3>
                   </div>
+                  <p className="text-xs text-[#A8A29E] font-light -mt-3">Share these codes with new members to invite them to specific teams.</p>
 
-                  <div className="space-y-4">
-                    <div>
-                      <Label className="text-xs font-light text-[#78716C] mb-2 block">Organization Invite Code</Label>
-                      <div className="flex gap-2">
-                        <div className="relative flex-1">
-                          <Input
-                            readOnly
-                            value={orgData?.invite_code || "None Set"}
-                            className="h-11 pr-10 rounded-xl border-white/20 bg-white font-mono text-xs tracking-wider"
-                          />
-                          <button type="button" onClick={copyInviteCode} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#A8A29E] hover:text-[#1C1917]">
-                            <Copy className="w-4 h-4" />
-                          </button>
+                  {teams.length === 0 ? (
+                    <p className="text-sm text-[#A8A29E] font-light py-4 text-center">No teams found.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {teams.map(team => (
+                        <div key={team.id} className="bg-white rounded-xl border border-stone-100 p-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium text-[#1C1917]">{team.name}</p>
+                              <p className="text-[10px] text-[#A8A29E] font-light mt-0.5">
+                                {team.invite_use_count || 0} member{(team.invite_use_count || 0) !== 1 ? 's' : ''} joined · Role: <span className="capitalize">{team.invite_role || 'employee'}</span>
+                              </p>
+                            </div>
+                            <StatusBadge status={team.invite_is_active ? "Active" : "Inactive"} />
+                          </div>
+
+                          <div className="flex gap-2">
+                            <div className="relative flex-1">
+                              <Input
+                                readOnly
+                                value={team.invite_code || 'None Set'}
+                                className="h-10 pr-10 rounded-lg border-stone-100 bg-[#FAFAF9] font-mono text-xs tracking-wider"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => team.invite_code && copyTeamInviteCode(team.id, team.invite_code)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#A8A29E] hover:text-[#1C1917]"
+                              >
+                                {copiedTeamId === team.id ? <Check className="w-4 h-4 text-[#0F766E]" /> : <Copy className="w-4 h-4" />}
+                              </button>
+                            </div>
+                            <Button
+                              type="button"
+                              onClick={() => regenerateTeamInvite(team.id, team.name)}
+                              variant="outline"
+                              className="h-10 w-10 p-0 rounded-lg border-stone-100 bg-white"
+                              title="Regenerate invite code"
+                            >
+                              <RefreshCw className="w-4 h-4 text-[#78716C]" />
+                            </Button>
+                          </div>
                         </div>
-                        <Button type="button" onClick={generateNewInviteCode} variant="outline" className="h-11 w-11 p-0 rounded-xl border-white/20 bg-white">
-                          <RefreshCw className="w-4 h-4 text-[#78716C]" />
-                        </Button>
-                      </div>
-                      <p className="text-[10px] text-[#A8A29E] mt-2 italic">
-                        Usage count: {orgData?.invite_use_count || 0} members joined via this code
-                      </p>
+                      ))}
                     </div>
-
-                    <div className="pt-4 border-t border-stone-200/50">
-                      <div className="flex items-center justify-between mb-4">
-                        <span className="text-xs text-[#78716C]">Invite Status</span>
-                        <StatusBadge status={orgData?.invite_is_active ? "Active" : "Inactive"} />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-[#78716C]">Joining Role</span>
-                        <span className="text-xs font-medium text-[#1C1917] capitalize">{orgData?.invite_role || 'employee'}</span>
-                      </div>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
             </div>
