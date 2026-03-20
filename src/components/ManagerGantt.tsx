@@ -11,6 +11,7 @@ export interface Issue {
   priority: string
   status: string
   assignee: string
+  assignee_id?: string
   team: string
   start: string | null
   due: string | null
@@ -30,6 +31,7 @@ interface ColorGradient {
 
 interface AssigneeRow {
   assignee: string
+  assignee_id?: string
   tasks: TaskWithDates[]
 }
 
@@ -37,6 +39,7 @@ interface TaskWithDates extends Issue {
   _start: Date
   _end: Date
   _projectKey: string
+  _assigneeId?: string
 }
 
 function formatDate(d: Date): string {
@@ -81,9 +84,10 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
   // When jiraIssues are provided externally, use those
   useEffect(() => {
     if (externalJiraIssues && externalJiraIssues.length > 0) {
-      // Convert Jira issues to internal Issue format
+      // Convert Jira issues to internal Issue format, preserving assignee_id
       const convertedTasks: JiraIssue[] = externalJiraIssues.map(issue => ({
         ...issue,
+        assignee_id: issue.assignee_id || (issue as any).assigneeId,
       }))
       setTasks(convertedTasks)
       
@@ -156,6 +160,7 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
               priority: ticket.priority || 'Medium',
               status: ticket.stage || ticket.status || 'Open',
               assignee: ticket.assignee || 'Unassigned',
+              assignee_id: ticket.assigneeId || ticket.assignee_id || undefined,
               team: 'Sales',
               start: ticket.createdAt || null,
               due: ticket.closedAt || ticket.dueDate || null,
@@ -189,6 +194,7 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
               priority: task.priority || 'Medium',
               status: task.status || 'Open',
               assignee: task.assignee || 'Unassigned',
+              assignee_id: task.assigneeId || task.assignee_id || undefined,
               team: 'Operations',
               start: task.startDate || task.createdDateTime || null,
               due: task.dueDate || null,
@@ -274,7 +280,13 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
 
       if (end.getTime() < start.getTime()) end = new Date(start.getTime())
 
-      byAssignee[assignee].push({ ...t, _start: start, _end: end, _projectKey: projectKey })
+      byAssignee[assignee].push({ 
+        ...t, 
+        _start: start, 
+        _end: end, 
+        _projectKey: projectKey,
+        _assigneeId: t.assignee_id
+      })
 
       if (!isNaN(start.getTime())) min = min ? (start < min ? start : min) : start
       if (!isNaN(end.getTime())) max = max ? (end > max ? end : max) : end
@@ -303,10 +315,16 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
     })
 
     const assigneeNames = Object.keys(byAssignee).sort()
-    const assigneeRows: AssigneeRow[] = assigneeNames.map(name => ({
-      assignee: name,
-      tasks: byAssignee[name].sort((a, b) => a._start.getTime() - b._start.getTime())
-    }))
+    const assigneeRows: AssigneeRow[] = assigneeNames.map(name => {
+      const tasks = byAssignee[name].sort((a, b) => a._start.getTime() - b._start.getTime())
+      // Get assignee_id from the first task (all tasks for an assignee should have the same id)
+      const assignee_id = tasks.length > 0 ? tasks[0].assignee_id : undefined
+      return {
+        assignee: name,
+        assignee_id,
+        tasks
+      }
+    })
 
     return { assigneeRows, minDate: min, maxDate: max, totalUnits, dateMarkers: markers, colorMap, allProjects: projectKeys }
   }, [tasks])
@@ -571,6 +589,13 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
                   <label className="text-sm font-semibold text-[#78716C]">Assignee</label>
                   <p className="text-[#1C1917]">{selectedTask.assignee || 'Unassigned'}</p>
                 </div>
+                <div>
+                  <label className="text-sm font-semibold text-[#78716C]">Assignee ID</label>
+                  <p className="text-[#1C1917] font-mono text-xs">{selectedTask._assigneeId || '-'}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-semibold text-[#78716C]">Priority</label>
                   <p className="text-[#1C1917]">{selectedTask.priority || '-'}</p>

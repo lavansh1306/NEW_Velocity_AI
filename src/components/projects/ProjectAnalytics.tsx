@@ -45,11 +45,16 @@ export default function ProjectAnalytics() {
 
   // New Task Modal
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
+  const getTodayDateString = () => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  };
   const [newTaskForm, setNewTaskForm] = useState({
     name: '',
     description: '',
     estimated_hours: 0,
     assignee_id: '',
+    start_date: getTodayDateString(),
     due_date: ''
   });
 
@@ -184,6 +189,16 @@ export default function ProjectAnalytics() {
     return tasks.filter(task => task.status?.toLowerCase() !== 'abandoned');
   };
 
+  // Calculate estimated hours based on days between start and due date
+  const calculateEstimatedHours = (start: string, due: string) => {
+    if (!start || !due) return 0;
+    const startDateObj = new Date(start);
+    const dueDateObj = new Date(due);
+    const diffTime = Math.abs(dueDateObj.getTime() - startDateObj.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 to include the first day
+    return diffDays * 8; // 8 hours per day
+  };
+
   const updateTaskStatus = async (taskId: string, newStatus: string) => {
     setUpdatingTask(true);
     try {
@@ -303,6 +318,7 @@ export default function ProjectAnalytics() {
           description: newTaskForm.description,
           estimated_hours: newTaskForm.estimated_hours,
           assignee_id: newTaskForm.assignee_id || null,
+          start_date: newTaskForm.start_date || null,
           due_date: newTaskForm.due_date || null,
           status: 'not_started'
         });
@@ -310,7 +326,7 @@ export default function ProjectAnalytics() {
       if (error) throw error;
       toast.success('Task created successfully');
       setIsNewTaskModalOpen(false);
-      setNewTaskForm({ name: '', description: '', estimated_hours: 0, assignee_id: '', due_date: '' });
+      setNewTaskForm({ name: '', description: '', estimated_hours: 0, assignee_id: '', start_date: getTodayDateString(), due_date: '' });
       await refetchTasks();
     } catch (err: any) {
       console.error('Error creating task:', err);
@@ -1330,9 +1346,29 @@ export default function ProjectAnalytics() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm text-[#78716C] mb-1 font-medium">Due Date</label>
-                <input type="date" value={newTaskForm.due_date} onChange={(e) => setNewTaskForm(prev => ({ ...prev, due_date: e.target.value }))} className="w-full px-4 py-3 rounded-xl border border-[#E7E5E4] focus:ring-2 focus:ring-[#0F766E]/20 focus:border-[#0F766E]" disabled={isTaskSaving} />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-[#78716C] mb-1 font-medium">Start Date</label>
+                  <input type="date" value={newTaskForm.start_date} onChange={(e) => {
+                    const newStart = e.target.value;
+                    const updatedForm = { ...newTaskForm, start_date: newStart };
+                    if (updatedForm.start_date && updatedForm.due_date) {
+                      updatedForm.estimated_hours = calculateEstimatedHours(updatedForm.start_date, updatedForm.due_date);
+                    }
+                    setNewTaskForm(updatedForm);
+                  }} className="w-full px-4 py-3 rounded-xl border border-[#E7E5E4] focus:ring-2 focus:ring-[#0F766E]/20 focus:border-[#0F766E]" disabled={isTaskSaving} />
+                </div>
+                <div>
+                  <label className="block text-sm text-[#78716C] mb-1 font-medium">Due Date</label>
+                  <input type="date" value={newTaskForm.due_date} onChange={(e) => {
+                    const newDue = e.target.value;
+                    const updatedForm = { ...newTaskForm, due_date: newDue };
+                    if (updatedForm.start_date && updatedForm.due_date) {
+                      updatedForm.estimated_hours = calculateEstimatedHours(updatedForm.start_date, updatedForm.due_date);
+                    }
+                    setNewTaskForm(updatedForm);
+                  }} className="w-full px-4 py-3 rounded-xl border border-[#E7E5E4] focus:ring-2 focus:ring-[#0F766E]/20 focus:border-[#0F766E]" disabled={isTaskSaving} />
+                </div>
               </div>
 
               <div className="pt-6 flex gap-3">
@@ -1443,11 +1479,25 @@ export default function ProjectAnalytics() {
                   </div>
                   <div>
                     <label className="block text-sm text-[#78716C] mb-1 font-medium">Start Date</label>
-                    <input type="date" value={taskForm.start_date} onChange={(e) => setTaskForm(prev => ({ ...prev, start_date: e.target.value }))} className="w-full px-4 py-3 rounded-xl border border-[#E7E5E4] focus:ring-2 focus:ring-[#0F766E]/20 focus:border-[#0F766E]" disabled={isTaskSaving} />
+                    <input type="date" value={taskForm.start_date} onChange={(e) => {
+                      const newStart = e.target.value;
+                      const updatedForm = { ...taskForm, start_date: newStart };
+                      if (updatedForm.start_date && updatedForm.due_date) {
+                        updatedForm.estimated_hours = calculateEstimatedHours(updatedForm.start_date, updatedForm.due_date);
+                      }
+                      setTaskForm(updatedForm);
+                    }} className="w-full px-4 py-3 rounded-xl border border-[#E7E5E4] focus:ring-2 focus:ring-[#0F766E]/20 focus:border-[#0F766E]" disabled={isTaskSaving} />
                   </div>
                   <div>
                     <label className="block text-sm text-[#78716C] mb-1 font-medium">Due Date</label>
-                    <input type="date" value={taskForm.due_date} onChange={(e) => setTaskForm(prev => ({ ...prev, due_date: e.target.value }))} className="w-full px-4 py-3 rounded-xl border border-[#E7E5E4] focus:ring-2 focus:ring-[#0F766E]/20 focus:border-[#0F766E]" disabled={isTaskSaving} />
+                    <input type="date" value={taskForm.due_date} onChange={(e) => {
+                      const newDue = e.target.value;
+                      const updatedForm = { ...taskForm, due_date: newDue };
+                      if (updatedForm.start_date && updatedForm.due_date) {
+                        updatedForm.estimated_hours = calculateEstimatedHours(updatedForm.start_date, updatedForm.due_date);
+                      }
+                      setTaskForm(updatedForm);
+                    }} className="w-full px-4 py-3 rounded-xl border border-[#E7E5E4] focus:ring-2 focus:ring-[#0F766E]/20 focus:border-[#0F766E]" disabled={isTaskSaving} />
                   </div>
                 </div>
 

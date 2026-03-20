@@ -12,6 +12,7 @@ export interface JiraIssue {
   priority: string
   status: string
   assignee: string
+  assignee_id?: string
   team: string
   start: string | null
   due: string | null
@@ -64,6 +65,7 @@ export function useJiraData(): UseJiraDataReturn {
           priority: iss.priority || 'Medium',
           status: iss.status || 'Open',
           assignee: iss.assignee || 'Unassigned',
+          assignee_id: (iss as any).assignee_id || undefined,
           team: iss.team || 'Engineering',
           start,
           due,

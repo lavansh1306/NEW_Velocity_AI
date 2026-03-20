@@ -25,22 +25,7 @@ export default function OnboardingWelcome() {
     }
   };
 
-  const handleSkip = async () => {
-    if (!orgId && orgName.trim()) {
-      try {
-        await createOrganization(orgName.trim(), teamName.trim() || undefined);
-      } catch {
-        // proceed anyway
-      }
-    } else if (!orgId) {
-      try {
-        await createOrganization('My Team');
-      } catch {
-        // proceed anyway
-      }
-    }
-    navigate('/onboarding/complete');
-  };
+
 
   return (
     <div className="min-h-screen bg-[#FDFDFB] font-['Inter',sans-serif] relative overflow-hidden">
@@ -53,9 +38,6 @@ export default function OnboardingWelcome() {
       {/* Top Bar */}
       <div className="relative z-10 h-14 bg-[#FAFAF9]/80 backdrop-blur-sm border-b border-[#E7E5E4] px-8 flex items-center justify-between">
         <span className="text-xs text-[#A8A29E]">Step 1 of 4</span>
-        <button onClick={handleSkip} className="text-sm text-[#78716C] hover:text-[#1C1917] transition-colors">
-          Skip Setup
-        </button>
       </div>
 
       <div className="relative z-10 flex flex-col items-center pt-20 max-w-[600px] mx-auto px-4">

@@ -25,12 +25,18 @@ interface TeamMember {
 }
 
 export const MainDashboard = () => {
-  const [currentMonth, setCurrentMonth] = useState(new Date(2026, 1, 1));
+  const [currentWeekStart, setCurrentWeekStart] = useState(() => {
+    const today = new Date(2026, 1, 1);
+    const day = today.getDay();
+    const diff = today.getDate() - day + (day === 0 ? -6 : 1); // Adjust when Sunday is 0
+    return new Date(today.setDate(diff));
+  });
   const [projectDeadlines, setProjectDeadlines] = useState<ProjectDeadline[]>([]);
   const [loading, setLoading] = useState(false);
   const [metrics, setMetrics] = useState<any[]>([]);
   const [teamCapacity, setTeamCapacity] = useState<TeamMember[]>([]);
   const [capacityPopup, setCapacityPopup] = useState<any>(null);
+  const [weeklyCapacityData, setWeeklyCapacityData] = useState<Map<string, {available: number, used: number}>>(new Map());
 
   // Fetch and calculate all dashboard data from Jira/DB
   useEffect(() => {
@@ -135,6 +141,107 @@ export const MainDashboard = () => {
         const availableCapacity = Math.max(0, totalCapacity - usedCapacity);
         const utilization = totalCapacity > 0 ? Math.round((usedCapacity / totalCapacity) * 100) : 0;
 
+        // Calculate team capacity from issues EARLY (needed for weekly calculations)
+        const teamMap = new Map<string, TeamMember>();
+        
+        issues.forEach(issue => {
+          if (!issue.assignee) return;
+          
+          if (!teamMap.has(issue.assignee)) {
+            teamMap.set(issue.assignee, {
+              name: issue.assignee,
+              email: issue.assigneeEmail || '',
+              assignments: [],
+            });
+          }
+
+          const member = teamMap.get(issue.assignee)!;
+          
+          // Use start/due dates, or fall back to created/due or created/today
+          const startDate = issue.start ? new Date(issue.start) : (issue.created ? new Date(issue.created) : today);
+          const dueDate = issue.due ? new Date(issue.due) : (issue.start ? new Date(issue.start) : today);
+          
+          // Only add if dates are valid
+          if (!isNaN(startDate.getTime()) && !isNaN(dueDate.getTime())) {
+            let status: 'onTrack' | 'atRisk' | 'available' = 'available';
+            if (dueDate < today && issue.status !== 'Done') {
+              status = 'atRisk';
+            } else if (issue.status === 'In Progress' || issue.status === 'In_Progress') {
+              status = 'onTrack';
+            }
+
+            member.assignments.push({
+              name: issue.summary || 'Task',
+              startDate,
+              dueDate,
+              status,
+              color: status === 'onTrack' ? 'bg-[#0F766E]' : 
+                     status === 'atRisk' ? 'bg-[#C2410C]' : 'bg-[#E7E5E4]',
+            });
+          }
+        });
+
+        // Calculate weekly capacity data based on currentWeekStart
+        const weekEnd = new Date(currentWeekStart);
+        weekEnd.setDate(weekEnd.getDate() + 4); // Friday of the same week
+        weekEnd.setHours(23, 59, 59, 999);
+
+        const weeklyData = new Map<string, {available: number, used: number}>();
+        const businessDaysInWeek = 5; // Mon-Fri
+        const hoursPerDay = 8;
+        const totalWeeklyHours = businessDaysInWeek * hoursPerDay; // 40 hours
+
+        Array.from(teamMap.values()).forEach(member => {
+          let usedHours = 0;
+          
+          // Calculate hours used in this week
+          member.assignments.forEach(assignment => {
+            const assignStart = new Date(assignment.startDate);
+            const assignEnd = new Date(assignment.dueDate);
+            
+            // Check if assignment overlaps with the week
+            if (assignEnd >= currentWeekStart && assignStart <= weekEnd) {
+              // Calculate overlap days in this week
+              const overlapStart = assignStart > currentWeekStart ? assignStart : new Date(currentWeekStart);
+              const overlapEnd = assignEnd < weekEnd ? assignEnd : new Date(weekEnd);
+              
+              let overlapDays = 0;
+              const current = new Date(overlapStart);
+              current.setHours(0, 0, 0, 0);
+              const end = new Date(overlapEnd);
+              end.setHours(0, 0, 0, 0);
+              
+              while (current <= end) {
+                const dayOfWeek = current.getDay();
+                if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                  overlapDays++;
+                }
+                current.setDate(current.getDate() + 1);
+              }
+              
+              usedHours += overlapDays * hoursPerDay;
+            }
+          });
+
+          const availableHours = Math.max(0, totalWeeklyHours - usedHours);
+          weeklyData.set(member.name, {
+            available: availableHours,
+            used: Math.min(usedHours, totalWeeklyHours)
+          });
+        });
+
+        // Calculate this week's metrics from weekly data
+        let weeklyUsedHours = 0;
+        let weeklyAvailableHours = 0;
+        
+        Array.from(weeklyData.entries()).forEach(([_, capacity]) => {
+          weeklyUsedHours += capacity.used;
+          weeklyAvailableHours += capacity.available;
+        });
+        
+        const weeklyTotalCapacity = totalAssignees * 40; // 40 hours per week per person
+        const weeklyUtilization = weeklyTotalCapacity > 0 ? Math.round((weeklyUsedHours / weeklyTotalCapacity) * 100) : 0;
+
         // Update metrics
         const calculatedMetrics = [
           {
@@ -145,22 +252,22 @@ export const MainDashboard = () => {
           },
           {
             label: 'TEAM UTILIZATION',
-            value: `${utilization}%`,
-            trend: utilization >= 80 ? 'up' : 'down',
-            sublabel: 'Target: 85%',
+            value: `${weeklyUtilization}%`,
+            trend: weeklyUtilization >= 80 ? 'up' : 'down',
+            sublabel: 'This week',
             color: 'text-[#0F766E]',
           },
           {
             label: 'AVAILABLE CAPACITY',
-            value: `${Math.round(availableCapacity)}h`,
-            trend: availableCapacity > 0 ? 'up' : 'down',
-            sublabel: 'Next 4 weeks',
+            value: `${Math.round(weeklyAvailableHours)}h`,
+            trend: weeklyAvailableHours > 0 ? 'up' : 'down',
+            sublabel: 'This week',
             color: 'text-[#C2410C]',
             popup: {
-              title: 'Capacity Breakdown',
-              total: totalCapacity,
-              used: Math.round(usedCapacity),
-              available: Math.round(availableCapacity),
+              title: 'Weekly Capacity',
+              total: weeklyTotalCapacity,
+              used: Math.round(weeklyUsedHours),
+              available: Math.round(weeklyAvailableHours),
               team: totalAssignees,
             }
           },
@@ -217,45 +324,9 @@ export const MainDashboard = () => {
 
         setProjectDeadlines(deadlines);
 
-        // Calculate team capacity from issues
-        const teamMap = new Map<string, TeamMember>();
-        
-        issues.forEach(issue => {
-          if (!issue.assignee) return;
-          
-          if (!teamMap.has(issue.assignee)) {
-            teamMap.set(issue.assignee, {
-              name: issue.assignee,
-              email: issue.assigneeEmail || '',
-              assignments: [],
-            });
-          }
-
-          const member = teamMap.get(issue.assignee)!;
-          
-          if (issue.start && issue.due) {
-            const startDate = new Date(issue.start);
-            const dueDate = new Date(issue.due);
-            
-            let status: 'onTrack' | 'atRisk' | 'available' = 'available';
-            if (dueDate < today && issue.status !== 'Done') {
-              status = 'atRisk';
-            } else if (issue.status === 'In Progress' || issue.status === 'In_Progress') {
-              status = 'onTrack';
-            }
-
-            member.assignments.push({
-              name: issue.summary || 'Task',
-              startDate,
-              dueDate,
-              status,
-              color: status === 'onTrack' ? 'bg-[#0F766E]' : 
-                     status === 'atRisk' ? 'bg-[#C2410C]' : 'bg-[#E7E5E4]',
-            });
-          }
-        });
-
+        // Update team capacity and weekly data states (calculated above)
         setTeamCapacity(Array.from(teamMap.values()).slice(0, 10)); // Show top 10 team members
+        setWeeklyCapacityData(weeklyData);
       } catch (error) {
         console.error('Error loading dashboard data:', error);
       } finally {
@@ -264,31 +335,55 @@ export const MainDashboard = () => {
     };
 
     loadDashboardData();
-  }, []);
+  }, [currentWeekStart]);
 
-  const getDaysInMonth = (date: Date) => {
-    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
-  };
-
-  // Generate dates for day view (10 days starting from current month)
-  const generateDayDates = (date: Date) => {
+  // Generate dates for week view (Monday-Friday)
+  const generateWeekDates = (weekStartDate: Date) => {
     const dates = [];
-    const startDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const start = new Date(weekStartDate);
+    start.setHours(0, 0, 0, 0);
     
-    for (let i = 0; i < 10; i++) {
-      const currentDate = new Date(startDate);
+    // Generate Mon-Fri (5 days)
+    for (let i = 0; i < 5; i++) {
+      const currentDate = new Date(start);
       currentDate.setDate(currentDate.getDate() + i);
+      const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
       dates.push({
         date: currentDate,
-        label: currentDate.toLocaleDateString('default', { month: 'short', day: 'numeric' })
+        label: `${dayNames[i]} ${currentDate.toLocaleDateString('default', { month: 'short', day: 'numeric' })}`
       });
     }
     
     return dates;
   };
 
-  const monthName = currentMonth.toLocaleString('default', { month: 'short', year: 'numeric' });
-  const dayDates = generateDayDates(currentMonth);
+  // Get Monday of the given date's week
+  const getMondayOfWeek = (date: Date): Date => {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust when Sunday is 0
+    return new Date(d.setDate(diff));
+  };
+
+  // Get previous week's Monday
+  const getPreviousWeek = () => {
+    const prev = new Date(currentWeekStart);
+    prev.setDate(prev.getDate() - 7);
+    setCurrentWeekStart(getMondayOfWeek(prev));
+  };
+
+  // Get next week's Monday
+  const getNextWeek = () => {
+    const next = new Date(currentWeekStart);
+    next.setDate(next.getDate() + 7);
+    setCurrentWeekStart(getMondayOfWeek(next));
+  };
+
+  const weekEnd = new Date(currentWeekStart);
+  weekEnd.setDate(weekEnd.getDate() + 4); // Friday
+  
+  const weekDisplay = `${currentWeekStart.toLocaleDateString('default', { month: 'short', day: 'numeric' })} - ${weekEnd.toLocaleDateString('default', { month: 'short', day: 'numeric' })}`;
+  const weekDates = generateWeekDates(currentWeekStart);
 
   const MetricCard = ({ label, value, sublabel, trend, color, index, popup }: any) => (
     <div 
@@ -457,7 +552,10 @@ export const MainDashboard = () => {
         <div className={DASHBOARD_STYLES.cardBase}>
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
-            <h2 className={DASHBOARD_STYLES.headingSection}>Team Capacity & Allocation</h2>
+            <div>
+              <h2 className={DASHBOARD_STYLES.headingSection}>Team Capacity & Allocation</h2>
+              <p className="text-xs text-[#A8A29E] mt-2">Weekly basis - Available capacity for {weekDisplay}</p>
+            </div>
             <div className="flex items-center gap-4">
               <Button
                 variant="outline"
@@ -476,15 +574,17 @@ export const MainDashboard = () => {
               </Button>
               <div className="flex items-center gap-2 border border-[#E7E5E4] rounded-lg px-3 py-2">
                 <button
-                  onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}
+                  onClick={getPreviousWeek}
                   className="text-[#78716C] hover:text-[#1C1917]"
+                  title="Previous week"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
-                <span className="text-sm font-light text-[#1C1917] w-24 text-center">{monthName}</span>
+                <span className="text-sm font-light text-[#1C1917] w-40 text-center">{weekDisplay}</span>
                 <button
-                  onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
+                  onClick={getNextWeek}
                   className="text-[#78716C] hover:text-[#1C1917]"
+                  title="Next week"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -508,7 +608,47 @@ export const MainDashboard = () => {
             </div>
           </div>
 
-          {/* Gantt Chart - Day View Only */}
+          {/* Weekly Capacity Summary Cards */}
+          <div className="mb-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {teamCapacity.map((member) => {
+              const capacity = weeklyCapacityData.get(member.name) || { available: 40, used: 0 };
+              const totalCapacity = 40; // 8 hours/day * 5 days
+              const utilizationPct = Math.round((capacity.used / totalCapacity) * 100);
+              
+              return (
+                <div key={member.name} className="bg-[#FAFAF9] rounded-xl p-4 border border-[#E7E5E4]">
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <p className="text-sm font-medium text-[#1C1917]">{member.name}</p>
+                      <p className="text-xs text-[#A8A29E]">{member.email}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-light text-[#0F766E]">{capacity.available}h</p>
+                      <p className="text-xs text-[#78716C]">Available</p>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-[#78716C]">Usage</span>
+                      <span className="font-medium text-[#1C1917]">{utilizationPct}%</span>
+                    </div>
+                    <div className="h-2 bg-[#E7E5E4] rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full rounded-full transition-all ${utilizationPct > 80 ? 'bg-[#C2410C]' : 'bg-[#0F766E]'}`}
+                        style={{ width: `${Math.min(utilizationPct, 100)}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-xs text-[#A8A29E] pt-1">
+                      <span>{capacity.used}h used</span>
+                      <span>{totalCapacity}h total</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Gantt Chart - Week View */}
           <div className="overflow-x-auto">
             {/* Column Headers */}
             <div className="flex gap-1 mb-4 pb-4 border-b border-[#E7E5E4]">
@@ -516,10 +656,10 @@ export const MainDashboard = () => {
                 <div className="text-xs font-medium text-[#A8A29E] uppercase tracking-wide">TEAM MEMBER</div>
               </div>
 
-              {/* Day columns */}
+              {/* Week day columns */}
               <div className="flex gap-4">
-                {dayDates.map((day, idx) => (
-                  <div key={idx} className="w-16 text-center flex-shrink-0">
+                {weekDates.map((day, idx) => (
+                  <div key={idx} className="w-20 text-center flex-shrink-0">
                     <div className="text-xs text-[#78716C] font-light">{day.label}</div>
                   </div>
                 ))}
@@ -528,8 +668,10 @@ export const MainDashboard = () => {
 
             {/* Team rows */}
             {teamCapacity.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-sm text-[#78716C] font-light">No team members with assignments</p>
+              <div className="text-center py-12">
+                <p className="text-sm text-[#78716C] font-light mb-2">No team members with assignments</p>
+                <p className="text-xs text-[#A8A29E]">Tasks need valid dates and assigned team members to appear here</p>
+                <p className="text-xs text-[#A8A29E] mt-1">Make sure issues have: assignee + start/due dates</p>
               </div>
             ) : (
               <div className="animate-in fade-in duration-300">
@@ -542,9 +684,9 @@ export const MainDashboard = () => {
                     </div>
                   </div>
 
-                  {/* Day assignment blocks */}
+                  {/* Week day assignment blocks */}
                   <div className="flex gap-4 flex-1">
-                    {dayDates.map((day, dayIdx) => {
+                    {weekDates.map((day, dayIdx) => {
                       // Find assignments that fall on this day
                       const assignmentsOnDay = member.assignments.filter(assignment => {
                         const assignStart = new Date(assignment.startDate);
@@ -557,7 +699,7 @@ export const MainDashboard = () => {
                       });
 
                       return (
-                        <div key={dayIdx} className="w-16 flex-shrink-0 h-12 relative">
+                        <div key={dayIdx} className="w-20 flex-shrink-0 h-12 relative">
                           {assignmentsOnDay.length > 0 ? (
                             <div className="flex flex-col gap-1 h-full">
                               {assignmentsOnDay.slice(0, 2).map((assignment, aIdx) => (

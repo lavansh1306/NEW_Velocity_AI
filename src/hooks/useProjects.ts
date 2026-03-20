@@ -99,7 +99,7 @@ export function useProjects() {
         status: 'not_started',
         start_date: t.startDate ? t.startDate.toISOString().split('T')[0] : null,
         due_date: t.dueDate ? t.dueDate.toISOString().split('T')[0] : null,
-        user_id: t.assigneeId || null,
+        assignee_id: t.assigneeId || null,
       }));
 
       const { error: tasksError } = await supabase
