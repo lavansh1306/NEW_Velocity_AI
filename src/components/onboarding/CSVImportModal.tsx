@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import Papa from 'papaparse';
+import * as XLSX from 'xlsx';
 import { Upload, FileText, Download, ClipboardPaste, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -112,22 +113,89 @@ export default function CSVImportModal({ open, onOpenChange, onImport }: CSVImpo
     setPreview(members);
   };
 
+  const parseXLSXData = (json: any[][]) => {
+    if (json.length === 0) {
+      toast.error('No data rows found in Excel sheet');
+      return;
+    }
+    const rawHeaders = json[0] as string[];
+    const rows = json.slice(1) as any[][];
+
+    // Map headers
+    const headerMap: Record<number, string> = {};
+    rawHeaders.forEach((h, i) => {
+      if (!h) return;
+      const mapped = mapHeader(String(h));
+      if (mapped) headerMap[i] = mapped;
+    });
+
+    const members: ParsedMember[] = rows
+      .map(row => {
+        const mapped: Record<string, string> = {};
+        row.forEach((value, i) => {
+          const canonical = headerMap[i];
+          if (canonical && value !== undefined && value !== null) {
+            mapped[canonical] = String(value);
+          }
+        });
+
+        const name = (mapped.name || '').trim();
+        const email = (mapped.email || '').trim();
+        const role = (mapped.role || 'Engineer').trim();
+        const skills = mapped.skills
+          ? parseSkillsString(mapped.skills)
+          : getSkillsForRole(role);
+
+        return { name, email, role, skills };
+      })
+      .filter(m => m.name || m.email);
+
+    if (members.length === 0) {
+      toast.error('No valid members found. Ensure sheet has name/email columns.');
+      return;
+    }
+
+    setPreview(members);
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.name.endsWith('.csv') && !file.type.includes('text')) {
-      toast.error('Please upload a valid CSV file');
+    const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+    const isCsv = file.name.endsWith('.csv') || file.type.includes('text');
+
+    if (!isCsv && !isExcel) {
+      toast.error('Please upload a valid CSV or Excel file');
       return;
     }
 
     setFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const content = ev.target?.result as string;
-      if (content) parseCSVText(content);
-    };
-    reader.readAsText(file);
+
+    if (isExcel) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const data = new Uint8Array(ev.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+          parseXLSXData(json as any[][]);
+        } catch (err) {
+          toast.error('Failed to parse Excel file');
+          console.error('[CSVImportModal] Excel parse err:', err);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const content = ev.target?.result as string;
+        if (content) parseCSVText(content);
+      };
+      reader.readAsText(file);
+    }
 
     // Reset input so same file can be re-selected
     e.target.value = '';
@@ -168,9 +236,9 @@ Bob Johnson,bob.johnson@company.com,Product Designer,Figma;Design Systems;UI/UX`
     <Dialog open={open} onOpenChange={(v) => { if (!v) resetState(); onOpenChange(v); }}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="text-[#1C1917] font-medium">Import Team Members from CSV</DialogTitle>
+          <DialogTitle className="text-[#1C1917] font-medium">Import Team Members from File</DialogTitle>
           <DialogDescription className="text-[#78716C]">
-            Upload a CSV file or paste CSV data to import team members.
+            Upload a CSV / Excel file or paste values to import team members.
           </DialogDescription>
         </DialogHeader>
 
@@ -206,7 +274,7 @@ Bob Johnson,bob.johnson@company.com,Product Designer,Figma;Design Systems;UI/UX`
             <input
               ref={fileInputRef}
               type="file"
-              accept=".csv"
+              accept=".csv,.xlsx,.xls"
               className="hidden"
               onChange={handleFileUpload}
             />
@@ -222,8 +290,8 @@ Bob Johnson,bob.johnson@company.com,Product Designer,Figma;Design Systems;UI/UX`
                 </div>
               ) : (
                 <>
-                  <p className="text-sm text-[#78716C]">Click to browse or drag a CSV file</p>
-                  <p className="text-xs text-[#A8A29E]">Accepts .csv files</p>
+                  <p className="text-sm text-[#78716C]">Click to browse or drag a file</p>
+                  <p className="text-xs text-[#A8A29E]">Accepts .csv, .xlsx, .xls files</p>
                 </>
               )}
             </button>

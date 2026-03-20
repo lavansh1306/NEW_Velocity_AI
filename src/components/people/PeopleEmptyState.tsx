@@ -312,7 +312,7 @@ export function PeopleEmptyState({ teamName, inviteCode, teamId, organizationId,
             onClick={() => setImportModal('csv')}
             className="flex items-center gap-2.5 px-5 py-3 border border-[#E7E5E4] bg-white rounded-xl hover:border-[#0F766E]/40 hover:bg-[#F0FDFA]/30 hover:shadow-sm transition-all duration-300 text-sm font-medium text-[#1C1917]"
           >
-            <FileSpreadsheet className="w-4 h-4 text-[#0F766E]" /> CSV File
+            <FileSpreadsheet className="w-4 h-4 text-[#0F766E]" /> CSV / Excel
           </button>
           <button
             onClick={() => setImportModal('paste')}

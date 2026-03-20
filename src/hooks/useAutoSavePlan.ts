@@ -122,10 +122,23 @@ export function useAutoSavePlan({
           .select('id')
           .single();
 
-        if (error) throw error;
+        if (error) {
+          fetch('http://localhost:9999/log', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'save_error_insert', message: error.message, details: error.details })
+          }).catch(() => {});
+          throw error;
+        }
 
         planIdRef.current = plan.id;
         setPlanId(plan.id);
+
+        fetch('http://localhost:9999/log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'save_success_new_draft', planId: plan.id })
+        }).catch(() => {});
 
         if (data.tasks.length > 0) {
           await supabase.from('plan_tasks').insert(
@@ -144,6 +157,12 @@ export function useAutoSavePlan({
     } catch (err: any) {
       console.error('[useAutoSavePlan] save error:', err?.message || err);
       setSaveError(err?.message || 'Auto-save failed');
+      
+      fetch('http://localhost:9999/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'save_error_catch', message: err?.message || 'Auto-save failed' })
+      }).catch(() => {});
     } finally {
       setIsSaving(false);
     }
