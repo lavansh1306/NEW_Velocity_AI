@@ -125,16 +125,29 @@ export default function Projects() {
                 ))}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center h-64 text-[#A8A29E]">
-                <FolderOpen className="w-12 h-12 opacity-10 mb-4" />
-                <p>No projects found in this organization.</p>
-                <Button 
-                  variant="link" 
-                  onClick={() => navigate('/projects/create')}
-                  className="mt-2 text-[#1C1917]"
-                >
-                  Create your first project
-                </Button>
+              <div className="flex flex-col items-center justify-center py-20 px-4">
+                <div className="w-16 h-16 rounded-full bg-[#F5F5F4] flex items-center justify-center mb-4">
+                  <FolderOpen className="w-8 h-8 text-[#D6D3D1]" />
+                </div>
+                <h3 className="text-lg font-medium text-[#1C1917] mb-1">No projects yet</h3>
+                <p className="text-sm text-[#78716C] mb-6 text-center max-w-md">
+                  Create your first project to start planning and tracking work with your team.
+                </p>
+                <div className="flex gap-3">
+                  <Button
+                    onClick={() => navigate('/projects/create')}
+                    className="bg-[#1C1917] text-white hover:bg-[#292524] gap-2"
+                  >
+                    <Plus className="w-4 h-4" /> Create Project
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate('/plan')}
+                    className="border-[#E7E5E4] text-[#57534E] hover:bg-[#FAFAF9] gap-2"
+                  >
+                    Plan with AI
+                  </Button>
+                </div>
               </div>
             )}
           </div>

@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Project, DraftProjectState } from '@/components/projects/types';
 import { toast } from 'sonner';
+import { setupProgressService } from '@/services/setupProgressService';
 
 export function useProjects() {
   const { user } = useAuth();
@@ -108,6 +109,7 @@ export function useProjects() {
       if (tasksError) throw tasksError;
 
       toast.success('Project created successfully!');
+      setupProgressService.markStepComplete(orgId, 'first_project_created');
       return projectData.id; // Return ID to navigate to details
 
     } catch (err: any) {

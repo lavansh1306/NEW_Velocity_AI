@@ -5,6 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { toast } from 'sonner';
+import TeamInviteBanner from '@/components/onboarding/TeamInviteBanner';
+import PasteImportModal from '@/components/onboarding/PasteImportModal';
+import JiraImportModal from '@/components/onboarding/JiraImportModal';
+import { getSkillsForRole } from '@/services/skillSuggester';
 import { getSkillsForRole } from '@/services/skillSuggester';
 import { Badge } from '@/components/ui/badge';
 
@@ -23,14 +27,22 @@ const PREDEFINED_ROLES = [
 
 export default function OnboardingTeam() {
   const navigate = useNavigate();
+  const { saveTeamMembers, loading, error, clearError, inviteCode, orgName } = useOnboarding();
+  const [members, setMembers] = useState([
+    { name: '', email: '', role: '', skills: [] },
+    { name: '', email: '', role: '', skills: [] },
+    { name: '', email: '', role: '', skills: [] },
   const { saveTeamMembers, loading, error, clearError } = useOnboarding();
   const [members, setMembers] = useState<Array<{ name: string; email: string; role: string; type?: string; skills: string[] }>>([
     { name: '', email: '', role: 'Engineer', type: 'employee', skills: getSkillsForRole('Engineer') }
   ]);
   const [openRoleDropdown, setOpenRoleDropdown] = useState<number | null>(null);
+  const [activeSkillInput, setActiveSkillInput] = useState<number | null>(null);
+  const [newSkillText, setNewSkillText] = useState<string>('');
   const [isCSVMode, setIsCSVMode] = useState(false);
   const [csvData, setCSVData] = useState<string>('');
   const [csvInputMode, setCSVInputMode] = useState<'upload' | 'paste'>('upload');
+  const [importModal, setImportModal] = useState<'paste' | 'jira' | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeSkillInput, setActiveSkillInput] = useState<number | null>(null);
   const [newSkillText, setNewSkillText] = useState<string>('');
@@ -81,6 +93,7 @@ export default function OnboardingTeam() {
       const roleIdx = headers.indexOf('role') >= 0 ? headers.indexOf('role') : 2;
       const typeIdx = headers.indexOf('type') >= 0 ? headers.indexOf('type') : -1;
 
+      const role = values[roleIdx] || 'Engineer';
       parsedMembers.push({
         name: values[nameIdx] || '',
         email: values[emailIdx] || '',
@@ -134,12 +147,59 @@ David Lee,david@example.com,employee,Frontend Developer`;
     toast.success(`${parsedMembers.length} team members imported`);
   };
 
+  const handleImportMembers = (imported: { name: string; email: string; role: string }[]) => {
+    // Merge imported members, replacing empty placeholder rows
+    const filledMembers = members.filter(m => m.name.trim() || m.email.trim());
+    // Ensure imported members have skills auto-populated
+    const importedWithSkills = imported.map(m => ({
+      ...m,
+      skills: getSkillsForRole(m.role)
+    }));
+    setMembers([...filledMembers, ...importedWithSkills]);
+    setImportModal(null);
+    toast.success(`${imported.length} team member${imported.length !== 1 ? 's' : ''} imported`);
+  };
+
   const removeMember = (index: number) => {
     const newMembers = [...members];
     newMembers.splice(index, 1);
     setMembers(newMembers);
   };
 
+  const updateMember = (index: number, field: string, value: string | string[]) => {
+    const newMembers = members.map((member, i) => {
+      if (i === index) {
+        const updated = { ...member, [field]: value };
+        // Auto-populate skills when role changes
+        if (field === 'role' && typeof value === 'string') {
+          updated.skills = getSkillsForRole(value);
+        }
+        return updated;
+      }
+      return member;
+    });
+    setMembers(newMembers);
+  };
+
+  const addSkillToMember = (index: number, skill: string) => {
+    const trimmed = skill.trim();
+    if (!trimmed) return;
+    const newMembers = members.map((member, i) => {
+      if (i === index) {
+        const skills = member.skills || [];
+        if (!skills.includes(trimmed)) {
+          return { ...member, skills: [...skills, trimmed] };
+        }
+      }
+      return member;
+    });
+    setMembers(newMembers);
+  };
+
+  const removeSkillFromMember = (index: number, skillToRemove: string) => {
+    const newMembers = members.map((member, i) => {
+      if (i === index) {
+        return { ...member, skills: (member.skills || []).filter(s => s !== skillToRemove) };
   const updateMember = (index: number, field: string, value: any) => {
     const newMembers = members.map((member, i) => {
       if (i === index) {
@@ -198,6 +258,14 @@ David Lee,david@example.com,employee,Frontend Developer`;
           </button>
         </div>
 
+        {/* Invite Banner */}
+        {inviteCode && (
+          <TeamInviteBanner
+            teamName={orgName || ''}
+            inviteCode={inviteCode}
+          />
+        )}
+
         <p className="text-base text-[#78716C] text-center mb-10 font-light max-w-xl mx-auto">
           Add the people you'll be planning projects with. You can always add more later.
         </p>
@@ -213,24 +281,24 @@ David Lee,david@example.com,employee,Frontend Developer`;
               <div className="flex-1 text-xs font-normal text-[#78716C] uppercase">Skills</div>
               <div className="w-8"></div>
             </div>
-          
+
           <div className="space-y-0 pb-32">
             {members.map((member, idx) => (
               <div key={idx} className="flex gap-4 px-4 py-4 border-b border-[#E7E5E4] items-center group relative z-0" style={{ zIndex: openRoleDropdown === idx ? 50 : 1 }}>
                 <div className="flex-1">
-                  <Input 
-                    placeholder="Jane Doe" 
+                  <Input
+                    placeholder="Jane Doe"
                     value={member.name || ''}
                     onChange={(e) => updateMember(idx, 'name', e.target.value)}
-                    className="h-10 border-transparent hover:border-[#E7E5E4] focus:border-[#0F766E] bg-transparent px-2"
+                    className="h-10 border-transparent hover:border-[#E7E5E4] focus:border-[#0F766E] bg-transparent px-2 placeholder:text-[#D6D3D1]"
                   />
                 </div>
                 <div className="flex-1">
-                  <Input 
-                    placeholder="jane@company.com" 
+                  <Input
+                    placeholder="jane@company.com"
                     value={member.email || ''}
                     onChange={(e) => updateMember(idx, 'email', e.target.value)}
-                    className="h-10 border-transparent hover:border-[#E7E5E4] focus:border-[#0F766E] bg-transparent px-2"
+                    className="h-10 border-transparent hover:border-[#E7E5E4] focus:border-[#0F766E] bg-transparent px-2 placeholder:text-[#D6D3D1]"
                   />
                 </div>
                 <div className="w-[120px]">
@@ -250,12 +318,12 @@ David Lee,david@example.com,employee,Frontend Developer`;
                     onChange={(e) => updateMember(idx, 'role', e.target.value)}
                     onFocus={() => setOpenRoleDropdown(idx)}
                     onBlur={() => setTimeout(() => setOpenRoleDropdown(null), 200)}
-                    className="h-10 border-transparent hover:border-[#E7E5E4] focus:border-[#0F766E] bg-transparent px-2 w-full"
+                    className="h-10 border-transparent hover:border-[#E7E5E4] focus:border-[#0F766E] bg-transparent px-2 w-full placeholder:text-[#D6D3D1]"
                   />
                   {openRoleDropdown === idx && (
                     <div className="absolute top-full left-0 w-full mt-1 bg-white border border-[#E7E5E4] rounded-md shadow-lg max-h-48 overflow-y-auto z-50">
                       {PREDEFINED_ROLES.filter(role => role.toLowerCase().includes((member.role || '').toLowerCase())).map((role) => (
-                        <div 
+                        <div
                           key={role}
                           className="px-3 py-2 text-sm text-[#1C1917] hover:bg-[#F5F5F4] cursor-pointer"
                           onMouseDown={() => {
@@ -356,8 +424,8 @@ David Lee,david@example.com,employee,Frontend Developer`;
 
         {!isCSVMode && (
           <div className="flex justify-center mb-8">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={addMember}
               className="h-10 px-6 border-[#E7E5E4] text-[#57534E] font-normal hover:bg-[#FAFAF9]"
             >
@@ -366,6 +434,7 @@ David Lee,david@example.com,employee,Frontend Developer`;
           </div>
         )}
 
+        {/* Import Options */}
         {!isCSVMode && (
           <>
             <div className="relative my-8">
@@ -377,18 +446,33 @@ David Lee,david@example.com,employee,Frontend Developer`;
               </div>
             </div>
 
-            <div className="flex justify-center mb-12">
-              <Button 
-                onClick={() => setIsCSVMode(true)}
-                variant="outline" 
-                className="h-10 px-6 border-[#E7E5E4] text-[#57534E] font-normal hover:bg-[#FAFAF9]"
-              >
-                📄 Import from CSV
-              </Button>
+            <div className="mb-12">
+              <p className="text-sm text-[#78716C] text-center mb-4 font-light">Import your team</p>
+              <div className="flex justify-center gap-3">
+                <button
+                  onClick={() => setIsCSVMode(true)}
+                  className="flex items-center gap-2 px-5 py-3 border-2 border-[#E7E5E4] bg-white rounded-lg hover:border-[#0F766E]/40 hover:bg-[#FAFAF9] transition-all text-sm font-medium text-[#1C1917]"
+                >
+                  <span className="text-lg">📊</span> CSV File
+                </button>
+                <button
+                  onClick={() => setImportModal('paste')}
+                  className="flex items-center gap-2 px-5 py-3 border-2 border-[#E7E5E4] bg-white rounded-lg hover:border-[#0F766E]/40 hover:bg-[#FAFAF9] transition-all text-sm font-medium text-[#1C1917]"
+                >
+                  <span className="text-lg">📋</span> Paste Data
+                </button>
+                <button
+                  onClick={() => setImportModal('jira')}
+                  className="flex items-center gap-2 px-5 py-3 border-2 border-[#E7E5E4] bg-white rounded-lg hover:border-[#0F766E]/40 hover:bg-[#FAFAF9] transition-all text-sm font-medium text-[#1C1917]"
+                >
+                  <span className="text-lg">🔗</span> From Jira
+                </button>
+              </div>
             </div>
           </>
         )}
 
+        {/* CSV Import Panel (existing, preserved) */}
         {isCSVMode && (
           <div className="mb-12 bg-[#FAFAF9] border border-[#E7E5E4] rounded-lg p-6 space-y-4">
             <div className="flex items-center justify-between mb-4">
@@ -512,7 +596,7 @@ David Lee,david@example.com,employee,Frontend Developer`;
           <button onClick={() => navigate('/onboarding/welcome')} className="text-sm text-[#78716C] hover:text-[#1C1917] transition-colors">
             ← Back
           </button>
-          <Button 
+          <Button
             onClick={handleContinue}
             disabled={loading}
             className="h-10 px-8 bg-[#1C1917] hover:bg-[#292524] text-white rounded-lg font-normal transition-all duration-200 shadow-md disabled:opacity-50"
@@ -521,6 +605,20 @@ David Lee,david@example.com,employee,Frontend Developer`;
           </Button>
         </div>
       </div>
+
+      {/* Import Modals */}
+      {importModal === 'paste' && (
+        <PasteImportModal
+          onImport={handleImportMembers}
+          onClose={() => setImportModal(null)}
+        />
+      )}
+      {importModal === 'jira' && (
+        <JiraImportModal
+          onImport={handleImportMembers}
+          onClose={() => setImportModal(null)}
+        />
+      )}
     </div>
   );
 }

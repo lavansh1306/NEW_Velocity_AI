@@ -4,6 +4,7 @@ import { Users, UserPlus, Copy, Check, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 export default function OnboardingComplete() {
   const navigate = useNavigate();
@@ -16,12 +17,21 @@ export default function OnboardingComplete() {
     ? `${window.location.origin}/onboarding/join?code=${inviteCode}`
     : '';
 
-  // Refresh AuthContext org state so dashboard works
+  const [onboardingMarked, setOnboardingMarked] = useState(false);
+
+  // Mark onboarding complete and refresh AuthContext
   useEffect(() => {
-    if (orgId) {
-      refreshOrg();
-    }
-  }, [orgId, refreshOrg]);
+    if (!orgId || onboardingMarked) return;
+    const markComplete = async () => {
+      await supabase
+        .from('organizations')
+        .update({ onboarding_complete: true })
+        .eq('id', orgId);
+      await refreshOrg();
+      setOnboardingMarked(true);
+    };
+    markComplete();
+  }, [orgId, refreshOrg, onboardingMarked]);
 
   const handleCopy = () => {
     const textToCopy = inviteCode || inviteLink;
@@ -84,14 +94,14 @@ export default function OnboardingComplete() {
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
             <Button
-              onClick={() => navigate('/projects')}
+              onClick={() => navigate('/projects', { state: { from: { pathname: '/onboarding/complete' } } })}
               className="h-12 px-8 bg-[#1C1917] hover:bg-[#292524] text-white rounded-lg font-normal text-base transition-all duration-200 shadow-md"
             >
               ✨ Plan First Project
             </Button>
 
             <Button
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate('/dashboard', { state: { from: { pathname: '/onboarding/complete' } } })}
               variant="outline"
               className="h-12 px-8 border-[#E7E5E4] hover:bg-[#FAFAF9] text-[#57534E] rounded-lg font-normal text-base transition-all duration-200"
             >
@@ -165,7 +175,7 @@ export default function OnboardingComplete() {
                 <div
                   key={idx}
                   className="bg-white border border-[#E7E5E4] rounded-xl p-4 hover:border-[#0F766E]/50 hover:shadow-sm transition-all cursor-pointer group"
-                  onClick={() => item.action && navigate(item.action)}
+                  onClick={() => item.action && navigate(item.action, { state: { from: { pathname: '/onboarding/complete' } } })}
                 >
                   <div className="text-xl mb-2">{item.icon}</div>
                   <h3 className="text-sm font-medium text-[#1C1917] mb-0.5 group-hover:text-[#0F766E] transition-colors">{item.title}</h3>

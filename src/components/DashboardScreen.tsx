@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -8,6 +9,10 @@ import { format } from 'date-fns';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { PageSkeleton } from '@/components/shared/SkeletonLoader';
 import { useDashboard } from '@/hooks/useDashboard';
+import { IncompleteSetupBanner } from './dashboard/IncompleteSetupBanner';
+import { ManagerEmptyDashboard } from './dashboard/ManagerEmptyDashboard';
+import { useSetupProgress } from '@/hooks/useSetupProgress';
+import { setupProgressService } from '@/services/setupProgressService';
 
 // Icons
 import CalendarToday from '@mui/icons-material/CalendarToday';
@@ -27,7 +32,16 @@ const getCurrentWeekMonday = () => {
 
 export const DashboardScreen = () => {
     const navigate = useNavigate();
-    
+    const { orgId, orgName } = useAuth();
+    const { completedSteps, isLoading: setupLoading, fetchProgress } = useSetupProgress();
+
+    // Fetch setup progress when org is available
+    React.useEffect(() => {
+        if (orgId) {
+            fetchProgress(orgId);
+        }
+    }, [orgId, fetchProgress]);
+
     // Pulling dynamic data directly from your hook
     const {
         kpis, deadlines, gantt, isLoading,
@@ -117,11 +131,23 @@ export const DashboardScreen = () => {
         </div>
     );
 
-    if (isLoading) return <PageSkeleton />;
+    if (isLoading || setupLoading) return <PageSkeleton />;
+
+    // Show full empty state when no setup steps have been completed yet
+    if (!setupProgressService.isComplete(completedSteps) && completedSteps.length === 0) {
+        return (
+            <div className="p-8 relative max-w-[1600px] mx-auto bg-[#FAFAF9] min-h-screen">
+                <ManagerEmptyDashboard orgName={orgName} completedSteps={completedSteps} />
+            </div>
+        );
+    }
 
     return (
         <div className="p-8 relative max-w-[1600px] mx-auto bg-[#FAFAF9] min-h-screen">
-            
+
+            {/* Setup completion banner — shown when some steps are done but not all */}
+            <IncompleteSetupBanner />
+
             <div className="flex items-center justify-between mb-8">
                 <div>
                     <h2 className="text-3xl font-light text-[#1C1917]">Dashboard</h2>

@@ -1,23 +1,72 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { UserPlus, ChevronRight, Loader2 } from 'lucide-react';
+import { UserPlus, ChevronRight, Loader2, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import { supabase } from '@/lib/supabase';
+import { normalizeInviteCode, isValidInviteCodeFormat } from '@/lib/inviteCodeGenerator';
+
+interface TeamPreview {
+  teamName: string;
+  orgName: string;
+}
 
 export default function OnboardingJoin() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { joinWithInviteCode, loading, error, clearError } = useOnboarding();
   const [code, setCode] = useState('');
+  const [teamPreview, setTeamPreview] = useState<TeamPreview | null>(null);
 
-  // Pre-fill code from URL query parameter (e.g., /onboarding/join?code=ACME-X8J9)
+  // Pre-fill code from URL query parameter
   useEffect(() => {
     const urlCode = searchParams.get('code');
     if (urlCode) {
-      setCode(urlCode);
+      setCode(urlCode.toUpperCase());
+      validateCode(urlCode);
     }
   }, [searchParams]);
+
+  // Validate and preview team info when code looks complete
+  const validateCode = async (rawCode: string) => {
+    const normalized = normalizeInviteCode(rawCode);
+    if (!isValidInviteCodeFormat(normalized)) {
+      setTeamPreview(null);
+      return;
+    }
+
+    try {
+      const { data: team } = await supabase
+        .from('teams')
+        .select(`
+          name,
+          invite_is_active,
+          organizations:organization_id ( name )
+        `)
+        .eq('invite_code', normalized)
+        .eq('invite_is_active', true)
+        .maybeSingle();
+
+      if (team) {
+        setTeamPreview({
+          teamName: team.name,
+          orgName: (team as any).organizations?.name || '',
+        });
+      } else {
+        setTeamPreview(null);
+      }
+    } catch {
+      setTeamPreview(null);
+    }
+  };
+
+  const handleCodeChange = (value: string) => {
+    const upper = value.toUpperCase();
+    setCode(upper);
+    clearError();
+    validateCode(upper);
+  };
 
   const handleJoin = async () => {
     if (!code.trim()) return;
@@ -47,11 +96,26 @@ export default function OnboardingJoin() {
           <p className="text-[#78716C] text-sm font-light">Enter the invite code shared by your admin.</p>
         </div>
 
+        {/* Team preview — shown when a valid code is entered */}
+        {teamPreview && (
+          <div className="mb-4 p-3 bg-[#F0FDFA] border border-[#0F766E]/20 rounded-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-1 duration-200">
+            <div className="w-8 h-8 rounded-lg bg-white border border-[#0F766E]/20 flex items-center justify-center flex-shrink-0">
+              <Users className="w-4 h-4 text-[#0F766E]" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-[#0F766E] truncate">{teamPreview.teamName}</p>
+              {teamPreview.orgName && (
+                <p className="text-xs text-[#0F766E]/70 font-light truncate">at {teamPreview.orgName}</p>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="mb-4">
           <Input
             placeholder="Enter invite code (e.g., ACME-X8J9)"
             value={code}
-            onChange={(e) => { setCode(e.target.value.toUpperCase()); clearError(); }}
+            onChange={(e) => handleCodeChange(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
             className="h-12 text-center text-lg tracking-widest border-[#E7E5E4] focus:border-[#0F766E] focus:ring-1 focus:ring-[#0F766E] rounded-lg font-light"
           />
@@ -63,7 +127,7 @@ export default function OnboardingJoin() {
           </div>
         )}
 
-        <Button 
+        <Button
           onClick={handleJoin}
           disabled={!code.trim() || loading}
           className="w-full h-12 bg-[#1C1917] hover:bg-[#292524] text-white rounded-lg font-normal text-base transition-all duration-200 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
@@ -71,7 +135,7 @@ export default function OnboardingJoin() {
           {loading ? (
             <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Joining...</>
           ) : (
-            <>Join Team <ChevronRight className="h-4 w-4 ml-1" /></>
+            <>Join {teamPreview ? teamPreview.teamName : 'Team'} <ChevronRight className="h-4 w-4 ml-1" /></>
           )}
         </Button>
 

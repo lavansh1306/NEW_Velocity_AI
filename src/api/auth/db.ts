@@ -34,7 +34,8 @@ export async function getUserOrgDetails(userId: string) {
       email,
       organizations (
         id,
-        name
+        name,
+        onboarding_complete
       )
     `)
     .eq('id', userId)
@@ -55,5 +56,6 @@ export async function getUserOrgDetails(userId: string) {
     organizationName: (data as any).organizations?.name || 'My Organization',
     role: data.role || 'employee',
     email: data.email,
+    onboardingComplete: (data as any).organizations?.onboarding_complete ?? false,
   };
 }

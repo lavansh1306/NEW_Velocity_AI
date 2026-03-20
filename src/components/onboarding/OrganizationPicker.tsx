@@ -1,13 +1,17 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { 
-  CheckCircle2, 
-  X, 
-  Plus, 
-  Search, 
-  Building2 
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import {
+  CheckCircle2,
+  X,
+  Plus,
+  Search,
+  Building2,
+  Loader2
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
+import { isPersonalEmail, getEmailDomain } from '@/lib/emailDomains';
 
 export interface Organization {
   id: string;
@@ -16,14 +20,6 @@ export interface Organization {
   members: number;
   industry: string;
 }
-
-const MOCK_ORGS: Organization[] = [
-  { id: '1', name: 'Velocity AI', domain: 'velocityai.tech', members: 12, industry: 'Technology' },
-  { id: '2', name: 'Google', domain: 'google.com', members: 150000, industry: 'Technology' },
-  { id: '3', name: 'Acme Corp', domain: 'acme.com', members: 450, industry: 'Manufacturing' },
-  { id: '4', name: 'Meta', domain: 'meta.com', members: 80000, industry: 'Social Media' },
-  { id: '5', name: 'Tesla', domain: 'tesla.com', members: 120000, industry: 'Automotive' },
-];
 
 interface OrganizationPickerProps {
   value: string;
@@ -38,11 +34,17 @@ export const OrganizationPicker: React.FC<OrganizationPickerProps> = ({
   onCreate,
   onClear
 }) => {
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null);
   const [isCreatingNewOrg, setIsCreatingNewOrg] = useState(false);
+  const [searchResults, setSearchResults] = useState<Organization[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [domainOrg, setDomainOrg] = useState<Organization | null>(null);
+  const [domainChecked, setDomainChecked] = useState(false);
   const suggestionsRef = useRef<HTMLDivElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Close suggestions when clicking outside
   useEffect(() => {
@@ -55,22 +57,93 @@ export const OrganizationPicker: React.FC<OrganizationPickerProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const filteredOrgs = useMemo(() => {
-    if (searchTerm.trim().length < 1) return [];
-    return MOCK_ORGS.filter(org => 
-      org.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      org.domain.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [searchTerm]);
+  // Domain-based org detection on mount (for corporate emails)
+  useEffect(() => {
+    if (!user?.email || domainChecked) return;
+    setDomainChecked(true);
 
-  const exactMatch = useMemo(() => {
-    return MOCK_ORGS.some(org => org.name.toLowerCase() === searchTerm.toLowerCase());
-  }, [searchTerm]);
+    if (isPersonalEmail(user.email)) return; // Skip for gmail, yahoo, etc.
+
+    const domain = getEmailDomain(user.email);
+    if (!domain) return;
+
+    (async () => {
+      try {
+        const { data: users } = await supabase
+          .from('users')
+          .select('organization_id')
+          .ilike('email', `%@${domain}`)
+          .not('organization_id', 'is', null)
+          .limit(1);
+
+        if (!users || users.length === 0) return;
+
+        const orgId = users[0].organization_id;
+        const { data: org } = await supabase
+          .from('organizations')
+          .select('id, name, users:users(id)')
+          .eq('id', orgId)
+          .single();
+
+        if (org) {
+          setDomainOrg({
+            id: org.id,
+            name: org.name,
+            domain,
+            members: org.users?.length || 0,
+            industry: '',
+          });
+        }
+      } catch {
+        // Silently fail — domain check is best-effort
+      }
+    })();
+  }, [user?.email, domainChecked]);
+
+  // Debounced search against real Supabase data
+  const doSearch = useCallback(async (query: string) => {
+    if (query.trim().length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    setSearching(true);
+    try {
+      const { data, error } = await supabase
+        .from('organizations')
+        .select('id, name, users:users(id)')
+        .ilike('name', `%${query.trim()}%`)
+        .limit(8);
+
+      if (error) throw error;
+
+      setSearchResults(
+        (data || []).map((org: any) => ({
+          id: org.id,
+          name: org.name,
+          domain: '',
+          members: org.users?.length || 0,
+          industry: '',
+        }))
+      );
+    } catch {
+      setSearchResults([]);
+    } finally {
+      setSearching(false);
+    }
+  }, []);
 
   const handleOrgInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(e.target.value);
+    const val = e.target.value;
+    setSearchTerm(val);
     setShowSuggestions(true);
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => doSearch(val), 300);
   };
+
+  const exactMatch = useMemo(() => {
+    return searchResults.some(org => org.name.toLowerCase() === searchTerm.toLowerCase());
+  }, [searchResults, searchTerm]);
 
   const handleOrgSelect = (org: Organization) => {
     setSelectedOrg(org);
@@ -90,6 +163,7 @@ export const OrganizationPicker: React.FC<OrganizationPickerProps> = ({
     setSelectedOrg(null);
     setIsCreatingNewOrg(false);
     setSearchTerm('');
+    setDomainOrg(null);
     onClear();
   };
 
@@ -99,6 +173,27 @@ export const OrganizationPicker: React.FC<OrganizationPickerProps> = ({
         Organization Name
       </Label>
 
+      {/* Domain-detected org suggestion */}
+      {domainOrg && !selectedOrg && !isCreatingNewOrg && (
+        <div className="mb-3 p-3 bg-[#F0FDFA] border border-[#0F766E]/20 rounded-xl animate-in fade-in duration-200">
+          <p className="text-xs text-[#0F766E] font-medium mb-2">We found your organization:</p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-[#0F766E]" />
+              <span className="text-sm font-medium text-[#1C1917]">{domainOrg.name}</span>
+              <span className="text-xs text-[#78716C]">· {domainOrg.members} members</span>
+            </div>
+            <button
+              type="button"
+              className="text-xs text-[#0F766E] font-medium hover:underline"
+              onClick={() => handleOrgSelect(domainOrg)}
+            >
+              Join this org →
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Selected org confirmation chip */}
       {selectedOrg ? (
         <div className="flex items-center gap-2 h-11 px-3 rounded-lg border border-[#0F766E]/30 bg-[#F0FDFA] animate-in fade-in slide-in-from-top-1 duration-200">
@@ -106,7 +201,7 @@ export const OrganizationPicker: React.FC<OrganizationPickerProps> = ({
           <div className="flex-1 min-w-0">
             <span className="text-sm text-[#1C1917] font-medium">{selectedOrg.name}</span>
             <span className="text-xs text-[#78716C] ml-2 font-light">
-              {selectedOrg.domain} · {selectedOrg.members.toLocaleString()} members
+              {selectedOrg.members > 0 ? `${selectedOrg.members.toLocaleString()} members` : ''}
             </span>
           </div>
           <button
@@ -136,7 +231,11 @@ export const OrganizationPicker: React.FC<OrganizationPickerProps> = ({
       ) : (
         <div className="relative" ref={suggestionsRef}>
           <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10">
-            <Search className="w-4.5 h-4.5 text-[#A8A29E]" />
+            {searching ? (
+              <Loader2 className="w-4 h-4 text-[#A8A29E] animate-spin" />
+            ) : (
+              <Search className="w-4 h-4 text-[#A8A29E]" />
+            )}
           </div>
           <Input
             id="org-name"
@@ -144,19 +243,19 @@ export const OrganizationPicker: React.FC<OrganizationPickerProps> = ({
             placeholder="Search or enter your organization name"
             value={searchTerm}
             onChange={handleOrgInputChange}
-            onFocus={() => { if (searchTerm.trim().length >= 1) setShowSuggestions(true); }}
+            onFocus={() => { if (searchTerm.trim().length >= 2) setShowSuggestions(true); }}
             autoComplete="off"
           />
 
           {/* Search results dropdown */}
-          {showSuggestions && searchTerm.trim().length >= 1 && (
+          {showSuggestions && searchTerm.trim().length >= 2 && (
             <div className="absolute left-0 right-0 mt-1 bg-white border border-[#E7E5E4] rounded-lg shadow-lg max-h-56 overflow-y-auto z-50 animate-in fade-in zoom-in-95 duration-150">
-              {filteredOrgs.length > 0 && (
+              {searchResults.length > 0 && (
                 <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-[#A8A29E] font-medium border-b border-[#F5F5F4]">
                   Existing organizations
                 </div>
               )}
-              {filteredOrgs.map((org) => (
+              {searchResults.map((org) => (
                 <button
                   key={org.id}
                   type="button"
@@ -168,7 +267,9 @@ export const OrganizationPicker: React.FC<OrganizationPickerProps> = ({
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm text-[#1C1917] font-medium truncate">{org.name}</div>
-                    <div className="text-xs text-[#A8A29E] font-light">{org.domain} · {org.members.toLocaleString()} members · {org.industry}</div>
+                    <div className="text-xs text-[#A8A29E] font-light">
+                      {org.members > 0 ? `${org.members.toLocaleString()} members` : 'New'}
+                    </div>
                   </div>
                   <CheckCircle2 className="w-3.5 h-3.5 text-[#0F766E] flex-shrink-0" />
                 </button>
@@ -177,7 +278,7 @@ export const OrganizationPicker: React.FC<OrganizationPickerProps> = ({
               {/* Create new option */}
               {!exactMatch && searchTerm.trim().length >= 2 && (
                 <>
-                  {filteredOrgs.length > 0 && (
+                  {searchResults.length > 0 && (
                     <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-[#A8A29E] font-medium border-b border-[#F5F5F4] bg-[#FAFAF9]">
                       Not listed?
                     </div>
@@ -198,9 +299,9 @@ export const OrganizationPicker: React.FC<OrganizationPickerProps> = ({
                 </>
               )}
 
-              {filteredOrgs.length === 0 && searchTerm.trim().length < 2 && (
+              {searchResults.length === 0 && !searching && (
                 <div className="px-3 py-3 text-sm text-[#A8A29E] text-center font-light">
-                  Type at least 2 characters to search
+                  No organizations found for "{searchTerm.trim()}"
                 </div>
               )}
             </div>

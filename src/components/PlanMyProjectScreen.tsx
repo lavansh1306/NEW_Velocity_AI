@@ -9,6 +9,7 @@ import SyncOutlined from '@mui/icons-material/SyncOutlined';
 import { supabase } from '../lib/supabase'; 
 import { useAuth } from '@/contexts/AuthContext';
 import { getCurrentOrgId } from '@/lib/orgContext';
+import { setupProgressService } from '@/services/setupProgressService';
 
 // ── CHILD COMPONENTS ──
 import { PlanHeader } from './planproject/PlanHeader';
@@ -134,7 +135,8 @@ const handleSaveDraft = async () => {
         if (tasksError) throw tasksError;
 
         toast.success('Draft project and tasks saved successfully!');
-        
+        if (currentOrgId) setupProgressService.markStepComplete(currentOrgId, 'first_project_created');
+
         // Navigate to the projects overview page
         navigate('/projects'); 
         

@@ -37,6 +37,8 @@ import { useSimulatedLoading } from '@/hooks/useSimulatedLoading';
 import { supabase } from '@/lib/supabase';
 import { getCurrentOrgId } from '@/lib/orgContext';
 import { peopleService } from '../services/peopleService';
+import { setupProgressService } from '../services/setupProgressService';
+import { teamMembersView, pendingSkillsView, personDetailsMap } from '../data/mockData';
 import type { TeamMemberView, PendingSkillView, PersonDetailView } from '../types';
 
 const UtilizationBar = ({ value }: { value: number }) => {
@@ -832,7 +834,7 @@ export const PeopleCapacityScreen = () => {
                     </Button>
                 </div>
 
-                <AddTeamMemberModal open={isAddMemberOpen} onOpenChange={setIsAddMemberOpen} onMemberAdded={loadTeamData} />
+                <AddTeamMemberModal open={isAddMemberOpen} onOpenChange={setIsAddMemberOpen} onMemberAdded={() => { loadTeamData(); if (orgId) setupProgressService.markStepComplete(orgId, 'team_members_added'); }} />
 
                 {/* Capacity Summary Strip */}
                 <div className="flex items-center gap-0 mb-10">
@@ -1108,6 +1110,25 @@ export const PeopleCapacityScreen = () => {
                 )}
 
                 {/* Team Cards */}
+                {teamMembers.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-20 px-4">
+                        <div className="w-16 h-16 rounded-full bg-[#F5F5F4] flex items-center justify-center mb-4">
+                            <svg className="w-8 h-8 text-[#D6D3D1]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
+                            </svg>
+                        </div>
+                        <h3 className="text-lg font-medium text-[#1C1917] mb-1">No team members yet</h3>
+                        <p className="text-sm text-[#78716C] mb-6 text-center max-w-md">
+                            Add your first team member to start planning capacity and tracking utilization.
+                        </p>
+                        <Button
+                            onClick={() => setIsAddMemberOpen(true)}
+                            className="bg-[#1C1917] text-white hover:bg-[#292524] gap-2"
+                        >
+                            <AddOutlined style={{ fontSize: 18 }} /> Add Team Member
+                        </Button>
+                    </div>
+                ) : (
                 <div className={`grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 transition-all duration-500 ease-out ${selectedPerson ? 'translate-y-0 opacity-100' : ''}`}>
                     {teamMembers.map((member, idx) => (
                         <div
@@ -1239,6 +1260,7 @@ export const PeopleCapacityScreen = () => {
                         </div>
                     ))}
                 </div>
+                )}
             </div>
         </div>
     );

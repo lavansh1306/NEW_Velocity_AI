@@ -123,3 +123,107 @@ export async function deleteHoliday(holidayId: string, orgId: string) {
   }
   return true;
 }
+
+// ---------- Organization Search (duplicate prevention) ----------
+
+export async function searchOrganizations(query: string, limit = 10) {
+  const client = getClient();
+  const { data, error } = await client
+    .from('organizations')
+    .select(`
+      id, name, location, created_at,
+      teams:teams(id, name),
+      users:users(id)
+    `)
+    .ilike('name', `%${query.trim()}%`)
+    .limit(limit);
+
+  if (error) {
+    console.error('[OrganizationDB] searchOrganizations error:', error.message);
+    throw error;
+  }
+
+  return (data || []).map((org: any) => ({
+    id: org.id,
+    name: org.name,
+    location: org.location,
+    memberCount: org.users?.length || 0,
+    teamCount: org.teams?.length || 0,
+    teams: (org.teams || []).map((t: any) => ({ id: t.id, name: t.name })),
+  }));
+}
+
+export async function findOrgByEmailDomain(domain: string) {
+  const client = getClient();
+
+  // Find any user with this email domain → grab their org
+  const { data: users, error } = await client
+    .from('users')
+    .select('organization_id')
+    .ilike('email', `%@${domain}`)
+    .not('organization_id', 'is', null)
+    .limit(1);
+
+  if (error || !users || users.length === 0) return null;
+
+  const orgId = users[0].organization_id;
+
+  const { data: org, error: orgError } = await client
+    .from('organizations')
+    .select(`
+      id, name, location, created_at,
+      teams:teams(id, name),
+      users:users(id)
+    `)
+    .eq('id', orgId)
+    .single();
+
+  if (orgError || !org) return null;
+
+  return {
+    id: org.id,
+    name: org.name,
+    location: org.location,
+    memberCount: org.users?.length || 0,
+    teamCount: org.teams?.length || 0,
+    teams: (org.teams || []).map((t: any) => ({ id: t.id, name: t.name })),
+  };
+}
+
+// ---------- Team Invite Management ----------
+
+export async function getTeamsForOrg(orgId: string) {
+  const client = getClient();
+  const { data, error } = await client
+    .from('teams')
+    .select('*')
+    .eq('organization_id', orgId)
+    .eq('is_active', true)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('[OrganizationDB] getTeamsForOrg error:', error.message);
+    throw error;
+  }
+  return data || [];
+}
+
+export async function regenerateTeamInviteCode(teamId: string, newCode: string) {
+  const client = getClient();
+  const { data, error } = await client
+    .from('teams')
+    .update({
+      invite_code: newCode,
+      invite_use_count: 0,
+      invite_created_at: new Date().toISOString(),
+    })
+    .eq('id', teamId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('[OrganizationDB] regenerateTeamInviteCode error:', error.message);
+    throw error;
+  }
+  return data;
+}

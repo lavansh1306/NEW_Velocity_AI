@@ -8,26 +8,23 @@ const skillsDictionary = skillsDictionaryRaw as string[];
  * Looks up skills directly linked to a job title/role.
  * Supports exact match and fuzzy title inclusion.
  */
-export function getSkillsForRole(role: string): string[] {
+export function getSkillsForRole(role: string, limit = 5): string[] {
   if (!role) return [];
   const normalizedRole = role.toLowerCase().trim();
 
-  // 1. Exact match
+  // 1. Exact match — take first N skills from the matched role
   if (roleSkillsMap[normalizedRole]) {
-    return roleSkillsMap[normalizedRole];
+    return roleSkillsMap[normalizedRole].slice(0, limit);
   }
 
   // 2. Fuzzy inclusion mapping (e.g., "Sr. Front End Engineer" containing "engineer")
-  const matchedKeys = Object.keys(roleSkillsMap).filter(key => 
+  const matchedKeys = Object.keys(roleSkillsMap).filter(key =>
     normalizedRole.includes(key) || key.includes(normalizedRole)
   );
 
   if (matchedKeys.length > 0) {
-    const combinedSkills = new Set<string>();
-    matchedKeys.forEach(key => {
-      roleSkillsMap[key].forEach(s => combinedSkills.add(s));
-    });
-    return Array.from(combinedSkills);
+    // Use only the closest match (first matched key) to keep suggestions focused
+    return roleSkillsMap[matchedKeys[0]].slice(0, limit);
   }
 
   return [];
