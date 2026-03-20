@@ -20,7 +20,7 @@ interface AuthContextType {
   orgRole: string | null;
   orgName: string | null;
   onboardingComplete: boolean | null;
-  signUp: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string) => Promise<any>;
   signIn: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signInWithJira: () => void;
@@ -216,11 +216,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      }
     });
     if (error) throw error;
     if (data?.user?.identities?.length === 0) {
       throw new Error('An account with this email already exists.');
     }
+    
+    // Set state immediately if session is returned (prevents race condition)
+    if (data?.session) {
+      setSession(data.session);
+      setUser(data.session.user);
+    }
+    
+    return data;
   };
 
   const signIn = async (email: string, password: string) => {
