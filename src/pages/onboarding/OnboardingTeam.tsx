@@ -26,10 +26,10 @@ const PREDEFINED_ROLES = [
 export default function OnboardingTeam() {
   const navigate = useNavigate();
   const { saveTeamMembers, loading, error, clearError, inviteCode, orgName } = useOnboarding();
-  const [members, setMembers] = useState([
-    { name: '', email: '', role: '', skills: [] },
-    { name: '', email: '', role: '', skills: [] },
-    { name: '', email: '', role: '', skills: [] },
+  const [members, setMembers] = useState<Array<{ name: string; email: string; role: string; type?: string; skills: string[] }>>([
+    { name: '', email: '', role: 'Engineer', type: 'employee', skills: getSkillsForRole('Engineer') },
+    { name: '', email: '', role: 'Engineer', type: 'employee', skills: getSkillsForRole('Engineer') },
+    { name: '', email: '', role: 'Engineer', type: 'employee', skills: getSkillsForRole('Engineer') },
   ]);
   const [openRoleDropdown, setOpenRoleDropdown] = useState<number | null>(null);
   const [activeSkillInput, setActiveSkillInput] = useState<number | null>(null);
