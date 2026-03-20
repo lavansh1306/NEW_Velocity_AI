@@ -186,35 +186,26 @@ export const OnboardingProvider = ({ children }: { children: React.ReactNode }) 
       setCurrentOrgRole('owner');
       setCurrentOrgName(org.name);
 
-      // Generate default invite code and update organization directly
-      try {
-        console.log('[Onboarding] Calling /api/invites/create for org:', org.id);
-        const resp = await fetch(apiUrl('/api/invites/create'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ organizationId: org.id, role: 'owner' }),
-        });
+      // Invite code was already generated client-side and stored in the team above
+      setInviteCode(invCode);
+      console.log('[Onboarding] ✓ Invite code set:', invCode);
 
-        if (!resp.ok) {
-          console.error('[Onboarding] Invite creation failed with status:', resp.status);
-          const errorBody = await resp.json().catch(() => ({}));
-          console.error('[Onboarding] Error response:', errorBody);
-          throw new Error(`Failed to create invite: ${resp.status}`);
+      // Provision leave types via server asynchronously (non-blocking)
+      fetch(apiUrl('/api/invites/create'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ organizationId: org.id, role: 'owner' }),
+      }).then(async resp => {
+        if (resp.ok) {
+          const body = await resp.json().catch(() => null);
+          if (body?.inviteCode) {
+            setInviteCode(body.inviteCode);
+            console.log('[Onboarding] Server updated invite code:', body.inviteCode);
+          }
         }
-
-        const body = await resp.json();
-        console.log('[Onboarding] Invite creation response:', body);
-
-        if (body.success && body.inviteCode) {
-          setInviteCode(body.inviteCode);
-          console.log('[Onboarding] ✓ Invite code successfully persisted to database:', body.inviteCode);
-        } else {
-          throw new Error(`Invalid response from server: ${JSON.stringify(body)}`);
-        }
-      } catch (err) {
-        console.error('[Onboarding] Failed to create and persist invite code:', err);
-        throw new Error(`Could not generate invite code: ${err instanceof Error ? err.message : String(err)}`);
-      }
+      }).catch(err => {
+        console.warn('[Onboarding] Server leave provisioning failed (non-blocking):', err);
+      });
 
       console.log(`[Onboarding] Org created: ${org.name} (${org.id}), team: ${team.id}`);
       return org.id;

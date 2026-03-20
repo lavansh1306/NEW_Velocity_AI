@@ -10,7 +10,6 @@ import { Cloud, CloudOff, Rocket } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { getCurrentOrgId } from '@/lib/orgContext';
-import { setupProgressService } from '@/services/setupProgressService';
 
 // ── CHILD COMPONENTS ──
 import { PlanHeader } from './planproject/PlanHeader';
@@ -85,106 +84,6 @@ export const PlanMyProjectScreen = () => {
     const [editForm, setEditForm] = useState({ task: '', estimatedHours: 0 });
     const [showAddRow, setShowAddRow] = useState(false);
     const [addForm, setAddForm] = useState({ task: '', estimatedHours: 0 });
-
-const cancelEdit = () => {
-    setEditingTaskId(null);
-    setEditForm({ task: '', estimatedHours: 0 });
-};
-
-const saveEdit = () => {
-    if (!editForm.task.trim()) return;
-    setTasks(prev => prev.map(t => 
-        t.id === editingTaskId 
-        ? { ...t, task: editForm.task, estimatedHours: editForm.estimatedHours } 
-        : t
-    ));
-    setEditingTaskId(null);
-    toast.success("Task updated");
-};
-
-const handleRemoveTask = (id: string) => {
-    setTasks(prev => prev.filter(t => t.id !== id));
-    toast.success("Task removed");
-};
-
-const handleAddTask = () => {
-    if (!addForm.task.trim()) return;
-    const newTask: EditableTask = {
-        id: `manual-${Date.now()}`,
-        task: addForm.task,
-        estimatedHours: addForm.estimatedHours || 0,
-        requiredSkills: []
-    };
-    setTasks(prev => [...prev, newTask]);
-    setAddForm({ task: '', estimatedHours: 0 });
-    setShowAddRow(false);
-    toast.success("Task added");
-};
-const handleSaveDraft = async () => {
-    // 1. Basic Validation
-    if (tasks.length === 0) {
-        toast.error("Generate tasks before saving a draft.");
-        return;
-    }
-
-    if (!currentOrgId) {
-        toast.error("Organization context missing. Please refresh.");
-        return;
-    }
-
-    setIsSaving(true);
-    try {
-        // Prepare the project name
-        const fallbackName = uploadedFileName 
-            ? `Draft: ${uploadedFileName.replace(/\.[^/.]+$/, "")}` 
-            : `AI Draft - ${new Date().toLocaleDateString()}`;
-            
-        const finalProjectName = projectTitle.trim() !== '' ? projectTitle.trim() : fallbackName;
-
-        // 2. Insert into 'projects' table
-        const { data: projectData, error: projectError } = await supabase
-            .from('projects')
-            .insert({
-                organization_id: currentOrgId,
-                name: finalProjectName,
-                description: projectDescription,
-                source: 'internal',
-                status: 'draft' 
-            })
-            .select()
-            .single();
-
-        if (projectError) throw projectError;
-
-        // 3. Insert into 'tasks' table
-        // Mapping UI state keys to DB column names
-        const tasksToInsert = tasks.map(t => ({
-            project_id: projectData.id,
-            name: t.task,             // DB column is 'name'
-            estimated_hours: t.estimatedHours, // DB column is 'estimated_hours'
-            status: 'not_started'
-        }));
-
-        const { error: tasksError } = await supabase
-            .from('tasks')
-            .insert(tasksToInsert);
-
-        if (tasksError) throw tasksError;
-
-        toast.success('Draft project and tasks saved successfully!');
-        if (currentOrgId) setupProgressService.markStepComplete(currentOrgId, 'first_project_created');
-
-        // Navigate to the projects overview page
-        navigate('/projects'); 
-        
-    } catch (error: any) {
-        console.error("Save Draft Error:", error);
-        toast.error(error.message || "Failed to save draft.");
-    } finally {
-        setIsSaving(false);
-    }
-};
-    const baseUrl = import.meta.env.VITE_LLM_URL || 'http://127.0.0.1:8000';
 
     // ── AUTO-SAVE HOOK ──
     const {
