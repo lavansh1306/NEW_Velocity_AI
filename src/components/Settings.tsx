@@ -1,17 +1,22 @@
 import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useJiraConnection } from '@/hooks/useJiraConnection';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Plus, X, Copy, RefreshCw, Users, Loader2, Check } from 'lucide-react';
+import { Plus, X, Copy, RefreshCw, Users, Loader2, Check, CalendarDays } from 'lucide-react';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiUrl } from '@/lib/api';
+import { setupProgressService } from '@/services/setupProgressService';
 
 const SettingsScreen = () => {
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') || 'organization';
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [loading, setLoading] = useState(true);
   const { state: jiraConnectionState, connectingJira, disconnectingJira, connect: connectJira, disconnect: disconnectJira } = useJiraConnection();
   
@@ -108,6 +113,7 @@ const SettingsScreen = () => {
 
       if (error) throw error;
       toast.success("Organization settings updated");
+      setupProgressService.markStepComplete(orgData.id, 'working_hours_configured');
     } catch (error) {
       toast.error("Update failed");
     } finally {
@@ -172,6 +178,7 @@ const SettingsScreen = () => {
       setNewHolidayDate('');
       setShowHolidayForm(false);
       toast.success("Holiday added successfully");
+      setupProgressService.markStepComplete(orgData.id, 'holidays_configured');
     } catch (error) {
       toast.error("Failed to add holiday");
     } finally {
@@ -230,7 +237,7 @@ const SettingsScreen = () => {
   return (
     <div className="p-12 relative min-h-screen">
       <div className="max-w-[1200px] mx-auto relative z-10">
-        <Tabs defaultValue="organization" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="mb-10 bg-white/70 backdrop-blur-xl border border-white/20 p-1.5 rounded-xl shadow-sm">
             <TabsTrigger value="organization">Organization</TabsTrigger>
             <TabsTrigger value="team">Team</TabsTrigger>
@@ -417,7 +424,18 @@ const SettingsScreen = () => {
                     </div>
                   ))
                 ) : (
-                  <div className="text-center py-12 text-stone-400 font-light">No holidays added yet.</div>
+                  <div className="flex flex-col items-center justify-center py-16">
+                    <div className="w-14 h-14 rounded-full bg-[#F5F5F4] flex items-center justify-center mb-4">
+                      <CalendarDays className="w-6 h-6 text-[#D6D3D1]" />
+                    </div>
+                    <h3 className="text-sm font-medium text-[#1C1917] mb-1">No holidays added yet</h3>
+                    <p className="text-xs text-[#78716C] font-light max-w-sm text-center mb-4">
+                      Add your company holidays so project timelines and capacity planning account for time off.
+                    </p>
+                    <Button onClick={() => setShowHolidayForm(true)} size="sm" className="bg-[#1C1917] text-white rounded-xl px-5 h-9">
+                      <Plus className="w-4 h-4 mr-1" /> Add Your First Holiday
+                    </Button>
+                  </div>
                 )}
               </div>
             </div>

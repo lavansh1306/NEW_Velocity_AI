@@ -19,6 +19,7 @@ interface AuthContextType {
   orgId: string | null;
   orgRole: string | null;
   orgName: string | null;
+  onboardingComplete: boolean | null;
   signUp: (email: string, password: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
@@ -39,6 +40,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [orgId, setOrgIdState] = useState<string | null>(getCurrentOrgId());
   const [orgRole, setOrgRoleState] = useState<string | null>(getCurrentOrgRole());
   const [orgName, setOrgNameState] = useState<string | null>(getCurrentOrgName());
+  const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
 
   /**
    * Look up the user's org membership from the backend API.
@@ -51,6 +53,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       let organizationId: string | null = null;
       let organizationName = 'My Organization';
       let role = 'employee';
+      let onboardingDone = false;
 
       // Try backend API first if we have a token
       if (accessToken) {
@@ -69,6 +72,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             organizationId = result.data.organizationId;
             organizationName = result.data.organizationName || 'My Organization';
             role = result.data.role || 'employee';
+            onboardingDone = result.data.onboardingComplete ?? false;
           }
         } else {
           console.warn('[Auth] API lookup-org failed, falling back to direct Supabase query');
@@ -79,7 +83,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (!organizationId) {
         const { data } = await supabase
           .from('users')
-          .select('organization_id, role, organizations(id, name)')
+          .select('organization_id, role, organizations(id, name, onboarding_complete)')
           .eq('id', userId)
           .maybeSingle();
 
@@ -87,6 +91,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           organizationId = data.organization_id;
           role = data.role || 'employee';
           organizationName = (data as any).organizations?.name || 'My Organization';
+          onboardingDone = (data as any).organizations?.onboarding_complete ?? false;
         }
       }
 
@@ -101,6 +106,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setOrgIdState(organizationId);
       setOrgRoleState(role);
       setOrgNameState(organizationName);
+      setOnboardingComplete(onboardingDone);
 
       console.log(`[Auth] Org resolved: ${organizationName} (${organizationId})`);
     } catch (err) {
@@ -186,6 +192,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setOrgIdState(null);
           setOrgRoleState(null);
           setOrgNameState(null);
+          setOnboardingComplete(null);
         }
 
         setLoading(false);
@@ -299,6 +306,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     orgId,
     orgRole,
     orgName,
+    onboardingComplete,
     signUp,
     signIn,
     signInWithGoogle,
@@ -307,7 +315,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     resetPassword,
     updatePassword,
     refreshOrg,
-  }), [user, session, loading, orgLoading, orgId, orgRole, orgName]);
+  }), [user, session, loading, orgLoading, orgId, orgRole, orgName, onboardingComplete]);
 
   return (
     <AuthContext.Provider value={value}>
