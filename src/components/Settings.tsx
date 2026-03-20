@@ -6,12 +6,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Plus, X, Copy, RefreshCw, Users, Loader2, Check, CalendarDays } from 'lucide-react';
+import { Plus, X, Copy, RefreshCw, Users, Loader2, Check, CalendarDays, Link2 } from 'lucide-react';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { toast } from 'sonner';
-import { useAuth } from '@/contexts/AuthContext';
-import { apiUrl } from '@/lib/api';
 import { setupProgressService } from '@/services/setupProgressService';
+import { generateInviteCode, generateInviteLink } from '@/lib/inviteCodeGenerator';
 
 const SettingsScreen = () => {
   const [searchParams] = useSearchParams();
@@ -39,7 +38,7 @@ const SettingsScreen = () => {
   // Team invite data
   const [teams, setTeams] = useState<any[]>([]);
   const [copiedTeamId, setCopiedTeamId] = useState<string | null>(null);
-  const { session } = useAuth();
+  const [copiedLinkTeamId, setCopiedLinkTeamId] = useState<string | null>(null);
 
   // Dummy states for UI elements not present in DB schema
   const [overloadThreshold, setOverloadThreshold] = useState(110);
@@ -197,24 +196,26 @@ const SettingsScreen = () => {
     }
   };
 
-  // 6. Team Invite Code Management
+  // 6. Team Invite Code Management — client-side generation + direct Supabase update
   const regenerateTeamInvite = async (teamId: string, teamName: string) => {
     try {
-      const resp = await fetch(apiUrl(`/api/organization/teams/${teamId}/regenerate-invite`), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.access_token}`,
-        },
-        body: JSON.stringify({ teamName }),
-      });
-      const body = await resp.json();
-      if (!resp.ok || !body.success) throw new Error(body.error || 'Failed');
+      const newCode = generateInviteCode(teamName);
+      const { data, error } = await supabase
+        .from('teams')
+        .update({
+          invite_code: newCode,
+          invite_is_active: true,
+          invite_use_count: 0,
+        })
+        .eq('id', teamId)
+        .select()
+        .single();
 
-      // Update local state
-      setTeams(prev => prev.map(t => t.id === teamId ? body.team : t));
+      if (error) throw error;
+      setTeams(prev => prev.map(t => t.id === teamId ? data : t));
       toast.success('Invite code regenerated');
-    } catch {
+    } catch (err) {
+      console.error('Regenerate error:', err);
       toast.error('Failed to regenerate invite code');
     }
   };
@@ -224,6 +225,14 @@ const SettingsScreen = () => {
     setCopiedTeamId(teamId);
     setTimeout(() => setCopiedTeamId(null), 2000);
     toast.success('Invite code copied!');
+  };
+
+  const copyTeamInviteLink = (teamId: string, code: string) => {
+    const link = generateInviteLink(code);
+    navigator.clipboard.writeText(link);
+    setCopiedLinkTeamId(teamId);
+    setTimeout(() => setCopiedLinkTeamId(null), 2000);
+    toast.success('Invite link copied!');
   };
 
   if (loading) {
@@ -331,6 +340,15 @@ const SettingsScreen = () => {
                                 {copiedTeamId === team.id ? <Check className="w-4 h-4 text-[#0F766E]" /> : <Copy className="w-4 h-4" />}
                               </button>
                             </div>
+                            <Button
+                              type="button"
+                              onClick={() => team.invite_code && copyTeamInviteLink(team.id, team.invite_code)}
+                              variant="outline"
+                              className="h-10 px-3 rounded-lg border-stone-100 bg-white text-xs font-medium text-[#78716C] hover:text-[#1C1917]"
+                              title="Copy invite link"
+                            >
+                              {copiedLinkTeamId === team.id ? <Check className="w-4 h-4 text-[#0F766E]" /> : <Link2 className="w-4 h-4" />}
+                            </Button>
                             <Button
                               type="button"
                               onClick={() => regenerateTeamInvite(team.id, team.name)}

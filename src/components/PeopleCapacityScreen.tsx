@@ -38,7 +38,6 @@ import { supabase } from '@/lib/supabase';
 import { getCurrentOrgId } from '@/lib/orgContext';
 import { peopleService } from '../services/peopleService';
 import { setupProgressService } from '../services/setupProgressService';
-import { teamMembersView, pendingSkillsView, personDetailsMap } from '../data/mockData';
 import type { TeamMemberView, PendingSkillView, PersonDetailView } from '../types';
 
 const UtilizationBar = ({ value }: { value: number }) => {
