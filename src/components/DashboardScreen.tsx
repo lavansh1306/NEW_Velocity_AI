@@ -397,48 +397,12 @@ export const DashboardScreen = () => {
                             <h2 className="text-lg font-semibold text-[#1C1917]">AI Insights</h2>
                         </div>
                         
-                        <div className="space-y-4">
-                            <div className="bg-white border border-[#E7E5E4] rounded-2xl p-5 shadow-sm hover:shadow-md transition-all">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <span className="bg-[#FEF2F2] text-[#DC2626] text-[10px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wider flex items-center gap-1">
-                                        <ArrowUpRight size={12} /> Overload
-                                    </span>
-                                </div>
-                                <h3 className="text-sm font-bold text-[#1C1917] mb-2 leading-tight">Frontend capacity overload — immediate action needed</h3>
-                                <p className="text-xs text-[#78716C] mb-5 leading-relaxed">Sarah Chen is at 120% utilization and David Kim at 112%. Both have sustained overload for 3+ weeks.</p>
-                                <div className="flex gap-2">
-                                    <Button className="flex-1 bg-[#1C1917] hover:bg-[#292524] text-white h-9 text-xs font-semibold rounded-xl">Review</Button>
-                                    <Button variant="outline" className="flex-1 h-9 text-xs font-semibold rounded-xl border-[#E7E5E4] text-[#1C1917]">Ignore</Button>
-                                </div>
-                            </div>
-
-                            <div className="bg-white border border-[#E7E5E4] rounded-2xl p-5 shadow-sm hover:shadow-md transition-all">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <span className="bg-[#FEFCE8] text-[#CA8A04] text-[10px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wider flex items-center gap-1">
-                                        <Sparkles size={12} /> Risk Management
-                                    </span>
-                                </div>
-                                <h3 className="text-sm font-bold text-[#1C1917] mb-2 leading-tight">Timeline optimization opportunity</h3>
-                                <p className="text-xs text-[#78716C] mb-5 leading-relaxed">Platform Redesign is trending behind schedule at 69% with 36 days remaining. API Docs are ...</p>
-                                <div className="flex gap-2">
-                                    <Button className="flex-1 bg-[#1C1917] hover:bg-[#292524] text-white h-9 text-xs font-semibold rounded-xl">Review</Button>
-                                    <Button variant="outline" className="flex-1 h-9 text-xs font-semibold rounded-xl border-[#E7E5E4] text-[#1C1917]">Ignore</Button>
-                                </div>
-                            </div>
-
-                             <div className="bg-white border border-[#E7E5E4] rounded-2xl p-5 shadow-sm hover:shadow-md transition-all">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <span className="bg-[#F0FDFA] text-[#0F766E] text-[10px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wider flex items-center gap-1">
-                                        <ArrowDownRight size={12} /> Reallocation
-                                    </span>
-                                </div>
-                                <h3 className="text-sm font-bold text-[#1C1917] mb-2 leading-tight">Underutilized capacity on Alex Park and Jessica Liu</h3>
-                                <p className="text-xs text-[#78716C] mb-5 leading-relaxed">Alex Park is at 65% (14h/wk slack) and Jessica Liu at 78% (9h/wk slack). Combined 23h/wk o...</p>
-                                <div className="flex gap-2">
-                                    <Button className="flex-1 bg-[#1C1917] hover:bg-[#292524] text-white h-9 text-xs font-semibold rounded-xl">Review</Button>
-                                    <Button variant="outline" className="flex-1 h-9 text-xs font-semibold rounded-xl border-[#E7E5E4] text-[#1C1917]">Ignore</Button>
-                                </div>
-                            </div>
+                        <div className="flex flex-col items-center justify-center py-16 text-center">
+                            <Sparkles className="text-[#D6D3D1] mb-3" size={32} />
+                            <p className="text-sm font-medium text-[#78716C] mb-1">No insights yet</p>
+                            <p className="text-xs text-[#A8A29E] max-w-[200px]">
+                                Insights will appear here as your team data grows.
+                            </p>
                         </div>
                     </div>
                 </div>

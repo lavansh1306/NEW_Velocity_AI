@@ -17,6 +17,7 @@ import { TaskStats } from './planproject/TaskStats';
 import { TaskBreakdown } from './planproject/TaskBreakdown';
 import { DraftPlansList } from './manager/DraftPlansList';
 import { PublishPlanModal } from './manager/PublishPlanModal';
+import { PlanEmptyState } from './planproject/PlanEmptyState';
 
 // ── HOOKS ──
 import { useAutoSavePlan } from '@/hooks/useAutoSavePlan';
@@ -308,6 +309,11 @@ export const PlanMyProjectScreen = () => {
                     onContinue={handleContinueDraft}
                     activePlanId={planId}
                   />
+                )}
+
+                {/* Welcome guidance when no active plan */}
+                {!planId && (
+                  <PlanEmptyState onSelectPrompt={(prompt) => setProjectDescription(prompt)} />
                 )}
 
                 <PlanHeader
