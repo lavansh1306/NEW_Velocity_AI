@@ -770,36 +770,29 @@ export const PeopleCapacityScreen = () => {
                 return;
             }
 
-            // First, clean up any task assignments for this member
+            // First, clean up any task assignments for this user
             const { error: taskError } = await supabase
                 .from('task_assignments')
                 .delete()
-                .eq('team_member_id', memberId);
+                .eq('user_id', memberId);
 
             if (taskError) {
                 console.warn('Warning cleaning up task assignments:', taskError);
                 // Continue with member deletion even if this fails
             }
 
-            // Delete the team member from database
-            const { error: deleteError, data } = await supabase
-                .from('team_members')
-                .delete()
-                .eq('id', memberId)
-                .select();
+            // Call RPC function to soft delete user (bypasses RLS Infinite Recursion)
+            const { error: rpcError } = await supabase.rpc('soft_delete_user', { 
+                target_user_id: memberId 
+            });
 
-            if (deleteError) {
-                toast.error('Failed to remove team member from database');
-                console.error('Delete error:', deleteError);
+            if (rpcError) {
+                toast.error('Failed to update user status');
+                console.error('RPC error:', rpcError);
                 return;
             }
 
-            // Verify deletion was successful
-            if (!data || data.length === 0) {
-                console.warn('Delete returned no rows - member may not exist');
-            }
-
-            console.log('[PeopleCapacity] Team member deleted successfully:', data);
+            console.log('[PeopleCapacity] User soft deleted successfully via RPC');
 
             // Update local state
             setTeamMembers(prevMembers => prevMembers.filter(m => m.id !== memberId));
