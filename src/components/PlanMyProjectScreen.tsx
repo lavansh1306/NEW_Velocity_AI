@@ -66,17 +66,23 @@ export const PlanMyProjectScreen = () => {
 
     // ── STATE ──
     const [currentOrgId, setCurrentOrgId] = useState<string | null>(null);
-    const [projectTitle, setProjectTitle] = useState('');
-    const [projectDescription, setProjectDescription] = useState('');
+    const [projectTitle, setProjectTitle] = useState(() => localStorage.getItem('v_plan_title') || '');
+    const [projectDescription, setProjectDescription] = useState(() => localStorage.getItem('v_plan_description') || '');
     const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
     const [descriptionError, setDescriptionError] = useState<string | null>(null);
 
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [analysisStatus, setAnalysisStatus] = useState('Initializing...');
-    const [hasAnalyzed, setHasAnalyzed] = useState(false);
+    const [hasAnalyzed, setHasAnalyzed] = useState(() => localStorage.getItem('v_plan_has_analyzed') === 'true');
     const [thoughtLines, setThoughtLines] = useState<string[]>([]);
-    const [tasks, setTasks] = useState<EditableTask[]>([]);
+    const [tasks, setTasks] = useState<EditableTask[]>(() => {
+        const saved = localStorage.getItem('v_plan_tasks');
+        if (saved) {
+            try { return JSON.parse(saved); } catch { return []; }
+        }
+        return [];
+    });
 
     const [showPublishModal, setShowPublishModal] = useState(false);
 
@@ -99,6 +105,36 @@ export const PlanMyProjectScreen = () => {
       organizationId: currentOrgId,
       userId: user?.id ?? null,
     });
+
+    // ── LOCAL STORAGE SYNC ──
+    useEffect(() => {
+        const savedPlanId = localStorage.getItem('v_plan_id');
+        if (savedPlanId && setPlanId) {
+            setPlanId(savedPlanId);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // Run once on mount
+
+    useEffect(() => {
+        if (planId) localStorage.setItem('v_plan_id', planId);
+        else localStorage.removeItem('v_plan_id');
+    }, [planId]);
+
+    useEffect(() => {
+        localStorage.setItem('v_plan_title', projectTitle);
+    }, [projectTitle]);
+
+    useEffect(() => {
+        localStorage.setItem('v_plan_description', projectDescription);
+    }, [projectDescription]);
+
+    useEffect(() => {
+        localStorage.setItem('v_plan_tasks', JSON.stringify(tasks));
+    }, [tasks]);
+
+    useEffect(() => {
+        localStorage.setItem('v_plan_has_analyzed', String(hasAnalyzed));
+    }, [hasAnalyzed]);
 
     // ── CONTEXT FETCHING ──
     useEffect(() => {
@@ -295,6 +331,14 @@ export const PlanMyProjectScreen = () => {
     // ── PUBLISH COMPLETE ──
     const handlePublished = (projectId: string) => {
       setShowPublishModal(false);
+      
+      // Clear local storage on publish
+      localStorage.removeItem('v_plan_id');
+      localStorage.removeItem('v_plan_title');
+      localStorage.removeItem('v_plan_description');
+      localStorage.removeItem('v_plan_tasks');
+      localStorage.removeItem('v_plan_has_analyzed');
+
       navigate('/projects');
     };
 
@@ -318,6 +362,28 @@ export const PlanMyProjectScreen = () => {
                 {/* Welcome guidance when no active plan */}
                 {!planId && (
                   <PlanEmptyState onSelectPrompt={(prompt) => setProjectDescription(prompt)} />
+                )}
+
+                {/* Back button when inside a plan */}
+                {planId && (
+                  <button 
+                    onClick={() => {
+                        setPlanId(null);
+                        setProjectTitle('');
+                        setProjectDescription('');
+                        setTasks([]);
+                        setHasAnalyzed(false);
+                        localStorage.removeItem('v_plan_id');
+                        localStorage.removeItem('v_plan_title');
+                        localStorage.removeItem('v_plan_description');
+                        localStorage.removeItem('v_plan_tasks');
+                        localStorage.removeItem('v_plan_has_analyzed');
+                    }}
+                    className="flex items-center gap-1.5 text-sm text-[#0F766E] hover:text-[#0D9488] mb-6 font-light group"
+                  >
+                    <ChevronRightOutlined style={{ transform: 'rotate(180deg)', fontSize: 16 }} className="group-hover:-translate-x-0.5 transition-transform" />
+                    Back to All Drafts / Start New
+                  </button>
                 )}
 
                 <PlanHeader
