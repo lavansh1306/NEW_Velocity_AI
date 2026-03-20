@@ -45,23 +45,38 @@ export const getDashboardData = async (options?: DashboardOptions) => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
+        // ALWAYS calculate current week (Monday to Friday) based on TODAY, regardless of startDate parameter
+        // The startDate parameter (if provided) is for data filtering, not for week display
+        const dayOfWeek = today.getDay();
+        const mondayOfWeek = new Date(today);
+        mondayOfWeek.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+        
+        const fridayOfWeek = new Date(mondayOfWeek);
+        fridayOfWeek.setDate(mondayOfWeek.getDate() + 4);
+        fridayOfWeek.setHours(23, 59, 59, 999);
+
+        // Week display format (e.g., "Mar 16 - Mar 20")
+        const weekDisplay = `${mondayOfWeek.toLocaleDateString('default', { month: 'short', day: 'numeric' })} - ${fridayOfWeek.toLocaleDateString('default', { month: 'short', day: 'numeric' })}`;
+
         // --- 1. DYNAMIC KPIs ---
         // ... (preserving existing kpi logic)
         const activeProjectsCount = projects?.filter(p => p.status === 'active').length || 0;
         const projectsAtRiskCount = projects?.filter(p => p.status === 'draft' || p.status === 'archived').length || 0;
 
-        const sevenDaysFromNow = new Date(today);
-        sevenDaysFromNow.setDate(today.getDate() + 7);
-
         const totalWeeklyCapacity = users?.reduce((sum, u) => 
             sum + (u.capacity_hours_per_week || orgSettings?.work_hours_per_week || 40), 0) || 0;
 
+        // Calculate allocated hours for the SPECIFIED WEEK ONLY (Mon-Fri)
         const totalAllocatedHours = allTasks?.reduce((sum, task) => {
             if (!task.estimated_hours || !task.start_date || !task.due_date) return sum;
             const taskStart = new Date(task.start_date);
             const taskDue = new Date(task.due_date);
-            const isActiveThisWeek = (taskStart <= sevenDaysFromNow && taskDue >= today);
-            return isActiveThisWeek ? sum + Number(task.estimated_hours) : sum;
+            taskStart.setHours(0, 0, 0, 0);
+            taskDue.setHours(23, 59, 59, 999);
+            
+            // Only count if task overlaps with Mon-Fri of the week
+            const isInWeek = (taskDue >= mondayOfWeek && taskStart <= fridayOfWeek);
+            return isInWeek ? sum + Number(task.estimated_hours) : sum;
         }, 0) || 0;
 
         const utilizationPercent = totalWeeklyCapacity > 0 
@@ -76,10 +91,10 @@ export const getDashboardData = async (options?: DashboardOptions) => {
             { 
                 label: 'TEAM UTILIZATION', 
                 value: `${utilizationPercent}%`, 
-                sublabel: `Target: ${target}%`, 
+                sublabel: weekDisplay, 
                 trend: utilizationPercent >= target ? 'up' : 'down' 
             },
-            { label: 'AVAILABLE CAPACITY', value: `${availableCapacity}h`, sublabel: 'Next 7 days', trend: 'down' },
+            { label: 'AVAILABLE CAPACITY', value: `${availableCapacity}h`, sublabel: weekDisplay, trend: 'down' },
             { label: 'PROJECTS AT RISK', value: projectsAtRiskCount, trend: projectsAtRiskCount > 0 ? 'down' : 'up' }
         ];
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Calendar, Plus, ChevronLeft, ChevronRight, Filter, ArrowUp, ArrowDown, Info } from 'lucide-react';
+import { Calendar, Plus, Filter, ArrowUp, ArrowDown, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DASHBOARD_STYLES } from './styles';
 import { fetchProjectsHybrid, fetchAllIssuesHybrid } from '@/lib/jiraDbClient';
@@ -25,12 +25,16 @@ interface TeamMember {
 }
 
 export const MainDashboard = () => {
-  const [currentWeekStart, setCurrentWeekStart] = useState(() => {
-    const today = new Date(2026, 1, 1);
+  // Always calculate current week (Monday to Friday of this week)
+  const getCurrentWeekStart = () => {
+    const today = new Date();
     const day = today.getDay();
     const diff = today.getDate() - day + (day === 0 ? -6 : 1); // Adjust when Sunday is 0
     return new Date(today.setDate(diff));
-  });
+  };
+
+  const currentWeekStart = getCurrentWeekStart();
+  
   const [projectDeadlines, setProjectDeadlines] = useState<ProjectDeadline[]>([]);
   const [loading, setLoading] = useState(false);
   const [metrics, setMetrics] = useState<any[]>([]);
@@ -181,48 +185,53 @@ export const MainDashboard = () => {
           }
         });
 
-        // Calculate weekly capacity data based on currentWeekStart
-        const weekEnd = new Date(currentWeekStart);
-        weekEnd.setDate(weekEnd.getDate() + 4); // Friday of the same week
-        weekEnd.setHours(23, 59, 59, 999);
+        // Calculate weekly capacity data for the DISPLAYED WEEK ONLY (Mon-Fri)
+        // currentWeekStart is Monday of the displayed week
+        // Business hours: Mon-Fri only = 40 hours per person
+        const businessWeekStart = new Date(currentWeekStart);
+        businessWeekStart.setHours(0, 0, 0, 0);
+        
+        const businessWeekEnd = new Date(currentWeekStart);
+        businessWeekEnd.setDate(businessWeekEnd.getDate() + 4); // Friday of displayed week
+        businessWeekEnd.setHours(23, 59, 59, 999);
 
         const weeklyData = new Map<string, {available: number, used: number}>();
-        const businessDaysInWeek = 5; // Mon-Fri
-        const hoursPerDay = 8;
-        const totalWeeklyHours = businessDaysInWeek * hoursPerDay; // 40 hours
+        const totalWeeklyHours = 40; // 5 business days × 8 hours
 
         Array.from(teamMap.values()).forEach(member => {
           let usedHours = 0;
           
-          // Calculate hours used in this week
+          // Count ONLY hours for tasks that fall within Mon-Fri of displayed week
           member.assignments.forEach(assignment => {
-            const assignStart = new Date(assignment.startDate);
-            const assignEnd = new Date(assignment.dueDate);
+            const taskStart = new Date(assignment.startDate);
+            const taskEnd = new Date(assignment.dueDate);
+            taskStart.setHours(0, 0, 0, 0);
+            taskEnd.setHours(23, 59, 59, 999);
             
-            // Check if assignment overlaps with the week
-            if (assignEnd >= currentWeekStart && assignStart <= weekEnd) {
-              // Calculate overlap days in this week
-              const overlapStart = assignStart > currentWeekStart ? assignStart : new Date(currentWeekStart);
-              const overlapEnd = assignEnd < weekEnd ? assignEnd : new Date(weekEnd);
+            // Only count if task overlaps with this week's Mon-Fri
+            if (taskEnd >= businessWeekStart && taskStart <= businessWeekEnd) {
+              // Find the overlap between task dates and Mon-Fri
+              const overlapStart = taskStart > businessWeekStart ? taskStart : businessWeekStart;
+              const overlapEnd = taskEnd < businessWeekEnd ? taskEnd : businessWeekEnd;
               
-              let overlapDays = 0;
-              const current = new Date(overlapStart);
-              current.setHours(0, 0, 0, 0);
-              const end = new Date(overlapEnd);
-              end.setHours(0, 0, 0, 0);
+              // Count business days in this overlap ONLY
+              let daysInWeek = 0;
+              const day = new Date(overlapStart);
               
-              while (current <= end) {
-                const dayOfWeek = current.getDay();
-                if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-                  overlapDays++;
+              while (day.getTime() <= overlapEnd.getTime()) {
+                const dayOfWeek = day.getDay();
+                // Only count Mon (1) through Fri (5)
+                if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+                  daysInWeek++;
                 }
-                current.setDate(current.getDate() + 1);
+                day.setDate(day.getDate() + 1);
               }
               
-              usedHours += overlapDays * hoursPerDay;
+              usedHours += daysInWeek * 8; // 8 hours per business day
             }
           });
 
+          // Available = 40h - used hours (capped at 0)
           const availableHours = Math.max(0, totalWeeklyHours - usedHours);
           weeklyData.set(member.name, {
             available: availableHours,
@@ -242,6 +251,11 @@ export const MainDashboard = () => {
         const weeklyTotalCapacity = totalAssignees * 40; // 40 hours per week per person
         const weeklyUtilization = weeklyTotalCapacity > 0 ? Math.round((weeklyUsedHours / weeklyTotalCapacity) * 100) : 0;
 
+        // Calculate week display for metrics (e.g., "Mar 16 - Mar 20")
+        const weekEndForMetrics = new Date(currentWeekStart);
+        weekEndForMetrics.setDate(weekEndForMetrics.getDate() + 4); // Friday
+        const weekDisplayForMetrics = `${currentWeekStart.toLocaleDateString('default', { month: 'short', day: 'numeric' })} - ${weekEndForMetrics.toLocaleDateString('default', { month: 'short', day: 'numeric' })}`;
+
         // Update metrics
         const calculatedMetrics = [
           {
@@ -254,14 +268,14 @@ export const MainDashboard = () => {
             label: 'TEAM UTILIZATION',
             value: `${weeklyUtilization}%`,
             trend: weeklyUtilization >= 80 ? 'up' : 'down',
-            sublabel: 'This week',
+            sublabel: weekDisplayForMetrics,
             color: 'text-[#0F766E]',
           },
           {
             label: 'AVAILABLE CAPACITY',
             value: `${Math.round(weeklyAvailableHours)}h`,
             trend: weeklyAvailableHours > 0 ? 'up' : 'down',
-            sublabel: 'This week',
+            sublabel: weekDisplayForMetrics,
             color: 'text-[#C2410C]',
             popup: {
               title: 'Weekly Capacity',
@@ -335,7 +349,7 @@ export const MainDashboard = () => {
     };
 
     loadDashboardData();
-  }, [currentWeekStart]);
+  }, []);
 
   // Generate dates for week view (Monday-Friday)
   const generateWeekDates = (weekStartDate: Date) => {
@@ -355,28 +369,6 @@ export const MainDashboard = () => {
     }
     
     return dates;
-  };
-
-  // Get Monday of the given date's week
-  const getMondayOfWeek = (date: Date): Date => {
-    const d = new Date(date);
-    const day = d.getDay();
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust when Sunday is 0
-    return new Date(d.setDate(diff));
-  };
-
-  // Get previous week's Monday
-  const getPreviousWeek = () => {
-    const prev = new Date(currentWeekStart);
-    prev.setDate(prev.getDate() - 7);
-    setCurrentWeekStart(getMondayOfWeek(prev));
-  };
-
-  // Get next week's Monday
-  const getNextWeek = () => {
-    const next = new Date(currentWeekStart);
-    next.setDate(next.getDate() + 7);
-    setCurrentWeekStart(getMondayOfWeek(next));
   };
 
   const weekEnd = new Date(currentWeekStart);
@@ -572,23 +564,6 @@ export const MainDashboard = () => {
               >
                 Sort
               </Button>
-              <div className="flex items-center gap-2 border border-[#E7E5E4] rounded-lg px-3 py-2">
-                <button
-                  onClick={getPreviousWeek}
-                  className="text-[#78716C] hover:text-[#1C1917]"
-                  title="Previous week"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <span className="text-sm font-light text-[#1C1917] w-40 text-center">{weekDisplay}</span>
-                <button
-                  onClick={getNextWeek}
-                  className="text-[#78716C] hover:text-[#1C1917]"
-                  title="Next week"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
             </div>
           </div>
 
@@ -687,15 +662,29 @@ export const MainDashboard = () => {
                   {/* Week day assignment blocks */}
                   <div className="flex gap-4 flex-1">
                     {weekDates.map((day, dayIdx) => {
-                      // Find assignments that fall on this day
+                      // Only show assignments that fall within the displayed week
                       const assignmentsOnDay = member.assignments.filter(assignment => {
                         const assignStart = new Date(assignment.startDate);
                         const assignEnd = new Date(assignment.dueDate);
                         assignStart.setHours(0, 0, 0, 0);
-                        assignEnd.setHours(0, 0, 0, 0);
+                        assignEnd.setHours(23, 59, 59, 999);
+                        
+                        // Check if assignment overlaps with the displayed week (Mon-Fri)
+                        const weekStart = new Date(currentWeekStart);
+                        weekStart.setHours(0, 0, 0, 0);
+                        const weekEnd = new Date(currentWeekStart);
+                        weekEnd.setDate(weekEnd.getDate() + 4);
+                        weekEnd.setHours(23, 59, 59, 999);
+                        
+                        // Task must overlap with the displayed week
+                        const isInDisplayedWeek = assignEnd >= weekStart && assignStart <= weekEnd;
+                        
+                        // And must fall on this specific day
                         const dayDate = new Date(day.date);
                         dayDate.setHours(0, 0, 0, 0);
-                        return dayDate >= assignStart && dayDate <= assignEnd;
+                        const fallsOnDay = dayDate >= assignStart && dayDate <= assignEnd;
+                        
+                        return isInDisplayedWeek && fallsOnDay;
                       });
 
                       return (
