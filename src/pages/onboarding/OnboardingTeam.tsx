@@ -41,7 +41,7 @@ export default function OnboardingTeam() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const addMember = () => {
-    setMembers([...members, { name: '', email: '', role: '', skills: [] }]);
+    setMembers([...members, { name: '', email: '', role: 'Engineer', type: 'employee', skills: getSkillsForRole('Engineer') }]);
   };
 
   const handleCSVFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
