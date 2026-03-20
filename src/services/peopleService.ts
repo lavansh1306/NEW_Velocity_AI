@@ -170,64 +170,43 @@ export const peopleService = {
             throw new Error('Organization ID and Team ID are required');
         }
 
-        // 1. Create user record
-        const { data: newUser, error: userError } = await supabase
+        // 1. Call unified Upsert RPC to bypass RLS client-side 500 recursion loops
+        const { data: teamMemberId, error: rpcError } = await supabase.rpc('upsert_team_member', {
+            p_organization_id: organizationId,
+            p_team_id: teamId,
+            p_email: member.email,
+            p_name: member.name,
+            p_role: member.role || 'member'
+        });
+
+        if (rpcError) {
+            console.error('RPC Error upserting team member:', rpcError);
+            throw rpcError;
+        }
+
+        console.log('[peopleService] Unified Upsert success, team_member_id:', teamMemberId);
+
+        // 2. Fetch the user_id locally (Select is safe from RLS loop triggers)
+        let userId = '';
+        const { data: resolvedUser } = await supabase
             .from('users')
-            .insert([
-                {
-                    organization_id: organizationId,
-                    email: member.email,
-                    name: member.name,
-                    role: 'employee',
-                    capacity_hours_per_week: 40,
-                    is_active: true,
-                }
-            ])
             .select('id')
-            .single();
+            .eq('organization_id', organizationId)
+            .eq('email', member.email)
+            .maybeSingle();
 
-        if (userError || !newUser) {
-            console.error('Error creating user:', userError);
-            throw userError || new Error('Failed to create user');
+        if (resolvedUser) {
+            userId = resolvedUser.id;
         }
 
-        console.log('[peopleService] Created user:', newUser.id);
-
-        // 2. Create team member record
-        const { data: newTeamMember, error: teamMemberError } = await supabase
-            .from('team_members')
-            .insert([
-                {
-                    team_id: teamId,
-                    user_id: newUser.id,
-                    role: member.role || 'member',
-                    email: member.email,
-                    display_name: member.name,
-                    status: 'active',
-                }
-            ])
-            .select('id')
-            .single();
-
-        if (teamMemberError || !newTeamMember) {
-            console.error('Error creating team member:', teamMemberError);
-            // Clean up the user record if team member creation fails
-            try {
-                await supabase.from('users').delete().eq('id', newUser.id);
-            } catch (cleanupError) {
-                console.warn('[peopleService] Cleanup error:', cleanupError);
-            }
-            throw teamMemberError || new Error('Failed to create team member');
-        }
-
-        console.log('[peopleService] Created team member:', newTeamMember.id);
+        console.log('[peopleService] Resolved user ID for returning and skills:', userId);
 
         // 3. Add skills if provided
         if (member.skills) {
             const skillList = member.skills.split(',').map(s => s.trim()).filter(Boolean);
             if (skillList.length > 0) {
                 const skillsToInsert = skillList.map(skill => ({
-                    user_id: newUser.id,
+                    user_id: userId,
                     skill_name: skill,
                     proficiency_level: 'mid',
                     source: 'manual',
@@ -240,14 +219,13 @@ export const peopleService = {
 
                 if (skillsError) {
                     console.warn('[peopleService] Warning: Failed to add skills:', skillsError);
-                    // Don't throw error, user and team member are already created
                 }
             }
         }
 
         return {
-            userId: newUser.id,
-            teamMemberId: newTeamMember.id,
+            userId: userId,
+            teamMemberId: teamMemberId,
         };
     }
 };
