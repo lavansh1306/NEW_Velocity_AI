@@ -43,15 +43,43 @@ export function useAutoSavePlan({
   }, []);
 
   const save = useCallback(async (data: AutoSavePlanData) => {
-    if (!organizationId || !userId) return;
+    const logData = {
+      organizationId,
+      userId,
+      data: { title: data.title, description: data.description, tasksCount: data.tasks.length }
+    };
+    
+    // Remote logging to capture browser console logs
+    fetch('http://localhost:9999/log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'save_triggered', ...logData })
+    }).catch(() => {});
+
+    if (!organizationId || !userId) {
+      fetch('http://localhost:9999/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'skip_save', reason: 'missing_id', ...logData })
+      }).catch(() => {});
+      return;
+    }
     // Don't save completely empty plans
-    if (!data.title.trim() && !data.description.trim() && data.tasks.length === 0) return;
+    if (!data.title.trim() && !data.description.trim() && data.tasks.length === 0) {
+      return;
+    }
 
     setIsSaving(true);
     setSaveError(null);
 
     try {
       const currentPlanId = planIdRef.current;
+      
+      fetch('http://localhost:9999/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'save_attempt', currentPlanId, ...logData })
+      }).catch(() => {});
 
       if (currentPlanId) {
         // ── Update existing draft ────────────────────────────────────────────

@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Zap } from 'lucide-react';
+import { Zap, Eye, EyeOff } from 'lucide-react';
 import AuthLayout from '@/components/shared/AuthLayout';
 import { FormError, validators } from '@/components/shared/FormError';
 
@@ -41,6 +41,7 @@ const JiraIcon = () => (
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [loginErrors, setLoginErrors] = useState<Record<string, string>>({});
@@ -206,15 +207,24 @@ export default function Login() {
             <Label htmlFor="password" className="text-sm font-medium text-[#57534E]">Password</Label>
             <Link to="#" className="text-xs font-medium text-[#78716C] hover:text-[#1C1917]">Forgot password?</Link>
           </div>
-          <Input
-            id="password"
-            type="password"
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => { setPassword(e.target.value); if (loginAttempted) { const err = validators.required(e.target.value, 'Password'); setLoginErrors(prev => ({ ...prev, password: err })); } }}
-            disabled={loading}
-            className={`h-11 rounded-lg bg-[#FAFAF9] focus:bg-white focus:ring-2 focus:ring-[#1C1917]/10 transition-all font-normal placeholder:text-[#A8A29E] ${loginErrors.password ? 'border-[#BE123C] focus:ring-[#BE123C]/10' : 'border-[#E7E5E4]'}`}
-          />
+          <div className="relative">
+            <Input
+              id="password"
+              type={showPassword ? "text" : "password"}
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => { setPassword(e.target.value); if (loginAttempted) { const err = validators.required(e.target.value, 'Password'); setLoginErrors(prev => ({ ...prev, password: err })); } }}
+              disabled={loading}
+              className={`h-11 rounded-lg bg-[#FAFAF9] focus:bg-white focus:ring-2 focus:ring-[#1C1917]/10 transition-all font-normal placeholder:text-[#A8A29E] pr-10 ${loginErrors.password ? 'border-[#BE123C] focus:ring-[#BE123C]/10' : 'border-[#E7E5E4]'}`}
+            />
+            <button 
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#A8A29E] hover:text-[#78716C]"
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
           <FormError message={loginErrors.password} />
         </div>
 

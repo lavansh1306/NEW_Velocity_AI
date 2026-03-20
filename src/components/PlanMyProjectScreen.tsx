@@ -215,7 +215,7 @@ export const PlanMyProjectScreen = () => {
         setDescriptionError(null);
         setIsAnalyzing(true);
         setThoughtLines([]);
-        setAnalysisStatus("Analyzing requirements...");
+        setAnalysisStatus("Saving draft...");
 
         const thoughts = ['Analyzing requirements...', 'Structuring tasks...', 'Finalizing plan...'];
         let tIdx = 0;
@@ -227,6 +227,10 @@ export const PlanMyProjectScreen = () => {
         }, 800);
 
         try {
+            // Save current typed data immediately before analysis starts
+            await flushSave({ title: projectTitle, description: projectDescription, tasks });
+            setAnalysisStatus("Analyzing requirements...");
+
             const response = await fetch(`${baseUrl}/api/v1/planner/decompose`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
