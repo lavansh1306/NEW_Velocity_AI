@@ -14,7 +14,9 @@ import { generateInviteCode as makeInviteCode } from '@/lib/inviteCodeGenerator'
 export interface TeamMember {
   name: string;
   email: string;
-  role: string;
+  role: string; // Specific job title (e.g. Engineer)
+  type?: string; // High-level category (e.g. employee, contractor)
+  skills?: string[];
 }
 
 export interface OrgSettings {
@@ -184,7 +186,7 @@ export const OnboardingProvider = ({ children }: { children: React.ReactNode }) 
       setCurrentOrgRole('owner');
       setCurrentOrgName(org.name);
 
-      // Generate default invite code and persist it server-side
+      // Generate default invite code and update organization directly
       try {
         console.log('[Onboarding] Calling /api/invites/create for org:', org.id);
         const resp = await fetch(apiUrl('/api/invites/create'), {
@@ -211,7 +213,6 @@ export const OnboardingProvider = ({ children }: { children: React.ReactNode }) 
         }
       } catch (err) {
         console.error('[Onboarding] Failed to create and persist invite code:', err);
-        // Do NOT fall back to local-only code - we need it persisted to database
         throw new Error(`Could not generate invite code: ${err instanceof Error ? err.message : String(err)}`);
       }
 
@@ -272,7 +273,7 @@ export const OnboardingProvider = ({ children }: { children: React.ReactNode }) 
           organization_id: orgId,
           email: m.email.trim().toLowerCase(),
           name: m.name.trim(),
-          role: 'employee',
+          role: m.type || 'employee',
           is_active: true,
         }));
 
@@ -350,6 +351,33 @@ export const OnboardingProvider = ({ children }: { children: React.ReactNode }) 
       }
 
       console.log(`[Onboarding] Successfully saved ${newTeamMembers.length} team member(s)`, teamMemberData);
+
+      // --- SAVE SKILLS ---
+      const skillsRows = validMembers.flatMap(m => {
+        const email = m.email.trim().toLowerCase();
+        const userId = existingEmailMap.get(email) || insertedUsers.find((u: any) => u.email === email)?.id;
+        
+        if (!userId || !m.skills || m.skills.length === 0) return [];
+
+        return m.skills.map(skill => ({
+          user_id: userId,
+          skill_name: skill,
+          source: 'dataset_matched',
+          confidence_score: 0.8
+        }));
+      });
+
+      if (skillsRows.length > 0) {
+        console.log(`[Onboarding] Inserting ${skillsRows.length} user skill(s)...`);
+        const { error: skillsError } = await supabase
+          .from('user_skills')
+          .insert(skillsRows);
+
+        if (skillsError) {
+          console.error('[Onboarding] Failed to save user skills:', skillsError);
+          throw skillsError;
+        }
+      }
     } catch (err: any) {
       const msg = err.message || 'Failed to save team members';
       console.error('[Onboarding] Error in saveTeamMembers:', {

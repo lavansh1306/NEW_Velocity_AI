@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { VelocityAISidebar } from '@/components/dashboard/VelocityAISidebar';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Plus, ChevronDown, Check, Trash2, Loader2 } from 'lucide-react';
+import { ArrowLeft, Plus, ChevronDown, Check, Trash2, Loader2, FileUp } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrentOrgId } from '@/lib/orgContext';
+import { TaskUploadDialog } from '@/components/projects/TaskUploadDialog';
+import { type ParsedTask } from '@/services/fileParsingService';
 
 // Logic Hooks
 import { useProjects } from '@/hooks/useProjects';
@@ -53,6 +55,9 @@ export default function CreateProject() {
   const [tasks, setTasks] = useState([
     { id: 1, name: 'Database Setup', assignee: 'Unassigned', hours: '4', timeline: 'Week 1', startDate: getTodayDateString(), dueDate: '' },
   ]);
+
+  // Upload dialog state
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
 
   // Calculate estimated hours based on days between start and due date
   const calculateEstimatedHours = (start: string, due: string) => {
@@ -116,6 +121,39 @@ export default function CreateProject() {
     );
   };
 
+  const handleTasksImported = (parsedTasks: ParsedTask[], projectNameFromFile?: string, projectDescFromFile?: string) => {
+    // Set project name and description from file if not already set
+    if (projectNameFromFile && !projectName) {
+      setProjectName(projectNameFromFile);
+      if (!keyManuallyEdited) {
+        setProjectKey(deriveProjectKey(projectNameFromFile));
+      }
+    }
+
+    if (projectDescFromFile && !description) {
+      setDescription(projectDescFromFile);
+    }
+
+    // Convert parsed tasks to the task format
+    const newTasks = parsedTasks.map(pt => ({
+      id: Date.now() + Math.random(),
+      name: pt.name,
+      assignee: pt.assignee,
+      hours: pt.hours,
+      timeline: pt.timeline,
+      startDate: pt.startDate,
+      dueDate: pt.dueDate,
+    }));
+
+    // Replace existing tasks with imported ones
+    setTasks(newTasks);
+
+    toast({
+      title: 'Tasks Imported',
+      description: `Successfully imported ${newTasks.length} task${newTasks.length !== 1 ? 's' : ''} from file.`,
+    });
+  };
+
   const toggleMember = (id: string) =>
     setSelectedMembers(prev =>
       prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]
@@ -136,9 +174,6 @@ export default function CreateProject() {
       name: projectName,
       key: projectKey,
       description: description,
-      startDate: startDate ? new Date(startDate) : undefined,
-      dueDate: dueDate ? new Date(dueDate) : undefined,
-      estimatedHours: estimatedHours,
       selectedTeamIds: selectedMembers,
       tasks: tasks.filter(t => t.name.trim()).map(t => {
         // Find the assignee ID by matching employee name
@@ -325,13 +360,22 @@ export default function CreateProject() {
                     These tasks will be created under your new project instantly.
                   </p>
                 </div>
-                <Button
-                  onClick={handleAddTask}
-                  variant="outline"
-                  className="bg-white border-[#E7E5E4] text-[#1C1917] hover:bg-[#FAFAF9] h-9 text-xs rounded-lg gap-2"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Add Task
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => setIsUploadDialogOpen(true)}
+                    variant="outline"
+                    className="bg-white border-[#E7E5E4] text-[#1C1917] hover:bg-[#FAFAF9] h-9 text-xs rounded-lg gap-2"
+                  >
+                    <FileUp className="w-3.5 h-3.5" /> Import from File
+                  </Button>
+                  <Button
+                    onClick={handleAddTask}
+                    variant="outline"
+                    className="bg-white border-[#E7E5E4] text-[#1C1917] hover:bg-[#FAFAF9] h-9 text-xs rounded-lg gap-2"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add Task
+                  </Button>
+                </div>
               </div>
 
               {/* Column headers */}
@@ -435,6 +479,14 @@ export default function CreateProject() {
           </div>
         </div>
       </div>
+
+      {/* Task Upload Dialog */}
+      <TaskUploadDialog
+        isOpen={isUploadDialogOpen}
+        onClose={() => setIsUploadDialogOpen(false)}
+        onTasksImported={handleTasksImported}
+        employees={employees}
+      />
     </VelocityAISidebar>
   );
 }
