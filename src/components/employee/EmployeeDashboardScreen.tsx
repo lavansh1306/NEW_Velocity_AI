@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Calendar, Clock } from 'lucide-react';
 import { PageSkeleton } from '@/components/shared/SkeletonLoader';
@@ -189,31 +189,43 @@ export function EmployeeDashboardScreen() {
 
           {/* Alerts Stack */}
           <div className="space-y-4 mb-8">
-            {empDashboardAlerts.map((alert) => (
-              <div
-                key={alert.id}
-                className={`${alert.bgColor} border ${alert.borderColor} rounded-xl p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)]`}
-              >
+            {empDashboardAlerts.length === 0 ? (
+              <div className="bg-[#F0FDF4] border border-[#BBF7D0] rounded-xl p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
                 <div className="flex items-start gap-3">
-                  <span className="text-sm mt-0.5 flex-shrink-0">{alert.icon}</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-[#1C1917] mb-1">{alert.title}</div>
-                    <p className="text-xs text-[#78716C] font-light leading-relaxed">{alert.description}</p>
-                    {alert.secondaryText && (
-                      <p className="text-xs text-[#A8A29E] font-light mt-1 leading-relaxed">{alert.secondaryText}</p>
-                    )}
-                    {alert.actionLabel && (
-                      <button
-                        onClick={() => alert.actionPath && navigate(alert.actionPath)}
-                        className="mt-2 text-xs text-[#0F766E] hover:text-[#0D9488] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2DD4BF]/50 rounded px-0.5"
-                      >
-                        {alert.actionLabel}
-                      </button>
-                    )}
+                  <span className="text-sm mt-0.5 flex-shrink-0">✓</span>
+                  <div>
+                    <div className="text-sm font-medium text-[#1C1917] mb-1">You're all caught up!</div>
+                    <p className="text-xs text-[#78716C] font-light">No urgent items right now.</p>
                   </div>
                 </div>
               </div>
-            ))}
+            ) : (
+              empDashboardAlerts.map((alert) => (
+                <div
+                  key={alert.id}
+                  className={`${alert.bgColor} border ${alert.borderColor} rounded-xl p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)]`}
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="text-sm mt-0.5 flex-shrink-0">{alert.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-[#1C1917] mb-1">{alert.title}</div>
+                      <p className="text-xs text-[#78716C] font-light leading-relaxed">{alert.description}</p>
+                      {alert.secondaryText && (
+                        <p className="text-xs text-[#A8A29E] font-light mt-1 leading-relaxed">{alert.secondaryText}</p>
+                      )}
+                      {alert.actionLabel && (
+                        <button
+                          onClick={() => alert.actionPath && navigate(alert.actionPath)}
+                          className="mt-2 text-xs text-[#0F766E] hover:text-[#0D9488] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2DD4BF]/50 rounded px-0.5"
+                        >
+                          {alert.actionLabel}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
 
           {/* Next Holiday */}
@@ -246,28 +258,26 @@ export function EmployeeDashboardScreen() {
       <div>
         <h2 className="text-xl font-light text-[#1C1917] mb-6">Recent Activity</h2>
         <div className="bg-white border border-[#E7E5E4] rounded-xl p-6 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
-          <div className="space-y-0">
-            {empDashboardActivities.map((activity, idx) => (
-              <div key={activity.id} className="flex items-start gap-4 relative">
-                {/* Timeline line */}
-                {idx < empDashboardActivities.length - 1 && (
-                  <div className="absolute left-[7px] top-[22px] w-[2px] h-[calc(100%)] bg-[#E7E5E4]" />
-                )}
-                {/* Timeline dot */}
-                <div className="w-4 h-4 rounded-full border-2 border-[#0F766E] bg-white flex-shrink-0 mt-1 z-10" />
-                <div className="pb-6 flex-1 min-w-0">
-                  <div className="text-xs text-[#A8A29E] font-light mb-1">{activity.timestamp}</div>
-                  <div className="text-sm text-[#1C1917] font-light">{activity.description}</div>
-                </div>
+          {empDashboardActivities.length === 0 ? (
+            <p className="text-sm text-[#A8A29E] font-light text-center py-4">No recent activity yet. Your actions will appear here.</p>
+          ) : (
+            <>
+              <div className="space-y-0">
+                {empDashboardActivities.map((activity, idx) => (
+                  <div key={activity.id} className="flex items-start gap-4 relative">
+                    {idx < empDashboardActivities.length - 1 && (
+                      <div className="absolute left-[7px] top-[22px] w-[2px] h-[calc(100%)] bg-[#E7E5E4]" />
+                    )}
+                    <div className="w-4 h-4 rounded-full border-2 border-[#0F766E] bg-white flex-shrink-0 mt-1 z-10" />
+                    <div className="pb-6 flex-1 min-w-0">
+                      <div className="text-xs text-[#A8A29E] font-light mb-1">{activity.timestamp}</div>
+                      <div className="text-sm text-[#1C1917] font-light">{activity.description}</div>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-
-          <button
-            className="text-sm text-[#0F766E] hover:text-[#0D9488] font-medium flex items-center gap-1 transition-colors hover:underline decoration-[#0F766E]/30 underline-offset-4 mt-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2DD4BF]/50 rounded px-1"
-          >
-            View All Activity <ArrowRight className="w-4 h-4" />
-          </button>
+            </>
+          )}
         </div>
       </div>
     </div>

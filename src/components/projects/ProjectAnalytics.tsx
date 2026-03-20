@@ -1087,7 +1087,7 @@ export default function ProjectAnalytics() {
                         issue_key: issue.issue_key
                       }))}
                       loading={loading}
-                      projectName={project?.title}
+                      projectName={project?.name}
                     />
                   </div>
                 )}
@@ -1115,7 +1115,7 @@ export default function ProjectAnalytics() {
                         status: member.status
                       }))}
                       loading={loading}
-                      projectName={project?.title}
+                      projectName={project?.name}
                     />
                   </div>
                 )}

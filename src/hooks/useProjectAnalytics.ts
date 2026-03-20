@@ -68,7 +68,7 @@ export interface JiraIssue {
 interface ProjectData {
   id: string;
   key: string;
-  title: string;
+  name: string;
   created_at: string;
   status?: string;
   team_id?: string;
@@ -152,6 +152,8 @@ export function useProjectAnalytics(projectId: string | undefined) {
         if (incomplete > 5) status = 'Overloaded';
         if (stats.assigned < 2) status = 'Underutilized';
 
+        const completionRate = stats.assigned > 0 ? stats.completed / stats.assigned : 0;
+
         return {
           id: name,
           name,
@@ -187,7 +189,8 @@ export function useProjectAnalytics(projectId: string | undefined) {
     const finalMembers = [...members, ...additionalMembers];
     const actualTeamSize = finalMembers.length; // Count all team members including those without tasks
 
-    console.log('📊 Updated metrics:', { totalTasks, teamSize: actualTeamSize, completionPct, healthScore, memberCount: memberMap.size });
+    const completionPct = allIssues.length > 0 ? Math.round((completedCount / allIssues.length) * 100) : 0;
+    console.log('📊 Updated metrics:', { totalTasks: allIssues.length, teamSize: actualTeamSize, completionPct, healthScore, memberCount: memberMap.size });
     console.log('👥 Task-assigned members:', members.map(m => ({ name: m.name, tasks: m.tasks_assigned, completed: m.tasks_completed })));
     console.log('👥 Additional base team members:', additionalMembers.map(m => ({ name: m.name })));
 
@@ -221,7 +224,7 @@ export function useProjectAnalytics(projectId: string | undefined) {
           projData = {
             id: internalProj.id,
             key: internalProj.id.substring(0, 5).toUpperCase(),
-            title: internalProj.name,
+            name: internalProj.name,
             created_at: internalProj.created_at,
             team_id: internalProj.team_id,
             organization_id: internalProj.organization_id
@@ -230,7 +233,7 @@ export function useProjectAnalytics(projectId: string | undefined) {
         } else {
           const { data: jiraProj } = await supabase.from('jira_projects').select('*').eq(isUUID ? 'id' : 'project_key', projectId).single();
           if (jiraProj) {
-            projData = { id: jiraProj.id, key: jiraProj.project_key, title: jiraProj.name, created_at: jiraProj.created_at };
+            projData = { id: jiraProj.id, key: jiraProj.project_key, name: jiraProj.name, created_at: jiraProj.created_at };
           }
         }
 
@@ -292,6 +295,10 @@ export function useProjectAnalytics(projectId: string | undefined) {
             }
           }
 
+          // --- FETCH AND MAP TASKS USING BULLETPROOF DICTIONARY ---
+          const { data: tasksData, error: tasksError } = await supabase.from('tasks').select('*').eq('project_id', projData.id);
+          if (tasksError) throw new Error(`Could not load tasks: ${tasksError.message}`);
+
           // Fetch assignees (users) for the tasks
           const assigneeIds = Array.from(new Set((tasksData || []).map(t => t.assignee_id).filter(Boolean)));
           console.log('🔍 Assignee IDs found:', assigneeIds);
@@ -309,11 +316,8 @@ export function useProjectAnalytics(projectId: string | undefined) {
               assigneeMap = new Map(users.map(u => [u.id, u]));
             }
           }
-          setAllocatedTeamMembers(fetchedAllocatedMembers);
 
-          // --- FETCH AND MAP TASKS USING BULLETPROOF DICTIONARY ---
-          const { data: tasksData, error: tasksError } = await supabase.from('tasks').select('*').eq('project_id', projData.id);
-          if (tasksError) throw new Error(`Could not load tasks: ${tasksError.message}`);
+          setAllocatedTeamMembers(fetchedAllocatedMembers);
 
           initialIssues = (tasksData || []).map(t => {
             const assignedUser = orgUsersMap.get(t.assignee_id); // Look up directly from org dictionary
@@ -397,10 +401,10 @@ export function useProjectAnalytics(projectId: string | undefined) {
                   };
                 });
 
-                console.log('🎯 Mapped issues with assignees:', updated.map(i => ({ key: i.issue_key, assignee: i.assignee })));
+                console.log('🎯 Mapped issues with assignees:', updatedIssues.map(i => ({ key: i.issue_key, assignee: i.assignee })));
 
-                setIssues(updated);
-                calculateMetrics(updated, projData, allTeamMembers);
+                setIssues(updatedIssues);
+                calculateMetrics(updatedIssues, projData, allTeamMembers);
               }
             ).subscribe();
 
