@@ -11,7 +11,6 @@ import { useAuth } from '@/contexts/AuthContext';
 // Imports
 import { Task, LeaveRequest } from './types';
 import { LeaveApplicationDialog } from './LeaveApplicationDialog';
-import { EmployeeLeavePortal } from './EmployeeLeavePortal';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
 
 // NEW: Hook integration
@@ -42,7 +41,6 @@ export default function LeaveManagementTab() {
   const [showSuccessBanner, setShowSuccessBanner] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
   const [overviewStartDate, setOverviewStartDate] = useState(new Date());
-  const [activePersona, setActivePersona] = useState<'manager' | 'employee'>('manager');
 
   // ------------------------------------------------------------------
   // MANAGER ACTIONS (STRICT SCHEMA)
@@ -266,19 +264,11 @@ export default function LeaveManagementTab() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h2 className="text-2xl font-medium text-[#121212] tracking-tight">Leave Management</h2>
-            <p className="text-sm text-slate-500 font-light">Organization: {currentOrgId?.slice(0,8)}...</p>
           </div>
-          <Button
-            onClick={() => setActivePersona(activePersona === 'manager' ? 'employee' : 'manager')}
-            className="bg-[#121212] hover:bg-[#262626] rounded-xl text-white shadow-md"
-          >
-            {activePersona === 'manager' ? 'Switch to Personal Portal' : 'Back to Manager Overview'}
-          </Button>
         </div>
 
         {/* MANAGER VIEW */}
-        {activePersona === 'manager' && (
-          <div className="space-y-10">
+        <div className="space-y-10">
             
             {/* Screenshot 2: Active Leave Requests */}
             <section>
@@ -476,28 +466,6 @@ export default function LeaveManagementTab() {
                </div>
             </section>
           </div>
-        )}
-
-        {/* EMPLOYEE VIEW */}
-        {activePersona === 'employee' && (
-          <div className="w-full">
-            <EmployeeLeavePortal
-              tasks={tasks}
-              employees={employees}
-              currentUserEmail={user?.email || ''}
-              onLeaveRequest={(leaveData) => handleApplyLeave({
-                startDate: leaveData.startDate,
-                endDate: leaveData.endDate,
-                reason: leaveData.reason,
-                leave_type_id: leaveData.leave_type_id,
-                customLeaveType: leaveData.customLeaveType
-              })}
-              existingLeaves={leaves.filter(l => l.user_id === user?.id)}
-              leaveBalances={balances}
-              leaveTypes={leaveTypes}
-            />
-          </div>
-        )}
       </div>
 
       {/* DIALOGS */}
@@ -506,8 +474,8 @@ export default function LeaveManagementTab() {
         onOpenChange={setApplyOpen}
         leaveBalances={balances}
         leaveTypes={leaveTypes}
-        employees={employees} // NEW
-        canSelectEmployee={activePersona === 'manager'} // NEW
+        employees={employees}
+        canSelectEmployee={true}
         onSubmit={handleApplyLeave}
       />
 
