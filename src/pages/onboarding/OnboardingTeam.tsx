@@ -45,7 +45,7 @@ export default function OnboardingTeam() {
   const [newSkillText, setNewSkillText] = useState<string>('');
 
   const addMember = () => {
-    setMembers([...members, { name: '', email: '', role: '', type: 'employee', skills: [] }]);
+    setMembers([...members, { name: '', email: '', role: 'Engineer', type: 'employee', skills: getSkillsForRole('Engineer') }]);
   };
 
   const handleCSVFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
