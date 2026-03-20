@@ -9,6 +9,8 @@ import TeamInviteBanner from '@/components/onboarding/TeamInviteBanner';
 import PasteImportModal from '@/components/onboarding/PasteImportModal';
 import JiraImportModal from '@/components/onboarding/JiraImportModal';
 import { getSkillsForRole } from '@/services/skillSuggester';
+import { getSkillsForRole } from '@/services/skillSuggester';
+import { Badge } from '@/components/ui/badge';
 
 const PREDEFINED_ROLES = [
   "Engineer",
@@ -30,6 +32,9 @@ export default function OnboardingTeam() {
     { name: '', email: '', role: '', skills: [] },
     { name: '', email: '', role: '', skills: [] },
     { name: '', email: '', role: '', skills: [] },
+  const { saveTeamMembers, loading, error, clearError } = useOnboarding();
+  const [members, setMembers] = useState<Array<{ name: string; email: string; role: string; type?: string; skills: string[] }>>([
+    { name: '', email: '', role: 'Engineer', type: 'employee', skills: getSkillsForRole('Engineer') }
   ]);
   const [openRoleDropdown, setOpenRoleDropdown] = useState<number | null>(null);
   const [activeSkillInput, setActiveSkillInput] = useState<number | null>(null);
@@ -39,9 +44,11 @@ export default function OnboardingTeam() {
   const [csvInputMode, setCSVInputMode] = useState<'upload' | 'paste'>('upload');
   const [importModal, setImportModal] = useState<'paste' | 'jira' | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [activeSkillInput, setActiveSkillInput] = useState<number | null>(null);
+  const [newSkillText, setNewSkillText] = useState<string>('');
 
   const addMember = () => {
-    setMembers([...members, { name: '', email: '', role: '', skills: [] }]);
+    setMembers([...members, { name: '', email: '', role: '', type: 'employee', skills: [] }]);
   };
 
   const handleCSVFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -84,13 +91,15 @@ export default function OnboardingTeam() {
       const nameIdx = headers.indexOf('name') >= 0 ? headers.indexOf('name') : 0;
       const emailIdx = headers.indexOf('email') >= 0 ? headers.indexOf('email') : 1;
       const roleIdx = headers.indexOf('role') >= 0 ? headers.indexOf('role') : 2;
+      const typeIdx = headers.indexOf('type') >= 0 ? headers.indexOf('type') : -1;
 
       const role = values[roleIdx] || 'Engineer';
       parsedMembers.push({
         name: values[nameIdx] || '',
         email: values[emailIdx] || '',
-        role,
-        skills: getSkillsForRole(role)
+        type: typeIdx >= 0 ? values[typeIdx] || 'employee' : 'employee',
+        role: values[roleIdx] || 'Engineer',
+        skills: getSkillsForRole(values[roleIdx] || 'Engineer')
       });
     }
 
@@ -98,17 +107,17 @@ export default function OnboardingTeam() {
   };
 
   const downloadSampleCSV = () => {
-    const sampleData = `name,email,role
-John Doe,john@example.com,Frontend Developer
-Jane Smith,jane@example.com,Backend Developer
-Mike Johnson,mike@example.com,Product Manager
-Sarah Williams,sarah@example.com,Designer
-Tom Brown,tom@example.com,QA Engineer
-Emily Davis,emily@example.com,DevOps Engineer
-Alex Martinez,alex@example.com,Full Stack Developer
-Chris Wilson,chris@example.com,Data Scientist
-Rachel Green,rachel@example.com,Engineering Manager
-David Lee,david@example.com,Frontend Developer`;
+    const sampleData = `name,email,type,role
+John Doe,john@example.com,employee,Frontend Developer
+Jane Smith,jane@example.com,contractor,Backend Developer
+Mike Johnson,mike@example.com,employee,Product Manager
+Sarah Williams,sarah@example.com,employee,Designer
+Tom Brown,tom@example.com,contractor,QA Engineer
+Emily Davis,emily@example.com,employee,DevOps Engineer
+Alex Martinez,alex@example.com,employee,Full Stack Developer
+Chris Wilson,chris@example.com,employee,Data Scientist
+Rachel Green,rachel@example.com,employee,Engineering Manager
+David Lee,david@example.com,employee,Frontend Developer`;
 
     const blob = new Blob([sampleData], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
@@ -191,6 +200,14 @@ David Lee,david@example.com,Frontend Developer`;
     const newMembers = members.map((member, i) => {
       if (i === index) {
         return { ...member, skills: (member.skills || []).filter(s => s !== skillToRemove) };
+  const updateMember = (index: number, field: string, value: any) => {
+    const newMembers = members.map((member, i) => {
+      if (i === index) {
+        const updated = { ...member, [field]: value };
+        if (field === 'role') {
+          updated.skills = getSkillsForRole(value);
+        }
+        return updated;
       }
       return member;
     });
@@ -259,7 +276,8 @@ David Lee,david@example.com,Frontend Developer`;
             <div className="bg-[#FAFAF9] px-4 py-3 border-b border-[#E7E5E4] flex gap-4">
               <div className="flex-1 text-xs font-normal text-[#78716C] uppercase">Name</div>
               <div className="flex-1 text-xs font-normal text-[#78716C] uppercase">Email</div>
-              <div className="w-[200px] text-xs font-normal text-[#78716C] uppercase">Role</div>
+              <div className="w-[120px] text-xs font-normal text-[#78716C] uppercase">Type</div>
+              <div className="w-[160px] text-xs font-normal text-[#78716C] uppercase">Role</div>
               <div className="flex-1 text-xs font-normal text-[#78716C] uppercase">Skills</div>
               <div className="w-8"></div>
             </div>
@@ -283,8 +301,18 @@ David Lee,david@example.com,Frontend Developer`;
                     className="h-10 border-transparent hover:border-[#E7E5E4] focus:border-[#0F766E] bg-transparent px-2 placeholder:text-[#D6D3D1]"
                   />
                 </div>
-                <div className="w-[200px] relative">
-                  <Input
+                <div className="w-[120px]">
+                  <select 
+                    value={member.type || 'employee'} 
+                    onChange={(e) => updateMember(idx, 'type', e.target.value)}
+                    className="h-10 border-transparent hover:border-[#E7E5E4] focus:border-[#0F766E] bg-transparent px-2 w-full text-sm rounded-md cursor-pointer outline-none"
+                  >
+                    <option value="employee">Employee</option>
+                    <option value="contractor">Contractor</option>
+                  </select>
+                </div>
+                <div className="w-[160px] relative">
+                  <Input 
                     placeholder="Select or type role"
                     value={member.role || ''}
                     onChange={(e) => updateMember(idx, 'role', e.target.value)}
@@ -310,59 +338,79 @@ David Lee,david@example.com,Frontend Developer`;
                   )}
                 </div>
 
-                {/* Skills Column */}
-                <div className="flex-1 flex flex-wrap gap-1.5 items-center content-start">
-                  {(member.skills || []).map((skill) => (
-                    <div
-                      key={skill}
-                      className="flex items-center gap-1 px-2 py-1 bg-[#0F766E]/10 border border-[#0F766E]/30 rounded-full text-xs text-[#0F766E] whitespace-nowrap"
+                {/* --- SKILLS COLUMN --- */}
+                <div className="flex-1 flex flex-wrap gap-1 max-h-[60px] overflow-y-auto py-1">
+                  {member.skills?.map((skill) => (
+                    <div 
+                      key={skill} 
+                      className="flex items-center gap-1 bg-teal-50 border border-teal-100 text-teal-700 px-2 py-0.5 rounded-full text-xs"
                     >
-                      {skill}
-                      <button
-                        onClick={() => removeSkillFromMember(idx, skill)}
-                        className="ml-0.5 hover:text-[#EF4444] transition-colors"
+                      <span className="truncate max-w-[100px]">{skill}</span>
+                      <button 
+                        onClick={() => {
+                          const newSkills = member.skills?.filter(s => s !== skill);
+                          updateMember(idx, 'skills', newSkills);
+                        }}
+                        className="text-teal-500 hover:text-teal-900 transition-colors"
                       >
                         <X className="h-3 w-3" />
                       </button>
                     </div>
                   ))}
-                  {activeSkillInput === idx ? (
-                    <Input
-                      autoFocus
-                      value={newSkillText}
-                      onChange={(e) => setNewSkillText(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          addSkillToMember(idx, newSkillText);
-                          setNewSkillText('');
-                          setActiveSkillInput(null);
-                        } else if (e.key === 'Escape') {
-                          setNewSkillText('');
-                          setActiveSkillInput(null);
-                        }
-                      }}
-                      onBlur={() => {
-                        if (newSkillText.trim()) {
-                          addSkillToMember(idx, newSkillText);
-                        }
-                        setNewSkillText('');
-                        setActiveSkillInput(null);
-                      }}
-                      placeholder="Add skill..."
-                      className="h-7 px-2 py-1 text-xs border-[#E7E5E4] focus:border-[#0F766E] bg-transparent w-24"
-                    />
-                  ) : (
-                    <button
-                      onClick={() => setActiveSkillInput(idx)}
-                      className="p-1 rounded-full border border-dashed border-[#0F766E]/30 hover:border-[#0F766E]/60 hover:bg-[#0F766E]/5 transition-colors"
-                      title="Add skill"
-                    >
-                      <Plus className="h-3 w-3 text-[#0F766E]" />
-                    </button>
+                  {(!member.skills || member.skills.length === 0) && (
+                    <span className="text-xs text-[#A8A29E] italic">None</span>
                   )}
+                  {/* Add Skill Button */}
+                  <div className="relative inline-block self-center">
+                    {activeSkillInput === idx ? (
+                      <Input
+                        value={newSkillText}
+                        onChange={(e) => setNewSkillText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            const trimmed = newSkillText.trim();
+                            if (trimmed) {
+                              const currentSkills = member.skills || [];
+                              if (!currentSkills.includes(trimmed)) {
+                                updateMember(idx, 'skills', [...currentSkills, trimmed]);
+                              }
+                            }
+                            setNewSkillText('');
+                            setActiveSkillInput(null);
+                          } else if (e.key === 'Escape') {
+                            setNewSkillText('');
+                            setActiveSkillInput(null);
+                          }
+                        }}
+                        onBlur={() => {
+                          const trimmed = newSkillText.trim();
+                          if (trimmed) {
+                            const currentSkills = member.skills || [];
+                            if (!currentSkills.includes(trimmed)) {
+                              updateMember(idx, 'skills', [...currentSkills, trimmed]);
+                            }
+                          }
+                          setNewSkillText('');
+                          setActiveSkillInput(null);
+                        }}
+                        autoFocus
+                        className="h-6 w-20 px-1 py-0 text-xs border-[#E7E5E4] focus:border-[#0F766E] focus:ring-1 focus:ring-[#0F766E]"
+                      />
+                    ) : (
+                      <button 
+                        onClick={() => {
+                          setActiveSkillInput(idx);
+                          setNewSkillText('');
+                        }}
+                        className="flex items-center justify-center p-1 rounded-full border border-dashed border-teal-200 bg-teal-50/30 text-teal-600 hover:bg-teal-100 transition-colors"
+                        title="Add Skill"
+                      >
+                        <Plus className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
                 </div>
-
-                <button
+                <button 
                   onClick={() => removeMember(idx)}
                   className="w-8 h-8 flex items-center justify-center text-[#D6D3D1] hover:text-[#EF4444] transition-colors opacity-0 group-hover:opacity-100"
                 >
@@ -443,7 +491,7 @@ David Lee,david@example.com,Frontend Developer`;
             <div className="bg-[#2DD4BF]/5 border border-[#2DD4BF]/20 rounded-lg p-3">
               <div className="text-xs font-medium text-[#292524] mb-2">CSV Format</div>
               <div className="text-xs text-[#78716C] font-mono bg-white p-2 rounded border border-[#E5E5E5]">
-                name,email,role
+                name,email,type,role
               </div>
             </div>
 

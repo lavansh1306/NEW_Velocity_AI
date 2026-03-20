@@ -1,0 +1,84 @@
+PROJECT OVERVIEW & ALLOCATION
+===============================
+
+Project Name: Customer Portal Redesign
+Project Description: Complete redesign of the customer-facing portal to improve user experience and performance. Includes new dashboard, reporting capabilities, and mobile optimization.
+
+Timeline: Q2 2026 (April - June)
+Budget: $150,000
+Status: Planning Phase
+
+=====================================
+PROJECT ALLOCATION
+=====================================
+
+Task: Requirement Gathering & Design
+Assignee: Sarah Johnson
+Hours: 80
+Start Date: 2026-04-01
+Due Date: 2026-04-15
+Timeline: Week 1-2
+
+Task: Database Schema Redesign
+Assignee: Mike Chen
+Hours: 120
+Start Date: 2026-04-08
+Due Date: 2026-05-01
+Timeline: Week 2-4
+
+Task: Frontend Component Library
+Assignee: Emily Rodriguez
+Hours: 160
+Start Date: 2026-04-15
+Due Date: 2026-05-15
+Timeline: Week 3-6
+
+Task: API Integration & Backend
+Assignee: James Wilson
+Hours: 200
+Start Date: 2026-04-22
+Due Date: 2026-06-01
+Timeline: Week 4-8
+
+Task: Mobile Optimization
+Assignee: Lisa Park
+Hours: 100
+Start Date: 2026-05-15
+Due Date: 2026-05-30
+Timeline: Week 6-7
+
+Task: Performance Testing
+Assignee: David Brown
+Hours: 60
+Start Date: 2026-05-20
+Due Date: 2026-06-05
+Timeline: Week 7-8
+
+Task: UAT & Bug Fixes
+Assignee: Sarah Johnson
+Hours: 80
+Start Date: 2026-06-01
+Due Date: 2026-06-15
+Timeline: Week 8-9
+
+Task: Deployment & Documentation
+Assignee: Mike Chen
+Hours: 40
+Start Date: 2026-06-10
+Due Date: 2026-06-30
+Timeline: Week 9-10
+
+=====================================
+RESOURCE SUMMARY
+=====================================
+
+Total Project Hours: 840 hours
+Duration: 13 weeks
+Team Size: 6 people
+
+Key Deliverables:
+- New portal design and prototype
+- API documentation
+- Mobile application
+- Testing report
+- Deployment guide
