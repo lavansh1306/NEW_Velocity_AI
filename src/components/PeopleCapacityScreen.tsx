@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from './ui/button';
 import { useAuth } from '@/contexts/AuthContext';
+import * as XLSX from 'xlsx';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Progress } from './ui/progress';
@@ -71,29 +72,50 @@ const AddTeamMemberModal = ({ open, onOpenChange, onMemberAdded }: { open: boole
     const [csvInputMode, setCSVInputMode] = useState<'upload' | 'paste'>('upload');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Handle CSV file upload
+    // Handle CSV / Excel file upload
     const handleCSVFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
 
-        // Check if file is CSV
-        if (!file.name.endsWith('.csv') && !file.type.includes('text')) {
-            toast.error('Please upload a valid CSV file');
+        const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+        const isCsv = file.name.endsWith('.csv') || file.type.includes('text');
+
+        if (!isCsv && !isExcel) {
+            toast.error('Please upload a valid CSV or Excel file');
             return;
         }
 
         const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                const content = e.target?.result as string;
-                setCSVData(content);
-                toast.success('CSV file loaded successfully');
-            } catch (error) {
-                toast.error('Failed to read CSV file');
-                console.error('File read error:', error);
-            }
-        };
-        reader.readAsText(file);
+        if (isExcel) {
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target?.result as ArrayBuffer);
+                    const wb = XLSX.read(data, { type: 'array' });
+                    const ws = wb.Sheets[wb.SheetNames[0]];
+                    const json = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][];
+                    
+                    // Convert back to simple CSV string for parseCSV
+                    const csvString = json.map(row => row.map(v => (v ?? '').toString()).join(',')).join('\n');
+                    setCSVData(csvString);
+                    toast.success('Excel file loaded successfully');
+                } catch (error) {
+                    toast.error('Failed to read Excel file');
+                    console.error('Excel read error:', error);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        } else {
+            reader.onload = (e) => {
+                try {
+                    const content = e.target?.result as string;
+                    setCSVData(content);
+                    toast.success('CSV file loaded successfully');
+                } catch (error) {
+                    toast.error('Failed to read CSV file');
+                }
+            };
+            reader.readAsText(file);
+        }
     };
 
     const validateMember = () => {
@@ -312,7 +334,7 @@ Charlie Brown,charlie.brown@company.com,QA Engineer,Selenium Jest Testing,70`;
                                 onClick={() => setIsCSVMode(true)}
                                 className={`px-3 py-1.5 text-xs font-medium rounded transition-all ${isCSVMode ? 'bg-[#2DD4BF]/20 text-[#2DD4BF] border border-[#2DD4BF]/40' : 'text-[#78716C] hover:bg-[#F5F5F4]'}`}
                             >
-                                Bulk Import (CSV)
+                                Bulk Import (CSV / Excel)
                             </button>
                         </div>
                     </div>
@@ -349,7 +371,7 @@ Charlie Brown,charlie.brown@company.com,QA Engineer,Selenium Jest Testing,70`;
                                         <input
                                             ref={fileInputRef}
                                             type="file"
-                                            accept=".csv"
+                                            accept=".csv,.xlsx,.xls"
                                             onChange={handleCSVFileUpload}
                                             className="hidden"
                                         />
@@ -359,7 +381,7 @@ Charlie Brown,charlie.brown@company.com,QA Engineer,Selenium Jest Testing,70`;
                                             className="inline-flex flex-col items-center gap-2 cursor-pointer"
                                         >
                                             <div className="text-3xl">📁</div>
-                                            <div className="text-sm font-medium text-[#292524]">Click to upload CSV file</div>
+                                            <div className="text-sm font-medium text-[#292524]">Click to upload CSV / Excel file</div>
                                             <div className="text-xs text-[#78716C]">or drag and drop</div>
                                         </button>
                                     </div>
@@ -748,36 +770,29 @@ export const PeopleCapacityScreen = () => {
                 return;
             }
 
-            // First, clean up any task assignments for this member
+            // First, clean up any task assignments for this user
             const { error: taskError } = await supabase
                 .from('task_assignments')
                 .delete()
-                .eq('team_member_id', memberId);
+                .eq('user_id', memberId);
 
             if (taskError) {
                 console.warn('Warning cleaning up task assignments:', taskError);
                 // Continue with member deletion even if this fails
             }
 
-            // Delete the team member from database
-            const { error: deleteError, data } = await supabase
-                .from('team_members')
-                .delete()
-                .eq('id', memberId)
-                .select();
+            // Call RPC function to soft delete user (bypasses RLS Infinite Recursion)
+            const { error: rpcError } = await supabase.rpc('soft_delete_user', { 
+                target_user_id: memberId 
+            });
 
-            if (deleteError) {
-                toast.error('Failed to remove team member from database');
-                console.error('Delete error:', deleteError);
+            if (rpcError) {
+                toast.error('Failed to update user status');
+                console.error('RPC error:', rpcError);
                 return;
             }
 
-            // Verify deletion was successful
-            if (!data || data.length === 0) {
-                console.warn('Delete returned no rows - member may not exist');
-            }
-
-            console.log('[PeopleCapacity] Team member deleted successfully:', data);
+            console.log('[PeopleCapacity] User soft deleted successfully via RPC');
 
             // Update local state
             setTeamMembers(prevMembers => prevMembers.filter(m => m.id !== memberId));

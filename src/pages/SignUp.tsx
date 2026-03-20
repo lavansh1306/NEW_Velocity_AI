@@ -155,9 +155,16 @@ export default function SignUp() {
     }
 
     try {
-      await signUp(email, password);
-      // Account created & auto-signed-in — go straight to onboarding
-      navigate('/onboarding/mode');
+      const data = await signUp(email, password);
+      
+      if (data?.session) {
+        // Account created & auto-signed-in — go straight to onboarding
+        navigate('/onboarding/mode');
+      } else {
+        // Email confirmation is required
+        setError('Verification email sent! Please check your inbox and confirm your email before logging in.');
+        setLoading(false);
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to sign up');
       setLoading(false);

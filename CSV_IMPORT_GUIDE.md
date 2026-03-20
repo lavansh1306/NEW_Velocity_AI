@@ -9,7 +9,6 @@ The CSV file should have the following columns:
 ```
 name,email,role,skills,utilization
 ```
-
 ### Column Descriptions
 
 - **name**: Full name of the team member (required)
