@@ -97,6 +97,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (!organizationId) {
         console.warn('[Auth] No org found for user:', userId);
+        clearCurrentOrg();
+        setOrgIdState(null);
+        setOrgRoleState(null);
+        setOrgNameState(null);
+        setOnboardingComplete(null);
         return;
       }
 
