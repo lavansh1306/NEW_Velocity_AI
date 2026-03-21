@@ -11,7 +11,7 @@
    - Tables use org_id for multi-tenant data isolation
 
 3. **Better Error Logging**
-   - Added detailed logging at each step of the sync process
+   - Added detailed logging at each step ofhe sync process
    - Logs now show: step number, progress, success/failure counts
 
 4. **Corrected Callback Parameters**
