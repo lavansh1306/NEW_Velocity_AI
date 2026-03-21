@@ -3,7 +3,6 @@ import { Card } from '../ui/card';
 import { CheckCircle2, Briefcase, Plus, FolderGit2 } from 'lucide-react';
 import { Task, EmployeeProfile } from './types';
 import { DAYS } from './data';
-// IMPORT THE NEW COMPONENT
 import { OrganizationalWorkloadTable } from './OrganizationalWorkloadTable';
 
 interface WorkloadTableProps {

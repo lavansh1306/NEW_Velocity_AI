@@ -52,7 +52,7 @@ const initiatives = [
 export default function ProjectActivityTab() {
   return (
     <div className="space-y-6">
-      {/* Metric cards removed as requested */}
+
 
       <Card className="p-6">
         <h3 className="mb-6 text-lg font-semibold">Strategic Initiatives & Recommendations</h3>

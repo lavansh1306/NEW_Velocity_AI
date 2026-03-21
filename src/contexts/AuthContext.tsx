@@ -146,6 +146,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        // Skip auth state changes if page is hidden to prevent reload loops
+        if (document.hidden && event === 'INITIAL_SESSION') {
+          console.log('[Auth] Skipping INITIAL_SESSION while page is hidden');
+          return;
+        }
+
         console.log('[Auth] State changed:', event);
 
         setSession(session);
@@ -214,6 +220,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => {
       clearTimeout(safetyTimeout);
       subscription?.unsubscribe();
+    };
+  }, []);
+
+  // Monitor page visibility changes to prevent auth cascades on focus
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        console.log('[Auth] Page hidden - preventing auth operations');
+      } else {
+        console.log('[Auth] Page visible - auth operations resumed');
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 

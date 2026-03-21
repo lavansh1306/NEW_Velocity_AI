@@ -4,9 +4,7 @@ import { ProjectCheckDashboard } from './ProjectCheckDashboard';
 import { runRecommendationModel, parseCSV } from './RecommendationEngine';
 import { EmployeeRecord, PredictionResult } from './types';
 import { Bot, Sparkles, Loader2, FileX, AlertCircle } from 'lucide-react';
-// IMPORT THE NEW DIALOG
 import { JsonOutputDialog } from './JsonOutputDialog';
-// IMPORT ML SERVICE
 import { mlService, transformJiraToML, MLCandidate, MLTask } from '@/services/mlService';
 import { fetchProjectsHybrid } from '@/lib/jiraDbClient';
 

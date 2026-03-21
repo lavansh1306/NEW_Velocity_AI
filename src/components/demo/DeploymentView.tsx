@@ -10,7 +10,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Target,
   Users,
-  TrendingUp,
   CheckCircle2,
   Plus,
   Loader2,
@@ -18,7 +17,6 @@ import {
   ExternalLink,
   FileText,
   Settings,
-  UserPlus,
   Briefcase,
   Zap
 } from "lucide-react";

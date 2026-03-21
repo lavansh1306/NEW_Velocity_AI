@@ -61,7 +61,7 @@ const ManagerRoute = ({ children }: { children: React.ReactNode }) => {
         navigate('/app/employee/dashboard', { replace: true });
       }
     }
-  }, [orgRole, loading, navigate]);
+  }, [orgRole, loading]); // Remove navigate from dependencies
 
   if (loading) return null;
   return <>{children}</>;
@@ -78,7 +78,7 @@ const EmployeeRoute = ({ children }: { children: React.ReactNode }) => {
         navigate('/dashboard', { replace: true });
       }
     }
-  }, [orgRole, loading, navigate]);
+  }, [orgRole, loading]); // Remove navigate from dependencies
 
   if (loading) return null;
   return <>{children}</>;

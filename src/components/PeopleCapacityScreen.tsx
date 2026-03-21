@@ -621,7 +621,7 @@ export const PeopleCapacityScreen = () => {
     };
 
     const loadTeamData = useCallback(async () => {
-        if (!orgId || !user) return;
+        if (!orgId || !user || document.hidden) return; // Skip if page is hidden
 
         try {
             let teamIds: string[] | undefined = undefined;

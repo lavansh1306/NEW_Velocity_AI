@@ -19,11 +19,6 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 
-// Layout Components
-// import VeloHeader from '../../archives/VeloHeader';
-// import VeloNavTabs from '../../archives/VeloNavTabs';
-// import VPDashboard from '../../archives/VPDashboard';
-
 // Feature Components
 import StandardTimeCatalogTab from '../components/demo2/StandardTimeCatalogTab';
 import CapacityLedgerTab from '../components/demo2/CapacityLedgerTab';
@@ -714,12 +709,13 @@ export default function VelocityAI() {
   // NEW: Jira sync loading state
   const [jiraSyncLoading, setJiraSyncLoading] = useState(false);
   const [jiraSyncProgress, setJiraSyncProgress] = useState(0);
+  const [jiraCheckComplete, setJiraCheckComplete] = useState(false);
 
   // Check for tab query parameter on mount
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const tabParam = params.get('tab');
-    if (tabParam) {
+    if (tabParam && !document.hidden) { // Only update tab if page is visible
       setActiveTab(tabParam);
     }
   }, [location.search]);
@@ -754,13 +750,14 @@ export default function VelocityAI() {
               await syncAfterJiraOAuth(data.orgId);
               setJiraSyncProgress(90);
 
-              // Small delay then hide
+              // Small delay then hide - use state update instead of reload
               setTimeout(() => {
                 setJiraSyncProgress(100);
                 setTimeout(() => {
                   setJiraSyncLoading(false);
-                  // Refresh the page to show all the data
-                  window.location.reload();
+                  // Instead of reloading, re-fetch Jira data to trigger state update
+                  setJiraAuthStatus(true);
+                  if (fetchJiraData) fetchJiraData();
                 }, 500);
               }, 500);
             }
@@ -773,8 +770,11 @@ export default function VelocityAI() {
     }
   }, []);
 
-  // Check Jira authentication status on mount
+  // Check Jira authentication status on mount (only once)
   useEffect(() => {
+    if (jiraCheckComplete) return; // Prevent re-running on tab focus
+    if (document.hidden) return; // Skip if page is hidden
+
     const checkJiraAuth = async () => {
       try {
         const controller = new AbortController();
@@ -808,13 +808,15 @@ export default function VelocityAI() {
         setJiraAuthStatus(false);
       } finally {
         setAuthCheckDone(true);
+        setJiraCheckComplete(true); // Mark as complete to prevent re-running
       }
     };
 
     checkJiraAuth();
-  }, []);
+  }, [jiraCheckComplete]);
 
   // Protect route - allow if either Supabase user OR Jira is authenticated
+  // Only navigate if auth check is truly done AND user is not authenticated
   useEffect(() => {
     if (!authLoading && authCheckDone) {
       const isAuthenticated = user || jiraAuthStatus;
@@ -826,7 +828,7 @@ export default function VelocityAI() {
         console.log('[VelocityAI] User authenticated via:', user ? 'Supabase' : 'Jira');
       }
     }
-  }, [user, authLoading, jiraAuthStatus, authCheckDone, navigate]);
+  }, [authLoading, authCheckDone]); // Remove user/jiraAuthStatus to prevent re-triggering on state changes
 
   useEffect(() => {
     fetchJiraData().then(data => {

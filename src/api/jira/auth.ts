@@ -1,5 +1,3 @@
-/*Main Part*/
-
 // src/api/jira/auth.ts
 // Implements OAuth2 Authorization Code flow (3-legged OAuth) for Jira Cloud
 // Multi-tenant SaaS implementation - each user connects their own Jira account

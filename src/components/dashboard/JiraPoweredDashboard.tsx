@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import {
   BarChart,
   Bar,
@@ -7,16 +7,8 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  LineChart,
-  Line,
 } from 'recharts';
-import {
-  CheckCircle2,
-  AlertTriangle,
-} from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { KPICard } from '@/components/shared/KPICard';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 
@@ -46,22 +38,6 @@ interface JiraDashboardProps {
   upcomingDeadlines: JiraIssue[];
 }
 
-
-
-const UtilizationBar = ({ value }: { value: number }) => {
-  const color = value > 110 ? 'bg-rose-400' : value > 90 ? 'bg-amber-400' : 'bg-blue-400';
-  const width = Math.min(value, 150);
-
-  return (
-    <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
-      <div
-        className={`h-full ${color} transition-all duration-500`}
-        style={{ width: `${width}%` }}
-      />
-    </div>
-  );
-};
-
 /**
  * JiraPoweredDashboard - Uses real Jira data with AI insights
  */
@@ -71,8 +47,6 @@ export const JiraPoweredDashboard = ({
   dashboardMetrics,
   upcomingDeadlines,
 }: JiraDashboardProps) => {
-  const [insights, setInsights] = useState<any[]>([]);
-
   // Generate capacity data from Jira issues
   const capacityData = useMemo(() => {
     const today = new Date();
@@ -107,22 +81,36 @@ export const JiraPoweredDashboard = ({
     return weeks;
   }, [jiraIssues]);
 
+  // Compute reactive metrics from current week's capacity data
+  const currentWeekMetrics = useMemo(() => {
+    if (capacityData.length === 0) {
+      return {
+        weeklyUtilization: dashboardMetrics.teamUtilization,
+        weeklyAvailableCapacity: dashboardMetrics.availableCapacity,
+      };
+    }
+    return {
+      weeklyUtilization: Math.round(capacityData[0].utilization),
+      weeklyAvailableCapacity: Math.round(capacityData[0].available),
+    };
+  }, [capacityData, dashboardMetrics]);
+
   // Generate AI insights based on Jira data
   const aiRecommendations = useMemo(() => {
     const recommendations = [];
 
     // Check utilization
-    if (dashboardMetrics.teamUtilization > 100) {
+    if (currentWeekMetrics.weeklyUtilization > 100) {
       recommendations.push({
         severity: 'rose',
         title: 'Team is overutilized',
-        description: `Current utilization at ${dashboardMetrics.teamUtilization}%. Consider redistributing tasks.`,
+        description: `Current week utilization at ${currentWeekMetrics.weeklyUtilization}%. Consider redistributing tasks.`,
       });
-    } else if (dashboardMetrics.teamUtilization > 85) {
+    } else if (currentWeekMetrics.weeklyUtilization > 85) {
       recommendations.push({
         severity: 'amber',
         title: 'Utilization approaching limit',
-        description: `Team at ${dashboardMetrics.teamUtilization}% capacity. Monitor closely.`,
+        description: `Team at ${currentWeekMetrics.weeklyUtilization}% capacity. Monitor closely.`,
       });
     }
 
@@ -136,11 +124,11 @@ export const JiraPoweredDashboard = ({
     }
 
     // Check capacity
-    if (dashboardMetrics.availableCapacity > 100) {
+    if (currentWeekMetrics.weeklyAvailableCapacity > 100) {
       recommendations.push({
         severity: 'emerald',
         title: 'Available capacity identified',
-        description: `${Math.round(dashboardMetrics.availableCapacity)} hours available for allocation.`,
+        description: `${currentWeekMetrics.weeklyAvailableCapacity} hours available this week for allocation.`,
       });
     }
 
@@ -154,7 +142,7 @@ export const JiraPoweredDashboard = ({
     }
 
     return recommendations.slice(0, 3);
-  }, [dashboardMetrics]);
+  }, [dashboardMetrics, currentWeekMetrics]);
 
   return (
     <div className="p-12 bg-gray-50 min-h-screen">
@@ -172,13 +160,13 @@ export const JiraPoweredDashboard = ({
               />
               <KPICard
                 label="Team Utilization"
-                value={`${dashboardMetrics.teamUtilization}%`}
-                sublabel={dashboardMetrics.teamUtilization > 100 ? 'Overallocated' : 'Within target'}
+                value={`${currentWeekMetrics.weeklyUtilization}%`}
+                sublabel={currentWeekMetrics.weeklyUtilization > 100 ? 'Overallocated' : 'Within target'}
               />
               <KPICard
                 label="Available Capacity"
-                value={`${Math.round(dashboardMetrics.availableCapacity)}h`}
-                sublabel="Next 2 weeks"
+                value={`${currentWeekMetrics.weeklyAvailableCapacity}h`}
+                sublabel="Current week"
               />
               <KPICard
                 label="Projects at Risk"
