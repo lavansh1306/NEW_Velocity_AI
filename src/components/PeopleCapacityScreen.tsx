@@ -70,13 +70,11 @@ const AddTeamMemberModal = ({ open, onOpenChange, onMemberAdded }: { open: boole
     const [isCSVMode, setIsCSVMode] = useState(false);
     const [csvData, setCSVData] = useState<string>('');
     const [csvInputMode, setCSVInputMode] = useState<'upload' | 'paste'>('upload');
+    const [isDragging, setIsDragging] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Handle CSV / Excel file upload
-    const handleCSVFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
-
+    // Process CSV / Excel file
+    const processFile = (file: File) => {
         const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
         const isCsv = file.name.endsWith('.csv') || file.type.includes('text');
 
@@ -116,6 +114,20 @@ const AddTeamMemberModal = ({ open, onOpenChange, onMemberAdded }: { open: boole
             };
             reader.readAsText(file);
         }
+    };
+
+    // Handle CSV / Excel file upload
+    const handleCSVFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) processFile(file);
+    };
+
+    // Handle drag and drop
+    const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+        event.preventDefault();
+        setIsDragging(false);
+        const file = event.dataTransfer.files?.[0];
+        if (file) processFile(file);
     };
 
     const validateMember = () => {
@@ -367,7 +379,12 @@ Charlie Brown,charlie.brown@company.com,QA Engineer,Selenium Jest Testing,70`;
 
                             {csvInputMode === 'upload' ? (
                                 <div className="space-y-3">
-                                    <div className="border-2 border-dashed border-[#2DD4BF]/30 rounded-lg p-8 text-center hover:border-[#2DD4BF]/50 hover:bg-[#2DD4BF]/3 transition-all">
+                                    <div 
+                                        className={`border-2 border-dashed ${isDragging ? 'border-[#2DD4BF] bg-[#2DD4BF]/5' : 'border-[#2DD4BF]/30 hover:border-[#2DD4BF]/50 hover:bg-[#2DD4BF]/3'} rounded-lg p-8 text-center transition-all`}
+                                        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                                        onDragLeave={() => setIsDragging(false)}
+                                        onDrop={handleDrop}
+                                    >
                                         <input
                                             ref={fileInputRef}
                                             type="file"
