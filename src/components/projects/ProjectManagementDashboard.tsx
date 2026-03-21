@@ -6,6 +6,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { IngestionControl } from './IngestionControl';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface JiraIssue {
   key: string;
@@ -171,6 +173,7 @@ export default function ProjectManagementDashboard({
   team,
   fullscreen = false,
 }: ProjectManagementDashboardProps) {
+  const { user } = useAuth();
   const metrics = calculateMetrics(issues);
   const statusColor = getStatusColor(healthScore);
   const daysRemaining = weeksRemaining ? Math.round(weeksRemaining * 7) : 44;
@@ -272,6 +275,9 @@ export default function ProjectManagementDashboard({
             </p>
           </div>
         </div>
+
+        {/* Ingestion Control */}
+        <IngestionControl projectId={projectId} userId={user?.id || ''} />
 
         {/* Team Allocation */}
         <div>
