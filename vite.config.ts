@@ -21,11 +21,5 @@ export default defineConfig({
   },
   build: {
     target: "esnext",
-    rollupOptions: {
-      external: ['xlsx'],
-      output: {
-        globals: { xlsx: 'XLSX' },
-      },
-    },
   },
 });
