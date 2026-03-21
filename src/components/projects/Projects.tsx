@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useProjects } from '@/hooks/useProjects'; // <--- NEW HOOK
 import { ProjectsEmptyState } from './ProjectsEmptyState';
 import { getCurrentOrgId } from '@/lib/orgContext';
+import { IngestionControl } from './IngestionControl';
 
 export default function Projects() {
   const navigate = useNavigate();
@@ -62,6 +63,11 @@ export default function Projects() {
                 <Plus className="w-4 h-4" /> New Project
               </Button>
             </div>
+          </div>
+
+          {/* Ingestion Control */}
+          <div className="mb-8">
+            <IngestionControl projectId={filteredProjects[0]?.id || null} userId={user?.id || ''} />
           </div>
 
           {/* Project List */}
