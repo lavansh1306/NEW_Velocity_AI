@@ -1,4 +1,4 @@
-const BASE_URL = import.meta.env.VITE_LLM_URL || 'http://127.0.0.1:8000';
+const BASE_URL = import.meta.env.VITE_LLM_URL2 || 'http://127.0.0.1:8000';
 
 export const ingestionApi = {
   syncMeet: async (userId: string, projectId: string) => {
