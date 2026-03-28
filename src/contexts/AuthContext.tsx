@@ -147,8 +147,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         // Skip auth state changes if page is hidden to prevent reload loops
-        if (document.hidden && event === 'INITIAL_SESSION') {
-          console.log('[Auth] Skipping INITIAL_SESSION while page is hidden');
+        // Also skip INITIAL_SESSION if we already have a session/org to prevent flickering on focus
+        if (event === 'INITIAL_SESSION' && (document.hidden || (session && getCurrentOrgId()))) {
+          console.log('[Auth] Skipping INITIAL_SESSION - page hidden or already initialized');
+          setLoading(false);
           return;
         }
 
@@ -169,8 +171,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           const accessToken = session.access_token;
           const isGoogleAuth = session.user.app_metadata?.provider === 'google';
 
+          // Only trigger org loading if we don't have an org ID yet
+          if (!getCurrentOrgId()) {
+            setOrgLoading(true);
+          }
+          
           // Use setTimeout to move async DB work outside the synchronous auth callback
-          setOrgLoading(true);
           setTimeout(async () => {
             try {
               if (isGoogleAuth) {
