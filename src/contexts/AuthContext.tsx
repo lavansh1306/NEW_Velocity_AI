@@ -20,7 +20,7 @@ interface AuthContextType {
   orgRole: string | null;
   orgName: string | null;
   onboardingComplete: boolean | null;
-  signUp: (email: string, password: string) => Promise<any>;
+  signUp: (email: string, password: string, fullName?: string) => Promise<any>;
   signIn: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signInWithJira: () => void;
@@ -245,12 +245,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, []);
 
-  const signUp = async (email: string, password: string) => {
+  const signUp = async (email: string, password: string, fullName?: string) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: `${window.location.origin}/auth/callback`,
+        data: fullName ? { full_name: fullName } : undefined,
       }
     });
     if (error) throw error;
