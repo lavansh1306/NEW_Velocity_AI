@@ -40,6 +40,7 @@ declare global {
 }
 
 export default function SignUp() {
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -154,8 +155,14 @@ export default function SignUp() {
       return;
     }
 
+    if (!fullName.trim()) {
+      setError('Full Name is required');
+      setLoading(false);
+      return;
+    }
+
     try {
-      const data = await signUp(email, password);
+      const data = await signUp(email, password, fullName);
       
       if (data?.session) {
         // Account created & auto-signed-in — go straight to onboarding
@@ -228,6 +235,20 @@ export default function SignUp() {
           </div>
 
           <form onSubmit={handleSignUp} className="space-y-5 mb-8">
+            <div>
+              <Label htmlFor="full-name" className="text-sm font-medium text-[#57534E] mb-1.5 block">Full Name</Label>
+              <Input 
+                id="full-name"
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                className="h-11 rounded-lg border-[#E7E5E4] bg-[#FAFAF9] focus:bg-white focus:ring-2 focus:ring-[#1C1917]/10 transition-all font-normal placeholder:text-[#A8A29E]"
+                placeholder="Jane Doe"
+                required
+                disabled={loading}
+              />
+            </div>
+
             <div>
               <Label htmlFor="work-email" className="text-sm font-medium text-[#57534E] mb-1.5 block">Work Email</Label>
               <Input 
