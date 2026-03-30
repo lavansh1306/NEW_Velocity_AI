@@ -36,6 +36,8 @@ import OnboardingComplete from "./pages/onboarding/OnboardingComplete";
 import { OnboardingProvider } from "@/contexts/OnboardingContext";
 import InviteEmail from "./pages/InviteEmail";
 import SetPassword from "./pages/SetPassword";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import CreateProject from "./components/projects/CreateProject";
 import { EmployeeLayout } from "@/components/employee/EmployeeLayout";
 import EmployeeDashboard from "./pages/employee/EmployeeDashboard";
@@ -112,6 +114,8 @@ const App = () => (
                 {/* 2. Authentication Routes (Must stay outside ProtectedRoute) */}
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<SignUp />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/auth/callback" element={<AuthCallback />} />
                 <Route path="/invite/email" element={<InviteEmail />} />
                 <Route path="/invite/accept" element={<SetPassword />} />
