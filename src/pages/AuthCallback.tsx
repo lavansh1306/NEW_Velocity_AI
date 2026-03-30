@@ -49,6 +49,12 @@ export default function AuthCallback() {
           timestamp: new Date().toISOString()
         });
 
+        if (event === 'PASSWORD_RESET') {
+          console.log('[AuthCallback] PASSWORD_RESET event detected, redirecting to /reset-password');
+          navigate('/reset-password', { replace: true });
+          return;
+        }
+
         if (event === 'SIGNED_IN' && session) {
           if (hasProcessed.current) {
             console.warn('[AuthCallback] Already processed this auth state, skipping...');
