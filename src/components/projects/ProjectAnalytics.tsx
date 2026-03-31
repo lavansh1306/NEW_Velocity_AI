@@ -643,7 +643,7 @@ export default function ProjectAnalytics() {
                         <TabButton id="team" label="Team" icon={Users} />
                         <TabButton id="tasks" label="Tasks" icon={CheckSquare} />
                         <TabButton id="timeline" label="Timeline" icon={Clock} />
-                        <TabButton id="insights" label="AI Insights" icon={Lightbulb} />
+                        <TabButton id="insights" label="Insights" icon={Lightbulb} />
                       </>
                     );
                   })()}
@@ -1108,7 +1108,7 @@ export default function ProjectAnalytics() {
                   </div>
                 )}
 
-                {/* --- TAB CONTENT: AI INSIGHTS --- */}
+                {/* --- TAB CONTENT: INSIGHTS --- */}
                 {activeTab === 'insights' && (
                   <div className="animate-in fade-in duration-300">
                     <AIInsights
