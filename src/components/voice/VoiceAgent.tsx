@@ -19,7 +19,7 @@ export const VoiceAgent: React.FC = () => {
   useEffect(() => {
     // Only manage timer if we are in listening mode
     if (isTriggered && status === 'listening') {
-      const timeoutDuration = lastTranscript ? 1500 : 1000;
+      const timeoutDuration = 2000; // Increased buffer time to 2 seconds as requested
       
       // Cleanup previous timer
       if (timerRef.current) clearTimeout(timerRef.current);

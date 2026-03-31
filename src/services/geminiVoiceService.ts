@@ -34,8 +34,8 @@ Current Page: ${currentPath}
 
 Available Actions:
 1. navigate: Change the page. Targets: /dashboard, /projects, /people, /plan, /settings, /velocity-ai.
-2. create_task: Create a new project task. Extract task name.
-3. search: Search for projects or people.
+2. create_task: Create a new project task. Extract task name as "taskName" in the params object.
+3. search: Search for projects or people. Extract the search query as "query" in the params object.
 4. info: General questions about the platform or current view.
 
 Rules:
@@ -45,8 +45,11 @@ Rules:
 JSON Structure:
 {
   "type": "navigate" | "create_task" | "search" | "info" | "unknown",
-  "target": "string (URL or target name)",
-  "params": {},
+  "target": "string (URL for navigate)",
+  "params": {
+    "taskName": "string (if create_task)",
+    "query": "string (if search)"
+  },
   "response": "Brief spoken response"
 }
 `;

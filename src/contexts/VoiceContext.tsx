@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
-import { multiModalLiveService, MultiModalEvent } from '@/services/MultiModalLiveService';
+import { geminiVoiceService } from '@/services/geminiVoiceService';
 
 type VoiceStatus = 'idle' | 'connecting' | 'listening' | 'processing' | 'speaking' | 'error';
 
@@ -34,6 +34,7 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       recognition.continuous = true;
       recognition.interimResults = true;
       recognition.lang = 'en-US';
+      (window as any).isListeningIntent = false;
 
       recognition.onstart = () => {
         console.log('[VoiceContext] Speech recognition started');
@@ -94,62 +95,35 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setIsTriggered(true); 
       setStatus('connecting');
       
-      await multiModalLiveService.connect((event: MultiModalEvent) => {
-        if (event.type === 'connected') {
-          console.log('[VoiceContext] Multimodal Live connected');
-          setIsListening(true);
-          setStatus('listening');
-        } else if (event.type === 'transcript') {
-          setLastTranscript(event.data);
-        } else if (event.type === 'tool_call') {
-          setStatus('processing');
-          handleToolCall(event.data);
-        } else if (event.type === 'error') {
-          setStatus('error');
-          toast.error('Voice service failed. Check console.');
-        } else if (event.type === 'disconnected') {
-          setIsListening(false);
-          setIsTriggered(false);
-          setStatus('idle');
-        }
-      });
-    } catch (err) {
-      console.error('[VoiceContext] Error starting multimodal service:', err);
-      setStatus('error');
-      // Check if it's a permission error
-      if (err instanceof DOMException && err.name === 'NotAllowedError') {
-        toast.error('Microphone access denied. Please enable it in browser settings.');
+      if (recognitionRef.current) {
+        (window as any).isListeningIntent = true;
+        recognitionRef.current.start();
+        setStatus('listening');
+        setIsListening(true);
+        console.log('[VoiceContext] Native Speech Recognition started');
       } else {
-        toast.error('Failed to access microphone.');
+        throw new Error('Speech Recognition not supported in this browser.');
       }
+    } catch (err) {
+      console.error('[VoiceContext] Error starting speech recognition:', err);
+      setStatus('error');
+      toast.error('Failed to access microphone or start speech recognition.');
     }
   }, [isListening]);
 
   const stopListening = useCallback(() => {
-    multiModalLiveService.stop();
+    if (recognitionRef.current) {
+      (window as any).isListeningIntent = false;
+      recognitionRef.current.stop();
+    }
     setIsListening(false);
     setIsTriggered(false);
     setStatus('idle');
   }, []);
 
+  // handleToolCall is now deprecated in favor of useVoiceActions handling geminiVoiceService directly
   const handleToolCall = useCallback((toolCall: any) => {
-    if (!toolCall.functionCalls) return;
-
-    for (const call of toolCall.functionCalls) {
-      const { name, args } = call;
-      console.log(`[VoiceContext] Executing tool: ${name}`, args);
-
-      if (name === 'navigate') {
-        const { target } = args;
-        window.dispatchEvent(new CustomEvent('velo-navigate', { detail: { target } }));
-        toast.info(`Navigating to ${target}...`);
-      } else if (name === 'create_task') {
-        const { title } = args;
-        toast.success(`Task created: ${title}`);
-      }
-    }
-    
-    multiModalLiveService.sendToolResponse(toolCall);
+    // Legacy support if needed, but the new flow uses useVoiceActions
   }, []);
 
   const setProcessing = (processing: boolean) => {
