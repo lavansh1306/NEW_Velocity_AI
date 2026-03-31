@@ -13,7 +13,7 @@ name,email,role,skills,utilization
 
 - **name**: Full name of the team member (required)
 - **email**: Email address of the team member (required)
-- **role**: Job role/position (e.g., Frontend Developer, Backend Developer, Product Manager, etc.)
+- **role**: Job role/position (e.g., Frontend Developer, Backend Develop, Product Manager, etc.)
 - **skills**: Comma-separated list of skills (e.g., React React Native TypeScript)
 - **utilization**: Target utilization percentage (0-120, default: 85)
 
