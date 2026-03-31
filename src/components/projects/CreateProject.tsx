@@ -361,13 +361,7 @@ export default function CreateProject() {
                   </p>
                 </div>
                 <div className="flex gap-2">
-                  <Button
-                    onClick={() => setIsUploadDialogOpen(true)}
-                    variant="outline"
-                    className="bg-white border-[#E7E5E4] text-[#1C1917] hover:bg-[#FAFAF9] h-9 text-xs rounded-lg gap-2"
-                  >
-                    <FileUp className="w-3.5 h-3.5" /> Import from File
-                  </Button>
+    
                   <Button
                     onClick={handleAddTask}
                     variant="outline"
