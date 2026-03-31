@@ -192,7 +192,7 @@ export const DashboardScreen = () => {
 
             <div className="grid grid-cols-12 gap-6">
                 
-                <div className="col-span-12 xl:col-span-8 space-y-6">
+                <div className="col-span-12 xl:col-span-10 space-y-6">
                     
                     <div className="grid grid-cols-4 gap-4">
                         {kpis.length > 0 ? (
@@ -390,18 +390,18 @@ export const DashboardScreen = () => {
                     </div>
                 </div>
 
-                <div className="col-span-12 xl:col-span-4">
-                    <div className="bg-white border border-[#E7E5E4] rounded-2xl p-6 shadow-sm h-full">
-                        <div className="flex items-center gap-2 mb-6">
-                            <Sparkles className="text-[#0F766E]" size={20} />
-                            <h2 className="text-lg font-semibold text-[#1C1917]">AI Insights</h2>
+                <div className="col-span-12 xl:col-span-2">
+                    <div className="bg-white border border-[#E7E5E4] rounded-2xl p-3 shadow-sm h-full">
+                        <div className="flex items-center gap-2 mb-3">
+                            <Sparkles className="text-[#0F766E]" size={16} />
+                            <h2 className="text-sm font-semibold text-[#1C1917]">Insights</h2>
                         </div>
                         
-                        <div className="flex flex-col items-center justify-center py-16 text-center">
-                            <Sparkles className="text-[#D6D3D1] mb-3" size={32} />
-                            <p className="text-sm font-medium text-[#78716C] mb-1">No insights yet</p>
-                            <p className="text-xs text-[#A8A29E] max-w-[200px]">
-                                Insights will appear here as your team data grows.
+                        <div className="flex flex-col items-center justify-center py-6 text-center">
+                            <Sparkles className="text-[#D6D3D1] mb-1" size={20} />
+                            <p className="text-xs font-medium text-[#78716C] mb-1">No insights yet</p>
+                            <p className="text-xs text-[#A8A29E] max-w-[140px]">
+                                Coming soon
                             </p>
                         </div>
                     </div>

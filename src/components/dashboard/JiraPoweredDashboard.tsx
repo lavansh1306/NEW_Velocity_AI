@@ -242,10 +242,10 @@ export const JiraPoweredDashboard = ({
             </div>
           </div>
 
-          {/* AI Recommendations Panel - 4 columns */}
-          <div className="col-span-4">
-            <div className="bg-white rounded-2xl p-8 shadow-sm sticky top-28 border border-gray-100">
-              <h2 className="text-xl font-light text-gray-900 mb-8">AI Insights</h2>
+          {/* AI Recommendations Panel - 2 columns */}
+          <div className="col-span-2">
+            <div className="bg-white rounded-2xl p-3 shadow-sm sticky top-28 border border-gray-100">
+              <h2 className="text-sm font-light text-gray-900 mb-3">Insights</h2>
 
               <div className="space-y-4">
                 {aiRecommendations.map((rec, idx) => {
