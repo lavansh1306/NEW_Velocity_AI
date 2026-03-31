@@ -15,6 +15,8 @@ import cors from "cors"
 import fetch from "node-fetch"
 import { createClient } from '@supabase/supabase-js';
 import session from "express-session"
+import { WebSocketServer, WebSocket } from "ws"
+import http from "http"
 
 // Initialize Redis store asynchronously
 let redisStore: any = null;
@@ -317,9 +319,72 @@ app.use((req: Request, res: Response) => {
   try {
     await initializeRedis();
     
-    app.listen(PORT, '0.0.0.0', () => {
+    const server = http.createServer(app);
+    
+    // ============ Gemini Multimodal Live WebSocket Proxy ============
+    const wss = new WebSocketServer({ noServer: true });
+
+    server.on('upgrade', (request, socket, head) => {
+      const { pathname } = new URL(request.url || '', `http://${request.headers.host}`);
+
+      if (pathname === '/api/voice-live') {
+        wss.handleUpgrade(request, socket, head, (ws) => {
+          wss.emit('connection', ws, request);
+        });
+      } else {
+        socket.destroy();
+      }
+    });
+
+    wss.on('connection', (ws: WebSocket) => {
+      console.log('[VoiceProxy] Client connected');
+      const apiKey = process.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+      
+      if (!apiKey) {
+        console.error('[VoiceProxy] GEMINI_API_KEY is missing');
+        ws.close(1011, 'API Key missing');
+        return;
+      }
+
+      const geminiUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${apiKey}`;
+      console.log(`[VoiceProxy] Connecting to Gemini: ${geminiUrl.slice(0, 45)}...`);
+      const geminiSocket = new WebSocket(geminiUrl);
+
+      geminiSocket.on('open', () => {
+        console.log('[VoiceProxy] Connected to Gemini Multimodal Live');
+      });
+
+      geminiSocket.on('message', (data) => {
+        console.log('[VoiceProxy] Message from Gemini:', data.toString());
+        // Relay from Gemini to Client
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(data);
+        }
+      });
+
+      ws.on('message', (data) => {
+        // Relay from Client to Gemini
+        if (geminiSocket.readyState === WebSocket.OPEN) {
+          geminiSocket.send(data);
+        }
+      });
+
+      const cleanup = (code?: number, reason?: string) => {
+        console.log(`[VoiceProxy] Connection closed. Code: ${code}, Reason: ${reason}`);
+        if (geminiSocket.readyState === WebSocket.OPEN) geminiSocket.close();
+        if (ws.readyState === WebSocket.OPEN) ws.close();
+      };
+
+      ws.on('close', (code, reason) => cleanup(code, reason?.toString() || "No reason"));
+      geminiSocket.on('close', (code, reason) => cleanup(code, reason?.toString() || "No reason"));
+      ws.on('error', (err) => console.error('[VoiceProxy] Client error:', err));
+      geminiSocket.on('error', (err) => console.error('[VoiceProxy] Gemini error:', err));
+    });
+
+    server.listen(PORT, '0.0.0.0', () => {
       console.log(`API server listening on http://localhost:${PORT}`)
       console.log(`  - Jira API: ${isJiraConfigReady ? 'configured' : 'NOT configured'}`)
+      console.log(`  - Voice Proxy: ws://localhost:${PORT}/api/voice-live`)
     })
   } catch (error) {
     console.error('[Server] Failed to start:', error instanceof Error ? error.message : String(error));

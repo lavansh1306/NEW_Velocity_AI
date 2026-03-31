@@ -45,6 +45,8 @@ import EmployeeProjects from "./pages/employee/EmployeeProjects";
 import EmployeeProjectDetail from "./pages/employee/EmployeeProjectDetail";
 import EmployeeProfile from "./pages/employee/EmployeeProfile";
 import { EmployeeTimeScreen } from "./pages/employee/EmployeeTimeScreen";
+import { VoiceProvider } from "@/contexts/VoiceContext";
+import { VoiceAgent } from "@/components/voice/VoiceAgent";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -105,7 +107,9 @@ const App = () => (
           <Sonner />
           <ToastContainer />
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-            <OnboardingProvider>
+            <VoiceProvider>
+              <VoiceAgent />
+              <OnboardingProvider>
               <Routes>
                 {/* 1. Public Marketing Routes */}
                 <Route path="/" element={<Index />} />
@@ -157,7 +161,8 @@ const App = () => (
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </OnboardingProvider>
-          </BrowserRouter>
+          </VoiceProvider>
+        </BrowserRouter>
         </AuthProvider>
       </TooltipProvider>
     </ToastProvider>
