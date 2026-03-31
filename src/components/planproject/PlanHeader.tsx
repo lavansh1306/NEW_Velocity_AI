@@ -4,6 +4,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input'; // <-- Import Input
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
+import { VoiceInput } from './VoiceInput';
 
 interface PlanHeaderProps {
     projectTitle: string;
@@ -77,6 +78,13 @@ export const PlanHeader: React.FC<PlanHeaderProps> = ({
                                     <input type="file" className="hidden" accept=".pdf,.docx,.doc,.txt" onChange={handleFileUpload} />
                                 </label>
                             )}
+                            
+                            {/* Voice Input Agent */}
+                            <div className="flex-1" />
+                            <VoiceInput 
+                                onTranscript={(transcript) => setProjectDescription(prev => prev ? `${prev} ${transcript}` : transcript)} 
+                                className="scale-75 origin-bottom-right"
+                            />
                         </div>
                     </div>
                     
