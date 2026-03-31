@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Bell, ChevronRight } from 'lucide-react';
 import { GlobalSearch } from './GlobalSearch';
-import { SystemStatus } from './SystemStatus';
 import { NotificationDropdown } from './NotificationDropdown';
 
 interface TopHeaderProps {
@@ -32,7 +31,6 @@ export const TopHeader = ({ activeLabel, actions }: TopHeaderProps) => {
             {/* Right Actions */}
             <div className="flex items-center gap-5 relative">
                 {actions}
-                <SystemStatus />
 
                 <button
                     className={`relative p-2 rounded-lg transition-all duration-200 border border-transparent ${isNotificationsOpen
