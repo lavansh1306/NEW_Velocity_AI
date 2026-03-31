@@ -15,7 +15,7 @@ class GeminiVoiceService {
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
     if (apiKey) {
       this.genAI = new GoogleGenerativeAI(apiKey);
-      // Use 1.5 Flash for speed and low latency
+      // Using 1.5 Flash for the perfect balance of speed and intelligence
       this.model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
     }
   }

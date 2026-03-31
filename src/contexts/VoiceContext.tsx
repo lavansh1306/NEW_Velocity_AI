@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
+import { multiModalLiveService, MultiModalEvent } from '@/services/MultiModalLiveService';
 
-type VoiceStatus = 'idle' | 'listening' | 'processing' | 'speaking' | 'error';
+type VoiceStatus = 'idle' | 'connecting' | 'listening' | 'processing' | 'speaking' | 'error';
 
 interface VoiceContextType {
   isListening: boolean;
@@ -54,24 +55,14 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         const currentText = (finalTranscript || interimTranscript).toLowerCase().trim();
         setLastTranscript(currentText);
-
-        // Wake word detection
-        if (!isTriggered) {
-          const hasTrigger = triggerPhrases.some(phrase => currentText.includes(phrase));
-          if (hasTrigger) {
-            console.log('[VoiceContext] Wake word detected!');
-            setIsTriggered(true);
-            setStatus('listening');
-            // Play a subtle sound or feedback here
-          }
-        }
       };
 
       recognition.onerror = (event: any) => {
         if (event.error !== 'no-speech') {
           console.error('[VoiceContext] Speech recognition error:', event.error);
           if (event.error === 'not-allowed') {
-            toast.error('Microphone access denied. Please enable it to use voice features.');
+            toast.error('Microphone access denied. Please enable it in your browser settings.');
+            (window as any).isListeningIntent = false;
           }
           setStatus('error');
         }
@@ -79,39 +70,87 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       recognition.onend = () => {
         console.log('[VoiceContext] Speech recognition ended');
-        setIsListening(false);
-        // Automatically restart if we're still in "listening" state (omnipresent mode)
-        if (status === 'listening' || status === 'idle') {
+        // Restart if we are supposed to be listening (prevents flicker/timeout issues)
+        if (recognitionRef.current && (window as any).isListeningIntent) {
           try {
-            recognition.start();
+            recognitionRef.current.start();
           } catch (e) {
-            console.error('[VoiceContext] Failed to restart recognition', e);
+            console.warn('[VoiceContext] Failed to restart recognition:', e);
           }
+        } else {
+          setIsListening(false);
         }
       };
 
       recognitionRef.current = recognition;
     }
-  }, [isTriggered]);
+  }, []); // Initialize only ONCE on mount
 
-  const startListening = useCallback(() => {
-    if (recognitionRef.current && !isListening) {
-      try {
-        recognitionRef.current.start();
-      } catch (err) {
-        console.error('[VoiceContext] Error starting recognition:', err);
+  const startListening = useCallback(async () => {
+    if (isListening) return;
+
+    try {
+      setLastTranscript(''); 
+      setIsTriggered(true); 
+      setStatus('connecting');
+      
+      await multiModalLiveService.connect((event: MultiModalEvent) => {
+        if (event.type === 'connected') {
+          console.log('[VoiceContext] Multimodal Live connected');
+          setIsListening(true);
+          setStatus('listening');
+        } else if (event.type === 'transcript') {
+          setLastTranscript(event.data);
+        } else if (event.type === 'tool_call') {
+          setStatus('processing');
+          handleToolCall(event.data);
+        } else if (event.type === 'error') {
+          setStatus('error');
+          toast.error('Voice service failed. Check console.');
+        } else if (event.type === 'disconnected') {
+          setIsListening(false);
+          setIsTriggered(false);
+          setStatus('idle');
+        }
+      });
+    } catch (err) {
+      console.error('[VoiceContext] Error starting multimodal service:', err);
+      setStatus('error');
+      // Check if it's a permission error
+      if (err instanceof DOMException && err.name === 'NotAllowedError') {
+        toast.error('Microphone access denied. Please enable it in browser settings.');
+      } else {
+        toast.error('Failed to access microphone.');
       }
     }
   }, [isListening]);
 
   const stopListening = useCallback(() => {
-    if (recognitionRef.current && isListening) {
-      recognitionRef.current.stop();
-      setIsListening(false);
-      setIsTriggered(false);
-      setStatus('idle');
+    multiModalLiveService.stop();
+    setIsListening(false);
+    setIsTriggered(false);
+    setStatus('idle');
+  }, []);
+
+  const handleToolCall = useCallback((toolCall: any) => {
+    if (!toolCall.functionCalls) return;
+
+    for (const call of toolCall.functionCalls) {
+      const { name, args } = call;
+      console.log(`[VoiceContext] Executing tool: ${name}`, args);
+
+      if (name === 'navigate') {
+        const { target } = args;
+        window.dispatchEvent(new CustomEvent('velo-navigate', { detail: { target } }));
+        toast.info(`Navigating to ${target}...`);
+      } else if (name === 'create_task') {
+        const { title } = args;
+        toast.success(`Task created: ${title}`);
+      }
     }
-  }, [isListening]);
+    
+    multiModalLiveService.sendToolResponse(toolCall);
+  }, []);
 
   const setProcessing = (processing: boolean) => {
     setStatus(processing ? 'processing' : 'idle');

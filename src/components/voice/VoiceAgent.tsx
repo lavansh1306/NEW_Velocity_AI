@@ -12,17 +12,54 @@ export const VoiceAgent: React.FC = () => {
   const orbRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastProcessedTranscript = useRef<string>('');
+ 
   // Handle command execution when triggered and finalized
   useEffect(() => {
-    if (isTriggered && lastTranscript && status === 'listening') {
-      // Use shorter timeout for silence detection (1.5s)
-      const timer = setTimeout(() => {
-        handleVoiceCommand(lastTranscript, location.pathname);
-      }, 1500); 
+    // Only manage timer if we are in listening mode
+    if (isTriggered && status === 'listening') {
+      const timeoutDuration = lastTranscript ? 1500 : 1000;
+      
+      // Cleanup previous timer
+      if (timerRef.current) clearTimeout(timerRef.current);
 
-      return () => clearTimeout(timer);
+      timerRef.current = setTimeout(() => {
+        if (lastTranscript) {
+          // Double check to avoid redundant firing if transcript didn't change
+          if (lastTranscript !== lastProcessedTranscript.current) {
+            handleVoiceCommand(lastTranscript, location.pathname);
+            lastProcessedTranscript.current = lastTranscript;
+          }
+        } else {
+          // If 1s passes with NOTHING heard, auto-stop
+          stopListening();
+        }
+      }, timeoutDuration); 
+
+      return () => {
+        if (timerRef.current) clearTimeout(timerRef.current);
+      }
+    } else {
+      // Not listening anymore, clear everything
+      if (timerRef.current) clearTimeout(timerRef.current);
+      lastProcessedTranscript.current = '';
     }
-  }, [lastTranscript, isTriggered, status]);
+  }, [lastTranscript, isTriggered, status, stopListening, handleVoiceCommand]);
+
+  // Keyboard shortcut Ctrl + Space
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.code === 'Space') {
+        e.preventDefault();
+        if (isListening) stopListening();
+        else startListening();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isListening, startListening, stopListening]);
 
   // GSAP Animations for the Orb
   useEffect(() => {
@@ -37,7 +74,7 @@ export const VoiceAgent: React.FC = () => {
         ease: "sine.inOut",
         boxShadow: "0 0 20px rgba(16, 185, 129, 0.6)"
       });
-    } else if (status === 'processing') {
+    } else if (status === 'connecting' || status === 'processing') {
       gsap.to(orbRef.current, {
         rotation: 360,
         repeat: -1,
@@ -58,7 +95,7 @@ export const VoiceAgent: React.FC = () => {
         scale: 1,
         rotation: 0,
         duration: 0.5,
-        backgroundColor: "#10B981"
+        backgroundColor: status === 'error' ? '#EF4444' : '#9CA3AF' // red-500 for error, gray-400 for idle
       });
     }
   }, [status, isTriggered]);
@@ -71,10 +108,8 @@ export const VoiceAgent: React.FC = () => {
         { y: 0, opacity: 1, duration: 0.8, delay: 0.2, ease: "power3.out" }
       );
     }
-    
-    // Start listening by default for wake word
-    startListening();
-  }, [startListening]);
+    // No longer auto-starting listening for wake word
+  }, []);
 
   return (
     <div 
@@ -85,18 +120,22 @@ export const VoiceAgent: React.FC = () => {
       {(isTriggered || status !== 'idle') && lastTranscript && (
         <div className="bg-white/80 backdrop-blur-md border border-gray-200 rounded-2xl p-4 shadow-xl max-w-xs animate-in fade-in slide-in-from-bottom-4 pointer-events-auto">
           <p className="text-sm text-gray-800 font-medium italic">
-            "{status === 'processing' ? 'Checking with Gemini...' : lastTranscript}"
+            "{status === 'processing' ? 'Processing with VeloAI...' : (lastTranscript || 'Listening...')}"
           </p>
           <div className="flex items-center gap-2 mt-2">
             <div className={`h-1.5 w-1.5 rounded-full ${
+              status === 'connecting' ? 'bg-blue-400 animate-pulse' :
               status === 'listening' ? 'bg-emerald-500 animate-pulse' : 
               status === 'processing' ? 'bg-amber-500 animate-bounce' : 
-              status === 'speaking' ? 'bg-blue-500' : 'bg-gray-400'
+              status === 'speaking' ? 'bg-blue-500' : 
+              status === 'error' ? 'bg-red-500' : 'bg-gray-400'
             }`} />
             <span className="text-[10px] uppercase tracking-wider text-gray-500 font-bold">
-              {status === 'listening' ? 'Listening...' : 
+              {status === 'connecting' ? 'Connecting...' :
+               status === 'listening' ? 'Listening...' : 
                status === 'processing' ? 'Checking...' : 
-               status === 'speaking' ? 'Speaking...' : 'Ready'}
+               status === 'speaking' ? 'Speaking...' : 
+               status === 'error' ? 'Mic Blocked' : 'Ready'}
             </span>
           </div>
         </div>
@@ -105,7 +144,7 @@ export const VoiceAgent: React.FC = () => {
       {/* Main Orb Button */}
       <div 
         className="pointer-events-auto group relative"
-        title={isListening ? "Listening for 'Velocity'..." : "Start Listening"}
+        title={isListening ? "Stop (Ctrl + Space)" : "Talk with VeloAI (Ctrl + Space)"}
       >
         <div 
           ref={orbRef}
@@ -114,10 +153,12 @@ export const VoiceAgent: React.FC = () => {
             ${isListening ? 'bg-emerald-500' : 'bg-gray-400 opacity-50 hover:opacity-100'}
           `}
         >
-          {status === 'processing' ? (
+          {status === 'connecting' || status === 'processing' ? (
             <Loader2 className="w-6 h-6 text-white animate-spin" />
           ) : status === 'speaking' ? (
             <Volume2 className="w-6 h-6 text-white" />
+          ) : status === 'error' ? (
+            <X className="w-6 h-6 text-white" />
           ) : isListening ? (
             <Mic className="w-6 h-6 text-white" />
           ) : (
