@@ -56,7 +56,17 @@ const UtilizationBar = ({ value }: { value: number }) => {
     );
 };
 
-const AddTeamMemberModal = ({ open, onOpenChange, onMemberAdded }: { open: boolean; onOpenChange: (open: boolean) => void; onMemberAdded?: () => void }) => {
+const AddTeamMemberModal = ({ 
+    open, 
+    onOpenChange, 
+    onMemberAdded,
+    initialData
+}: { 
+    open: boolean; 
+    onOpenChange: (open: boolean) => void; 
+    onMemberAdded?: () => void;
+    initialData?: { name?: string; email?: string; role?: string } | null;
+}) => {
     const [name, setName] = useState('');
     const [role, setRole] = useState('');
     const [customRole, setCustomRole] = useState('');
@@ -72,6 +82,29 @@ const AddTeamMemberModal = ({ open, onOpenChange, onMemberAdded }: { open: boole
     const [csvInputMode, setCSVInputMode] = useState<'upload' | 'paste'>('upload');
     const [isDragging, setIsDragging] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Initial fill from voice or profile
+    useEffect(() => {
+        if (open && initialData) {
+            console.log('[AddTeamMemberModal] Pre-filling with:', initialData);
+            if (initialData.name) setName(initialData.name);
+            if (initialData.email) setEmail(initialData.email);
+            if (initialData.role) {
+                const incomingRole = initialData.role.toLowerCase().trim();
+                // Check if role is in predefined list (case insensitive match)
+                const predefinedRoles = ["Frontend Developer", "Backend Developer", "Full Stack Developer", "Designer", "Product Manager", "QA Engineer"];
+                const matchedRole = predefinedRoles.find(r => r.toLowerCase() === incomingRole);
+                
+                if (matchedRole) {
+                    setRole(matchedRole);
+                    setIsCustomRole(false);
+                } else {
+                    setCustomRole(initialData.role);
+                    setIsCustomRole(true);
+                }
+            }
+        }
+    }, [open, initialData]);
 
     // Process CSV / Excel file
     const processFile = (file: File) => {
@@ -533,6 +566,34 @@ export const PeopleCapacityScreen = () => {
     const { user, orgId, orgRole } = useAuth();
     const [selectedPerson, setSelectedPerson] = useState<TeamMemberView | null>(null);
     const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
+    const [voiceMemberData, setVoiceMemberData] = useState<{ name?: string; email?: string; role?: string } | null>(null);
+
+    // Listen for voice command events
+    useEffect(() => {
+        // Check for pending voice action from redirection
+        const pendingValue = localStorage.getItem('velo-voice-add-member');
+        console.log('[PeopleCapacityScreen] Checking for pending voice action:', pendingValue);
+        if (pendingValue) {
+            try {
+                const data = JSON.parse(pendingValue);
+                console.log('[PeopleCapacityScreen] Found pending voice action:', data);
+                setVoiceMemberData(data);
+                setIsAddMemberOpen(true);
+                localStorage.removeItem('velo-voice-add-member');
+            } catch (e) {
+                console.error('Failed to parse pending voice action:', e);
+            }
+        }
+
+        const handleVoiceAddMember = (e: any) => {
+            const data = e.detail;
+            setVoiceMemberData(data);
+            setIsAddMemberOpen(true);
+        };
+
+        window.addEventListener('velo-add-member', handleVoiceAddMember);
+        return () => window.removeEventListener('velo-add-member', handleVoiceAddMember);
+    }, []);
     const [showSkillsVerification, setShowSkillsVerification] = useState(false);
     const detailPanelRef = useRef<HTMLDivElement>(null);
 
@@ -884,7 +945,15 @@ export const PeopleCapacityScreen = () => {
                     </Button>
                 </div>
 
-                <AddTeamMemberModal open={isAddMemberOpen} onOpenChange={setIsAddMemberOpen} onMemberAdded={() => { loadTeamData(); if (orgId) setupProgressService.markStepComplete(orgId, 'team_members_added'); }} />
+                <AddTeamMemberModal 
+                    open={isAddMemberOpen} 
+                    onOpenChange={(open) => {
+                        setIsAddMemberOpen(open);
+                        if (!open) setVoiceMemberData(null); // Clear on close
+                    }} 
+                    onMemberAdded={() => { loadTeamData(); if (orgId) setupProgressService.markStepComplete(orgId, 'team_members_added'); }} 
+                    initialData={voiceMemberData}
+                />
 
                 {/* Capacity Summary Strip */}
                 <div className="flex items-center gap-0 mb-10">

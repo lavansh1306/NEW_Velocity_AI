@@ -30,6 +30,20 @@ export const useVoiceActions = () => {
           // Here you would integrate with your task creation logic
           break;
 
+        case 'add_team_member':
+          const { name, email, role } = action.params || {};
+          if (currentPath !== '/people') {
+            // Store action for the next page load
+            localStorage.setItem('velo-voice-add-member', JSON.stringify({ name, email, role }));
+            navigate('/people');
+          } else {
+            // Already there, just dispatch
+            window.dispatchEvent(new CustomEvent('velo-add-member', { 
+              detail: { name, email, role } 
+            }));
+          }
+          break;
+
         case 'search':
           toast.info(`Searching for "${action.params?.query || transcript}"`);
           break;
