@@ -347,6 +347,7 @@ app.use((req: Request, res: Response) => {
       }
 
       const geminiUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${apiKey}`;
+      console.log(`[VoiceProxy] Connecting to Gemini: ${geminiUrl.slice(0, 45)}...`);
       const geminiSocket = new WebSocket(geminiUrl);
 
       geminiSocket.on('open', () => {
@@ -354,6 +355,7 @@ app.use((req: Request, res: Response) => {
       });
 
       geminiSocket.on('message', (data) => {
+        console.log('[VoiceProxy] Message from Gemini:', data.toString());
         // Relay from Gemini to Client
         if (ws.readyState === WebSocket.OPEN) {
           ws.send(data);
@@ -367,14 +369,14 @@ app.use((req: Request, res: Response) => {
         }
       });
 
-      const cleanup = () => {
-        console.log('[VoiceProxy] Connection closed');
+      const cleanup = (code?: number, reason?: string) => {
+        console.log(`[VoiceProxy] Connection closed. Code: ${code}, Reason: ${reason}`);
         if (geminiSocket.readyState === WebSocket.OPEN) geminiSocket.close();
         if (ws.readyState === WebSocket.OPEN) ws.close();
       };
 
-      ws.on('close', cleanup);
-      geminiSocket.on('close', cleanup);
+      ws.on('close', (code, reason) => cleanup(code, reason?.toString() || "No reason"));
+      geminiSocket.on('close', (code, reason) => cleanup(code, reason?.toString() || "No reason"));
       ws.on('error', (err) => console.error('[VoiceProxy] Client error:', err));
       geminiSocket.on('error', (err) => console.error('[VoiceProxy] Gemini error:', err));
     });

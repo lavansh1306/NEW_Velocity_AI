@@ -30,17 +30,29 @@ class MultiModalLiveService {
     this.onEventCallback = onEvent;
 
     try {
-      // 1. Establish WebSocket connection to backend proxy
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/api/voice-live`;
+      // 1. Establish WebSocket connection DIRECTLY to Google (Vercel-friendly)
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${apiKey}`;
       
       this.socket = new WebSocket(wsUrl);
 
-      this.socket.onopen = () => {
-        console.log('[MultiModalLive] Socket connected');
-        this.sendSetup();
-        this.onEventCallback?.({ type: 'connected' });
-      };
+      // Create a promise that resolves when the socket is fully setup
+      const setupPromise = new Promise<void>((resolve, reject) => {
+        if (!this.socket) return reject('No socket');
+
+        this.socket.onopen = () => {
+          console.log('[MultiModalLive] Socket connected, sending setup...');
+          this.sendSetup();
+          this.onEventCallback?.({ type: 'connected' });
+          resolve();
+        };
+
+        this.socket.onerror = (err) => {
+          console.error('[MultiModalLive] Socket error:', err);
+          this.onEventCallback?.({ type: 'error', data: err });
+          reject(err);
+        };
+      });
 
       this.socket.onmessage = (event) => {
         try {
@@ -51,19 +63,21 @@ class MultiModalLiveService {
         }
       };
 
-      this.socket.onerror = (err) => {
-        console.error('[MultiModalLive] Socket error:', err);
-        this.onEventCallback?.({ type: 'error', data: err });
-      };
-
-      this.socket.onclose = () => {
-        console.log('[MultiModalLive] Socket closed');
+      this.socket.onclose = (event) => {
+        console.log(`[MultiModalLive] Socket closed. Code: ${event.code}, Reason: ${event.reason || 'None'}`);
         this.stop();
         this.onEventCallback?.({ type: 'disconnected' });
       };
 
-      // 2. Start Audio Capture (16kHz Mono PCM)
+      // Wait for socket to be open and setup sent
+      await setupPromise;
+
+      // 2. Start Audio Capture (16kHz Mono PCM) ONLY AFTER setup is sent
       await this.startAudioCapture();
+    } catch (err) {
+      console.error('[MultiModalLive] Connection failed:', err);
+      this.stop();
+      throw err;
     } finally {
       this.isConnecting = false;
     }
@@ -74,9 +88,12 @@ class MultiModalLiveService {
 
     const setupMessage = {
       setup: {
-        model: "models/gemini-1.5-flash",
+        model: "models/gemini-2.0-flash-exp",
         generation_config: { 
           response_modalities: ["AUDIO"] 
+        },
+        system_instruction: {
+          parts: [{ text: "You are VeloAI, a helpful and talkative voice assistant for the Velocity platform. Keep your responses concise, friendly, and helpful. Use tools to help the user navigate the site or manage tasks." }]
         },
         tools: [{
           function_declarations: [
