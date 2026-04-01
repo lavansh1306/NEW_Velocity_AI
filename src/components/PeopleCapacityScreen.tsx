@@ -684,11 +684,21 @@ export const PeopleCapacityScreen = () => {
     // Effect to trigger deletion once teamMembers are loaded
     useEffect(() => {
         if (pendingVoiceDelete && teamMembers.length > 0) {
-            const name = pendingVoiceDelete;
-            const member = teamMembers.find(m => m.name.toLowerCase().includes(name.toLowerCase()));
+            // Clean the name from any trailing punctuation that might have survived
+            const name = pendingVoiceDelete.replace(/[.,!?;:]+$/, '').trim();
+            console.log(`[PeopleCapacityScreen] Attempting voice delete for: "${name}"`);
+            
+            const member = teamMembers.find(m => {
+                const memberName = m.name.toLowerCase();
+                const searchName = name.toLowerCase();
+                return memberName.includes(searchName) || searchName.includes(memberName);
+            });
+
             if (member) {
+                console.log(`[PeopleCapacityScreen] Found member for voice delete: ${member.name} (${member.id})`);
                 handleRemoveMember(null, member.id, member.name);
             } else {
+                console.warn(`[PeopleCapacityScreen] Voice delete failed. Could not find match for "${name}" in:`, teamMembers.map(m => m.name));
                 toast.error(`Could not find team member named "${name}"`);
             }
             setPendingVoiceDelete(null);

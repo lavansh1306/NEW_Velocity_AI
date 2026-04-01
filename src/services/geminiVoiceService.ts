@@ -140,6 +140,7 @@ Rules:
   private normalizeTranscript(text: string): string {
     return text.toLowerCase()
       .replace(/^(hello|hi|hey|velocity|bot|ai|please|can you|could you)\s+/g, '')
+      .replace(/[.,!?;:]+$/, '') // Strip trailing punctuation
       .trim();
   }
 
@@ -207,13 +208,17 @@ Rules:
     if (isDeleteCommand && (text.includes('member') || text.includes('team') || text.includes('person') || text.split(/\s+/).length > 1)) {
       const noise = ['delete', 'remove', 'fire', 'member', 'team', 'person', 'from', 'the', 'named', 'called'];
       const words = text.split(/\s+/).filter(w => !noise.includes(w) && w.length > 1);
-      const nameMatch = words.join(' ').trim();
+      
+      // Clean words from punctuation as well
+      const cleanWords = words.map(w => w.replace(/[.,!?;:]+$/, ''));
+      const nameMatch = cleanWords.join(' ').trim();
       
       if (nameMatch) {
          return {
           type: 'delete_team_member',
           params: { name: nameMatch.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') },
-          response: `I'll help you remove ${nameMatch} from the team.`
+          response: `I'll help you remove ${nameMatch} from the team.`,
+          requiresConfirmation: true // High-risk action
         };
       }
     }
