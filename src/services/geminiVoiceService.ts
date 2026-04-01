@@ -21,6 +21,13 @@ class GeminiVoiceService {
   }
 
   async parseIntent(transcript: string, currentPath: string): Promise<VoiceAction> {
+    // 1. Try Direct Command Parsing first (Fast Path, No LLM Latency)
+    const directAction = this.parseDirectCommand(transcript);
+    if (directAction) {
+      console.log('[GeminiVoice] Using Direct Command:', directAction);
+      return directAction;
+    }
+
     if (!this.model) {
       console.warn('[GeminiVoice] Gemini API not configured. Falling back to basic parsing.');
       return this.fallbackParse(transcript);
@@ -41,18 +48,18 @@ Available Actions:
 
 Rules:
 - Respond ONLY with a JSON object.
-- Include a "response" field with a short, natural spoken confirmation (e.g., "Sure, taking you to your projects.").
+- Include a "response" field with a short, natural spoken confirmation.
 
 JSON Structure:
 {
   "type": "navigate" | "create_task" | "add_team_member" | "search" | "info" | "unknown",
   "target": "string (URL for navigate)",
   "params": {
-    "taskName": "string (if create_task)",
-    "name": "string (if add_team_member)",
-    "email": "string (if add_team_member)",
-    "role": "string (if add_team_member)",
-    "query": "string (if search)"
+    "taskName": "string",
+    "name": "string",
+    "email": "string",
+    "role": "string",
+    "query": "string"
   },
   "response": "Brief spoken response"
 }
@@ -65,13 +72,10 @@ JSON Structure:
       ]);
 
       const responseText = result.response.text();
-      console.log('[GeminiVoice] Raw response:', responseText);
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       
       if (jsonMatch) {
-        const action = JSON.parse(jsonMatch[0]) as VoiceAction;
-        console.log('[GeminiVoice] Parsed action:', action);
-        return action;
+        return JSON.parse(jsonMatch[0]) as VoiceAction;
       }
       
       return { type: 'unknown', response: "I'm not sure how to help with that yet." };
@@ -79,6 +83,117 @@ JSON Structure:
       console.error('[GeminiVoice] Intent parsing failed:', error);
       return this.fallbackParse(transcript);
     }
+  }
+
+  private normalizeTranscript(text: string): string {
+    return text.toLowerCase()
+      .replace(/^(hello|hi|hey|velocity|bot|ai|please|can you|could you)\s+/g, '')
+      .trim();
+  }
+
+  private parseDirectCommand(transcript: string): VoiceAction | null {
+    const text = this.normalizeTranscript(transcript);
+    
+    // 1. Navigation Shortcuts
+    const navTargets: Record<string, string> = {
+      'dashboard': '/dashboard',
+      'project': '/projects',
+      'team': '/people',
+      'people': '/people',
+      'plan': '/plan',
+      'setting': '/settings',
+      'ai': '/velocity-ai',
+      'velocity': '/velocity-ai'
+    };
+
+    if (text.startsWith('go to ') || text.startsWith('open ') || text.startsWith('show ')) {
+      const targetStr = text.split(' ').slice(-1)[0].replace(/[.,!?;]$/, '');
+      for (const [key, path] of Object.entries(navTargets)) {
+        if (targetStr.includes(key)) {
+          return { type: 'navigate', target: path, response: `Opening ${key}.` };
+        }
+      }
+    }
+
+    // 2. Add Team Member (Robust Extraction)
+    const roleMapping: Record<string, string> = {
+      'front end': 'Frontend Developer',
+      'frontend': 'Frontend Developer',
+      'back end': 'Backend Developer',
+      'backend': 'Backend Developer',
+      'full stack': 'Full Stack Developer',
+      'fullstack': 'Full Stack Developer',
+      'designer': 'Designer',
+      'design': 'Designer',
+      'product manager': 'Product Manager',
+      'manager': 'Product Manager',
+      'qa': 'QA Engineer',
+      'tester': 'QA Engineer',
+      'developer': 'Frontend Developer', // default to frontend if generic
+      'engineer': 'Frontend Developer'
+    };
+
+    const roles = Object.keys(roleMapping).sort((a, b) => b.length - a.length);
+    const isInviteCommand = text.includes('add') || text.includes('invite') || text.includes('new');
+    const hasContext = text.includes('member') || text.includes('team') || text.includes('@') || roles.some(r => text.includes(r));
+
+    if (isInviteCommand && hasContext) {
+      const words = text.split(/\s+/);
+      const cleanWords = words.map(w => w.replace(/[.,!?;:]+$/, ''));
+      
+      let email = cleanWords.find(w => w.includes('@')) || '';
+      
+      // Identify role - match longest strings first
+      let role = 'Team Member';
+      for (const r of roles) {
+        if (text.includes(r)) {
+          role = roleMapping[r];
+          break;
+        }
+      }
+
+      // Filter noise to find the name
+      const commandNoise = ['add', 'invite', 'new', 'team', 'member', 'for', 'as', 'is', 'a', 'the', 'email', 'with', 'role', 'position', 'at', 'called', 'named', 'and'];
+      const roleNoise = roles.flatMap(r => r.split(' '));
+      const allNoise = [...commandNoise, ...roleNoise];
+      
+      let nameWords = cleanWords.filter(w => 
+        !allNoise.includes(w) && 
+        !w.includes('@') && 
+        w.length > 1 // skip single letters
+      );
+      
+      let nameCandidate = nameWords.join(' ').replace(/^as\s+/, '').trim();
+      
+      if (email || nameCandidate) {
+        // Double check name doesn't contain noise that filter missed
+        if (nameCandidate.toLowerCase().startsWith('as ')) {
+          nameCandidate = nameCandidate.slice(3);
+        }
+
+        return {
+          type: 'add_team_member',
+          params: { 
+            name: nameCandidate.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') || 'New Member', 
+            email: email, 
+            role: role 
+          },
+          response: `Sure, I'll add ${nameCandidate || 'them'} as a ${role}.`
+        };
+      }
+    }
+
+    // 3. Create Task
+    if (text.startsWith('create task ') || text.startsWith('new task ')) {
+      const taskName = text.replace(/^(create task|new task)\s+/, '');
+      return {
+        type: 'create_task',
+        params: { taskName },
+        response: `Creating task: ${taskName}`
+      };
+    }
+
+    return null;
   }
 
   private fallbackParse(transcript: string): VoiceAction {
@@ -91,11 +206,10 @@ JSON Structure:
       return { type: 'navigate', target: '/projects', response: "Opening your projects." };
     }
     if (text.includes('people') || text.includes('team')) {
-      // Only navigate if it's NOT an add command (already checked above)
       return { type: 'navigate', target: '/people', response: "Showing your team members." };
     }
     
-    return { type: 'unknown', response: "I heard you, but I don't know that command yet." };
+    return { type: 'unknown', response: "I heard you, but I'm having trouble understanding the command." };
   }
 }
 
