@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { ingestionApi } from '@/api/ingestionApi';
 import { AITaskSuggestionsBoard } from './AITaskSuggestionsBoard';
+import { VOICE_AGENT_URL } from '@/lib/api-config';
 
 interface IngestionControlProps {
   projectId?: string | null;
@@ -27,8 +28,10 @@ export const IngestionControl = ({ projectId, userId }: IngestionControlProps) =
     }
     setLoadingMeet(true);
     try {
-      const agentUrl = import.meta.env.VITE_LLM_URL2 || 'http://localhost:8000';
-      const response = await fetch(`${agentUrl}/sync-latest-meet?user_id=${userId}&project_id=${projectId}`, {
+      if (!VOICE_AGENT_URL) {
+        throw new Error('Voice Agent URL is not configured.');
+      }
+      const response = await fetch(`${VOICE_AGENT_URL}/sync-latest-meet?user_id=${userId}&project_id=${projectId}`, {
         method: 'POST',
       });
       
@@ -77,8 +80,10 @@ export const IngestionControl = ({ projectId, userId }: IngestionControlProps) =
     }
     setLoadingEmail(true);
     try {
-      const agentUrl = import.meta.env.VITE_LLM_URL2 || 'http://localhost:8000';
-      const response = await fetch(`${agentUrl}/sync-latest-email?user_id=${userId}&project_id=${projectId}`, {
+      if (!VOICE_AGENT_URL) {
+        throw new Error('Voice Agent URL is not configured.');
+      }
+      const response = await fetch(`${VOICE_AGENT_URL}/sync-latest-email?user_id=${userId}&project_id=${projectId}`, {
         method: 'POST',
       });
       
@@ -125,8 +130,15 @@ export const IngestionControl = ({ projectId, userId }: IngestionControlProps) =
   };
 
   const handleReconnect = () => {
-    const agentUrl = import.meta.env.VITE_LLM_URL2 || 'http://localhost:8000';
-    window.location.href = `${agentUrl}/auth/google/login?user_id=${userId}`;
+    if (!VOICE_AGENT_URL) {
+      toast({
+        title: "Configuration Error",
+        description: "Voice Agent URL is not configured.",
+        variant: "destructive",
+      });
+      return;
+    }
+    window.location.href = `${VOICE_AGENT_URL}/auth/google/login?user_id=${userId}`;
   };
 
   return (

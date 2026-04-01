@@ -18,6 +18,7 @@ import { TaskBreakdown } from './planproject/TaskBreakdown';
 import { DraftPlansList } from './manager/DraftPlansList';
 import { PublishPlanModal } from './manager/PublishPlanModal';
 import { PlanEmptyState } from './planproject/PlanEmptyState';
+import { ML_ENGINE_URL } from '@/lib/api-config';
 
 // ── HOOKS ──
 import { useAutoSavePlan } from '@/hooks/useAutoSavePlan';
@@ -162,6 +163,91 @@ export const PlanMyProjectScreen = () => {
     }, [projectTitle, projectDescription, tasks, currentOrgId, user?.id, autoSave]);
 
     // ── VOICE AGENT INTEGRATION ──
+    const handleAnalyze = async () => {
+        if (!projectDescription.trim()) {
+            setDescriptionError('Please enter a project description so the AI can generate tasks.');
+            return;
+        }
+
+        setDescriptionError(null);
+        setIsAnalyzing(true);
+        setThoughtLines([]);
+        setAnalysisStatus("Saving draft...");
+
+        const thoughts = ['Analyzing requirements...', 'Structuring tasks...', 'Finalizing plan...'];
+        let tIdx = 0;
+        const tInterval = setInterval(() => {
+            if (tIdx < thoughts.length) {
+                setThoughtLines(p => [...p, thoughts[tIdx]]);
+                tIdx++;
+            }
+        }, 800);
+
+        try {
+            // Save current typed data immediately before analysis starts
+            await flushSave({ title: projectTitle, description: projectDescription, tasks });
+            setAnalysisStatus("Analyzing requirements...");
+
+            if (!ML_ENGINE_URL) {
+                throw new Error("ML Engine URL is not configured.");
+            }
+
+            console.log(`[PlanMyProject] Connecting to: ${ML_ENGINE_URL}/api/v1/planner/decompose`);
+            const response = await fetch(`${ML_ENGINE_URL}/api/v1/planner/decompose`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ project_description: projectDescription }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                console.error('[PlanMyProject] Decomposition failed:', response.status, errorData);
+                throw new Error(errorData.detail || `HTTP ${response.status}: Analysis failed`);
+            }
+
+            const data = await response.json();
+            const generatedTasks = data.suggested_tasks.map((t: any, idx: number) => ({
+                id: `task-${idx}-${Date.now()}`,
+                task: t.task_name,
+                estimatedHours: t.estimated_hours,
+                requiredSkills: t.required_skills || []
+            }));
+
+            setTasks(generatedTasks);
+            setHasAnalyzed(true);
+            toast.success('Project tasks generated!');
+
+            // Scroll to task section
+            setTimeout(() => taskSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+        } catch (error) {
+            toast.error("AI Engine is currently unavailable.");
+        } finally {
+            clearInterval(tInterval);
+            setIsAnalyzing(false);
+        }
+    };
+
+    const handleSaveDraft = async () => {
+        if (tasks.length === 0) {
+            toast.error("Generate tasks before saving a draft.");
+            return;
+        }
+        if (!currentOrgId || !user?.id) {
+            toast.error("Organization context missing. Please refresh.");
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            await flushSave({ title: projectTitle, description: projectDescription, tasks });
+            toast.success('Draft saved!');
+        } catch (err: any) {
+            toast.error(err.message || "Failed to save draft.");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     useEffect(() => {
       const { voiceTitle, voiceDescription, autoAnalyze } = (location.state as any) || {};
       
@@ -181,7 +267,7 @@ export const PlanMyProjectScreen = () => {
         // Clear state to prevent re-triggering on manual navigation back
         window.history.replaceState({}, document.title);
       }
-    }, [location.state]);
+    }, [location.state, handleAnalyze]);
 
     // ── TASK EDITING HANDLERS ── (all preserved from original)
     const startEdit = (t: EditableTask) => {
@@ -224,31 +310,6 @@ export const PlanMyProjectScreen = () => {
         toast.success("Task added");
     };
 
-    // ── SAVE DRAFT (manual) ──
-    // Now saves to project_plans/plan_tasks instead of projects/tasks
-    const handleSaveDraft = async () => {
-        if (tasks.length === 0) {
-            toast.error("Generate tasks before saving a draft.");
-            return;
-        }
-        if (!currentOrgId || !user?.id) {
-            toast.error("Organization context missing. Please refresh.");
-            return;
-        }
-
-        setIsSaving(true);
-        try {
-            await flushSave({ title: projectTitle, description: projectDescription, tasks });
-            toast.success('Draft saved!');
-        } catch (err: any) {
-            toast.error(err.message || "Failed to save draft.");
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    const baseUrl = import.meta.env.VITE_LLM_URL || 'http://127.0.0.1:8000';
-
     // ── FILE HANDLERS ──
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -263,62 +324,6 @@ export const PlanMyProjectScreen = () => {
     const clearFileUpload = () => {
         setUploadedFileName(null);
         toast.info("Attachment removed.");
-    };
-
-    // ── AI ANALYSIS ──
-    const handleAnalyze = async () => {
-        if (!projectDescription.trim()) {
-            setDescriptionError('Please enter a project description so the AI can generate tasks.');
-            return;
-        }
-
-        setDescriptionError(null);
-        setIsAnalyzing(true);
-        setThoughtLines([]);
-        setAnalysisStatus("Saving draft...");
-
-        const thoughts = ['Analyzing requirements...', 'Structuring tasks...', 'Finalizing plan...'];
-        let tIdx = 0;
-        const tInterval = setInterval(() => {
-            if (tIdx < thoughts.length) {
-                setThoughtLines(p => [...p, thoughts[tIdx]]);
-                tIdx++;
-            }
-        }, 800);
-
-        try {
-            // Save current typed data immediately before analysis starts
-            await flushSave({ title: projectTitle, description: projectDescription, tasks });
-            setAnalysisStatus("Analyzing requirements...");
-
-            const response = await fetch(`${baseUrl}/api/v1/planner/decompose`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ project_description: projectDescription }),
-            });
-
-            if (!response.ok) throw new Error("Analysis failed.");
-
-            const data = await response.json();
-            const generatedTasks = data.suggested_tasks.map((t: any, idx: number) => ({
-                id: `task-${idx}-${Date.now()}`,
-                task: t.task_name,
-                estimatedHours: t.estimated_hours,
-                requiredSkills: t.required_skills || []
-            }));
-
-            setTasks(generatedTasks);
-            setHasAnalyzed(true);
-            toast.success('Project tasks generated!');
-
-            // Scroll to task section
-            setTimeout(() => taskSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
-        } catch (error) {
-            toast.error("AI Engine is currently unavailable.");
-        } finally {
-            clearInterval(tInterval);
-            setIsAnalyzing(false);
-        }
     };
 
     // ── NAVIGATE TO ALLOCATION (preserved) ──

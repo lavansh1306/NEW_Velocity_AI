@@ -4,9 +4,32 @@ import { Button } from '../ui/button';
 import { Avatar, AvatarFallback } from '../ui/avatar';
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
+import { ML_ENGINE_URL } from '../../lib/api-config';
 import SyncOutlined from '@mui/icons-material/SyncOutlined';
 import ArrowBackOutlined from '@mui/icons-material/ArrowBackOutlined';
 import CheckCircleOutlined from '@mui/icons-material/CheckCircleOutlined';
+
+const ALLOWED_ROLES = [
+    'lead', 'member', 'Engineer', 'Designer', 'Product Manager', 
+    'Engineering Manager', 'QA Engineer', 'Data Scientist', 
+    'Frontend Developer', 'Backend Developer', 'Full Stack Developer', 
+    'DevOps Engineer'
+];
+
+const mapRole = (role: string): string => {
+    // If exact match found, return it
+    const match = ALLOWED_ROLES.find(r => r.toLowerCase() === role.toLowerCase());
+    if (match) return match;
+
+    // Mapping for common AI output variations
+    if (role.toLowerCase().includes('frontend')) return 'Frontend Developer';
+    if (role.toLowerCase().includes('backend')) return 'Backend Developer';
+    if (role.toLowerCase().includes('designer')) return 'Designer';
+    if (role.toLowerCase().includes('engineer')) return 'Engineer';
+    if (role.toLowerCase().includes('product manager')) return 'Product Manager';
+
+    return 'member';
+};
 
 export const AllocateTeamScreen = () => {
     const { state } = useLocation();
@@ -18,8 +41,6 @@ export const AllocateTeamScreen = () => {
     const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([]);
     const [isSaving, setIsSaving] = useState(false);
 
-    const baseUrl = import.meta.env.VITE_LLM_URL || 'http://127.0.0.1:8000';
-
     useEffect(() => {
         if (!state?.tasks) {
             toast.error("No project context found");
@@ -30,8 +51,15 @@ export const AllocateTeamScreen = () => {
     }, []);
 
     const performAllocation = async () => {
+        if (!ML_ENGINE_URL) {
+            toast.error("ML Engine URL is not configured. Please check your .env file.");
+            setIsMatchingTeam(false);
+            return;
+        }
+
         try {
-            const response = await fetch(`${baseUrl}/api/v1/planner/allocate`, {
+            console.log(`[AllocateTeam] Connecting to: ${ML_ENGINE_URL}/api/v1/planner/allocate`);
+            const response = await fetch(`${ML_ENGINE_URL}/api/v1/planner/allocate`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
@@ -47,12 +75,24 @@ export const AllocateTeamScreen = () => {
                 }),
             });
 
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                console.error('[AllocateTeam] Allocation request failed:', response.status, errorData);
+                throw new Error(errorData.detail || `HTTP ${response.status}: Allocation failed`);
+            }
+
             const data = await response.json();
             const team = data.recommended_team || [];
+            
+            if (team.length === 0) {
+                toast.info("No matching team members found for these tasks.");
+            }
+            
             setRecommendedTeam(team);
             setSelectedTeamIds(team.map((m: any) => m.id));
-        } catch (err) {
-            toast.error("Allocation failed");
+        } catch (err: any) {
+            console.error('[AllocateTeam] Error:', err);
+            toast.error(err.message || "Allocation failed. Check engine connectivity.");
         } finally {
             setIsMatchingTeam(false);
         }
@@ -75,7 +115,9 @@ export const AllocateTeamScreen = () => {
                 name: projectTitle || "New Project", 
                 description: projectDescription, 
                 status: 'active',
-                allocated_team_members: selectedTeamIds // Sync with your schema
+                source: 'internal',
+                start_date: new Date().toISOString().split('T')[0],
+                allocated_team_members: selectedTeamIds
             }).select().single();
             if (projErr) throw projErr;
 
@@ -83,7 +125,7 @@ export const AllocateTeamScreen = () => {
             const teamMembersToInsert = selectedTeamIds.map(uid => ({
                 team_id: team.id,
                 user_id: uid,
-                role: recommendedTeam.find(m => m.id === uid)?.role || 'member'
+                role: mapRole(recommendedTeam.find(m => m.id === uid)?.role || 'member')
             }));
             await supabase.from('team_members').insert(teamMembersToInsert);
 
@@ -105,7 +147,7 @@ export const AllocateTeamScreen = () => {
             await supabase.from('tasks').insert(tasksToInsert);
 
             toast.success("Project launched successfully!");
-            navigate(`/analytics/${proj.id}`); // Navigate directly to analytics
+            navigate(`/projects/${proj.id}`); // Navigate to fixed route
         } catch (e) {
             toast.error("Failed to launch");
         } finally {
