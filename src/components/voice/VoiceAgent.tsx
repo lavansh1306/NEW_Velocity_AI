@@ -12,40 +12,19 @@ export const VoiceAgent: React.FC = () => {
   const orbRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const lastProcessedTranscript = useRef<string>('');
- 
-  // Handle command execution when triggered and finalized
+  // Handle command execution when voice recognition finishes
   useEffect(() => {
-    // Only manage timer if we are in listening mode
-    if (isTriggered && status === 'listening') {
-      const timeoutDuration = 2000; // Increased buffer time to 2 seconds as requested
-      
-      // Cleanup previous timer
-      if (timerRef.current) clearTimeout(timerRef.current);
-
-      timerRef.current = setTimeout(() => {
-        if (lastTranscript) {
-          // Double check to avoid redundant firing if transcript didn't change
-          if (lastTranscript !== lastProcessedTranscript.current) {
-            handleVoiceCommand(lastTranscript, location.pathname);
-            lastProcessedTranscript.current = lastTranscript;
-          }
-        } else {
-          // If 1s passes with NOTHING heard, auto-stop
-          stopListening();
-        }
-      }, timeoutDuration); 
-
-      return () => {
-        if (timerRef.current) clearTimeout(timerRef.current);
-      }
-    } else {
-      // Not listening anymore, clear everything
-      if (timerRef.current) clearTimeout(timerRef.current);
-      lastProcessedTranscript.current = '';
+    // If we transition from listening/processing to idle and have a transcript, execute it
+    if (!isListening && isTriggered && lastTranscript && status === 'idle') {
+      console.log('[VoiceAgent] Recognition finished, processing transcript:', lastTranscript);
+      handleVoiceCommand(lastTranscript, location.pathname);
     }
-  }, [lastTranscript, isTriggered, status, stopListening, handleVoiceCommand]);
+    
+    // If it was triggered but ended with no transcript, just reset
+    if (!isListening && isTriggered && !lastTranscript && status === 'idle') {
+      stopListening();
+    }
+  }, [isListening, isTriggered, lastTranscript, status, stopListening, handleVoiceCommand, location.pathname]);
 
   // Keyboard shortcut Ctrl + Space
   useEffect(() => {

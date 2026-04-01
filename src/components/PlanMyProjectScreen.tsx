@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from './ui/button';
 import { toast } from 'sonner';
 import ChevronRightOutlined from '@mui/icons-material/ChevronRightOutlined';
@@ -61,8 +61,10 @@ function SaveStatus({ isSaving, lastSaved, error }: { isSaving: boolean; lastSav
 
 export const PlanMyProjectScreen = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { user, orgId: contextOrgId } = useAuth();
     const taskSectionRef = useRef<HTMLDivElement>(null);
+    const hasAutoAnalyzed = useRef(false);
 
     // ── STATE ──
     const [currentOrgId, setCurrentOrgId] = useState<string | null>(null);
@@ -158,6 +160,28 @@ export const PlanMyProjectScreen = () => {
       autoSave({ title: projectTitle, description: projectDescription, tasks });
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [projectTitle, projectDescription, tasks, currentOrgId, user?.id, autoSave]);
+
+    // ── VOICE AGENT INTEGRATION ──
+    useEffect(() => {
+      const { voiceTitle, voiceDescription, autoAnalyze } = (location.state as any) || {};
+      
+      if (voiceTitle || voiceDescription) {
+        console.log('[PlanMyProject] Processing voice data:', { voiceTitle, voiceDescription });
+        if (voiceTitle) setProjectTitle(voiceTitle);
+        if (voiceDescription) setProjectDescription(voiceDescription);
+        
+        if (autoAnalyze && !hasAutoAnalyzed.current) {
+          hasAutoAnalyzed.current = true;
+          // Small delay to ensure state updates are visible before analysis
+          setTimeout(() => {
+            handleAnalyze();
+          }, 500);
+        }
+        
+        // Clear state to prevent re-triggering on manual navigation back
+        window.history.replaceState({}, document.title);
+      }
+    }, [location.state]);
 
     // ── TASK EDITING HANDLERS ── (all preserved from original)
     const startEdit = (t: EditableTask) => {
