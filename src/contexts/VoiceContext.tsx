@@ -31,8 +31,8 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (SpeechRecognition) {
       const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
+      recognition.continuous = false; // Changed to false for better stability
+      recognition.interimResults = false; // Changed to false for better reliability
       recognition.lang = 'en-US';
       (window as any).isListeningIntent = false;
 
@@ -43,19 +43,10 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       };
 
       recognition.onresult = (event: any) => {
-        let interimTranscript = '';
-        let finalTranscript = '';
-
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
-          } else {
-            interimTranscript += event.results[i][0].transcript;
-          }
-        }
-
-        const currentText = (finalTranscript || interimTranscript).toLowerCase().trim();
-        setLastTranscript(currentText);
+        const transcript = event.results[0][0].transcript;
+        console.log('[VoiceContext] Final result received:', transcript);
+        setLastTranscript(transcript);
+        setStatus('idle'); // We've heard something, it's done for this batch
       };
 
       recognition.onerror = (event: any) => {
@@ -63,24 +54,21 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           console.error('[VoiceContext] Speech recognition error:', event.error);
           if (event.error === 'not-allowed') {
             toast.error('Microphone access denied. Please enable it in your browser settings.');
-            (window as any).isListeningIntent = false;
           }
           setStatus('error');
+        } else {
+          // No speech heard at all
+          setIsListening(false);
+          setStatus('idle');
         }
+        (window as any).isListeningIntent = false;
       };
 
       recognition.onend = () => {
         console.log('[VoiceContext] Speech recognition ended');
-        // Restart if we are supposed to be listening (prevents flicker/timeout issues)
-        if (recognitionRef.current && (window as any).isListeningIntent) {
-          try {
-            recognitionRef.current.start();
-          } catch (e) {
-            console.warn('[VoiceContext] Failed to restart recognition:', e);
-          }
-        } else {
-          setIsListening(false);
-        }
+        setIsListening(false);
+        (window as any).isListeningIntent = false;
+        if (status !== 'error') setStatus('idle');
       };
 
       recognitionRef.current = recognition;
