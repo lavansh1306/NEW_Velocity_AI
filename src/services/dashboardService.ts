@@ -26,7 +26,15 @@ export const getDashboardData = async (options?: DashboardOptions) => {
         const { data: allTasks } = await supabase.from('tasks').select('*').in('project_id', projects?.map(p => p.id) || []);
         const { data: teams } = await supabase.from('teams').select('*').eq('organization_id', orgId);
         const { data: teamMembers } = await supabase.from('team_members').select('*').in('team_id', teams?.map(t => t.id) || []).eq('status', 'active');
-        const { data: users } = await supabase.from('users').select('*').in('id', teamMembers?.map(m => m.user_id).filter(Boolean) || []);
+        const { data: users } = await supabase
+            .from('users')
+            .select('*')
+            .in('id', teamMembers?.map(m => m.user_id).filter(Boolean) || [])
+            .eq('is_active', true);
+        
+        // Filter teamMembers to only those who have an ACTIVE user entry
+        const activeUserIdsSet = new Set(users?.map(u => u.id) || []);
+        const activeTeamMembers = (teamMembers || []).filter(m => m.user_id && activeUserIdsSet.has(m.user_id));
 
         let myProjectIds: string[] = [];
         if (authUser?.id) {
@@ -66,8 +74,14 @@ export const getDashboardData = async (options?: DashboardOptions) => {
         const totalWeeklyCapacity = users?.reduce((sum, u) => 
             sum + (u.capacity_hours_per_week || orgSettings?.work_hours_per_week || 40), 0) || 0;
 
+        // Filter tasks to only include those assigned to ACTIVE users
+        const activeTasks = allTasks?.filter(task => {
+            const assigneeId = task.assignee_id || task.user_id;
+            return !assigneeId || activeUserIdsSet.has(assigneeId);
+        }) || [];
+
         // Calculate allocated hours for the SPECIFIED WEEK ONLY (Mon-Fri)
-        const totalAllocatedHours = allTasks?.reduce((sum, task) => {
+        const totalAllocatedHours = activeTasks.reduce((sum, task) => {
             if (!task.estimated_hours || !task.start_date || !task.due_date) return sum;
             const taskStart = new Date(task.start_date);
             const taskDue = new Date(task.due_date);
@@ -126,7 +140,7 @@ export const getDashboardData = async (options?: DashboardOptions) => {
 
         // --- 3. Gantt Chart Data ---
         const seenEmails = new Set<string>();
-        const gantt = (teamMembers || [])
+        const gantt = activeTeamMembers
             .map(member => {
                 const userData = users?.find(u => u.id === member.user_id);
                 const memberEmail = userData?.email || member.email || '';
@@ -144,7 +158,7 @@ export const getDashboardData = async (options?: DashboardOptions) => {
                         displayStatus: 'leave'
                     }));
 
-                const memberTasks = (allTasks || [])
+                const memberTasks = (activeTasks || [])
                     .filter(task => {
                         return (
                             task.assignee_id === member.user_id || 

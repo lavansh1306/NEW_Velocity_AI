@@ -2,6 +2,8 @@ import React, { useMemo, useState, useEffect } from 'react'
 import { useToast } from '@/contexts/ToastContext'
 import { apiUrl } from '@/lib/api'
 import { useJiraData, type JiraIssue } from '@/hooks/useJiraData'
+import { supabase } from '@/lib/supabase'
+import { getCurrentOrgId } from '@/lib/orgContext'
 
 export interface Issue {
   key: string
@@ -75,11 +77,32 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
   const [loading, setLoading] = useState(false)
   const [selectedProject, setSelectedProject] = useState<string | null>(null)
   const [projectNameMap, setProjectNameMap] = useState<{ [key: string]: string }>({})
+  const [activeUserIds, setActiveUserIds] = useState<Set<string>>(new Set())
+  const [activeUserNames, setActiveUserNames] = useState<Set<string>>(new Set())
   const containerRef = React.useRef<HTMLDivElement>(null)
 
   // Use the useJiraData hook if we're fetching data and no Jira issues provided
   const jiraHookData = useJiraData()
   const shouldUseFallbackFetch = autoFetch && externalTasks.length === 0 && !externalJiraIssues
+
+  useEffect(() => {
+    const fetchActiveUsers = async () => {
+      const orgId = getCurrentOrgId()
+      if (!orgId) return
+
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, name')
+        .eq('organization_id', orgId)
+        .eq('is_active', true)
+
+      if (!error && data) {
+        setActiveUserIds(new Set(data.map(u => u.id)))
+        setActiveUserNames(new Set(data.map(u => u.name)))
+      }
+    }
+    fetchActiveUsers()
+  }, [])
 
   // When jiraIssues are provided externally, use those
   useEffect(() => {
@@ -315,16 +338,37 @@ export default function ManagerGantt({ tasks: externalTasks = [], autoFetch = tr
     })
 
     const assigneeNames = Object.keys(byAssignee).sort()
-    const assigneeRows: AssigneeRow[] = assigneeNames.map(name => {
-      const tasks = byAssignee[name].sort((a, b) => a._start.getTime() - b._start.getTime())
-      // Get assignee_id from the first task (all tasks for an assignee should have the same id)
-      const assignee_id = tasks.length > 0 ? tasks[0].assignee_id : undefined
-      return {
-        assignee: name,
-        assignee_id,
-        tasks
-      }
-    })
+    const assigneeRows: AssigneeRow[] = assigneeNames
+      .filter(name => {
+        // Always show 'Unassigned'
+        if (name === 'Unassigned') return true
+        
+        const rowTasks = byAssignee[name]
+        const assignee_id = rowTasks.length > 0 ? rowTasks[0].assignee_id : undefined
+        
+        // If we have loaded active users, filter strictly
+        if (activeUserIds.size > 0 || activeUserNames.size > 0) {
+          // If we have a local user ID, check it
+          if (assignee_id && activeUserIds.has(assignee_id)) return true
+          // Otherwise check by name (useful for external sources like HubSpot/MS365)
+          if (activeUserNames.has(name)) return true
+          
+          return false
+        }
+        
+        // Fallback: if we haven't loaded users yet, show everyone to prevent flickering/empty state
+        return true
+      })
+      .map(name => {
+        const tasks = byAssignee[name].sort((a, b) => a._start.getTime() - b._start.getTime())
+        // Get assignee_id from the first task (all tasks for an assignee should have the same id)
+        const assignee_id = tasks.length > 0 ? tasks[0].assignee_id : undefined
+        return {
+          assignee: name,
+          assignee_id,
+          tasks
+        }
+      })
 
     return { assigneeRows, minDate: min, maxDate: max, totalUnits, dateMarkers: markers, colorMap, allProjects: projectKeys }
   }, [tasks])

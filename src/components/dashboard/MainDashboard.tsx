@@ -3,6 +3,8 @@ import { Calendar, Plus, Filter, ArrowUp, ArrowDown, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DASHBOARD_STYLES } from './styles';
 import { fetchProjectsHybrid, fetchAllIssuesHybrid } from '@/lib/jiraDbClient';
+import { supabase } from '@/lib/supabase';
+import { getCurrentOrgId } from '@/lib/orgContext';
 
 interface ProjectDeadline {
   projectKey: string;
@@ -48,7 +50,29 @@ export const MainDashboard = () => {
       setLoading(true);
       try {
         const { projects } = await fetchProjectsHybrid();
-        const { issues } = await fetchAllIssuesHybrid();
+        const { issues: rawIssues } = await fetchAllIssuesHybrid();
+
+        // Fetch active users for filtering
+        const orgId = getCurrentOrgId();
+        const { data: activeUsers } = await supabase
+          .from('users')
+          .select('id, name')
+          .eq('organization_id', orgId)
+          .eq('is_active', true);
+        
+        const activeUserIds = new Set(activeUsers?.map(u => u.id) || []);
+        const activeUserNames = new Set(activeUsers?.map(u => u.name) || []);
+
+        // Filter issues to only include those assigned to active users (or unassigned)
+        const issues = rawIssues.filter((issue: any) => {
+          const assignee = issue.assignee;
+          const assigneeId = issue.assignee_id || issue.assigneeId;
+          
+          if (!assignee || assignee === 'Unassigned') return true;
+          
+          const isActive = (assigneeId && activeUserIds.has(assigneeId)) || activeUserNames.has(assignee);
+          return isActive;
+        });
 
         // Group issues by project
         const issuesByProject = new Map<string, any[]>();
