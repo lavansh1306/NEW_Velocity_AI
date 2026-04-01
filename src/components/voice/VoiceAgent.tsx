@@ -6,7 +6,7 @@ import { Mic, MicOff, Loader2, Volume2, X } from 'lucide-react';
 import gsap from 'gsap';
 
 export const VoiceAgent: React.FC = () => {
-  const { isListening, status, lastTranscript, isTriggered, startListening, stopListening } = useVoice();
+  const { isListening, status, lastTranscript, isTriggered, volumeLevel, pendingConfirmation, startListening, stopListening } = useVoice();
   const { handleVoiceCommand } = useVoiceActions();
   const location = useLocation();
   const orbRef = useRef<HTMLDivElement>(null);
@@ -44,7 +44,16 @@ export const VoiceAgent: React.FC = () => {
   useEffect(() => {
     if (!orbRef.current) return;
 
-    if (status === 'listening' || isTriggered) {
+    if (status === 'listening') {
+      // Dynamic scaling based on volumeLevel
+      const scale = 1.1 + (volumeLevel / 100);
+      gsap.to(orbRef.current, {
+        scale: scale,
+        duration: 0.1,
+        ease: "power2.out",
+        boxShadow: `0 0 ${20 + volumeLevel/2}px rgba(16, 185, 129, ${0.4 + volumeLevel/200})`
+      });
+    } else if (isTriggered) {
       gsap.to(orbRef.current, {
         scale: 1.2,
         duration: 0.5,
@@ -77,7 +86,7 @@ export const VoiceAgent: React.FC = () => {
         backgroundColor: status === 'error' ? '#EF4444' : '#9CA3AF' // red-500 for error, gray-400 for idle
       });
     }
-  }, [status, isTriggered]);
+  }, [status, isTriggered, volumeLevel]);
 
   // Initial animation on mount
   useEffect(() => {
@@ -111,7 +120,7 @@ export const VoiceAgent: React.FC = () => {
             }`} />
             <span className="text-[10px] uppercase tracking-wider text-gray-500 font-bold">
               {status === 'connecting' ? 'Connecting...' :
-               status === 'listening' ? 'Listening...' : 
+               status === 'listening' ? (pendingConfirmation ? 'Confirming...' : 'Listening...') : 
                status === 'processing' ? 'Checking...' : 
                status === 'speaking' ? 'Speaking...' : 
                status === 'error' ? 'Mic Blocked' : 'Ready'}

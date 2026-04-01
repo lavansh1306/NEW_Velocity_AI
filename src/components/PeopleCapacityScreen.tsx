@@ -40,6 +40,7 @@ import { getCurrentOrgId } from '@/lib/orgContext';
 import { peopleService } from '../services/peopleService';
 import { setupProgressService } from '../services/setupProgressService';
 import { PeopleEmptyState } from './people/PeopleEmptyState';
+import { useVoice } from '@/contexts/VoiceContext';
 import type { TeamMemberView, PendingSkillView, PersonDetailView } from '../types';
 
 const UtilizationBar = ({ value }: { value: number }) => {
@@ -568,34 +569,6 @@ export const PeopleCapacityScreen = () => {
     const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
     const [voiceMemberData, setVoiceMemberData] = useState<{ name?: string; email?: string; role?: string } | null>(null);
 
-    // Listen for voice command events
-    useEffect(() => {
-        // Check for pending voice action from redirection
-        const pendingValue = localStorage.getItem('velo-voice-add-member');
-        console.log('[PeopleCapacityScreen] Checking for pending voice action:', pendingValue);
-        if (pendingValue) {
-            try {
-                const data = JSON.parse(pendingValue);
-                console.log('[PeopleCapacityScreen] Found pending voice action:', data);
-                setVoiceMemberData(data);
-                setIsAddMemberOpen(true);
-                localStorage.removeItem('velo-voice-add-member');
-            } catch (e) {
-                console.error('Failed to parse pending voice action:', e);
-            }
-        }
-
-        const handleVoiceAddMember = (e: any) => {
-            const data = e.detail;
-            setVoiceMemberData(data);
-            setIsAddMemberOpen(true);
-        };
-
-        window.addEventListener('velo-add-member', handleVoiceAddMember);
-        return () => window.removeEventListener('velo-add-member', handleVoiceAddMember);
-    }, []);
-    const [showSkillsVerification, setShowSkillsVerification] = useState(false);
-    const detailPanelRef = useRef<HTMLDivElement>(null);
 
     const [teamMembers, setTeamMembers] = useState<TeamMemberView[]>([]);
     const [pendingSkills, setPendingSkills] = useState<PendingSkillView[]>([]);
@@ -608,6 +581,129 @@ export const PeopleCapacityScreen = () => {
     const [currentTeamId, setCurrentTeamId] = useState<string>('');
     const [currentTeamName, setCurrentTeamName] = useState<string>('');
     const [currentTeamInviteCode, setCurrentTeamInviteCode] = useState<string>('');
+    const [showSkillsVerification, setShowSkillsVerification] = useState(false);
+    const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
+    const [pendingVoiceDelete, setPendingVoiceDelete] = useState<string | null>(null);
+    const { consumeAction } = useVoice();
+    
+    const detailPanelRef = useRef<HTMLDivElement>(null);
+
+    const handleRemoveMember = async (e: React.MouseEvent | null, memberId: string, memberName: string) => {
+        if (e) e.stopPropagation();
+        
+        if (!confirm(`Are you sure you want to remove ${memberName} from the team? This action cannot be undone.`)) {
+            return;
+        }
+
+        setRemovingMemberId(memberId);
+        try {
+            const orgId = getCurrentOrgId();
+            if (!orgId) {
+                toast.error('Organization not found');
+                return;
+            }
+
+            // First, clean up any task assignments for this user
+            const { error: taskError } = await supabase
+                .from('task_assignments')
+                .delete()
+                .eq('user_id', memberId);
+
+            if (taskError) {
+                console.warn('Warning cleaning up task assignments:', taskError);
+                // Continue with member deletion even if this fails
+            }
+
+            // Call RPC function to soft delete user (bypasses RLS Infinite Recursion)
+            const { error: rpcError } = await supabase.rpc('soft_delete_user', { 
+                target_user_id: memberId 
+            });
+
+            if (rpcError) {
+                toast.error('Failed to update user status');
+                console.error('RPC error:', rpcError);
+                return;
+            }
+
+            console.log('[PeopleCapacity] User soft deleted successfully via RPC');
+
+            // Update local state
+            setTeamMembers(prevMembers => prevMembers.filter(m => m.id !== memberId));
+            
+            // Close detail panel if the removed member is selected
+            if (selectedPerson?.id === memberId) {
+                setSelectedPerson(null);
+            }
+
+            toast.success(`${memberName} has been permanently removed from the team`);
+        } catch (error) {
+            toast.error('An error occurred while removing the team member');
+            console.error('Error removing member:', error);
+        } finally {
+            setRemovingMemberId(null);
+        }
+    };
+
+    // Listen for voice command events
+    useEffect(() => {
+        // 1. Consume "Add Member" action from centralized queue
+        const addAction = consumeAction('add_team_member');
+        if (addAction) {
+            console.log('[PeopleCapacityScreen] Consumed add_team_member action:', addAction);
+            setVoiceMemberData(addAction.params || null);
+            setIsAddMemberOpen(true);
+        }
+
+        // 2. Consume "Delete Member" action from centralized queue
+        const deleteAction = consumeAction('delete_team_member');
+        if (deleteAction && deleteAction.params?.name) {
+            console.log('[PeopleCapacityScreen] Consumed delete_team_member action:', deleteAction);
+            setPendingVoiceDelete(deleteAction.params.name);
+        }
+
+        // Support for real-time events if the user is already on the page
+        const handleVoiceAddMember = (e: any) => {
+            const data = e.detail;
+            setVoiceMemberData(data);
+            setIsAddMemberOpen(true);
+        };
+
+        const handleVoiceDeleteMember = (e: any) => {
+            const { name } = e.detail;
+            setPendingVoiceDelete(name);
+        };
+
+        window.addEventListener('velo-add-member', handleVoiceAddMember);
+        window.addEventListener('velo-delete-member', handleVoiceDeleteMember);
+        return () => {
+            window.removeEventListener('velo-add-member', handleVoiceAddMember);
+            window.removeEventListener('velo-delete-member', handleVoiceDeleteMember);
+        };
+    }, [consumeAction]);
+
+    // Effect to trigger deletion once teamMembers are loaded
+    useEffect(() => {
+        if (pendingVoiceDelete && teamMembers.length > 0) {
+            // Clean the name from any trailing punctuation that might have survived
+            const name = pendingVoiceDelete.replace(/[.,!?;:]+$/, '').trim();
+            console.log(`[PeopleCapacityScreen] Attempting voice delete for: "${name}"`);
+            
+            const member = teamMembers.find(m => {
+                const memberName = m.name.toLowerCase();
+                const searchName = name.toLowerCase();
+                return memberName.includes(searchName) || searchName.includes(memberName);
+            });
+
+            if (member) {
+                console.log(`[PeopleCapacityScreen] Found member for voice delete: ${member.name} (${member.id})`);
+                handleRemoveMember(null, member.id, member.name);
+            } else {
+                console.warn(`[PeopleCapacityScreen] Voice delete failed. Could not find match for "${name}" in:`, teamMembers.map(m => m.name));
+                toast.error(`Could not find team member named "${name}"`);
+            }
+            setPendingVoiceDelete(null);
+        }
+    }, [pendingVoiceDelete, teamMembers, handleRemoveMember]);
 
     // Fetch assigned projects for team members
     const fetchMemberProjects = async (members: TeamMemberView[]) => {
@@ -835,63 +931,6 @@ export const PeopleCapacityScreen = () => {
     }, [selectedPerson]);
 
     const [pendingSkillActions, setPendingSkillActions] = useState<Record<number, string>>({});
-    const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
-
-    const handleRemoveMember = async (e: React.MouseEvent, memberId: string, memberName: string) => {
-        e.stopPropagation();
-        
-        if (!confirm(`Are you sure you want to remove ${memberName} from the team? This action cannot be undone.`)) {
-            return;
-        }
-
-        setRemovingMemberId(memberId);
-        try {
-            const orgId = getCurrentOrgId();
-            if (!orgId) {
-                toast.error('Organization not found');
-                return;
-            }
-
-            // First, clean up any task assignments for this user
-            const { error: taskError } = await supabase
-                .from('task_assignments')
-                .delete()
-                .eq('user_id', memberId);
-
-            if (taskError) {
-                console.warn('Warning cleaning up task assignments:', taskError);
-                // Continue with member deletion even if this fails
-            }
-
-            // Call RPC function to soft delete user (bypasses RLS Infinite Recursion)
-            const { error: rpcError } = await supabase.rpc('soft_delete_user', { 
-                target_user_id: memberId 
-            });
-
-            if (rpcError) {
-                toast.error('Failed to update user status');
-                console.error('RPC error:', rpcError);
-                return;
-            }
-
-            console.log('[PeopleCapacity] User soft deleted successfully via RPC');
-
-            // Update local state
-            setTeamMembers(prevMembers => prevMembers.filter(m => m.id !== memberId));
-            
-            // Close detail panel if the removed member is selected
-            if (selectedPerson?.id === memberId) {
-                setSelectedPerson(null);
-            }
-
-            toast.success(`${memberName} has been permanently removed from the team`);
-        } catch (error) {
-            toast.error('An error occurred while removing the team member');
-            console.error('Error removing member:', error);
-        } finally {
-            setRemovingMemberId(null);
-        }
-    };
 
     // Default person details structure to prevent undefined errors
     const defaultPersonDetails = {

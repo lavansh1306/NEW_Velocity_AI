@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
-import { geminiVoiceService } from '@/services/geminiVoiceService';
+import { geminiVoiceService, VoiceAction } from '@/services/geminiVoiceService';
 
 type VoiceStatus = 'idle' | 'connecting' | 'listening' | 'processing' | 'speaking' | 'error';
 
@@ -9,11 +9,17 @@ interface VoiceContextType {
   status: VoiceStatus;
   lastTranscript: string;
   isTriggered: boolean;
+  commandQueue: VoiceAction[];
+  pendingConfirmation: VoiceAction | null;
   startListening: () => void;
   stopListening: () => void;
   setProcessing: (processing: boolean) => void;
   clearTranscript: () => void;
   speak: (text: string) => void;
+  volumeLevel: number; // NEW: Voice activity level
+  enqueueAction: (action: VoiceAction) => void;
+  consumeAction: (type: string) => VoiceAction | null;
+  setPendingConfirmation: (action: VoiceAction | null) => void;
 }
 
 const VoiceContext = createContext<VoiceContextType | undefined>(undefined);
@@ -23,7 +29,13 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [status, setStatus] = useState<VoiceStatus>('idle');
   const [lastTranscript, setLastTranscript] = useState('');
   const [isTriggered, setIsTriggered] = useState(false);
+  const [volumeLevel, setVolumeLevel] = useState(0); 
+  const [commandQueue, setCommandQueue] = useState<VoiceAction[]>([]);
+  const [pendingConfirmation, setPendingConfirmation] = useState<VoiceAction | null>(null);
   const recognitionRef = useRef<any>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const triggerPhrases = ['velocity', 'hey velocity', 'hi velocity', 'ok velocity'];
 
   // Initialize Speech Recognition
@@ -75,10 +87,61 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, []); // Initialize only ONCE on mount
 
+  // NEW: Setup Web Audio API Processing
+  const setupAudioProcessing = async () => {
+    try {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+        analyserRef.current = audioCtxRef.current.createAnalyser();
+        analyserRef.current.fftSize = 256;
+      }
+
+      if (audioCtxRef.current.state === 'suspended') {
+        await audioCtxRef.current.resume();
+      }
+
+      if (!streamRef.current) {
+        streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const source = audioCtxRef.current.createMediaStreamSource(streamRef.current);
+        
+        // High-pass filter to remove low-frequency rumble (noise isolation)
+        const filter = audioCtxRef.current.createBiquadFilter();
+        filter.type = 'highpass';
+        filter.frequency.value = 100; // Cut off frequencies below 100Hz
+        
+        source.connect(filter);
+        filter.connect(analyserRef.current);
+      }
+
+      // Monitoring loop for volume levels
+      const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+      const updateVolume = () => {
+        if (!analyserRef.current) return;
+        analyserRef.current.getByteFrequencyData(dataArray);
+        
+        // Simple average for volume level
+        const sum = dataArray.reduce((acc, v) => acc + v, 0);
+        const avg = sum / dataArray.length;
+        setVolumeLevel(avg);
+        
+        if (isListening || isTriggered) {
+          requestAnimationFrame(updateVolume);
+        } else {
+          setVolumeLevel(0);
+        }
+      };
+      
+      updateVolume();
+    } catch (err) {
+      console.warn('[VoiceContext] Failed to setup local audio processing:', err);
+    }
+  };
+
   const startListening = useCallback(async () => {
     if (isListening) return;
 
     try {
+      await setupAudioProcessing();
       setLastTranscript(''); 
       setIsTriggered(true); 
       setStatus('connecting');
@@ -124,8 +187,25 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const clearTranscript = () => setLastTranscript('');
 
+  const enqueueAction = useCallback((action: VoiceAction) => {
+    setCommandQueue(prev => [...prev, action]);
+  }, []);
+
+  const consumeAction = useCallback((type: string) => {
+    const actionIndex = commandQueue.findIndex(a => a.type === type);
+    if (actionIndex !== -1) {
+      const action = commandQueue[actionIndex];
+      setCommandQueue(prev => prev.filter((_, i) => i !== actionIndex));
+      return action;
+    }
+    return null;
+  }, [commandQueue]);
+
   const speak = (text: string) => {
     if ('speechSynthesis' in window) {
+      // Cancel any ongoing speech
+      window.speechSynthesis.cancel();
+      
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.onstart = () => setStatus('speaking');
       utterance.onend = () => setStatus('idle');
@@ -139,11 +219,17 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       status, 
       lastTranscript, 
       isTriggered, 
+      volumeLevel,
+      commandQueue,
+      pendingConfirmation,
       startListening, 
       stopListening,
       setProcessing,
       clearTranscript,
-      speak
+      speak,
+      enqueueAction,
+      consumeAction,
+      setPendingConfirmation
     }}>
       {children}
     </VoiceContext.Provider>

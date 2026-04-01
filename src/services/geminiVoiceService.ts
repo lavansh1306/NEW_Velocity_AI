@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export interface VoiceAction {
-  type: 'navigate' | 'create_task' | 'add_team_member' | 'create_project' | 'search' | 'info' | 'unknown';
+  type: 'navigate' | 'create_task' | 'add_team_member' | 'delete_team_member' | 'create_project' | 'search' | 'info' | 'gantt_query' | 'resource_query' | 'unknown';
   target?: string;
   params?: {
     taskName?: string;
@@ -14,6 +14,8 @@ export interface VoiceAction {
     autoAnalyze?: boolean;
   };
   response?: string;
+  requiresConfirmation?: boolean; // NEW: Flag for high-risk actions
+  prompt?: string; // NEW: For multi-turn clarifying questions
 }
 
 class GeminiVoiceService {
@@ -53,18 +55,24 @@ Action Types & Parameters:
 2. create_project: { projectTitle: "string", projectDescription: "string", autoAnalyze: boolean } (Use this for "Add project", "Plan project", etc.)
 3. add_team_member: { name: "string", email: "string", role: "string" }
 4. create_task: { taskName: "string" }
-5. search: { query: "string" }
-6. info: { response: "Natural spoken answer" }
+5. delete_team_member: { name: "string" }
+6. search: { query: "string" }
+7. info: { response: "Natural spoken answer" }
+8. gantt_query: { query: "string" } (Use for "What's the timeline?", "When is X due?")
+9. resource_query: { query: "string" } (Use for "Who is busy?", "Who has the most tasks?")
 
 Rules:
+- If the user wants to DELETE or REMOVE a person/member, ALWAYS use type "delete_team_member".
 - If the user wants to ADD or CREATE a project, ALWAYS use type "create_project" and target "/plan".
 - If the user just wants to SEE or SHOW projects, use type "navigate" and target "/projects".
 - Extract as much detail as possible for projectTitle and projectDescription.
+- ALWAYS set "requiresConfirmation": true for "delete_team_member" or other destructive actions.
+- If you are missing critical info (like a name for a member), set "type": "unknown" and use the "prompt" field to ask for it.
 - Respond ONLY with JSON.
 
 JSON Structure:
 {
-  "type": "navigate" | "create_project" | "add_team_member" | "create_task" | "search" | "info" | "unknown",
+  "type": "navigate" | "create_project" | "add_team_member" | "delete_team_member" | "create_task" | "search" | "info" | "gantt_query" | "resource_query" | "unknown",
   "target": "string (optional)",
   "params": {
     "projectTitle": "string",
@@ -76,7 +84,9 @@ JSON Structure:
     "taskName": "string",
     "query": "string"
   },
-  "response": "Brief spoken confirmation of what you extracted"
+  "response": "Brief spoken confirmation of what you extracted",
+  "requiresConfirmation": boolean,
+  "prompt": "Optional question for the user"
 }
 `;
 
@@ -100,9 +110,37 @@ JSON Structure:
     }
   }
 
+  async summarizeData(data: any, query: string): Promise<string> {
+    if (!this.model) return "I have the data, but I'm unable to summarize it right now.";
+
+    const prompt = `
+You are the "Voice Summary Layer" for Velocity AI. 
+The user asked: "${query}"
+Below is the raw JSON data related to their query. 
+Your job is to provide a BRIEF (1-2 sentences), professional, and spoken summary.
+
+Data:
+${JSON.stringify(data, null, 2)}
+
+Rules:
+- Be concise.
+- Focus on the specific question asked.
+- Use natural, spoken language.
+`;
+
+    try {
+      const result = await this.model.generateContent(prompt);
+      return result.response.text().trim();
+    } catch (error) {
+      console.error('[GeminiVoice] Summarization failed:', error);
+      return "I'm sorry, I'm having trouble summarizing that data.";
+    }
+  }
+
   private normalizeTranscript(text: string): string {
     return text.toLowerCase()
       .replace(/^(hello|hi|hey|velocity|bot|ai|please|can you|could you)\s+/g, '')
+      .replace(/[.,!?;:]+$/, '') // Strip trailing punctuation
       .trim();
   }
 
@@ -162,6 +200,26 @@ JSON Structure:
         if (targetStr.includes(key)) {
           return { type: 'navigate', target: path, response: `Opening ${key}.` };
         }
+      }
+    }
+
+    // 1b. "Delete Team Member" Specialization (Direct Deletion)
+    const isDeleteCommand = text.includes('delete') || text.includes('remove') || text.includes('fire');
+    if (isDeleteCommand && (text.includes('member') || text.includes('team') || text.includes('person') || text.split(/\s+/).length > 1)) {
+      const noise = ['delete', 'remove', 'fire', 'member', 'team', 'person', 'from', 'the', 'named', 'called'];
+      const words = text.split(/\s+/).filter(w => !noise.includes(w) && w.length > 1);
+      
+      // Clean words from punctuation as well
+      const cleanWords = words.map(w => w.replace(/[.,!?;:]+$/, ''));
+      const nameMatch = cleanWords.join(' ').trim();
+      
+      if (nameMatch) {
+         return {
+          type: 'delete_team_member',
+          params: { name: nameMatch.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') },
+          response: `I'll help you remove ${nameMatch} from the team.`,
+          requiresConfirmation: true // High-risk action
+        };
       }
     }
 
