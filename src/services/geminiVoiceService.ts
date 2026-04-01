@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export interface VoiceAction {
-  type: 'navigate' | 'create_task' | 'add_team_member' | 'delete_team_member' | 'create_project' | 'search' | 'info' | 'unknown';
+  type: 'navigate' | 'create_task' | 'add_team_member' | 'delete_team_member' | 'create_project' | 'search' | 'info' | 'gantt_query' | 'resource_query' | 'unknown';
   target?: string;
   params?: {
     taskName?: string;
@@ -14,6 +14,8 @@ export interface VoiceAction {
     autoAnalyze?: boolean;
   };
   response?: string;
+  requiresConfirmation?: boolean; // NEW: Flag for high-risk actions
+  prompt?: string; // NEW: For multi-turn clarifying questions
 }
 
 class GeminiVoiceService {
@@ -56,17 +58,21 @@ Action Types & Parameters:
 5. delete_team_member: { name: "string" }
 6. search: { query: "string" }
 7. info: { response: "Natural spoken answer" }
+8. gantt_query: { query: "string" } (Use for "What's the timeline?", "When is X due?")
+9. resource_query: { query: "string" } (Use for "Who is busy?", "Who has the most tasks?")
 
 Rules:
 - If the user wants to DELETE or REMOVE a person/member, ALWAYS use type "delete_team_member".
 - If the user wants to ADD or CREATE a project, ALWAYS use type "create_project" and target "/plan".
 - If the user just wants to SEE or SHOW projects, use type "navigate" and target "/projects".
 - Extract as much detail as possible for projectTitle and projectDescription.
+- ALWAYS set "requiresConfirmation": true for "delete_team_member" or other destructive actions.
+- If you are missing critical info (like a name for a member), set "type": "unknown" and use the "prompt" field to ask for it.
 - Respond ONLY with JSON.
 
 JSON Structure:
 {
-  "type": "navigate" | "create_project" | "add_team_member" | "delete_team_member" | "create_task" | "search" | "info" | "unknown",
+  "type": "navigate" | "create_project" | "add_team_member" | "delete_team_member" | "create_task" | "search" | "info" | "gantt_query" | "resource_query" | "unknown",
   "target": "string (optional)",
   "params": {
     "projectTitle": "string",
@@ -78,7 +84,9 @@ JSON Structure:
     "taskName": "string",
     "query": "string"
   },
-  "response": "Brief spoken confirmation of what you extracted"
+  "response": "Brief spoken confirmation of what you extracted",
+  "requiresConfirmation": boolean,
+  "prompt": "Optional question for the user"
 }
 `;
 
@@ -99,6 +107,33 @@ JSON Structure:
     } catch (error) {
       console.error('[GeminiVoice] Intent parsing failed:', error);
       return this.fallbackParse(transcript);
+    }
+  }
+
+  async summarizeData(data: any, query: string): Promise<string> {
+    if (!this.model) return "I have the data, but I'm unable to summarize it right now.";
+
+    const prompt = `
+You are the "Voice Summary Layer" for Velocity AI. 
+The user asked: "${query}"
+Below is the raw JSON data related to their query. 
+Your job is to provide a BRIEF (1-2 sentences), professional, and spoken summary.
+
+Data:
+${JSON.stringify(data, null, 2)}
+
+Rules:
+- Be concise.
+- Focus on the specific question asked.
+- Use natural, spoken language.
+`;
+
+    try {
+      const result = await this.model.generateContent(prompt);
+      return result.response.text().trim();
+    } catch (error) {
+      console.error('[GeminiVoice] Summarization failed:', error);
+      return "I'm sorry, I'm having trouble summarizing that data.";
     }
   }
 

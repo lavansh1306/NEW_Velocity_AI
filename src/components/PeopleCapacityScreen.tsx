@@ -40,6 +40,7 @@ import { getCurrentOrgId } from '@/lib/orgContext';
 import { peopleService } from '../services/peopleService';
 import { setupProgressService } from '../services/setupProgressService';
 import { PeopleEmptyState } from './people/PeopleEmptyState';
+import { useVoice } from '@/contexts/VoiceContext';
 import type { TeamMemberView, PendingSkillView, PersonDetailView } from '../types';
 
 const UtilizationBar = ({ value }: { value: number }) => {
@@ -583,6 +584,7 @@ export const PeopleCapacityScreen = () => {
     const [showSkillsVerification, setShowSkillsVerification] = useState(false);
     const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
     const [pendingVoiceDelete, setPendingVoiceDelete] = useState<string | null>(null);
+    const { consumeAction } = useVoice();
     
     const detailPanelRef = useRef<HTMLDivElement>(null);
 
@@ -644,33 +646,22 @@ export const PeopleCapacityScreen = () => {
 
     // Listen for voice command events
     useEffect(() => {
-        // Check for pending voice action from redirection
-        const pendingValue = localStorage.getItem('velo-voice-add-member');
-        console.log('[PeopleCapacityScreen] Checking for pending voice action:', pendingValue);
-        if (pendingValue) {
-            try {
-                const data = JSON.parse(pendingValue);
-                console.log('[PeopleCapacityScreen] Found pending voice action:', data);
-                setVoiceMemberData(data);
-                setIsAddMemberOpen(true);
-                localStorage.removeItem('velo-voice-add-member');
-            } catch (e) {
-                console.error('Failed to parse pending voice action:', e);
-            }
+        // 1. Consume "Add Member" action from centralized queue
+        const addAction = consumeAction('add_team_member');
+        if (addAction) {
+            console.log('[PeopleCapacityScreen] Consumed add_team_member action:', addAction);
+            setVoiceMemberData(addAction.params || null);
+            setIsAddMemberOpen(true);
         }
 
-        // Check for pending deletion
-        const pendingDelete = localStorage.getItem('velo-voice-delete-member');
-        if (pendingDelete) {
-            try {
-                const { name } = JSON.parse(pendingDelete);
-                localStorage.removeItem('velo-voice-delete-member');
-                setPendingVoiceDelete(name);
-            } catch (e) {
-                console.error('Failed to parse pending voice deletion:', e);
-            }
+        // 2. Consume "Delete Member" action from centralized queue
+        const deleteAction = consumeAction('delete_team_member');
+        if (deleteAction && deleteAction.params?.name) {
+            console.log('[PeopleCapacityScreen] Consumed delete_team_member action:', deleteAction);
+            setPendingVoiceDelete(deleteAction.params.name);
         }
 
+        // Support for real-time events if the user is already on the page
         const handleVoiceAddMember = (e: any) => {
             const data = e.detail;
             setVoiceMemberData(data);
@@ -688,7 +679,7 @@ export const PeopleCapacityScreen = () => {
             window.removeEventListener('velo-add-member', handleVoiceAddMember);
             window.removeEventListener('velo-delete-member', handleVoiceDeleteMember);
         };
-    }, []);
+    }, [consumeAction]);
 
     // Effect to trigger deletion once teamMembers are loaded
     useEffect(() => {
