@@ -1,9 +1,18 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export interface VoiceAction {
-  type: 'navigate' | 'create_task' | 'add_team_member' | 'search' | 'info' | 'unknown';
+  type: 'navigate' | 'create_task' | 'add_team_member' | 'create_project' | 'search' | 'info' | 'unknown';
   target?: string;
-  params?: Record<string, any>;
+  params?: {
+    taskName?: string;
+    name?: string;
+    email?: string;
+    role?: string;
+    query?: string;
+    projectTitle?: string;
+    projectDescription?: string;
+    autoAnalyze?: boolean;
+  };
   response?: string;
 }
 
@@ -34,34 +43,40 @@ class GeminiVoiceService {
     }
 
     const systemPrompt = `
-You are the voice interface for Velocity AI, a project management platform.
-Analyze the user's voice transcript and determine their intent.
+You are the "Refining Layer" for Velocity AI's voice interface.
+The fast local parser failed to match this transcript. Your job is to "rephrase" the messy transcript into a structured JSON command that the frontend can execute.
 
 Current Page: ${currentPath}
 
-Available Actions:
-1. navigate: Change the page. Targets: /dashboard, /projects, /people, /plan, /settings, /velocity-ai.
-2. create_task: Create a new project task. Extract task name as "taskName" in the params object.
-3. add_team_member: Add a new member to the team. Extract "name", "email", and "role" (position) in the params object.
-4. search: Search for projects or people. Extract the search query as "query" in the params object.
-5. info: General questions about the platform or current view.
+Action Types & Parameters:
+1. navigate: { target: "/dashboard" | "/projects" | "/people" | "/plan" | "/settings" }
+2. create_project: { projectTitle: "string", projectDescription: "string", autoAnalyze: boolean } (Use this for "Add project", "Plan project", etc.)
+3. add_team_member: { name: "string", email: "string", role: "string" }
+4. create_task: { taskName: "string" }
+5. search: { query: "string" }
+6. info: { response: "Natural spoken answer" }
 
 Rules:
-- Respond ONLY with a JSON object.
-- Include a "response" field with a short, natural spoken confirmation.
+- If the user wants to ADD or CREATE a project, ALWAYS use type "create_project" and target "/plan".
+- If the user just wants to SEE or SHOW projects, use type "navigate" and target "/projects".
+- Extract as much detail as possible for projectTitle and projectDescription.
+- Respond ONLY with JSON.
 
 JSON Structure:
 {
-  "type": "navigate" | "create_task" | "add_team_member" | "search" | "info" | "unknown",
-  "target": "string (URL for navigate)",
+  "type": "navigate" | "create_project" | "add_team_member" | "create_task" | "search" | "info" | "unknown",
+  "target": "string (optional)",
   "params": {
-    "taskName": "string",
+    "projectTitle": "string",
+    "projectDescription": "string",
+    "autoAnalyze": boolean,
     "name": "string",
     "email": "string",
     "role": "string",
+    "taskName": "string",
     "query": "string"
   },
-  "response": "Brief spoken response"
+  "response": "Brief spoken confirmation of what you extracted"
 }
 `;
 
@@ -106,6 +121,41 @@ JSON Structure:
       'velocity': '/velocity-ai'
     };
 
+    // 1a. "Create Project" Specialization (Direct Navigation to AI Planner)
+    const isProjectCreate = text.includes('add project') || text.includes('create project') || text.includes('new project') || text.includes('plan project');
+    if (isProjectCreate) {
+      // Extract projectTitle and projectDescription
+      // Variants: "Add a project named X that does Y" or "Create a project X to do Y"
+      let title = '';
+      let description = '';
+
+      const nameMatch = text.match(/(?:named|called)\s+([^that|who|to|which|for]+)/i);
+      const doingMatch = text.match(/(?:that does|to do|for doing|which does|that is)\s+(.+)/i);
+
+      if (nameMatch) title = nameMatch[1].trim();
+      if (doingMatch) description = doingMatch[1].trim();
+
+      // If no description but text after "project"
+      if (!description) {
+        const afterProject = text.split(/project|new|plan/).pop()?.trim();
+        if (afterProject && afterProject !== 'add' && afterProject !== 'create') {
+          description = afterProject;
+        }
+      }
+
+      return {
+        type: 'create_project',
+        params: { 
+          projectTitle: title, 
+          projectDescription: description,
+          autoAnalyze: !!description // Only auto-analyze if we have a description
+        },
+        response: description 
+          ? `Sure, I'll set up that plan for ${title || 'the project'} and start the analysis.`
+          : `Opening the project planner for you.`
+      };
+    }
+
     if (text.startsWith('go to ') || text.startsWith('open ') || text.startsWith('show ')) {
       const targetStr = text.split(' ').slice(-1)[0].replace(/[.,!?;]$/, '');
       for (const [key, path] of Object.entries(navTargets)) {
@@ -129,7 +179,7 @@ JSON Structure:
       'manager': 'Product Manager',
       'qa': 'QA Engineer',
       'tester': 'QA Engineer',
-      'developer': 'Frontend Developer', // default to frontend if generic
+      'developer': 'Frontend Developer',
       'engineer': 'Frontend Developer'
     };
 
@@ -140,10 +190,8 @@ JSON Structure:
     if (isInviteCommand && hasContext) {
       const words = text.split(/\s+/);
       const cleanWords = words.map(w => w.replace(/[.,!?;:]+$/, ''));
-      
       let email = cleanWords.find(w => w.includes('@')) || '';
       
-      // Identify role - match longest strings first
       let role = 'Team Member';
       for (const r of roles) {
         if (text.includes(r)) {
@@ -152,7 +200,6 @@ JSON Structure:
         }
       }
 
-      // Filter noise to find the name
       const commandNoise = ['add', 'invite', 'new', 'team', 'member', 'for', 'as', 'is', 'a', 'the', 'email', 'with', 'role', 'position', 'at', 'called', 'named', 'and'];
       const roleNoise = roles.flatMap(r => r.split(' '));
       const allNoise = [...commandNoise, ...roleNoise];
@@ -160,7 +207,7 @@ JSON Structure:
       let nameWords = cleanWords.filter(w => 
         !allNoise.includes(w) && 
         !w.includes('@') && 
-        w.length > 1 // skip single letters
+        w.length > 1
       );
       
       let nameCandidate = nameWords.join(' ').replace(/^as\s+/, '').trim();
@@ -168,21 +215,17 @@ JSON Structure:
       // Heuristic: If name is missing but email is present, extract from email handle
       if (!nameCandidate && email) {
         const handle = email.split('@')[0];
-        // Check for doubled name like 'krishkrish'
+        // Split repeated names like 'krishkrish' -> 'Krish Krish'
         const doubled = handle.match(/^([a-z]{3,})\1$/);
         if (doubled) {
           nameCandidate = `${doubled[1]} ${doubled[1]}`;
         } else {
-          // Replace dots, numbers, and special chars with spaces to separate potential names
           nameCandidate = handle.replace(/[^a-zA-Z]/g, ' ').trim();
         }
       }
 
       if (email || nameCandidate) {
-        // Double check name doesn't contain noise that filter missed
-        if (nameCandidate.toLowerCase().startsWith('as ')) {
-          nameCandidate = nameCandidate.slice(3);
-        }
+        if (nameCandidate.toLowerCase().startsWith('as ')) nameCandidate = nameCandidate.slice(3);
 
         return {
           type: 'add_team_member',
@@ -196,33 +239,22 @@ JSON Structure:
       }
     }
 
-    // 3. Create Task
-    if (text.startsWith('create task ') || text.startsWith('new task ')) {
-      const taskName = text.replace(/^(create task|new task)\s+/, '');
-      return {
-        type: 'create_task',
-        params: { taskName },
-        response: `Creating task: ${taskName}`
-      };
-    }
-
     return null;
   }
 
   private fallbackParse(transcript: string): VoiceAction {
     const text = transcript.toLowerCase();
     
-    if (text.includes('dashboard')) {
-      return { type: 'navigate', target: '/dashboard', response: "Heading to your dashboard." };
-    }
+    // Quick basic fallback before LLM
+    if (text.includes('dashboard')) return { type: 'navigate', target: '/dashboard', response: "Opening dashboard." };
     if (text.includes('project')) {
-      return { type: 'navigate', target: '/projects', response: "Opening your projects." };
-    }
-    if (text.includes('people') || text.includes('team')) {
-      return { type: 'navigate', target: '/people', response: "Showing your team members." };
+      if (text.includes('add') || text.includes('new') || text.includes('create')) {
+        return { type: 'create_project', params: {}, response: "Opening project planner." };
+      }
+      return { type: 'navigate', target: '/projects', response: "Opening projects." };
     }
     
-    return { type: 'unknown', response: "I heard you, but I'm having trouble understanding the command." };
+    return { type: 'unknown', response: "I heard you, but I'm not sure what you'd like me to do." };
   }
 }
 

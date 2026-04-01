@@ -24,20 +24,29 @@ export const useVoiceActions = () => {
             navigate(action.target);
           }
           break;
+
+        case 'create_project':
+          const { projectTitle, projectDescription, autoAnalyze } = action.params || {};
+          console.log('[VoiceActions] Navigating to plan with:', { projectTitle, projectDescription, autoAnalyze });
+          navigate('/plan', { 
+            state: { 
+              voiceTitle: projectTitle, 
+              voiceDescription: projectDescription,
+              autoAnalyze: autoAnalyze 
+            } 
+          });
+          break;
         
         case 'create_task':
           toast.success(`Intent: Create task "${action.params?.taskName || 'New Task'}"`);
-          // Here you would integrate with your task creation logic
           break;
 
         case 'add_team_member':
           const { name, email, role } = action.params || {};
           if (currentPath !== '/people') {
-            // Store action for the next page load
             localStorage.setItem('velo-voice-add-member', JSON.stringify({ name, email, role }));
             navigate('/people');
           } else {
-            // Already there, just dispatch
             window.dispatchEvent(new CustomEvent('velo-add-member', { 
               detail: { name, email, role } 
             }));
@@ -49,7 +58,6 @@ export const useVoiceActions = () => {
           break;
 
         case 'info':
-          // The response is already spoken by Gemini
           break;
 
         default:
