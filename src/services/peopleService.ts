@@ -227,5 +227,48 @@ export const peopleService = {
             userId: userId,
             teamMemberId: teamMemberId,
         };
+    },
+
+    async updateUserSkills(userId: string, skills: { name: string; proficiency: number }[]): Promise<void> {
+        if (!userId) throw new Error('User ID is required');
+
+        // 1. Delete all existing skills for this user
+        // We do this to ensure the manager has a clean slate for manual editing
+        const { error: deleteError } = await supabase
+            .from('user_skills')
+            .delete()
+            .eq('user_id', userId);
+
+        if (deleteError) {
+            console.error('Error deleting user skills:', deleteError);
+            throw deleteError;
+        }
+
+        // 2. Insert new skills
+        if (skills.length > 0) {
+            const skillsToInsert = skills.map(skill => {
+                // Map proficiency percentage back to categorical strings
+                let level: 'beginner' | 'mid' | 'advanced' = 'mid';
+                if (skill.proficiency >= 85) level = 'advanced';
+                else if (skill.proficiency <= 40) level = 'beginner';
+
+                return {
+                    user_id: userId,
+                    skill_name: skill.name,
+                    proficiency_level: level,
+                    source: 'manual',
+                    confidence_score: 1.0,
+                };
+            });
+
+            const { error: insertError } = await supabase
+                .from('user_skills')
+                .insert(skillsToInsert);
+
+            if (insertError) {
+                console.error('Error inserting user skills:', insertError);
+                throw insertError;
+            }
+        }
     }
 };

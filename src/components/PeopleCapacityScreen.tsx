@@ -601,6 +601,10 @@ export const PeopleCapacityScreen = () => {
     const [pendingSkills, setPendingSkills] = useState<PendingSkillView[]>([]);
     const [allPersonDetails, setAllPersonDetails] = useState<Record<string, PersonDetailView>>({});
     const [isLoading, setIsLoading] = useState(true);
+    const [isEditingSkills, setIsEditingSkills] = useState(false);
+    const [editedSkills, setEditedSkills] = useState<{ name: string; proficiency: number }[]>([]);
+    const [newSkillName, setNewSkillName] = useState('');
+    const [newSkillProficiency, setNewSkillProficiency] = useState(65);
     const [currentTeamId, setCurrentTeamId] = useState<string>('');
     const [currentTeamName, setCurrentTeamName] = useState<string>('');
     const [currentTeamInviteCode, setCurrentTeamInviteCode] = useState<string>('');
@@ -910,6 +914,64 @@ export const PeopleCapacityScreen = () => {
             : (allPersonDetails[selectedPerson.name]?.projects || []),
     } : null;
 
+    const handleEditSkills = () => {
+        if (personDetails) {
+            setEditedSkills([...personDetails.skills]);
+            setIsEditingSkills(true);
+        }
+    };
+
+    const handleSaveSkills = async () => {
+        if (!selectedPerson) return;
+
+        try {
+            await peopleService.updateUserSkills(selectedPerson.id, editedSkills);
+            toast.success('Skills updated successfully');
+            
+            // Update local state for the detail panel
+            setAllPersonDetails(prev => ({
+                ...prev,
+                [selectedPerson.name]: {
+                    ...prev[selectedPerson.name],
+                    skills: editedSkills
+                }
+            }));
+
+            // Update local state for the team list cards
+            setTeamMembers(prev => prev.map(m => 
+                m.id === selectedPerson.id 
+                    ? { ...m, skills: editedSkills.map(s => s.name) } 
+                    : m
+            ));
+
+            setIsEditingSkills(false);
+        } catch (error) {
+            toast.error('Failed to update skills');
+            console.error(error);
+        }
+    };
+
+    const handleAddSkill = () => {
+        if (!newSkillName.trim()) return;
+        if (editedSkills.some(s => s.name.toLowerCase() === newSkillName.trim().toLowerCase())) {
+            toast.error('Skill already exists');
+            return;
+        }
+        setEditedSkills([...editedSkills, { name: newSkillName.trim(), proficiency: newSkillProficiency }]);
+        setNewSkillName('');
+        setNewSkillProficiency(65);
+    };
+
+    const handleRemoveSkill = (index: number) => {
+        setEditedSkills(editedSkills.filter((_, i) => i !== index));
+    };
+
+    const handleUpdateSkillProficiency = (index: number, proficiency: number) => {
+        const updated = [...editedSkills];
+        updated[index].proficiency = proficiency;
+        setEditedSkills(updated);
+    };
+
     const totalMembers = teamMembers.length;
     const avgUtilization = totalMembers > 0
         ? Math.round(teamMembers.reduce((acc, m) => acc + m.utilization, 0) / totalMembers)
@@ -1200,23 +1262,119 @@ export const PeopleCapacityScreen = () => {
                                 </div>
 
                                 <div>
-                                    <div className="text-xs text-[#78716C] font-light uppercase tracking-wider mb-3">Skills</div>
-                                    <div className="space-y-3">
-                                        {personDetails.skills.map((skill, idx) => (
-                                            <div key={idx}>
-                                                <div className="flex justify-between text-xs text-[#78716C] font-light mb-1.5">
-                                                    <span>{skill.name}</span>
-                                                    <span>{skill.proficiency}%</span>
-                                                </div>
-                                                <div className="w-full bg-[#F5F5F4] rounded-full h-1.5 overflow-hidden">
-                                                    <div
-                                                        className="h-full bg-[#7C9A82]/40 transition-all duration-500 rounded-full"
-                                                        style={{ width: `${skill.proficiency}%` }}
+                                    <div className="flex items-center justify-between mb-3">
+                                        <div className="text-xs text-[#78716C] font-light uppercase tracking-wider">Skills</div>
+                                        {(orgRole === 'manager' || orgRole === 'admin') && !isEditingSkills && (
+                                            <button 
+                                                onClick={handleEditSkills}
+                                                className="text-[10px] text-[#2DD4BF] hover:text-[#2DD4BF]/80 font-medium uppercase tracking-wider transition-colors"
+                                            >
+                                                Edit Skills
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {isEditingSkills ? (
+                                        <div className="space-y-4 bg-[#F5F5F4]/30 p-4 rounded-xl border border-[#E7E5E4]/50">
+                                            <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                                                {editedSkills.map((skill, idx) => (
+                                                    <div key={idx} className="flex flex-col gap-2 p-2 bg-white rounded-lg border border-[#E7E5E4] shadow-sm">
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-sm font-light text-[#1C1917]">{skill.name}</span>
+                                                            <button onClick={() => handleRemoveSkill(idx)} className="text-[#A8A29E] hover:text-rose-500">
+                                                                <DeleteOutlined style={{ fontSize: 14 }} />
+                                                            </button>
+                                                        </div>
+                                                        <div className="flex items-center gap-3">
+                                                            <Select 
+                                                                value={skill.proficiency.toString()} 
+                                                                onValueChange={(val) => handleUpdateSkillProficiency(idx, parseInt(val))}
+                                                            >
+                                                                <SelectTrigger className="h-7 text-[10px] border-[#E7E5E4]">
+                                                                    <SelectValue />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    <SelectItem value="35">Beginner (35%)</SelectItem>
+                                                                    <SelectItem value="65">Mid (65%)</SelectItem>
+                                                                    <SelectItem value="90">Advanced (90%)</SelectItem>
+                                                                </SelectContent>
+                                                            </Select>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            <div className="pt-3 border-t border-[#E7E5E4] space-y-3">
+                                                <div className="flex gap-2">
+                                                    <Input 
+                                                        placeholder="New skill..." 
+                                                        value={newSkillName}
+                                                        onChange={(e) => setNewSkillName(e.target.value)}
+                                                        className="h-8 text-xs"
                                                     />
+                                                    <Button 
+                                                        size="sm" 
+                                                        onClick={handleAddSkill}
+                                                        className="h-8 bg-[#1C1917] hover:bg-[#292524] text-white"
+                                                    >
+                                                        Add
+                                                    </Button>
+                                                </div>
+                                                <div className="flex items-center gap-4">
+                                                    <Select 
+                                                        value={newSkillProficiency.toString()} 
+                                                        onValueChange={(val) => setNewSkillProficiency(parseInt(val))}
+                                                    >
+                                                        <SelectTrigger className="h-8 text-xs border-[#E7E5E4] flex-1">
+                                                            <SelectValue placeholder="Proficiency" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="35">Beginner (35%)</SelectItem>
+                                                            <SelectItem value="65">Mid (65%)</SelectItem>
+                                                            <SelectItem value="90">Advanced (90%)</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
                                                 </div>
                                             </div>
-                                        ))}
-                                    </div>
+
+                                            <div className="flex gap-2 pt-2">
+                                                <Button 
+                                                    size="sm" 
+                                                    onClick={handleSaveSkills}
+                                                    className="flex-1 bg-[#2DD4BF] hover:bg-[#2DD4BF]/90 text-[#1C1917] text-xs h-9"
+                                                >
+                                                    Save Changes
+                                                </Button>
+                                                <Button 
+                                                    size="sm" 
+                                                    variant="outline" 
+                                                    onClick={() => setIsEditingSkills(false)}
+                                                    className="flex-1 border-[#E7E5E4] text-[#78716C] text-xs h-9"
+                                                >
+                                                    Cancel
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {personDetails.skills.length > 0 ? personDetails.skills.map((skill, idx) => (
+                                                <div key={idx}>
+                                                    <div className="flex justify-between text-xs text-[#78716C] font-light mb-1.5">
+                                                        <span>{skill.name}</span>
+                                                        <span>{skill.proficiency}%</span>
+                                                    </div>
+                                                    <div className="w-full bg-[#F5F5F4] rounded-full h-1.5 overflow-hidden">
+                                                        <div
+                                                            className="h-full bg-[#7C9A82]/40 transition-all duration-500 rounded-full"
+                                                            style={{ width: `${skill.proficiency}%` }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            )) : (
+                                                <div className="text-xs text-[#A8A29E] font-light italic py-2">No skills listed</div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 

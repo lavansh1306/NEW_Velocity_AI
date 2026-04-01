@@ -149,6 +149,7 @@ const App = () => (
                 <Route path="/velocity-ai" element={<ProtectedRoute><ManagerRoute><VelocityAI /></ManagerRoute></ProtectedRoute>} />
                 <Route path="/people" element={<ProtectedRoute><ManagerRoute><People /></ManagerRoute></ProtectedRoute>} />
                 <Route path="/plan" element={<ProtectedRoute><ManagerRoute><Plan /></ManagerRoute></ProtectedRoute>} />
+                <Route path="/allocate-team" element={<ProtectedRoute><ManagerRoute><AllocateTeamScreen /></ManagerRoute></ProtectedRoute>} />
                 <Route path="/leave" element={<ProtectedRoute><ManagerRoute><Leave /></ManagerRoute></ProtectedRoute>} />
                 <Route path="/settings" element={<ProtectedRoute><ManagerRoute><Settings /></ManagerRoute></ProtectedRoute>} />
                 <Route path="/projects" element={<ProtectedRoute><ManagerRoute><Projects /></ManagerRoute></ProtectedRoute>} />
