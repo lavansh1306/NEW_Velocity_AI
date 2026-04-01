@@ -55,6 +55,19 @@ function parseDirectCommand(transcript) {
     
     let nameCandidate = nameWords.join(' ').replace(/^as\s+/, '').trim();
     
+    // Heuristic: If name is missing but email is present, extract from email handle
+    if (!nameCandidate && email) {
+      let handle = email.split('@')[0];
+      
+      // Check for doubled name like 'krishkrish'
+      const doubled = handle.match(/^([a-z]{3,})\1$/);
+      if (doubled) {
+        nameCandidate = `${doubled[1]} ${doubled[1]}`;
+      } else {
+        nameCandidate = handle.replace(/[^a-zA-Z]/g, ' ').trim();
+      }
+    }
+
     if (email || nameCandidate) {
       if (nameCandidate.toLowerCase().startsWith('as ')) {
         nameCandidate = nameCandidate.slice(3);
@@ -63,7 +76,7 @@ function parseDirectCommand(transcript) {
       return {
         type: 'add_team_member',
         params: { 
-          name: nameCandidate.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') || 'New Member', 
+          name: nameCandidate.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') || 'New Member', 
           email: email, 
           role: role 
         },
@@ -76,9 +89,9 @@ function parseDirectCommand(transcript) {
 }
 
 const testCases = [
-  "hello add jonathan jonathan@gmail.com as front end developer.",
-  "add mary manager",
-  "add designer alex alex@gmail.com",
+  "add krishkrish@gmail.com as front end developer.",
+  "add jonathan.smith@abc.com manager",
+  "add mary mary@gmail.com"
 ];
 
 testCases.forEach(tc => {

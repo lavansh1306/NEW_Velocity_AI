@@ -165,6 +165,19 @@ JSON Structure:
       
       let nameCandidate = nameWords.join(' ').replace(/^as\s+/, '').trim();
       
+      // Heuristic: If name is missing but email is present, extract from email handle
+      if (!nameCandidate && email) {
+        const handle = email.split('@')[0];
+        // Check for doubled name like 'krishkrish'
+        const doubled = handle.match(/^([a-z]{3,})\1$/);
+        if (doubled) {
+          nameCandidate = `${doubled[1]} ${doubled[1]}`;
+        } else {
+          // Replace dots, numbers, and special chars with spaces to separate potential names
+          nameCandidate = handle.replace(/[^a-zA-Z]/g, ' ').trim();
+        }
+      }
+
       if (email || nameCandidate) {
         // Double check name doesn't contain noise that filter missed
         if (nameCandidate.toLowerCase().startsWith('as ')) {
@@ -174,7 +187,7 @@ JSON Structure:
         return {
           type: 'add_team_member',
           params: { 
-            name: nameCandidate.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') || 'New Member', 
+            name: nameCandidate.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') || 'New Member', 
             email: email, 
             role: role 
           },
