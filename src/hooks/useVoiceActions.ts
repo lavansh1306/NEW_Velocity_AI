@@ -53,6 +53,18 @@ export const useVoiceActions = () => {
           }
           break;
 
+        case 'delete_team_member':
+          const { name: deleteName } = action.params || {};
+          if (currentPath !== '/people') {
+            localStorage.setItem('velo-voice-delete-member', JSON.stringify({ name: deleteName }));
+            navigate('/people');
+          } else {
+            window.dispatchEvent(new CustomEvent('velo-delete-member', { 
+              detail: { name: deleteName } 
+            }));
+          }
+          break;
+
         case 'search':
           toast.info(`Searching for "${action.params?.query || transcript}"`);
           break;

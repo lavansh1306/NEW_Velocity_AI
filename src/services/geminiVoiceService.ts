@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export interface VoiceAction {
-  type: 'navigate' | 'create_task' | 'add_team_member' | 'create_project' | 'search' | 'info' | 'unknown';
+  type: 'navigate' | 'create_task' | 'add_team_member' | 'delete_team_member' | 'create_project' | 'search' | 'info' | 'unknown';
   target?: string;
   params?: {
     taskName?: string;
@@ -53,10 +53,12 @@ Action Types & Parameters:
 2. create_project: { projectTitle: "string", projectDescription: "string", autoAnalyze: boolean } (Use this for "Add project", "Plan project", etc.)
 3. add_team_member: { name: "string", email: "string", role: "string" }
 4. create_task: { taskName: "string" }
-5. search: { query: "string" }
-6. info: { response: "Natural spoken answer" }
+5. delete_team_member: { name: "string" }
+6. search: { query: "string" }
+7. info: { response: "Natural spoken answer" }
 
 Rules:
+- If the user wants to DELETE or REMOVE a person/member, ALWAYS use type "delete_team_member".
 - If the user wants to ADD or CREATE a project, ALWAYS use type "create_project" and target "/plan".
 - If the user just wants to SEE or SHOW projects, use type "navigate" and target "/projects".
 - Extract as much detail as possible for projectTitle and projectDescription.
@@ -64,7 +66,7 @@ Rules:
 
 JSON Structure:
 {
-  "type": "navigate" | "create_project" | "add_team_member" | "create_task" | "search" | "info" | "unknown",
+  "type": "navigate" | "create_project" | "add_team_member" | "delete_team_member" | "create_task" | "search" | "info" | "unknown",
   "target": "string (optional)",
   "params": {
     "projectTitle": "string",
@@ -162,6 +164,22 @@ JSON Structure:
         if (targetStr.includes(key)) {
           return { type: 'navigate', target: path, response: `Opening ${key}.` };
         }
+      }
+    }
+
+    // 1b. "Delete Team Member" Specialization (Direct Deletion)
+    const isDeleteCommand = text.includes('delete') || text.includes('remove') || text.includes('fire');
+    if (isDeleteCommand && (text.includes('member') || text.includes('team') || text.includes('person') || text.split(/\s+/).length > 1)) {
+      const noise = ['delete', 'remove', 'fire', 'member', 'team', 'person', 'from', 'the', 'named', 'called'];
+      const words = text.split(/\s+/).filter(w => !noise.includes(w) && w.length > 1);
+      const nameMatch = words.join(' ').trim();
+      
+      if (nameMatch) {
+         return {
+          type: 'delete_team_member',
+          params: { name: nameMatch.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') },
+          response: `I'll help you remove ${nameMatch} from the team.`
+        };
       }
     }
 
