@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, X, Plus, Loader2 } from 'lucide-react';
+import { ChevronLeft, X, Plus, Loader2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useOnboarding } from '@/contexts/OnboardingContext';
@@ -9,19 +9,9 @@ import TeamInviteBanner from '@/components/onboarding/TeamInviteBanner';
 import PasteImportModal from '@/components/onboarding/PasteImportModal';
 import JiraImportModal from '@/components/onboarding/JiraImportModal';
 import { getSkillsForRole } from '@/services/skillSuggester';
+import { roleService } from '@/services/roleService';
 
-const PREDEFINED_ROLES = [
-  "Engineer",
-  "Designer",
-  "Product Manager",
-  "Engineering Manager",
-  "QA Engineer",
-  "Data Scientist",
-  "Frontend Developer",
-  "Backend Developer",
-  "Full Stack Developer",
-  "DevOps Engineer"
-];
+const PREDEFINED_ROLES = roleService.getRoles();
 
 export default function OnboardingTeam() {
   const navigate = useNavigate();
@@ -257,8 +247,8 @@ David Lee,david@example.com,Frontend Developer`;
         {!isCSVMode && (
           <div className="mb-6">
             <div className="bg-[#FAFAF9] px-4 py-3 border-b border-[#E7E5E4] flex gap-4">
-              <div className="flex-1 text-xs font-normal text-[#78716C] uppercase">Name</div>
-              <div className="flex-1 text-xs font-normal text-[#78716C] uppercase">Email</div>
+              <div className="w-[140px] text-xs font-normal text-[#78716C] uppercase">Name</div>
+              <div className="w-[190px] text-xs font-normal text-[#78716C] uppercase">Email</div>
               <div className="w-[200px] text-xs font-normal text-[#78716C] uppercase">Role</div>
               <div className="flex-1 text-xs font-normal text-[#78716C] uppercase">Skills</div>
               <div className="w-8"></div>
@@ -267,33 +257,33 @@ David Lee,david@example.com,Frontend Developer`;
           <div className="space-y-0 pb-32">
             {members.map((member, idx) => (
               <div key={idx} className="flex gap-4 px-4 py-4 border-b border-[#E7E5E4] items-center group relative z-0" style={{ zIndex: openRoleDropdown === idx ? 50 : 1 }}>
-                <div className="flex-1">
+                <div className="w-[140px]">
                   <Input
                     placeholder="Jane Doe"
                     value={member.name || ''}
                     onChange={(e) => updateMember(idx, 'name', e.target.value)}
-                    className="h-10 border-transparent hover:border-[#E7E5E4] focus:border-[#0F766E] bg-transparent px-2 placeholder:text-[#D6D3D1]"
+                    className="h-9 border-transparent hover:border-[#E7E5E4] focus:border-[#0F766E] bg-transparent px-2 placeholder:text-[#D6D3D1] text-sm"
                   />
                 </div>
-                <div className="flex-1">
+                <div className="w-[190px]">
                   <Input
                     placeholder="jane@company.com"
                     value={member.email || ''}
                     onChange={(e) => updateMember(idx, 'email', e.target.value)}
-                    className="h-10 border-transparent hover:border-[#E7E5E4] focus:border-[#0F766E] bg-transparent px-2 placeholder:text-[#D6D3D1]"
+                    className="h-9 border-transparent hover:border-[#E7E5E4] focus:border-[#0F766E] bg-transparent px-2 placeholder:text-[#D6D3D1] text-sm"
                   />
                 </div>
                 <div className="w-[200px] relative">
                   <Input
-                    placeholder="Select or type role"
+                    placeholder="Select role"
                     value={member.role || ''}
                     onChange={(e) => updateMember(idx, 'role', e.target.value)}
                     onFocus={() => setOpenRoleDropdown(idx)}
                     onBlur={() => setTimeout(() => setOpenRoleDropdown(null), 200)}
-                    className="h-10 border-transparent hover:border-[#E7E5E4] focus:border-[#0F766E] bg-transparent px-2 w-full placeholder:text-[#D6D3D1]"
+                    className="h-9 border-transparent hover:border-[#E7E5E4] focus:border-[#0F766E] bg-transparent px-2 w-full placeholder:text-[#D6D3D1] text-sm"
                   />
                   {openRoleDropdown === idx && (
-                    <div className="absolute top-full left-0 w-full mt-1 bg-white border border-[#E7E5E4] rounded-md shadow-lg max-h-48 overflow-y-auto z-50">
+                    <div className="absolute top-full left-0 w-[240px] mt-1 bg-white border border-[#E7E5E4] rounded-md shadow-lg max-h-48 overflow-y-auto z-50">
                       {PREDEFINED_ROLES.filter(role => role.toLowerCase().includes((member.role || '').toLowerCase())).map((role) => (
                         <div
                           key={role}
@@ -311,11 +301,11 @@ David Lee,david@example.com,Frontend Developer`;
                 </div>
 
                 {/* Skills Column */}
-                <div className="flex-1 flex flex-wrap gap-1.5 items-center content-start">
+                <div className="flex-1 flex flex-wrap gap-1.5 items-center min-h-[40px] py-1">
                   {(member.skills || []).map((skill) => (
                     <div
                       key={skill}
-                      className="flex items-center gap-1 px-2 py-1 bg-[#0F766E]/10 border border-[#0F766E]/30 rounded-full text-xs text-[#0F766E] whitespace-nowrap"
+                      className="flex items-center gap-1 px-2 py-0.5 bg-[#0F766E]/10 border border-[#0F766E]/30 rounded-full text-[11px] text-[#0F766E] whitespace-nowrap"
                     >
                       {skill}
                       <button
@@ -348,8 +338,8 @@ David Lee,david@example.com,Frontend Developer`;
                         setNewSkillText('');
                         setActiveSkillInput(null);
                       }}
-                      placeholder="Add skill..."
-                      className="h-7 px-2 py-1 text-xs border-[#E7E5E4] focus:border-[#0F766E] bg-transparent w-24"
+                      placeholder="Add..."
+                      className="h-7 px-2 py-1 text-xs border-[#E7E5E4] focus:border-[#0F766E] bg-transparent w-20"
                     />
                   ) : (
                     <button
@@ -362,12 +352,15 @@ David Lee,david@example.com,Frontend Developer`;
                   )}
                 </div>
 
-                <button
-                  onClick={() => removeMember(idx)}
-                  className="w-8 h-8 flex items-center justify-center text-[#D6D3D1] hover:text-[#EF4444] transition-colors opacity-0 group-hover:opacity-100"
-                >
-                  <X className="h-4 w-4" />
-                </button>
+                <div className="w-8 flex justify-center">
+                  <button
+                    onClick={() => removeMember(idx)}
+                    className="w-8 h-8 flex items-center justify-center text-[#A8A29E] hover:text-[#EF4444] transition-colors"
+                    title="Remove member"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>

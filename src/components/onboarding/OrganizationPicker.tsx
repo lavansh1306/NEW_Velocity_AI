@@ -170,7 +170,7 @@ export const OrganizationPicker: React.FC<OrganizationPickerProps> = ({
   return (
     <div className="w-full">
       <Label htmlFor="org-name" className="text-sm font-medium text-[#57534E] mb-1.5 block">
-        Organization Name
+        Organization Name <span className="text-[#BE123C] ml-0.5">*</span>
       </Label>
 
       {/* Domain-detected org suggestion */}

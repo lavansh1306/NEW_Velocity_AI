@@ -41,6 +41,7 @@ import { peopleService } from '../services/peopleService';
 import { setupProgressService } from '../services/setupProgressService';
 import { PeopleEmptyState } from './people/PeopleEmptyState';
 import { useVoice } from '@/contexts/VoiceContext';
+import { roleService } from '../services/roleService';
 import type { TeamMemberView, PendingSkillView, PersonDetailView } from '../types';
 
 const UtilizationBar = ({ value }: { value: number }) => {
@@ -92,13 +93,15 @@ const AddTeamMemberModal = ({
             if (initialData.email) setEmail(initialData.email);
             if (initialData.role) {
                 const incomingRole = initialData.role.toLowerCase().trim();
-                // Check if role is in predefined list (case insensitive match)
-                const predefinedRoles = ["Frontend Developer", "Backend Developer", "Full Stack Developer", "Designer", "Product Manager", "QA Engineer"];
-                const matchedRole = predefinedRoles.find(r => r.toLowerCase() === incomingRole);
+                const allRoles = roleService.getRoles();
+                const matchedRole = allRoles.find(r => r.toLowerCase() === incomingRole);
                 
                 if (matchedRole) {
                     setRole(matchedRole);
                     setIsCustomRole(false);
+                    // Also set skills if found
+                    const suggestedSkills = roleService.getSkillsForRole(matchedRole);
+                    if (suggestedSkills.length > 0) setSkills(suggestedSkills.join(', '));
                 } else {
                     setCustomRole(initialData.role);
                     setIsCustomRole(true);
@@ -166,7 +169,7 @@ const AddTeamMemberModal = ({
 
     const validateMember = () => {
         const errors: Record<string, string> = {};
-        const nameErr = validators.required(name, 'Full name');
+        const nameErr = validators.name(name, 'Full name');
         if (nameErr) errors.name = nameErr;
         const emailErr = validators.email(email);
         if (emailErr) errors.email = emailErr;
@@ -468,7 +471,7 @@ Charlie Brown,charlie.brown@company.com,QA Engineer,Selenium Jest Testing,70`;
                             <div className="space-y-4">
                         <div className="space-y-2">
                             <Label className="text-xs font-medium text-[#737373] uppercase tracking-wide">Full Name</Label>
-                            <Input value={name} onChange={(e) => { setName(e.target.value); if (memberAttempted) setMemberErrors(prev => ({ ...prev, name: validators.required(e.target.value, 'Full name') })); }} className={`h-10 bg-white ${memberErrors.name ? 'border-[#BE123C]' : 'border-[#E5E5E5]'}`} placeholder="e.g. Jane Doe" />
+                            <Input value={name} onChange={(e) => { setName(e.target.value); if (memberAttempted) setMemberErrors(prev => ({ ...prev, name: validators.name(e.target.value, 'Full name') })); }} className={`h-10 bg-white ${memberErrors.name ? 'border-[#BE123C]' : 'border-[#E5E5E5]'}`} placeholder="e.g. Jane Doe" />
                             <FormError message={memberErrors.name} />
                         </div>
 
@@ -484,17 +487,20 @@ Charlie Brown,charlie.brown@company.com,QA Engineer,Selenium Jest Testing,70`;
                             <Label className="text-xs font-medium text-[#737373] uppercase tracking-wide">Role</Label>
                             {!isCustomRole ? (
                                 <div className="space-y-3">
-                                    <Select value={role} onValueChange={(val) => { setRole(val); setMemberErrors(prev => ({ ...prev, role: '' })); }} disabled={isSubmitting}>
+                                    <Select value={role} onValueChange={(val) => { 
+                                        setRole(val); 
+                                        setMemberErrors(prev => ({ ...prev, role: '' }));
+                                        // Auto-populate skills
+                                        const suggestedSkills = roleService.getSkillsForRole(val);
+                                        if (suggestedSkills.length > 0) setSkills(suggestedSkills.join(', '));
+                                    }} disabled={isSubmitting}>
                                         <SelectTrigger className="h-10 border-[#E5E5E5] bg-white hover:border-[#D6D3D1] focus:ring-2 focus:ring-[#2DD4BF]/20 focus:border-[#2DD4BF] transition-all duration-200">
                                             <SelectValue placeholder="Select a role" />
                                         </SelectTrigger>
-                                        <SelectContent className="bg-white border-[#E5E5E5] shadow-lg">
-                                            <SelectItem value="Frontend Developer" className="hover:bg-[#FAFAF9] focus:bg-[#FAFAF9]">Frontend Developer</SelectItem>
-                                            <SelectItem value="Backend Developer" className="hover:bg-[#FAFAF9] focus:bg-[#FAFAF9]">Backend Developer</SelectItem>
-                                            <SelectItem value="Full Stack Developer" className="hover:bg-[#FAFAF9] focus:bg-[#FAFAF9]">Full Stack Developer</SelectItem>
-                                            <SelectItem value="Designer" className="hover:bg-[#FAFAF9] focus:bg-[#FAFAF9]">Product Designer</SelectItem>
-                                            <SelectItem value="Product Manager" className="hover:bg-[#FAFAF9] focus:bg-[#FAFAF9]">Product Manager</SelectItem>
-                                            <SelectItem value="QA Engineer" className="hover:bg-[#FAFAF9] focus:bg-[#FAFAF9]">QA Engineer</SelectItem>
+                                        <SelectContent className="bg-white border-[#E5E5E5] shadow-lg max-h-[300px]">
+                                            {roleService.getRoles().map(_role => (
+                                                <SelectItem key={_role} value={_role} className="hover:bg-[#FAFAF9] focus:bg-[#FAFAF9] capitalize">{_role}</SelectItem>
+                                            ))}
                                         </SelectContent>
                                     </Select>
                                     <button
