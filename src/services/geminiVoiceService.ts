@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { levenshteinDistance, phoneticNormalize, findBestMatch } from '@/lib/utils';
 
 export interface VoiceAction {
-  type: 'navigate' | 'create_task' | 'add_team_member' | 'delete_team_member' | 'create_project' | 'search' | 'info' | 'gantt_query' | 'resource_query' | 'unknown';
+  type: 'navigate' | 'create_task' | 'add_team_member' | 'delete_team_member' | 'create_project' | 'request_leave' | 'get_leave_status' | 'search' | 'info' | 'gantt_query' | 'resource_query' | 'unknown';
   target?: string;
   params?: {
     taskName?: string;
@@ -13,8 +13,12 @@ export interface VoiceAction {
     projectTitle?: string;
     projectDescription?: string;
     projectName?: string; // Target project for a task
-    assigneeName?: string; // NEW: Target team member for a task
+    assigneeName?: string; // Target team member for a task
     autoAnalyze?: boolean;
+    startDate?: string;
+    endDate?: string;
+    leaveType?: string;
+    reason?: string;
   };
   response?: string;
   requiresConfirmation?: boolean; // NEW: Flag for high-risk actions
@@ -446,7 +450,36 @@ Rules:
     }
 
 
-    // 4. Search Intent
+    // 4. Searching for Leave/Time-off
+    if (text.includes('leave') || text.includes('vacation') || text.includes('off') || text.includes('sick')) {
+      const isStatusQuery = text.includes('status') || text.includes('when') || text.includes('approved') || text.includes('how many');
+      
+      if (isStatusQuery) {
+        return {
+          type: 'get_leave_status',
+          params: { query: text },
+          response: "Checking your leave status..."
+        };
+      }
+
+      // Request leave extraction
+      const dateRegex = /(?:from|on)\s+([0-9a-z\s]+?)(?:\s+(?:to|until|till)\s+([0-9a-z\s]+))?$/i;
+      const dateMatch = text.match(dateRegex);
+      const reasonMatch = text.match(/(?:because|for|due to|reason)\s+(.+?)(?:\s+(?:from|on)|$)/i);
+
+      return {
+        type: 'request_leave',
+        params: {
+          startDate: dateMatch ? dateMatch[1]?.trim() : 'tomorrow',
+          endDate: dateMatch ? dateMatch[2]?.trim() : (dateMatch ? dateMatch[1]?.trim() : 'tomorrow'),
+          reason: reasonMatch ? reasonMatch[1]?.trim() : 'Personal'
+        },
+        response: `Standard Mode: I'll help you request leave for those dates.`,
+        requiresConfirmation: true
+      };
+    }
+
+    // 5. Search Intent
     if (text.includes('search for') || text.includes('find') || text.includes('lookup')) {
       const query = text.replace(/search for|find|lookup/i, '').trim();
       if (query) {
