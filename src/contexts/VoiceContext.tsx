@@ -224,6 +224,30 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  // Add a safety timeout for 'connecting' or 'processing' states
+  useEffect(() => {
+    let timer: NodeJS.Timeout | null = null;
+    
+    if (status === 'connecting') {
+      timer = setTimeout(() => {
+        console.warn('[VoiceContext] Connection timed out after 5s');
+        stopListening();
+        toast.error('Microphone connection timed out. Please try again.');
+      }, 5000);
+    } else if (status === 'processing') {
+      timer = setTimeout(() => {
+        console.warn('[VoiceContext] Processing timed out after 15s');
+        setStatus('idle');
+        setIsTriggered(false);
+        toast.error('AI was taking too long. Resetting...');
+      }, 15000);
+    }
+
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [status, stopListening]);
+
   return (
     <VoiceContext.Provider value={{ 
       isListening, 

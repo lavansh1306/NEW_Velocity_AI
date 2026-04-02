@@ -175,8 +175,15 @@ Rules:
   private summarizeDataLocally(data: any, query: string): string {
     const text = query.toLowerCase();
     
-    // 1. Handle Resource/Team Queries (Priority)
-    if (data?.gantt && Array.isArray(data.gantt) && (text.includes('who') || text.includes('team') || text.includes('member') || text.includes('how many'))) {
+    // 1. Handle Project Queries (Higher priority than general 'how many')
+    if (data?.kpis && Array.isArray(data.kpis) && text.includes('project')) {
+      const activeProjects = data.kpis.find((k: any) => k.label.includes('ACTIVE PROJECTS'))?.value;
+      const atRisk = data.kpis.find((k: any) => k.label.includes('RISK'))?.value;
+      return `Standard Mode: You have ${activeProjects || 0} active projects. ${atRisk > 0 ? `Note that ${atRisk} projects are currently marked as at risk.` : 'Everything looks on track.'}`;
+    }
+
+    // 2. Handle Resource/Team Queries
+    if (data?.gantt && Array.isArray(data.gantt) && (text.includes('who') || text.includes('team') || text.includes('member') || (text.includes('how many') && !text.includes('project')))) {
       const count = data.gantt.length;
       return `Standard Mode: You have ${count} active team members currently allocated to projects.`;
     }
@@ -223,8 +230,8 @@ Rules:
 
   private normalizeTranscript(text: string): string {
     return text.toLowerCase()
-      .replace(/^(hello|hi|hey|velocity|bot|ai|please|can you|could you|um|uh|err|like)\s+/g, '')
-      .replace(/\s+(um|uh|err|like|please)\s+/g, ' ')
+      .replace(/^(hello|hi|hey|velocity|hero|bot|ai|please|can you|could you|would you|um|uh|err|like|kindly|just)\s+/g, '')
+      .replace(/\s+(um|uh|err|like|please|and|then|kindly|now)\s+/g, ' ')
       .replace(/[.,!?;:]+$/, '') 
       .trim();
   }
@@ -235,19 +242,27 @@ Rules:
     // 1. Navigation Shortcuts
     const navTargets: Record<string, string> = {
       'dashboard': '/dashboard',
+      'dash': '/dashboard',
       'projects': '/projects',
+      'project': '/projects',
       'team': '/people',
       'people': '/people',
+      'roster': '/people',
       'plan': '/plan',
+      'planner': '/plan',
+      'planning': '/plan',
       'settings': '/settings',
+      'config': '/settings',
       'ai': '/velocity-ai',
-      'velocity': '/velocity-ai'
+      'velocity': '/velocity-ai',
+      'leave': '/leave',
+      'vacation': '/leave'
     };
 
     // 1a. "Create Project" Specialization (Direct Navigation to AI Planner)
-    const projectKeywords = ['add project', 'create project', 'new project', 'plan project', 'start project'];
+    const projectKeywords = ['add project', 'create project', 'new project', 'plan project', 'start project', 'setup project'];
     const isProjectCreate = projectKeywords.some(kw => text.includes(kw)) || 
-                           (this.fuzzyMatch(text.split(' ')[0], 'create') && text.includes('project'));
+                           ((this.fuzzyMatch(text.split(' ')[0], 'create') || this.fuzzyMatch(text.split(' ')[0], 'add')) && text.includes('project'));
 
     if (isProjectCreate) {
       // Extract projectTitle and projectDescription
@@ -280,7 +295,7 @@ Rules:
       };
     }
 
-    const navVerbs = ['go to', 'open', 'show', 'navigate to', 'take me to', 'view'];
+    const navVerbs = ['go to', 'open', 'show', 'navigate to', 'take me to', 'view', 'switch to', 'move to', 'jump to', 'goto', 'visit'];
     const words = text.split(' ');
     const lastWord = words[words.length - 1];
     
