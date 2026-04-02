@@ -1,0 +1,69 @@
+# Velocity AI Voice Command Reference (Standard Mode)
+
+This document lists the commands supported by the local "Standard Mode" parser. These commands function offline/locally, providing zero-latency responses and high reliability even when the Gemini API is unavailable (e.g., during quota limits or timeouts).
+
+## 1. Advanced Local Features
+The Standard Mode is now equipped with:
+*   **Fuzzy Matching**: Understands commands even with minor typos or phonetic variations (e.g., "dashbord", "proyects", "remov").
+*   **Natural Language Cleaning**: Automatically ignores filler words such as `um`, `uh`, `err`, `like`, `please`, and "Hey Velocity" prefixes.
+*   **Local Summarization**: Can provide data-driven answers directly from your dashboard if the AI layer is down.
+
+## 2. Navigation Commands
+Quickly jump to different sections of the platform.
+
+*   **Keywords**: `dashboard`, `projects`, `team`, `people`, `plan`, `settings`, `ai`, `velocity`
+*   **Verbs**: `go to`, `open`, `show`, `navigate to`, `take me to`, `view`
+*   **Examples**:
+    *   "Go to dashbord" (Fuzzy matched)
+    *   "Um, please open proyects" (Cleaned + Fuzzy matched)
+    *   "Show team"
+    *   "Take me to settings"
+    *   "View velocity ai"
+    *   "Dashboard" (keyword only)
+
+## 3. Project Management
+Direct entry into the AI project planner.
+
+*   **Keywords**: `add project`, `create project`, `new project`, `plan project`, `start project`
+*   **Formats**:
+    *   "Add project named [Project Name] that does [Description]"
+    *   "Create project [Project Name] to do [Description]"
+    *   "Plan project [Project Name]"
+*   **Note**: Providing a description automatically triggers the AI analysis layer in the planner.
+
+## 4. Task Management
+Quickly add tasks to your existing projects.
+
+*   **Keywords**: `task`, `add`, `create`, `new`
+*   **Formats**:
+    *   "Add [Task Name] for [Project Name] project" (Explicit project link)
+    *   "New task [Task Name] in [Project Name]"
+    *   "Add task [Task Name]" (Adds to the most recent active project)
+
+## 5. Team Management
+Manage your organization's roster through voice.
+
+### Adding Members
+*   **Keywords**: `add`, `invite`, `new`, `member`
+*   **Supported Roles**: `Frontend Developer`, `Backend Developer`, `Full Stack Developer`, `Designer`, `Product Manager`, `QA Engineer`
+*   **Formats**:
+    *   "Add [Name] as a [Role]"
+    *   "Invite [Name] with email [Email]"
+    *   "New member [Name] [Email] [Role]"
+
+### Removing Members
+*   **Keywords**: `delete`, `remove`, `fire`
+*   **Formats**:
+    *   "Delete [Name]"
+    *   "Remove [Name] from the team"
+*   **Note**: All deletion commands require a voice confirmation ("Yes/No") before execution.
+
+## 6. Real-Time Analytics & Queries
+In Standard Mode, the system analyzes your dashboard data locally to answer these questions instantly.
+
+*   **Project Queries**: "How many active projects are there?", "What's at risk?"
+*   **Utilization Queries**: "Who is busy?", "What's the team workload?", "Check utilization."
+*   **Capacity Queries**: "How much capacity do we have?", "Available hours this week."
+*   **Deadline Queries**: "When is the next deadline?", "When is [Project] due?"
+
+*Standard Mode will catch any 429 (Quota) errors from the Gemini API and automatically provide a data-driven local summary.*

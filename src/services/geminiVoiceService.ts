@@ -127,7 +127,7 @@ JSON Structure:
   }
 
   async summarizeData(data: any, query: string): Promise<string> {
-    if (!this.model) return "I have the data, but I'm unable to summarize it right now.";
+    if (!this.model) return this.summarizeDataLocally(data, query);
 
     const prompt = `
 You are the "Voice Summary Layer" for Velocity AI. 
@@ -155,16 +155,109 @@ Rules:
       ]) as any;
 
       return result.response.text().trim();
-    } catch (error) {
-      console.error('[GeminiVoice] Summarization failed:', error);
-      return "I'm sorry, I'm having trouble summarizing that data right now.";
+    } catch (error: any) {
+      const isQuotaError = error.message?.includes('429') || error.message?.includes('quota');
+      const isTimeout = error.message === 'Summarization Timeout';
+      
+      if (isQuotaError) {
+        console.warn('[GeminiVoice] Quota exceeded. Falling back to Local Summarizer.');
+      } else if (isTimeout) {
+        console.warn('[GeminiVoice] Summarization timed out. Falling back to Local Summarizer.');
+      } else {
+        console.error('[GeminiVoice] Summarization failed:', error);
+      }
+      
+      return this.summarizeDataLocally(data, query);
     }
+  }
+
+  private summarizeDataLocally(data: any, query: string): string {
+    const text = query.toLowerCase();
+    
+    // 1. Handle Dashboard KPIs
+    if (data?.kpis && Array.isArray(data.kpis)) {
+      const activeProjects = data.kpis.find((k: any) => k.label.includes('ACTIVE PROJECTS'))?.value;
+      const utilization = data.kpis.find((k: any) => k.label.includes('UTILIZATION'))?.value;
+      const capacity = data.kpis.find((k: any) => k.label.includes('CAPACITY'))?.value;
+      const atRisk = data.kpis.find((k: any) => k.label.includes('RISK'))?.value;
+
+      if (text.includes('project')) {
+        return `Standard Mode: You have ${activeProjects || 0} active projects. ${atRisk > 0 ? `Note that ${atRisk} projects are currently marked as at risk.` : 'Everything looks on track.'}`;
+      }
+      
+      if (text.includes('utilization') || text.includes('busy') || text.includes('workload')) {
+        return `Standard Mode: The current team utilization is ${utilization || '0%'}.`;
+      }
+
+      if (text.includes('capacity') || text.includes('hours') || text.includes('available')) {
+        return `Standard Mode: You have ${capacity || '0h'} of available capacity this week.`;
+      }
+
+      // Default Dashboard Summary
+      return `Standard Mode: You have ${activeProjects || 0} active projects with a team utilization of ${utilization || '0%'}.`;
+    }
+
+    // 2. Handle Deadlines
+    if (data?.deadlines && Array.isArray(data.deadlines) && (text.includes('when') || text.includes('deadline') || text.includes('due'))) {
+      if (data.deadlines.length === 0) return "Standard Mode: There are no upcoming deadlines in the next 30 days.";
+      const next = data.deadlines[0];
+      return `Standard Mode: Your next major deadline is for project ${next.project}, which is due in ${next.daysLeft} days.`;
+    }
+
+    // 3. Handle Resource/Gantt
+    if (data?.gantt && Array.isArray(data.gantt) && (text.includes('who') || text.includes('team') || text.includes('member'))) {
+      const count = data.gantt.length;
+      return `Standard Mode: There are ${count} active team members currently allocated to projects.`;
+    }
+
+    return "Standard Mode: I have the data here, but I'm unable to generate a detailed summary at the moment.";
+  }
+
+  private levenshteinDistance(s1: string, s2: string): number {
+    const track = Array(s2.length + 1).fill(null).map(() =>
+      Array(s1.length + 1).fill(null));
+    for (let i = 0; i <= s1.length; i += 1) track[0][i] = i;
+    for (let j = 0; j <= s2.length; j += 1) track[j][0] = j;
+    for (let j = 1; j <= s2.length; j += 1) {
+      for (let i = 1; i <= s1.length; i += 1) {
+        const indicator = s1[i - 1] === s2[j - 1] ? 0 : 1;
+        track[j][i] = Math.min(
+          track[j][i - 1] + 1,
+          track[j - 1][i] + 1,
+          track[j - 1][i - 1] + indicator,
+        );
+      }
+    }
+    return track[s2.length][s1.length];
+  }
+
+  private fuzzyMatch(input: string, target: string, threshold = 0.3): boolean {
+    if (!input || !target) return false;
+    const distance = this.levenshteinDistance(input.toLowerCase(), target.toLowerCase());
+    const maxLength = Math.max(input.length, target.length);
+    return (distance / maxLength) <= threshold;
+  }
+
+  private findBestMatch(input: string, targets: string[], threshold = 0.3): string | null {
+    let bestMatch = null;
+    let minScore = 1;
+
+    for (const target of targets) {
+      const distance = this.levenshteinDistance(input.toLowerCase(), target.toLowerCase());
+      const score = distance / Math.max(input.length, target.length);
+      if (score <= threshold && score < minScore) {
+        minScore = score;
+        bestMatch = target;
+      }
+    }
+    return bestMatch;
   }
 
   private normalizeTranscript(text: string): string {
     return text.toLowerCase()
-      .replace(/^(hello|hi|hey|velocity|bot|ai|please|can you|could you)\s+/g, '')
-      .replace(/[.,!?;:]+$/, '') // Strip trailing punctuation
+      .replace(/^(hello|hi|hey|velocity|bot|ai|please|can you|could you|um|uh|err|like)\s+/g, '')
+      .replace(/\s+(um|uh|err|like|please)\s+/g, ' ')
+      .replace(/[.,!?;:]+$/, '') 
       .trim();
   }
 
@@ -174,20 +267,22 @@ Rules:
     // 1. Navigation Shortcuts
     const navTargets: Record<string, string> = {
       'dashboard': '/dashboard',
-      'project': '/projects',
+      'projects': '/projects',
       'team': '/people',
       'people': '/people',
       'plan': '/plan',
-      'setting': '/settings',
+      'settings': '/settings',
       'ai': '/velocity-ai',
       'velocity': '/velocity-ai'
     };
 
     // 1a. "Create Project" Specialization (Direct Navigation to AI Planner)
-    const isProjectCreate = text.includes('add project') || text.includes('create project') || text.includes('new project') || text.includes('plan project');
+    const projectKeywords = ['add project', 'create project', 'new project', 'plan project', 'start project'];
+    const isProjectCreate = projectKeywords.some(kw => text.includes(kw)) || 
+                           (this.fuzzyMatch(text.split(' ')[0], 'create') && text.includes('project'));
+
     if (isProjectCreate) {
       // Extract projectTitle and projectDescription
-      // Variants: "Add a project named X that does Y" or "Create a project X to do Y"
       let title = '';
       let description = '';
 
@@ -197,7 +292,6 @@ Rules:
       if (nameMatch) title = nameMatch[1].trim();
       if (doingMatch) description = doingMatch[1].trim();
 
-      // If no description but text after "project"
       if (!description) {
         const afterProject = text.split(/project|new|plan/).pop()?.trim();
         if (afterProject && afterProject !== 'add' && afterProject !== 'create') {
@@ -210,7 +304,7 @@ Rules:
         params: { 
           projectTitle: title, 
           projectDescription: description,
-          autoAnalyze: !!description // Only auto-analyze if we have a description
+          autoAnalyze: !!description 
         },
         response: description 
           ? `Sure, I'll set up that plan for ${title || 'the project'} and start the analysis.`
@@ -218,23 +312,31 @@ Rules:
       };
     }
 
-    if (text.startsWith('go to ') || text.startsWith('open ') || text.startsWith('show ')) {
-      const targetStr = text.split(' ').slice(-1)[0].replace(/[.,!?;]$/, '');
-      for (const [key, path] of Object.entries(navTargets)) {
-        if (targetStr.includes(key)) {
-          return { type: 'navigate', target: path, response: `Opening ${key}.` };
-        }
-      }
+    const navVerbs = ['go to', 'open', 'show', 'navigate to', 'take me to', 'view'];
+    const words = text.split(' ');
+    const lastWord = words[words.length - 1];
+    
+    // Check for direct keyword or verb + keyword
+    const bestNavMatch = this.findBestMatch(lastWord, Object.keys(navTargets));
+    const hasNavVerb = navVerbs.some(v => text.includes(v)) || this.fuzzyMatch(words[0], 'open', 0.4);
+
+    if (bestNavMatch && (hasNavVerb || words.length === 1)) {
+      return { 
+        type: 'navigate', 
+        target: navTargets[bestNavMatch], 
+        response: `Opening ${bestNavMatch}.` 
+      };
     }
 
     // 1b. "Delete Team Member" Specialization (Direct Deletion)
-    const isDeleteCommand = text.includes('delete') || text.includes('remove') || text.includes('fire');
-    if (isDeleteCommand && (text.includes('member') || text.includes('team') || text.includes('person') || text.split(/\s+/).length > 1)) {
-      const noise = ['delete', 'remove', 'fire', 'member', 'team', 'person', 'from', 'the', 'named', 'called'];
-      const words = text.split(/\s+/).filter(w => !noise.includes(w) && w.length > 1);
+    const isDeleteCommand = text.includes('delete') || text.includes('remove') || text.includes('fire') || 
+                           this.fuzzyMatch(words[0], 'delete') || this.fuzzyMatch(words[0], 'remove');
+
+    if (isDeleteCommand && (text.includes('member') || text.includes('team') || text.includes('person') || words.length > 1)) {
+      const noise = ['delete', 'remove', 'fire', 'member', 'team', 'person', 'from', 'the', 'named', 'called', 'please'];
+      const actionWords = words.filter(w => !noise.includes(w) && !this.fuzzyMatch(w, 'delete') && !this.fuzzyMatch(w, 'remove'));
       
-      // Clean words from punctuation as well
-      const cleanWords = words.map(w => w.replace(/[.,!?;:]+$/, ''));
+      const cleanWords = actionWords.map(w => w.replace(/[.,!?;:]+$/, ''));
       const nameMatch = cleanWords.join(' ').trim();
       
       if (nameMatch) {
@@ -242,13 +344,17 @@ Rules:
           type: 'delete_team_member',
           params: { name: nameMatch.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') },
           response: `I'll help you remove ${nameMatch} from the team.`,
-          requiresConfirmation: true // High-risk action
+          requiresConfirmation: true 
         };
       }
     }
 
     // 1c. Task Creation (Robust Extraction)
-    const isTaskCommand = text.includes('task') || text.startsWith('add ') || text.startsWith('create ');
+    const isTaskCommand = text.includes('task') || 
+                         this.fuzzyMatch(words[0], 'add') || 
+                         this.fuzzyMatch(words[0], 'create') ||
+                         this.fuzzyMatch(words[0], 'new');
+
     if (isTaskCommand && !isProjectCreate) {
       // Regex for "Add [Task] for [Project] project" or "Add [Task] to [Project]"
       const taskWithProjectRegex = /(?:add|create|new)\s+(?:task\s+)?(.*?)\s+(?:for|to|in)\s+(?:the\s+)?(.*?)(?:\s+project)?$/i;
@@ -296,7 +402,10 @@ Rules:
     };
 
     const roles = Object.keys(roleMapping).sort((a, b) => b.length - a.length);
-    const isInviteCommand = text.includes('add') || text.includes('invite') || text.includes('new');
+    const isInviteCommand = this.fuzzyMatch(words[0], 'add') || 
+                           this.fuzzyMatch(words[0], 'invite') || 
+                           this.fuzzyMatch(words[0], 'new');
+    
     const hasContext = text.includes('member') || text.includes('team') || text.includes('@') || roles.some(r => text.includes(r));
 
     if (isInviteCommand && hasContext) {
@@ -379,17 +488,6 @@ Rules:
         params: { query: text },
         response: "I'll pull up that information for you."
       };
-    }
-
-    // 5. Navigation Fallback (Stricter - requires a verb or clear intent)
-    const navVerbs = ['go to', 'open', 'show', 'navigate to', 'take me to', 'view'];
-    const hasNavVerb = navVerbs.some(v => text.includes(v));
-    
-    for (const [key, path] of Object.entries(navTargets)) {
-      // Only navigate if it's a clear 'go to' command or ONLY the keyword was said
-      if ((hasNavVerb && text.includes(key)) || text === key) {
-        return { type: 'navigate', target: path, response: `Opening ${key}.` };
-      }
     }
 
     return null;
