@@ -83,6 +83,7 @@ JSON Structure:
     "email": "string",
     "role": "string",
     "taskName": "string",
+    "projectName": "string",
     "query": "string"
   },
   "response": "Brief spoken confirmation of what you extracted",

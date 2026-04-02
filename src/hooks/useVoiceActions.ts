@@ -2,6 +2,8 @@ import { useNavigate } from 'react-router-dom';
 import { useVoice } from '@/contexts/VoiceContext';
 import { geminiVoiceService, VoiceAction } from '@/services/geminiVoiceService';
 import { getDashboardData } from '@/services/dashboardService';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 
 export const useVoiceActions = () => {
@@ -15,6 +17,7 @@ export const useVoiceActions = () => {
     startListening,
     status 
   } = useVoice();
+  const { orgId } = useAuth();
 
   const handleVoiceCommand = async (transcript: string, currentPath: string) => {
     // 0. Guard against multiple concurrent commands
@@ -112,7 +115,60 @@ export const useVoiceActions = () => {
         break;
       
       case 'create_task':
-        toast.success(`Intent: Create task "${action.params?.taskName || 'New Task'}"`);
+        const { taskName, projectName } = action.params || {};
+        const nameToUse = taskName || 'New Task';
+        
+        if (!orgId) {
+          speak("I'm sorry, I can't add tasks without an active organization.");
+          break;
+        }
+
+        try {
+          // 1. Fetch available projects to find the target
+          const { data: projects, error: projectsError } = await supabase
+            .from('projects')
+            .select('id, name')
+            .eq('organization_id', orgId)
+            .eq('status', 'active')
+            .order('created_at', { ascending: false });
+
+          if (projectsError) throw projectsError;
+          if (!projects || projects.length === 0) {
+            speak("You don't have any active projects to add tasks to. Create a project first.");
+            break;
+          }
+
+          let targetProject = projects[0]; // Default to most recent
+          if (projectName) {
+            const matched = projects.find(p => p.name.toLowerCase().includes(projectName.toLowerCase()));
+            if (matched) targetProject = matched;
+          }
+
+          // 2. Insert the task
+          const { error: insertError } = await supabase
+            .from('tasks')
+            .insert({
+              project_id: targetProject.id,
+              name: nameToUse,
+              status: 'not_started',
+              estimated_hours: 4 // Default estimate
+            });
+
+          if (insertError) throw insertError;
+
+          const msg = `Added task "${nameToUse}" to project ${targetProject.name}.`;
+          speak(msg);
+          toast.success(msg);
+
+          // Force a refresh if on projects page
+          if (currentPath === '/projects' || currentPath === '/dashboard') {
+             window.dispatchEvent(new CustomEvent('velo-refresh-data'));
+          }
+
+        } catch (err: any) {
+          console.error('[VoiceActions] Task creation failed:', err);
+          speak("I'm sorry, I encountered a database error while creating that task.");
+        }
         break;
 
       case 'add_team_member':
