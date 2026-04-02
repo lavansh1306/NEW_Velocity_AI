@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { levenshteinDistance, phoneticNormalize, findBestMatch } from '@/lib/utils';
 
 export interface VoiceAction {
   type: 'navigate' | 'create_task' | 'add_team_member' | 'delete_team_member' | 'create_project' | 'search' | 'info' | 'gantt_query' | 'resource_query' | 'unknown';
@@ -174,7 +175,20 @@ Rules:
   private summarizeDataLocally(data: any, query: string): string {
     const text = query.toLowerCase();
     
-    // 1. Handle Dashboard KPIs
+    // 1. Handle Resource/Team Queries (Priority)
+    if (data?.gantt && Array.isArray(data.gantt) && (text.includes('who') || text.includes('team') || text.includes('member') || text.includes('how many'))) {
+      const count = data.gantt.length;
+      return `Standard Mode: You have ${count} active team members currently allocated to projects.`;
+    }
+
+    // 2. Handle Deadlines
+    if (data?.deadlines && Array.isArray(data.deadlines) && (text.includes('when') || text.includes('deadline') || text.includes('due'))) {
+      if (data.deadlines.length === 0) return "Standard Mode: There are no upcoming deadlines in the next 30 days.";
+      const next = data.deadlines[0];
+      return `Standard Mode: Your next major deadline is for project ${next.project}, which is due in ${next.daysLeft} days.`;
+    }
+
+    // 3. Handle Dashboard KPIs
     if (data?.kpis && Array.isArray(data.kpis)) {
       const activeProjects = data.kpis.find((k: any) => k.label.includes('ACTIVE PROJECTS'))?.value;
       const utilization = data.kpis.find((k: any) => k.label.includes('UTILIZATION'))?.value;
@@ -193,64 +207,18 @@ Rules:
         return `Standard Mode: You have ${capacity || '0h'} of available capacity this week.`;
       }
 
-      // Default Dashboard Summary
+      // Default Dashboard Summary (Last Resort)
       return `Standard Mode: You have ${activeProjects || 0} active projects with a team utilization of ${utilization || '0%'}.`;
-    }
-
-    // 2. Handle Deadlines
-    if (data?.deadlines && Array.isArray(data.deadlines) && (text.includes('when') || text.includes('deadline') || text.includes('due'))) {
-      if (data.deadlines.length === 0) return "Standard Mode: There are no upcoming deadlines in the next 30 days.";
-      const next = data.deadlines[0];
-      return `Standard Mode: Your next major deadline is for project ${next.project}, which is due in ${next.daysLeft} days.`;
-    }
-
-    // 3. Handle Resource/Gantt
-    if (data?.gantt && Array.isArray(data.gantt) && (text.includes('who') || text.includes('team') || text.includes('member'))) {
-      const count = data.gantt.length;
-      return `Standard Mode: There are ${count} active team members currently allocated to projects.`;
     }
 
     return "Standard Mode: I have the data here, but I'm unable to generate a detailed summary at the moment.";
   }
 
-  private levenshteinDistance(s1: string, s2: string): number {
-    const track = Array(s2.length + 1).fill(null).map(() =>
-      Array(s1.length + 1).fill(null));
-    for (let i = 0; i <= s1.length; i += 1) track[0][i] = i;
-    for (let j = 0; j <= s2.length; j += 1) track[j][0] = j;
-    for (let j = 1; j <= s2.length; j += 1) {
-      for (let i = 1; i <= s1.length; i += 1) {
-        const indicator = s1[i - 1] === s2[j - 1] ? 0 : 1;
-        track[j][i] = Math.min(
-          track[j][i - 1] + 1,
-          track[j - 1][i] + 1,
-          track[j - 1][i - 1] + indicator,
-        );
-      }
-    }
-    return track[s2.length][s1.length];
-  }
-
   private fuzzyMatch(input: string, target: string, threshold = 0.3): boolean {
     if (!input || !target) return false;
-    const distance = this.levenshteinDistance(input.toLowerCase(), target.toLowerCase());
+    const distance = levenshteinDistance(input.toLowerCase(), target.toLowerCase());
     const maxLength = Math.max(input.length, target.length);
     return (distance / maxLength) <= threshold;
-  }
-
-  private findBestMatch(input: string, targets: string[], threshold = 0.3): string | null {
-    let bestMatch = null;
-    let minScore = 1;
-
-    for (const target of targets) {
-      const distance = this.levenshteinDistance(input.toLowerCase(), target.toLowerCase());
-      const score = distance / Math.max(input.length, target.length);
-      if (score <= threshold && score < minScore) {
-        minScore = score;
-        bestMatch = target;
-      }
-    }
-    return bestMatch;
   }
 
   private normalizeTranscript(text: string): string {
@@ -317,7 +285,7 @@ Rules:
     const lastWord = words[words.length - 1];
     
     // Check for direct keyword or verb + keyword
-    const bestNavMatch = this.findBestMatch(lastWord, Object.keys(navTargets));
+    const bestNavMatch = findBestMatch(lastWord, Object.keys(navTargets), (s) => s);
     const hasNavVerb = navVerbs.some(v => text.includes(v)) || this.fuzzyMatch(words[0], 'open', 0.4);
 
     if (bestNavMatch && (hasNavVerb || words.length === 1)) {
@@ -332,7 +300,9 @@ Rules:
     const isDeleteCommand = text.includes('delete') || text.includes('remove') || text.includes('fire') || 
                            this.fuzzyMatch(words[0], 'delete') || this.fuzzyMatch(words[0], 'remove');
 
-    if (isDeleteCommand && (text.includes('member') || text.includes('team') || text.includes('person') || words.length > 1)) {
+    const isTaskContext = text.includes('task') || text.includes('project') || text.includes('plan');
+
+    if (isDeleteCommand && !isTaskContext && (text.includes('member') || text.includes('team') || text.includes('person') || words.length > 2)) {
       const noise = ['delete', 'remove', 'fire', 'member', 'team', 'person', 'from', 'the', 'named', 'called', 'please'];
       const actionWords = words.filter(w => !noise.includes(w) && !this.fuzzyMatch(w, 'delete') && !this.fuzzyMatch(w, 'remove'));
       
@@ -343,7 +313,7 @@ Rules:
          return {
           type: 'delete_team_member',
           params: { name: nameMatch.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') },
-          response: `I'll help you remove ${nameMatch} from the team.`,
+          response: `Standard Mode: I'll help you remove ${nameMatch} from the team.`,
           requiresConfirmation: true 
         };
       }
@@ -486,8 +456,30 @@ Rules:
       return {
         type: 'resource_query',
         params: { query: text },
-        response: "I'll pull up that information for you."
+        response: "Standard Mode: I'll pull up that information for you."
       };
+    }
+
+    // 5. Help / Info Intent
+    const isHelp = text.includes('help') || text.includes('what can you do') || text.includes('capabilities') || text.includes('commands');
+    if (isHelp) {
+      return {
+        type: 'info',
+        response: "Standard Mode: I can help you navigate, add tasks, manage team members, or plan new projects. Try saying 'Go to dashboard', 'Add task X for Y', or 'Planner'."
+      };
+    }
+
+    // 6. Local Clarification (The "Final Autonomy" Fallback)
+    if (words.length < 3) {
+      if (this.fuzzyMatch(words[0], 'add') || this.fuzzyMatch(words[0], 'create')) {
+        return { type: 'unknown', prompt: "I heard you want to add or create something. What would you like to add? A task, project, or member?" };
+      }
+      if (this.fuzzyMatch(words[0], 'delete') || this.fuzzyMatch(words[0], 'remove')) {
+        return { type: 'unknown', prompt: "What or who would you like to delete?" };
+      }
+      if (this.fuzzyMatch(words[0], 'show') || this.fuzzyMatch(words[0], 'open')) {
+        return { type: 'unknown', prompt: "Which section should I open? Dashboard, Projects, or Team?" };
+      }
     }
 
     return null;
