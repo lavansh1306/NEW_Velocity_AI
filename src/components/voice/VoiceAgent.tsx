@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useVoice } from '@/contexts/VoiceContext';
 import { useVoiceActions } from '@/hooks/useVoiceActions';
 import { useLocation } from 'react-router-dom';
@@ -26,6 +26,17 @@ export const VoiceAgent: React.FC = () => {
     }
   }, [isListening, isTriggered, lastTranscript, status, stopListening, handleVoiceCommand, location.pathname]);
 
+  // Unified toggle function for both click and shortcut
+  const toggleVoice = useCallback(() => {
+    if (isListening || status === 'listening' || status === 'connecting') {
+      console.log('[VoiceAgent] Toggling: Stopping');
+      stopListening();
+    } else {
+      console.log('[VoiceAgent] Toggling: Starting');
+      startListening();
+    }
+  }, [isListening, status, startListening, stopListening]);
+
   // Keyboard shortcut handling (Ctrl + Space or Cmd + Space)
   const isMac = typeof window !== 'undefined' && /Mac|iPhone|iPod|iPad/.test(navigator.userAgent);
   const modifierKey = isMac ? 'Cmd' : 'Ctrl';
@@ -37,22 +48,13 @@ export const VoiceAgent: React.FC = () => {
       
       if (isModifierPressed && e.code === 'Space') {
         e.preventDefault();
-        
-        // Use the native check to decide whether to start or stop
-        // Status checks are more reliable than the boolean state for rapid events
-        if (isListening || status === 'listening' || status === 'connecting') {
-          console.log('[VoiceAgent] Shortcut: Stopping');
-          stopListening();
-        } else {
-          console.log('[VoiceAgent] Shortcut: Starting');
-          startListening();
-        }
+        toggleVoice();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isListening, status, startListening, stopListening]);
+  }, [toggleVoice]);
 
   // GSAP Animations for the Orb
   useEffect(() => {
@@ -110,7 +112,6 @@ export const VoiceAgent: React.FC = () => {
         { y: 0, opacity: 1, duration: 0.8, delay: 0.2, ease: "power3.out" }
       );
     }
-    // No longer auto-starting listening for wake word
   }, []);
 
   return (
@@ -144,15 +145,17 @@ export const VoiceAgent: React.FC = () => {
       )}
 
       {/* Main Orb Button */}
-      <div 
-        className="pointer-events-auto group relative"
+      <button 
+        type="button"
+        onClick={toggleVoice}
+        className="pointer-events-auto group relative outline-none border-none bg-transparent p-0"
         title={isListening ? `Stop (${modifierKey} + Space)` : `Talk with VeloAI (${modifierKey} + Space)`}
+        aria-label={isListening ? "Stop voice recognition" : "Start voice recognition"}
       >
         <div 
           ref={orbRef}
-          onClick={() => isListening ? stopListening() : startListening()}
           className={`w-14 h-14 rounded-full flex items-center justify-center cursor-pointer shadow-lg transition-colors border-2 border-white/50 backdrop-blur-sm
-            ${isListening ? 'bg-emerald-500' : 'bg-gray-400 opacity-50 hover:opacity-100'}
+            ${isListening ? 'bg-emerald-500' : 'bg-gray-400 opacity-50 group-hover:opacity-100'}
           `}
         >
           {status === 'connecting' || status === 'processing' ? (
@@ -170,7 +173,8 @@ export const VoiceAgent: React.FC = () => {
 
         {/* Status indicator ring */}
         <div className={`absolute -inset-1 rounded-full border-2 border-emerald-400/30 animate-ping opacity-0 ${isTriggered ? 'opacity-100' : ''}`} />
-      </div>
+      </button>
     </div>
   );
 };
+
