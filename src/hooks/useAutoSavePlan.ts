@@ -43,27 +43,10 @@ export function useAutoSavePlan({
   }, []);
 
   const save = useCallback(async (data: AutoSavePlanData) => {
-    const logData = {
-      organizationId,
-      userId,
-      data: { title: data.title, description: data.description, tasksCount: data.tasks.length }
-    };
-    
-    // Remote logging to capture browser console logs
-    fetch('http://localhost:9999/log', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'save_triggered', ...logData })
-    }).catch(() => {});
-
     if (!organizationId || !userId) {
-      fetch('http://localhost:9999/log', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'skip_save', reason: 'missing_id', ...logData })
-      }).catch(() => {});
       return;
     }
+
     // Don't save completely empty plans
     if (!data.title.trim() && !data.description.trim() && data.tasks.length === 0) {
       return;
@@ -74,12 +57,6 @@ export function useAutoSavePlan({
 
     try {
       const currentPlanId = planIdRef.current;
-      
-      fetch('http://localhost:9999/log', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'save_attempt', currentPlanId, ...logData })
-      }).catch(() => {});
 
       if (currentPlanId) {
         // ── Update existing draft ────────────────────────────────────────────
@@ -123,22 +100,11 @@ export function useAutoSavePlan({
           .single();
 
         if (error) {
-          fetch('http://localhost:9999/log', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'save_error_insert', message: error.message, details: error.details })
-          }).catch(() => {});
           throw error;
         }
 
         planIdRef.current = plan.id;
         setPlanId(plan.id);
-
-        fetch('http://localhost:9999/log', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type: 'save_success_new_draft', planId: plan.id })
-        }).catch(() => {});
 
         if (data.tasks.length > 0) {
           await supabase.from('plan_tasks').insert(
@@ -157,12 +123,6 @@ export function useAutoSavePlan({
     } catch (err: any) {
       console.error('[useAutoSavePlan] save error:', err?.message || err);
       setSaveError(err?.message || 'Auto-save failed');
-      
-      fetch('http://localhost:9999/log', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'save_error_catch', message: err?.message || 'Auto-save failed' })
-      }).catch(() => {});
     } finally {
       setIsSaving(false);
     }
