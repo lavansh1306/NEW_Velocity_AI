@@ -66,7 +66,9 @@ export default function OnboardingWelcome() {
 
         {/* Team Name Input */}
         <div className="w-[450px] mb-8">
-          <label className="block text-sm text-[#78716C] mb-2 font-light">Team Name</label>
+          <label className="block text-sm text-[#78716C] mb-2 font-light">
+            Team Name <span className="text-[#BE123C] ml-0.5">*</span>
+          </label>
           <Input
             value={teamName}
             onChange={(e) => setTeamName(e.target.value)}

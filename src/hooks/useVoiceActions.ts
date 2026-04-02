@@ -2,6 +2,8 @@ import { useNavigate } from 'react-router-dom';
 import { useVoice } from '@/contexts/VoiceContext';
 import { geminiVoiceService, VoiceAction } from '@/services/geminiVoiceService';
 import { getDashboardData } from '@/services/dashboardService';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 
 export const useVoiceActions = () => {
@@ -12,10 +14,19 @@ export const useVoiceActions = () => {
     enqueueAction, 
     pendingConfirmation, 
     setPendingConfirmation,
-    startListening 
+    startListening,
+    status 
   } = useVoice();
+  const { orgId } = useAuth();
 
   const handleVoiceCommand = async (transcript: string, currentPath: string) => {
+    // 0. Guard against multiple concurrent commands
+    // Note: status is now extracted from context at the top level
+    if (status === 'processing') {
+      console.warn('[useVoiceActions] Already processing a command, ignoring:', transcript);
+      return;
+    }
+
     // 1. Handle Pending Confirmation
     if (pendingConfirmation) {
       const text = transcript.toLowerCase();
@@ -42,6 +53,11 @@ export const useVoiceActions = () => {
     
     try {
       const action = await geminiVoiceService.parseIntent(transcript, currentPath);
+      
+      // Check if we are in fallback mode (Gemini error caught in service)
+      if (action.response?.includes("Standard Mode") || action.response?.includes("Standard command")) {
+        toast.info("Gemini is currently limited. Using Standard Mode.");
+      }
       
       // 2. Handle Multi-turn Prompt
       if (action.prompt) {
@@ -99,7 +115,111 @@ export const useVoiceActions = () => {
         break;
       
       case 'create_task':
-        toast.success(`Intent: Create task "${action.params?.taskName || 'New Task'}"`);
+        const { taskName: tName, projectName: pName, assigneeName } = action.params || {};
+        const nameToUse = tName || 'New Task';
+        
+        if (!orgId) {
+          speak("I'm sorry, I can't add tasks without an active organization.");
+          break;
+        }
+
+        try {
+          // 1. Fetch available projects to find the target
+          const { data: projects, error: projectsError } = await supabase
+            .from('projects')
+            .select('id, name')
+            .eq('organization_id', orgId)
+            .eq('status', 'active');
+
+          if (projectsError) throw projectsError;
+
+          let targetProjectId: string | null = null;
+          let targetProjectName = '';
+
+          if (pName) {
+            const matched = projects?.find(p => p.name.toLowerCase().includes(pName.toLowerCase()));
+            if (matched) {
+              targetProjectId = matched.id;
+              targetProjectName = matched.name;
+            } else {
+              // AUTO-CREATE PROJECT
+              speak(`Project ${pName} doesn't exist. I'll create it for you.`);
+              const { data: newProj, error: createError } = await supabase
+                .from('projects')
+                .insert({
+                  organization_id: orgId,
+                  name: pName,
+                  status: 'active',
+                  source: 'internal'
+                })
+                .select()
+                .single();
+              
+              if (createError) throw createError;
+              targetProjectId = newProj.id;
+              targetProjectName = newProj.name;
+            }
+          } else {
+            // Default to most recent if no project specified
+            if (projects && projects.length > 0) {
+              const sorted = [...projects].sort((a,b) => b.id.localeCompare(a.id)); // Simple heuristic
+              targetProjectId = sorted[0].id;
+              targetProjectName = sorted[0].name;
+            } else {
+              speak("You don't have any active projects. I'll create a default one for you.");
+              const { data: newProj, error: createError } = await supabase
+                .from('projects')
+                .insert({ organization_id: orgId, name: 'General Tasks', status: 'active' })
+                .select().single();
+              if (createError) throw createError;
+              targetProjectId = newProj.id;
+              targetProjectName = newProj.name;
+            }
+          }
+
+          // 2. Resolve Assignee if provided
+          let assigneeId = null;
+          if (assigneeName) {
+            const { data: members, error: membersError } = await supabase
+              .from('users')
+              .select('id, full_name')
+              .eq('organization_id', orgId);
+            
+            if (!membersError && members) {
+              const match = members.find(m => m.full_name?.toLowerCase().includes(assigneeName.toLowerCase()));
+              if (match) {
+                assigneeId = match.id;
+              } else {
+                speak(`I couldn't find a team member named ${assigneeName}. I'll leave the task unassigned.`);
+              }
+            }
+          }
+
+          // 3. Insert the task
+          const { error: insertError } = await supabase
+            .from('tasks')
+            .insert({
+              project_id: targetProjectId,
+              name: nameToUse,
+              status: 'not_started',
+              estimated_hours: 4,
+              assignee_id: assigneeId
+            });
+
+          if (insertError) throw insertError;
+
+          const assignmentMsg = assigneeName && assigneeId ? ` and assigned it to ${assigneeName}` : "";
+          const msg = `Done! Added task "${nameToUse}" to project ${targetProjectName}${assignmentMsg}.`;
+          speak(msg);
+          toast.success(msg);
+
+          // Force a refresh if on projects page
+          window.dispatchEvent(new CustomEvent('velo-refresh-data'));
+
+        } catch (err: any) {
+          console.error('[VoiceActions] Smart task creation failed:', err);
+          speak("I'm sorry, I encountered an error while setting up that task.");
+        }
         break;
 
       case 'add_team_member':
