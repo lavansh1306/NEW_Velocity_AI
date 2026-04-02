@@ -12,10 +12,18 @@ export const useVoiceActions = () => {
     enqueueAction, 
     pendingConfirmation, 
     setPendingConfirmation,
-    startListening 
+    startListening,
+    status 
   } = useVoice();
 
   const handleVoiceCommand = async (transcript: string, currentPath: string) => {
+    // 0. Guard against multiple concurrent commands
+    // Note: status is now extracted from context at the top level
+    if (status === 'processing') {
+      console.warn('[useVoiceActions] Already processing a command, ignoring:', transcript);
+      return;
+    }
+
     // 1. Handle Pending Confirmation
     if (pendingConfirmation) {
       const text = transcript.toLowerCase();

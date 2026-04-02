@@ -11,6 +11,7 @@ export interface VoiceAction {
     query?: string;
     projectTitle?: string;
     projectDescription?: string;
+    projectName?: string; // NEW: Target project for a task
     autoAnalyze?: boolean;
   };
   response?: string;
@@ -54,7 +55,7 @@ Action Types & Parameters:
 1. navigate: { target: "/dashboard" | "/projects" | "/people" | "/plan" | "/settings" }
 2. create_project: { projectTitle: "string", projectDescription: "string", autoAnalyze: boolean } (Use this for "Add project", "Plan project", etc.)
 3. add_team_member: { name: "string", email: "string", role: "string" }
-4. create_task: { taskName: "string" }
+4. create_task: { taskName: "string", projectName: "string (optional)" } (e.g., "Add task X to the Project Y")
 5. delete_team_member: { name: "string" }
 6. search: { query: "string" }
 7. info: { response: "Natural spoken answer" }
@@ -91,10 +92,18 @@ JSON Structure:
 `;
 
     try {
-      const result = await this.model.generateContent([
-        { text: systemPrompt },
-        { text: `User said: "${transcript}"` }
-      ]);
+      // Add a 10-second timeout to prevent getting stuck
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Gemini API Timeout')), 10000)
+      );
+
+      const result = await Promise.race([
+        this.model.generateContent([
+          { text: systemPrompt },
+          { text: `User said: "${transcript}"` }
+        ]),
+        timeoutPromise
+      ]) as any;
 
       const responseText = result.response.text();
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
@@ -104,9 +113,13 @@ JSON Structure:
       }
       
       return { type: 'unknown', response: "I'm not sure how to help with that yet." };
-    } catch (error) {
-      console.error('[GeminiVoice] Intent parsing failed (likely quota limit). Falling back to Standard Mode.');
-      return this.parseOfflineCommand(transcript) || { type: 'unknown', response: "I'm having trouble with my advanced brain right now, and I couldn't catch that as a standard command." };
+    } catch (error: any) {
+      if (error.message === 'Gemini API Timeout') {
+        console.warn('[GeminiVoice] Gemini request timed out. Falling back to Standard Mode.');
+      } else {
+        console.error('[GeminiVoice] Intent parsing failed:', error);
+      }
+      return this.parseOfflineCommand(transcript) || { type: 'unknown', response: "Standard Mode couldn't match that command." };
     }
   }
 
@@ -129,11 +142,19 @@ Rules:
 `;
 
     try {
-      const result = await this.model.generateContent(prompt);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Summarization Timeout')), 8000)
+      );
+
+      const result = await Promise.race([
+        this.model.generateContent(prompt),
+        timeoutPromise
+      ]) as any;
+
       return result.response.text().trim();
     } catch (error) {
       console.error('[GeminiVoice] Summarization failed:', error);
-      return "I'm sorry, I'm having trouble summarizing that data.";
+      return "I'm sorry, I'm having trouble summarizing that data right now.";
     }
   }
 
