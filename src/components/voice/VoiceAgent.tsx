@@ -26,11 +26,16 @@ export const VoiceAgent: React.FC = () => {
     }
   }, [isListening, isTriggered, lastTranscript, status, stopListening, handleVoiceCommand, location.pathname]);
 
-  // Keyboard shortcut Ctrl + Space
+  // Keyboard shortcut handling (Ctrl + Space or Cmd + Space)
+  const isMac = typeof window !== 'undefined' && /Mac|iPhone|iPod|iPad/.test(navigator.userAgent);
+  const modifierKey = isMac ? 'Cmd' : 'Ctrl';
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Check for Ctrl + Space
-      if (e.ctrlKey && e.code === 'Space') {
+      // Check for Ctrl/Cmd + Space
+      const isModifierPressed = isMac ? e.metaKey : e.ctrlKey;
+      
+      if (isModifierPressed && e.code === 'Space') {
         e.preventDefault();
         
         // Use the native check to decide whether to start or stop
@@ -141,7 +146,7 @@ export const VoiceAgent: React.FC = () => {
       {/* Main Orb Button */}
       <div 
         className="pointer-events-auto group relative"
-        title={isListening ? "Stop (Ctrl + Space)" : "Talk with VeloAI (Ctrl + Space)"}
+        title={isListening ? `Stop (${modifierKey} + Space)` : `Talk with VeloAI (${modifierKey} + Space)`}
       >
         <div 
           ref={orbRef}

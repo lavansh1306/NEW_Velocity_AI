@@ -57,9 +57,13 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({ onTranscript, className 
         }
     }, [isListening, recognition]);
 
+    const isMac = typeof window !== 'undefined' && /Mac|iPhone|iPod|iPad/.test(navigator.userAgent);
+    const modifierKey = isMac ? 'Cmd' : 'Ctrl';
+
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.ctrlKey && e.code === 'Space') {
+            const isModifierPressed = isMac ? e.metaKey : e.ctrlKey;
+            if (isModifierPressed && e.code === 'Space') {
                 e.preventDefault();
                 toggleListening();
             }
@@ -78,7 +82,7 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({ onTranscript, className 
                 ? 'bg-red-50 text-red-500 animate-pulse border border-red-200 shadow-[0_0_15px_rgba(239,68,68,0.2)]' 
                 : 'bg-white text-[#78716C] hover:text-[#0F766E] hover:bg-[#F0FDFA] border border-[#E7E5E4] shadow-sm'
             } ${className}`}
-            title="Toggle Voice Input (Ctrl + Space)"
+            title={`Toggle Voice Input (${modifierKey} + Space)`}
         >
             {isListening ? (
                 <GraphicEqOutlined style={{ fontSize: 20 }} />
