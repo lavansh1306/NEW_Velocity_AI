@@ -11,7 +11,8 @@ export interface VoiceAction {
     query?: string;
     projectTitle?: string;
     projectDescription?: string;
-    projectName?: string; // NEW: Target project for a task
+    projectName?: string; // Target project for a task
+    assigneeName?: string; // NEW: Target team member for a task
     autoAnalyze?: boolean;
   };
   response?: string;
