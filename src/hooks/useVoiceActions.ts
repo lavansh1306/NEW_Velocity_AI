@@ -43,6 +43,11 @@ export const useVoiceActions = () => {
     try {
       const action = await geminiVoiceService.parseIntent(transcript, currentPath);
       
+      // Check if we are in fallback mode (Gemini error caught in service)
+      if (action.response?.includes("Standard Mode") || action.response?.includes("Standard command")) {
+        toast.info("Gemini is currently limited. Using Standard Mode.");
+      }
+      
       // 2. Handle Multi-turn Prompt
       if (action.prompt) {
         speak(action.prompt);

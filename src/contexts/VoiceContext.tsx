@@ -36,6 +36,7 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const audioCtxRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const nativeListeningRef = useRef<boolean>(false); // NEW: Track native state to prevent InvalidStateError
   const triggerPhrases = ['velocity', 'hey velocity', 'hi velocity', 'ok velocity'];
 
   // Initialize Speech Recognition
@@ -50,6 +51,7 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       recognition.onstart = () => {
         console.log('[VoiceContext] Speech recognition started');
+        nativeListeningRef.current = true;
         setIsListening(true);
         setStatus('listening');
       };
@@ -62,6 +64,7 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       };
 
       recognition.onerror = (event: any) => {
+        nativeListeningRef.current = false;
         if (event.error !== 'no-speech') {
           console.error('[VoiceContext] Speech recognition error:', event.error);
           if (event.error === 'not-allowed') {
@@ -78,6 +81,7 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       recognition.onend = () => {
         console.log('[VoiceContext] Speech recognition ended');
+        nativeListeningRef.current = false;
         setIsListening(false);
         (window as any).isListeningIntent = false;
         if (status !== 'error') setStatus('idle');
@@ -138,7 +142,11 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const startListening = useCallback(async () => {
-    if (isListening) return;
+    // Check both state AND native ref to be 100% sure we don't double-start
+    if (isListening || nativeListeningRef.current) {
+      console.warn('[VoiceContext] Already listening, ignoring start request');
+      return;
+    }
 
     try {
       await setupAudioProcessing();
@@ -148,14 +156,16 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       
       if (recognitionRef.current) {
         (window as any).isListeningIntent = true;
+        nativeListeningRef.current = true; // Set immediately to block rapid calls
         recognitionRef.current.start();
         setStatus('listening');
         setIsListening(true);
-        console.log('[VoiceContext] Native Speech Recognition started');
+        console.log('[VoiceContext] Native Speech Recognition start() called');
       } else {
         throw new Error('Speech Recognition not supported in this browser.');
       }
     } catch (err) {
+      nativeListeningRef.current = false;
       console.error('[VoiceContext] Error starting speech recognition:', err);
       setStatus('error');
       toast.error('Failed to access microphone or start speech recognition.');
@@ -163,9 +173,10 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [isListening]);
 
   const stopListening = useCallback(() => {
-    if (recognitionRef.current) {
+    if (recognitionRef.current && nativeListeningRef.current) {
       (window as any).isListeningIntent = false;
       recognitionRef.current.stop();
+      nativeListeningRef.current = false;
     }
     setIsListening(false);
     setIsTriggered(false);

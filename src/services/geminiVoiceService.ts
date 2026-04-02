@@ -33,15 +33,15 @@ class GeminiVoiceService {
 
   async parseIntent(transcript: string, currentPath: string): Promise<VoiceAction> {
     // 1. Try Direct Command Parsing first (Fast Path, No LLM Latency)
-    const directAction = this.parseDirectCommand(transcript);
+    const directAction = this.parseOfflineCommand(transcript);
     if (directAction) {
-      console.log('[GeminiVoice] Using Direct Command:', directAction);
+      console.log('[GeminiVoice] Using Offline Command:', directAction);
       return directAction;
     }
 
     if (!this.model) {
-      console.warn('[GeminiVoice] Gemini API not configured. Falling back to basic parsing.');
-      return this.fallbackParse(transcript);
+      console.warn('[GeminiVoice] Gemini API not configured. Using Standard Mode.');
+      return this.parseOfflineCommand(transcript) || { type: 'unknown', response: "Gemini is unavailable and I couldn't match that command locally." };
     }
 
     const systemPrompt = `
@@ -105,8 +105,8 @@ JSON Structure:
       
       return { type: 'unknown', response: "I'm not sure how to help with that yet." };
     } catch (error) {
-      console.error('[GeminiVoice] Intent parsing failed:', error);
-      return this.fallbackParse(transcript);
+      console.error('[GeminiVoice] Intent parsing failed (likely quota limit). Falling back to Standard Mode.');
+      return this.parseOfflineCommand(transcript) || { type: 'unknown', response: "I'm having trouble with my advanced brain right now, and I couldn't catch that as a standard command." };
     }
   }
 
@@ -144,7 +144,7 @@ Rules:
       .trim();
   }
 
-  private parseDirectCommand(transcript: string): VoiceAction | null {
+  private parseOfflineCommand(transcript: string): VoiceAction | null {
     const text = this.normalizeTranscript(transcript);
     
     // 1. Navigation Shortcuts
@@ -297,23 +297,49 @@ Rules:
       }
     }
 
+    // 3. Search Intent
+    if (text.includes('search for') || text.includes('find') || text.includes('lookup')) {
+      const query = text.replace(/search for|find|lookup/i, '').trim();
+      if (query) {
+        return {
+          type: 'search',
+          params: { query },
+          response: `Searching for "${query}".`
+        };
+      }
+    }
+
+    // 4. Gantt/Resource Queries (Basic detection)
+    if (text.includes('timeline') || text.includes('gantt') || text.includes('when is') || text.includes('due date')) {
+      return {
+        type: 'gantt_query',
+        params: { query: text },
+        response: "Let me check the project timeline for you."
+      };
+    }
+
+    if (text.includes('who is busy') || text.includes('who has') || text.includes('workload') || text.includes('capacity') || text.includes('how many')) {
+      return {
+        type: 'resource_query',
+        params: { query: text },
+        response: "I'll pull up that information for you."
+      };
+    }
+
+    // 5. Navigation Fallback (Stricter - requires a verb or clear intent)
+    const navVerbs = ['go to', 'open', 'show', 'navigate to', 'take me to', 'view'];
+    const hasNavVerb = navVerbs.some(v => text.includes(v));
+    
+    for (const [key, path] of Object.entries(navTargets)) {
+      // Only navigate if it's a clear 'go to' command or ONLY the keyword was said
+      if ((hasNavVerb && text.includes(key)) || text === key) {
+        return { type: 'navigate', target: path, response: `Opening ${key}.` };
+      }
+    }
+
     return null;
   }
 
-  private fallbackParse(transcript: string): VoiceAction {
-    const text = transcript.toLowerCase();
-    
-    // Quick basic fallback before LLM
-    if (text.includes('dashboard')) return { type: 'navigate', target: '/dashboard', response: "Opening dashboard." };
-    if (text.includes('project')) {
-      if (text.includes('add') || text.includes('new') || text.includes('create')) {
-        return { type: 'create_project', params: {}, response: "Opening project planner." };
-      }
-      return { type: 'navigate', target: '/projects', response: "Opening projects." };
-    }
-    
-    return { type: 'unknown', response: "I heard you, but I'm not sure what you'd like me to do." };
-  }
 }
 
 export const geminiVoiceService = new GeminiVoiceService();

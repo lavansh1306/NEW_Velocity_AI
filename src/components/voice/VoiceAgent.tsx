@@ -29,16 +29,25 @@ export const VoiceAgent: React.FC = () => {
   // Keyboard shortcut Ctrl + Space
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Check for Ctrl + Space
       if (e.ctrlKey && e.code === 'Space') {
         e.preventDefault();
-        if (isListening) stopListening();
-        else startListening();
+        
+        // Use the native check to decide whether to start or stop
+        // Status checks are more reliable than the boolean state for rapid events
+        if (isListening || status === 'listening' || status === 'connecting') {
+          console.log('[VoiceAgent] Shortcut: Stopping');
+          stopListening();
+        } else {
+          console.log('[VoiceAgent] Shortcut: Starting');
+          startListening();
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isListening, startListening, stopListening]);
+  }, [isListening, status, startListening, stopListening]);
 
   // GSAP Animations for the Orb
   useEffect(() => {
