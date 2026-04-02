@@ -55,7 +55,7 @@ Action Types & Parameters:
 1. navigate: { target: "/dashboard" | "/projects" | "/people" | "/plan" | "/settings" }
 2. create_project: { projectTitle: "string", projectDescription: "string", autoAnalyze: boolean } (Use this for "Add project", "Plan project", etc.)
 3. add_team_member: { name: "string", email: "string", role: "string" }
-4. create_task: { taskName: "string", projectName: "string (optional)" } (e.g., "Add task X to the Project Y")
+4. create_task: { taskName: "string", projectName: "string (optional)", assigneeName: "string (optional)" } (e.g., "Add task X for project Y and assign it to John")
 5. delete_team_member: { name: "string" }
 6. search: { query: "string" }
 7. info: { response: "Natural spoken answer" }
@@ -84,6 +84,7 @@ JSON Structure:
     "role": "string",
     "taskName": "string",
     "projectName": "string",
+    "assigneeName": "string",
     "query": "string"
   },
   "response": "Brief spoken confirmation of what you extracted",
