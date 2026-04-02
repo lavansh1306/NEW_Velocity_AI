@@ -5,6 +5,7 @@ import { getDashboardData } from '@/services/dashboardService';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
+import { useLeaveManagementData } from './useLeaveManagementData';
 
 export const useVoiceActions = () => {
   const navigate = useNavigate();
@@ -17,7 +18,8 @@ export const useVoiceActions = () => {
     startListening,
     status 
   } = useVoice();
-  const { orgId } = useAuth();
+  const { orgId, user: authUser } = useAuth();
+  const { leaves, balances, leaveTypes, addLeaveRequest } = useLeaveManagementData();
 
   const handleVoiceCommand = async (transcript: string, currentPath: string) => {
     // 0. Guard against multiple concurrent commands
@@ -255,6 +257,73 @@ export const useVoiceActions = () => {
         const summary = await geminiVoiceService.summarizeData(data, action.params?.query || action.type.replace('_', ' '));
         speak(summary);
         toast.info(summary);
+        break;
+
+      case 'request_leave':
+        const { startDate, endDate, reason, leaveType } = action.params || {};
+        
+        try {
+          // 1. Resolve Leave Type ID
+          let typeId = leaveTypes[0]?.id; // Default to first (usually Annual/Sick)
+          if (leaveType) {
+             const matched = leaveTypes.find(t => t.name.toLowerCase().includes(leaveType.toLowerCase()));
+             if (matched) typeId = matched.id;
+          }
+
+          // 2. Format Dates
+          const parseDate = (d: string) => {
+            if (d === 'tomorrow') {
+              const date = new Date();
+              date.setDate(date.getDate() + 1);
+              return date.toISOString().split('T')[0];
+            }
+            if (d === 'today') return new Date().toISOString().split('T')[0];
+            // Simple string date parsing (YYYY-MM-DD or Month Day)
+            try {
+              const parsed = new Date(d);
+              if (!isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0];
+            } catch {}
+            return new Date().toISOString().split('T')[0];
+          };
+
+          const sDate = parseDate(startDate || 'tomorrow');
+          const eDate = parseDate(endDate || startDate || 'tomorrow');
+
+          await addLeaveRequest({
+            startDate: sDate,
+            endDate: eDate,
+            reason: reason || 'Voice Request',
+            leave_type_id: typeId
+          });
+
+          const msg = `Leave request submitted for ${sDate}${eDate !== sDate ? ` to ${eDate}` : ''}.`;
+          speak(msg);
+          toast.success(msg);
+          
+          if (currentPath !== '/leave') {
+            navigate('/leave');
+          }
+        } catch (err: any) {
+          console.error('[VoiceActions] Leave request failed:', err);
+          speak("I'm sorry, I couldn't submit your leave request. Please check your balance.");
+        }
+        break;
+
+      case 'get_leave_status':
+        if (!leaves || leaves.length === 0) {
+          speak("You don't have any recent leave requests.");
+          break;
+        }
+
+        const myLeaves = leaves.filter(l => l.user_id === authUser?.id);
+        if (myLeaves.length === 0) {
+          speak("I couldn't find any leave requests for you.");
+        } else {
+          const latest = myLeaves[0];
+          const statusMsg = `Your request for ${latest.startDate} is currently ${latest.status}.`;
+          speak(statusMsg);
+          toast.info(statusMsg);
+        }
         break;
 
       case 'info':

@@ -16,7 +16,8 @@ export const VoiceAgent: React.FC = () => {
   useEffect(() => {
     // If we transition from listening/processing to idle and have a transcript, execute it
     if (!isListening && isTriggered && lastTranscript && status === 'idle') {
-      console.log('[VoiceAgent] Recognition finished, processing transcript:', lastTranscript);
+      console.log('[VoiceAgent] Recognition finished, breaking loop and processing:', lastTranscript);
+      stopListening(); // CRITICAL: Reset trigger state immediately to prevent infinite loop
       handleVoiceCommand(lastTranscript, location.pathname);
     }
     
@@ -79,11 +80,14 @@ export const VoiceAgent: React.FC = () => {
         boxShadow: "0 0 20px rgba(16, 185, 129, 0.6)"
       });
     } else if (status === 'connecting' || status === 'processing') {
+      // Pulsing glow instead of rotating the whole button
       gsap.to(orbRef.current, {
-        rotation: 360,
+        scale: 1.15,
+        duration: 0.8,
         repeat: -1,
-        duration: 1,
-        ease: "none"
+        yoyo: true,
+        ease: "sine.inOut",
+        backgroundColor: status === 'connecting' ? '#93C5FD' : '#F59E0B' // Blue for connecting, Amber for processing
       });
     } else if (status === 'speaking') {
       gsap.to(orbRef.current, {

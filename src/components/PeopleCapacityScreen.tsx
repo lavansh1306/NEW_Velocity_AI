@@ -41,6 +41,7 @@ import { peopleService } from '../services/peopleService';
 import { setupProgressService } from '../services/setupProgressService';
 import { PeopleEmptyState } from './people/PeopleEmptyState';
 import { useVoice } from '@/contexts/VoiceContext';
+import { findBestMatch } from '@/lib/utils';
 import { roleService } from '../services/roleService';
 import type { TeamMemberView, PendingSkillView, PersonDetailView } from '../types';
 
@@ -169,7 +170,7 @@ const AddTeamMemberModal = ({
 
     const validateMember = () => {
         const errors: Record<string, string> = {};
-        const nameErr = validators.name(name, 'Full name');
+        const nameErr = validators.required(name, 'Full name');
         if (nameErr) errors.name = nameErr;
         const emailErr = validators.email(email);
         if (emailErr) errors.email = emailErr;
@@ -471,7 +472,7 @@ Charlie Brown,charlie.brown@company.com,QA Engineer,Selenium Jest Testing,70`;
                             <div className="space-y-4">
                         <div className="space-y-2">
                             <Label className="text-xs font-medium text-[#737373] uppercase tracking-wide">Full Name</Label>
-                            <Input value={name} onChange={(e) => { setName(e.target.value); if (memberAttempted) setMemberErrors(prev => ({ ...prev, name: validators.name(e.target.value, 'Full name') })); }} className={`h-10 bg-white ${memberErrors.name ? 'border-[#BE123C]' : 'border-[#E5E5E5]'}`} placeholder="e.g. Jane Doe" />
+                            <Input value={name} onChange={(e) => { setName(e.target.value); if (memberAttempted) setMemberErrors(prev => ({ ...prev, name: validators.required(e.target.value, 'Full name') })); }} className={`h-10 bg-white ${memberErrors.name ? 'border-[#BE123C]' : 'border-[#E5E5E5]'}`} placeholder="e.g. Jane Doe" />
                             <FormError message={memberErrors.name} />
                         </div>
 
@@ -694,11 +695,7 @@ export const PeopleCapacityScreen = () => {
             const name = pendingVoiceDelete.replace(/[.,!?;:]+$/, '').trim();
             console.log(`[PeopleCapacityScreen] Attempting voice delete for: "${name}"`);
             
-            const member = teamMembers.find(m => {
-                const memberName = m.name.toLowerCase();
-                const searchName = name.toLowerCase();
-                return memberName.includes(searchName) || searchName.includes(memberName);
-            });
+            const member = findBestMatch(name, teamMembers, (m) => m.name);
 
             if (member) {
                 console.log(`[PeopleCapacityScreen] Found member for voice delete: ${member.name} (${member.id})`);
