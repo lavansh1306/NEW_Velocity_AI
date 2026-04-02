@@ -50,10 +50,10 @@ export interface ValidationRule {
  */
 export interface ScoringWeights {
   employeeRating: number; // 0.0-1.0 (higher rating = more approval)
-  leaveBalance: number; // 0.0-1.0 (more balance = more approval)
-  teamCapacity: number; // 0.0-1.0 (more team = more approval)
-  absenceType: number; // 0.0-1.0 (medical/family higher than vacation)
-  blackoutDate: number; // 0.0-1.0 (penalty for blackout dates)
+  leaveBalance: number;   // 0.0-1.0 (more balance = more approval)
+  teamCapacity: number;   // 0.0-1.0 (more team = more approval)
+  absenceType: number;    // 0.0-1.0 (medical/family higher than vacation)
+  blackoutDate: number;   // 0.0-1.0 (penalty for blackout dates)
 }
 
 // Default weights - adjust based on your business rules
@@ -69,7 +69,6 @@ export const DEFAULT_WEIGHTS: ScoringWeights = {
 const validationRules: ValidationRule[] = [];
 let scoringWeights: ScoringWeights = DEFAULT_WEIGHTS;
 
-
 /**
  * Calculate weighted score for a leave request
  * Returns score between 0-100
@@ -79,7 +78,7 @@ export function calculateWeightedScore(
   context?: any
 ): number {
   let score = 50; // Start at neutral
-  
+
   // 1. Employee Rating (0-5) → maps to -20 to +20
   if (leave.employeeRating) {
     const ratingScore = ((leave.employeeRating / 5) * 40) - 20;
@@ -100,7 +99,7 @@ export function calculateWeightedScore(
 
   // 4. Absence Type → different thresholds
   if (leave.absenceType) {
-    const typeScore = 
+    const typeScore =
       leave.absenceType === 'medical' ? 15 :
       leave.absenceType === 'family' ? 10 :
       leave.absenceType === 'vacation' ? 0 : -5;
@@ -128,24 +127,24 @@ export async function approveLeaveRequest(
   leave: LeaveRequest,
   context?: any
 ): Promise<ApprovalResult> {
-  const timestamp = new Date().toISOString()
-  let approved = false
-  let reason = ''
-  let decisionMethod: 'weighted-scoring' = 'weighted-scoring'
-  let confidence = 95
-  let weightedScore = calculateWeightedScore(leave, context)
+  const timestamp = new Date().toISOString();
+  let approved = false;
+  let reason = '';
+  let decisionMethod: 'weighted-scoring' = 'weighted-scoring';
+  let confidence = 95;
+  let weightedScore = calculateWeightedScore(leave, context);
 
   // Run validation rules first (gate-keeping)
-  const validationsPassed: string[] = []
-  const validationsFailed: string[] = []
+  const validationsPassed: string[] = [];
+  const validationsFailed: string[] = [];
 
   for (const rule of validationRules) {
     try {
-      const result = await rule.validate(leave, context)
+      const result = await rule.validate(leave, context);
       if (result.passed) {
-        validationsPassed.push(rule.name)
+        validationsPassed.push(rule.name);
       } else {
-        validationsFailed.push(rule.name)
+        validationsFailed.push(rule.name);
         // Critical rules block approval immediately
         if (rule.priority === 'critical') {
           return {
@@ -158,20 +157,27 @@ export async function approveLeaveRequest(
             timestamp,
             decisionMethod: 'weighted-scoring',
             weightedScore
-          }
+          };
         }
       }
     } catch (error) {
-      console.error(`[LeaveApprovalAgent] Error in ${rule.name}:`, error)
-      validationsFailed.push(`${rule.name} (error)`)
+      console.error(`[LeaveApprovalAgent] Error in ${rule.name}:`, error);
+      validationsFailed.push(`${rule.name} (error)`);
     }
   }
 
-  // Decision routing - always approve
-  approved = true
-  reason = `Auto-approved: weighted score ${weightedScore}/100`
-  confidence = 100
-  decisionMethod = 'weighted-scoring'
+  // Decision routing - uses weighted score as designed
+  if (weightedScore > 50) {
+    approved = true;
+    reason = `Approved: weighted score ${weightedScore}/100 meets threshold`;
+    // Higher confidence the further above 50 the score is
+    confidence = Math.min(99, 50 + weightedScore / 2);
+  } else {
+    approved = false;
+    reason = `Rejected: weighted score ${weightedScore}/100 does not meet threshold (minimum 51)`;
+    // Higher confidence the further below 50 the score is
+    confidence = Math.min(99, 50 + (50 - weightedScore) / 2);
+  }
 
   return {
     leaveId: leave.id,
@@ -183,7 +189,7 @@ export async function approveLeaveRequest(
     timestamp,
     decisionMethod,
     weightedScore
-  }
+  };
 }
 
 /**
@@ -191,22 +197,22 @@ export async function approveLeaveRequest(
  * Usage: registerValidationRule({ name: "CheckCapacity", validate: async (leave) => ... })
  */
 export function registerValidationRule(rule: ValidationRule): void {
-  validationRules.push(rule)
-  console.log(`[LeaveApprovalAgent] Registered validation rule: ${rule.name}`)
+  validationRules.push(rule);
+  console.log(`[LeaveApprovalAgent] Registered validation rule: ${rule.name}`);
 }
 
 /**
  * Get all registered validation rules
  */
 export function getValidationRules(): ValidationRule[] {
-  return [...validationRules]
+  return [...validationRules];
 }
 
 /**
  * Clear all validation rules (useful for testing or resetting)
  */
 export function clearValidationRules(): void {
-  validationRules.length = 0
+  validationRules.length = 0;
 }
 
 /**
@@ -216,29 +222,29 @@ export async function approveBatchLeaveRequests(
   leaves: LeaveRequest[],
   context?: any
 ): Promise<ApprovalResult[]> {
-  const results: ApprovalResult[] = []
-  
+  const results: ApprovalResult[] = [];
+
   for (const leave of leaves) {
-    const result = await approveLeaveRequest(leave, context)
-    results.push(result)
+    const result = await approveLeaveRequest(leave, context);
+    results.push(result);
   }
-  
-  return results
+
+  return results;
 }
 
 /**
  * Set custom weights for scoring system
  */
 export function setScoringWeights(weights: Partial<ScoringWeights>): void {
-  scoringWeights = { ...DEFAULT_WEIGHTS, ...weights }
-  console.log('[LeaveApprovalAgent] Scoring weights updated:', scoringWeights)
+  scoringWeights = { ...DEFAULT_WEIGHTS, ...weights };
+  console.log('[LeaveApprovalAgent] Scoring weights updated:', scoringWeights);
 }
 
 /**
  * Get current scoring weights
  */
 export function getScoringWeights(): ScoringWeights {
-  return { ...scoringWeights }
+  return { ...scoringWeights };
 }
 
 /**
