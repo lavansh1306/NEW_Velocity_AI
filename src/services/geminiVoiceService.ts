@@ -247,6 +247,36 @@ Rules:
       }
     }
 
+    // 1c. Task Creation (Robust Extraction)
+    const isTaskCommand = text.includes('task') || text.startsWith('add ') || text.startsWith('create ');
+    if (isTaskCommand && !isProjectCreate) {
+      // Regex for "Add [Task] for [Project] project" or "Add [Task] to [Project]"
+      const taskWithProjectRegex = /(?:add|create|new)\s+(?:task\s+)?(.*?)\s+(?:for|to|in)\s+(?:the\s+)?(.*?)(?:\s+project)?$/i;
+      const match = text.match(taskWithProjectRegex);
+      
+      if (match) {
+        return {
+          type: 'create_task',
+          params: {
+            taskName: match[1]?.trim(),
+            projectName: match[2]?.trim()
+          },
+          response: `Standard Mode: I'll add "${match[1]?.trim()}" to project "${match[2]?.trim()}".`
+        };
+      }
+
+      // Fallback for just "Add task [Name]"
+      const simpleTaskRegex = /(?:add|create|new)\s+task\s+(.*)/i;
+      const simpleMatch = text.match(simpleTaskRegex);
+      if (simpleMatch) {
+         return {
+          type: 'create_task',
+          params: { taskName: simpleMatch[1]?.trim() },
+          response: `Standard Mode: Adding task "${simpleMatch[1]?.trim()}" for you.`
+        };
+      }
+    }
+
     // 2. Add Team Member (Robust Extraction)
     const roleMapping: Record<string, string> = {
       'front end': 'Frontend Developer',
@@ -321,7 +351,8 @@ Rules:
       }
     }
 
-    // 3. Search Intent
+
+    // 4. Search Intent
     if (text.includes('search for') || text.includes('find') || text.includes('lookup')) {
       const query = text.replace(/search for|find|lookup/i, '').trim();
       if (query) {
