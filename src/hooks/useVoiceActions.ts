@@ -17,45 +17,8 @@ export const useVoiceActions = () => {
     stopListening,
   } = useVoice();
 
-  // Track confirmation timeout so we can cancel it
   const confirmationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Track how many times we've re-asked (max 2 retries)
   const confirmationRetryRef = useRef(0);
-
-  /**
-   * Waits for speech synthesis to finish, THEN starts listening.
-   * This prevents the mic from picking up the agent's own voice.
-   */
-  const listenAfterSpeech = (delayMs = 400) => {
-    // If speech synthesis is active, wait for it to end before listening
-    if ('speechSynthesis' in window && window.speechSynthesis.speaking) {
-      const checkDone = setInterval(() => {
-        if (!window.speechSynthesis.speaking) {
-          clearInterval(checkDone);
-          setTimeout(() => startListening(), delayMs);
-        }
-      }, 100);
-      // Safety cutoff after 8 seconds — don't wait forever
-      setTimeout(() => clearInterval(checkDone), 8000);
-    } else {
-      setTimeout(() => startListening(), delayMs);
-    }
-  };
-
-  /**
-   * Schedule auto-cancel if user says nothing within 10 seconds
-   */
-  const scheduleConfirmationTimeout = () => {
-    if (confirmationTimeoutRef.current) {
-      clearTimeout(confirmationTimeoutRef.current);
-    }
-    confirmationTimeoutRef.current = setTimeout(() => {
-      setPendingConfirmation(null);
-      confirmationRetryRef.current = 0;
-      speak("No response received. Action cancelled.");
-      toast.info("Action cancelled — no response");
-    }, 10000);
-  };
 
   const clearConfirmationTimeout = () => {
     if (confirmationTimeoutRef.current) {
@@ -64,11 +27,65 @@ export const useVoiceActions = () => {
     }
   };
 
+  const scheduleConfirmationTimeout = () => {
+    clearConfirmationTimeout();
+    confirmationTimeoutRef.current = setTimeout(() => {
+      setPendingConfirmation(null);
+      confirmationRetryRef.current = 0;
+      speak("No response received. Action cancelled.");
+      toast.info("Action cancelled — no response");
+    }, 12000);
+  };
+
+  /**
+   * Waits for speech synthesis to actually START then END,
+   * then opens the mic. Uses utterance events instead of polling.
+   */
+  const listenAfterSpeech = (extraDelayMs = 600) => {
+    // If nothing is queued to speak, just listen after a short delay
+    if (!('speechSynthesis' in window)) {
+      setTimeout(() => startListening(), extraDelayMs);
+      return;
+    }
+
+    const synth = window.speechSynthesis;
+
+    // Poll until speech starts (max 3s wait)
+    let started = false;
+    let elapsed = 0;
+    const waitForStart = setInterval(() => {
+      elapsed += 100;
+      if (synth.speaking) {
+        started = true;
+        clearInterval(waitForStart);
+        // Now wait for it to finish
+        const waitForEnd = setInterval(() => {
+          if (!synth.speaking) {
+            clearInterval(waitForEnd);
+            console.log('[VoiceActions] Speech ended, starting mic in', extraDelayMs, 'ms');
+            setTimeout(() => startListening(), extraDelayMs);
+          }
+        }, 100);
+        // Safety cutoff — don't wait more than 10s for speech to end
+        setTimeout(() => clearInterval(waitForEnd), 10000);
+      }
+      // If speech never started after 3s, listen anyway
+      if (elapsed >= 3000 && !started) {
+        clearInterval(waitForStart);
+        console.log('[VoiceActions] Speech never started, listening anyway');
+        setTimeout(() => startListening(), extraDelayMs);
+      }
+    }, 100);
+  };
+
   const handleVoiceCommand = async (transcript: string, currentPath: string) => {
+    console.log('[VoiceActions] handleVoiceCommand:', transcript, '| pendingConfirmation:', !!pendingConfirmation);
+
     // ─── 1. Handle Pending Confirmation ──────────────────────────────────────
     if (pendingConfirmation) {
       clearConfirmationTimeout();
       const text = transcript.toLowerCase().trim();
+      console.log('[VoiceActions] Confirmation response:', text);
 
       const isConfirmed =
         text.includes('yes') ||
@@ -77,7 +94,9 @@ export const useVoiceActions = () => {
         text.includes('ok') ||
         text.includes('do it') ||
         text.includes('go ahead') ||
-        text.includes('approve');
+        text.includes('approve') ||
+        text.includes('yeah') ||
+        text.includes('yep');
 
       const isCancelled =
         text.includes('no') ||
@@ -101,21 +120,17 @@ export const useVoiceActions = () => {
         toast.info("Action cancelled");
 
       } else {
-        // Unrecognised response — retry up to 2 times then cancel
         confirmationRetryRef.current += 1;
-
         if (confirmationRetryRef.current >= 2) {
-          // Too many retries — cancel to avoid infinite loop
           setPendingConfirmation(null);
           confirmationRetryRef.current = 0;
           speak("I couldn't understand. Action cancelled.");
           toast.info("Action cancelled — unclear response");
         } else {
-          // Re-ask and re-listen
-          speak("Sorry, I didn't catch that. Please say yes to confirm or no to cancel.");
+          speak("Sorry, say yes to confirm or no to cancel.");
           toast.warning("Say yes or no");
           scheduleConfirmationTimeout();
-          listenAfterSpeech(500);
+          listenAfterSpeech(600);
         }
       }
       return;
@@ -127,25 +142,20 @@ export const useVoiceActions = () => {
     try {
       const action = await geminiVoiceService.parseIntent(transcript, currentPath);
 
-      // Multi-turn: agent needs more info
       if (action.prompt) {
         speak(action.prompt);
         toast.info(action.prompt);
-        // Wait for speech to finish before re-listening
         listenAfterSpeech(500);
         return;
       }
 
-      // Confirmation gate: destructive actions need yes/no
       if (action.requiresConfirmation) {
         setPendingConfirmation(action);
         confirmationRetryRef.current = 0;
         const confirmMsg = action.response || `I'm about to ${action.type.replace(/_/g, ' ')}. Are you sure?`;
         speak(confirmMsg);
         toast.warning("Say yes to confirm or no to cancel");
-        // Schedule auto-cancel if user doesn't respond
         scheduleConfirmationTimeout();
-        // Wait for speech to finish THEN listen — prevents mic picking up agent voice
         listenAfterSpeech(600);
         return;
       }
@@ -158,7 +168,7 @@ export const useVoiceActions = () => {
       await executeAction(action, currentPath);
 
     } catch (error) {
-      console.error('[useVoiceActions] Failed to handle command:', error);
+      console.error('[VoiceActions] Failed to handle command:', error);
       toast.error("Sorry, I had trouble processing that command.");
     } finally {
       setProcessing(false);
@@ -168,14 +178,11 @@ export const useVoiceActions = () => {
   const executeAction = async (action: VoiceAction, currentPath: string) => {
     switch (action.type) {
       case 'navigate':
-        if (action.target) {
-          navigate(action.target);
-        }
+        if (action.target) navigate(action.target);
         break;
 
       case 'create_project':
         const { projectTitle, projectDescription, autoAnalyze } = action.params || {};
-        console.log('[VoiceActions] Navigating to plan with:', { projectTitle, projectDescription, autoAnalyze });
         navigate('/plan', {
           state: {
             voiceTitle: projectTitle,
@@ -195,9 +202,7 @@ export const useVoiceActions = () => {
           enqueueAction(action);
           navigate('/people');
         } else {
-          window.dispatchEvent(new CustomEvent('velo-add-member', {
-            detail: { name, email, role }
-          }));
+          window.dispatchEvent(new CustomEvent('velo-add-member', { detail: { name, email, role } }));
         }
         break;
 
@@ -206,9 +211,7 @@ export const useVoiceActions = () => {
           enqueueAction(action);
           navigate('/people');
         } else {
-          window.dispatchEvent(new CustomEvent('velo-delete-member', {
-            detail: { name: action.params?.name }
-          }));
+          window.dispatchEvent(new CustomEvent('velo-delete-member', { detail: { name: action.params?.name } }));
         }
         break;
 
@@ -229,7 +232,7 @@ export const useVoiceActions = () => {
 
       default:
         if (action.type !== 'unknown') {
-          console.warn('[useVoiceActions] Unknown action type:', action.type);
+          console.warn('[VoiceActions] Unknown action type:', action.type);
         }
         break;
     }
