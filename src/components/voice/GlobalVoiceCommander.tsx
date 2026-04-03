@@ -4,11 +4,6 @@ import { useVoice } from '@/contexts/VoiceContext';
 import { useVoiceActions } from '@/hooks/useVoiceActions';
 import { MicOutlined, AutoAwesomeOutlined } from '@mui/icons-material';
 
-/**
- * GlobalVoiceCommander
- * Ctrl+Space from anywhere → full-screen overlay with mic orb
- * Matches Velocity AI dark sidebar theme (#1C1917, teal #2DD4BF)
- */
 export const GlobalVoiceCommander: React.FC = () => {
   const location = useLocation();
   const {
@@ -26,7 +21,6 @@ export const GlobalVoiceCommander: React.FC = () => {
   const hasProcessed = useRef(false);
   const isOpen = isListening || status === 'processing' || status === 'speaking' || !!pendingConfirmation;
 
-  // Process transcript when it arrives
   useEffect(() => {
     if (lastTranscript && !hasProcessed.current) {
       hasProcessed.current = true;
@@ -36,21 +30,13 @@ export const GlobalVoiceCommander: React.FC = () => {
     }
   }, [lastTranscript, location.pathname, handleVoiceCommand, clearTranscript]);
 
-  // Global Ctrl+Space hotkey
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.ctrlKey && e.code === 'Space') {
       e.preventDefault();
-      if (isListening) {
-        stopListening();
-      } else {
-        startListening();
-      }
+      if (isListening) { stopListening(); } else { startListening(); }
       return;
     }
-    if (e.code === 'Escape' && isOpen) {
-      e.preventDefault();
-      stopListening();
-    }
+    if (e.code === 'Escape' && isOpen) { e.preventDefault(); stopListening(); }
   }, [isListening, isOpen, startListening, stopListening]);
 
   useEffect(() => {
@@ -61,6 +47,9 @@ export const GlobalVoiceCommander: React.FC = () => {
   if (!isOpen) return null;
 
   const vol = Math.min(volumeLevel / 80, 1);
+  const isActive = status === 'listening';
+  const isProcessing = status === 'processing';
+  const isSpeaking = status === 'speaking';
 
   const statusLabel = {
     listening: 'Listening...',
@@ -71,10 +60,6 @@ export const GlobalVoiceCommander: React.FC = () => {
     idle: pendingConfirmation ? 'Say yes or no' : 'Ready',
   }[status] ?? 'Ready';
 
-  const isActive = status === 'listening';
-  const isProcessing = status === 'processing';
-  const isSpeaking = status === 'speaking';
-
   const exampleCommands = [
     { icon: '→', text: 'Go to projects' },
     { icon: '✦', text: 'Plan a React dashboard project' },
@@ -83,12 +68,17 @@ export const GlobalVoiceCommander: React.FC = () => {
     { icon: '×', text: 'Remove John from the team' },
   ];
 
+  // Purple palette
+  const purple = '#8b5cf6';
+  const purpleLight = '#a78bfa';
+  const purpleDark = '#6d28d9';
+
   return (
     <div
       className="fixed inset-0 z-[9999] flex items-center justify-center"
       style={{
-        backdropFilter: 'blur(12px)',
-        background: 'rgba(12, 10, 9, 0.75)',
+        backdropFilter: 'blur(18px)',
+        background: 'rgba(219, 225, 243, 0.6)',
       }}
       onClick={(e) => { if (e.target === e.currentTarget) stopListening(); }}
     >
@@ -96,160 +86,126 @@ export const GlobalVoiceCommander: React.FC = () => {
       <div
         className="flex flex-col items-center gap-6 rounded-2xl px-10 py-10"
         style={{
-          background: 'rgba(28, 25, 23, 0.97)',
-          border: '1px solid rgba(45, 212, 191, 0.15)',
-          boxShadow: '0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(45,212,191,0.06)',
+          background: 'rgba(255, 255, 255, 0.88)',
+          border: '1px solid rgba(139, 92, 246, 0.18)',
+          boxShadow: '0 24px 60px rgba(109,40,217,0.12), 0 2px 8px rgba(139,92,246,0.08)',
           minWidth: 380,
           maxWidth: 440,
         }}
       >
-        {/* Velocity AI badge */}
+        {/* Badge */}
         <div className="flex items-center gap-2">
-          <AutoAwesomeOutlined style={{ fontSize: 13, color: '#2DD4BF' }} />
-          <span style={{ color: '#2DD4BF', fontSize: 11, fontWeight: 500, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+          <AutoAwesomeOutlined style={{ fontSize: 13, color: purple }} />
+          <span style={{ color: purple, fontSize: 11, fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
             Velocity AI
           </span>
         </div>
 
         {/* Orb */}
         <div className="relative flex items-center justify-center" style={{ width: 120, height: 120 }}>
-          {/* Pulse rings when listening */}
           {isActive && (
             <>
-              <div
-                className="absolute rounded-full"
-                style={{
-                  width: 120 + vol * 60,
-                  height: 120 + vol * 60,
-                  border: `1px solid rgba(45,212,191,${0.1 + vol * 0.2})`,
-                  transition: 'all 80ms ease',
-                }}
-              />
-              <div
-                className="absolute rounded-full"
-                style={{
-                  width: 100 + vol * 40,
-                  height: 100 + vol * 40,
-                  border: `1px solid rgba(45,212,191,${0.18 + vol * 0.25})`,
-                  transition: 'all 80ms ease',
-                }}
-              />
+              <div className="absolute rounded-full" style={{
+                width: 120 + vol * 60, height: 120 + vol * 60,
+                border: `1px solid rgba(139,92,246,${0.1 + vol * 0.2})`,
+                transition: 'all 80ms ease',
+              }} />
+              <div className="absolute rounded-full" style={{
+                width: 100 + vol * 40, height: 100 + vol * 40,
+                border: `1px solid rgba(139,92,246,${0.2 + vol * 0.25})`,
+                transition: 'all 80ms ease',
+              }} />
             </>
           )}
 
-          {/* Core orb */}
           <div
             className="relative flex items-center justify-center rounded-full"
             style={{
-              width: 88,
-              height: 88,
+              width: 88, height: 88,
               background: isProcessing
-                ? 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)'
+                ? `linear-gradient(135deg, #4c1d95, #6d28d9)`
                 : isSpeaking
-                ? 'linear-gradient(135deg, #134e4a 0%, #0f766e 100%)'
+                ? `linear-gradient(135deg, #5b21b6, #7c3aed)`
                 : isActive
-                ? 'linear-gradient(135deg, #0c2e2b 0%, #0d9488 100%)'
-                : 'linear-gradient(135deg, #1c1917 0%, #292524 100%)',
-              border: isActive
-                ? '2px solid #2DD4BF'
-                : isSpeaking
-                ? '2px solid #0d9488'
-                : '2px solid rgba(45,212,191,0.2)',
+                ? `linear-gradient(135deg, ${purpleDark}, ${purple})`
+                : `linear-gradient(135deg, #ede9fe, #ddd6fe)`,
+              border: isActive || isSpeaking || isProcessing
+                ? `2px solid ${purple}`
+                : `2px solid rgba(139,92,246,0.3)`,
               boxShadow: isActive
-                ? `0 0 ${20 + vol * 30}px rgba(45,212,191,${0.3 + vol * 0.35})`
-                : isSpeaking
-                ? '0 0 20px rgba(13,148,136,0.4)'
-                : '0 4px 20px rgba(0,0,0,0.5)',
+                ? `0 0 ${20 + vol * 30}px rgba(139,92,246,${0.35 + vol * 0.35})`
+                : isProcessing || isSpeaking
+                ? `0 0 24px rgba(109,40,217,0.5)`
+                : `0 4px 16px rgba(139,92,246,0.2)`,
               transition: 'all 80ms ease',
               cursor: 'pointer',
             }}
             onClick={() => isListening ? stopListening() : startListening()}
           >
             {isActive ? (
-              /* Sound wave bars */
               <div className="flex items-center gap-[3px]">
                 {[0.5, 0.9, 0.6, 1, 0.7, 0.85, 0.5].map((h, i) => (
-                  <div
-                    key={i}
-                    className="rounded-full"
-                    style={{
-                      width: 3,
-                      height: `${5 + vol * 20 * h}px`,
-                      background: '#2DD4BF',
-                      transition: 'height 80ms ease',
-                    }}
-                  />
+                  <div key={i} className="rounded-full" style={{
+                    width: 3,
+                    height: `${5 + vol * 20 * h}px`,
+                    background: 'white',
+                    transition: 'height 80ms ease',
+                  }} />
                 ))}
               </div>
             ) : isProcessing ? (
-              /* Bouncing dots */
               <div className="flex items-center gap-1.5">
                 {[0, 1, 2].map(i => (
-                  <div
-                    key={i}
-                    className="rounded-full"
-                    style={{
-                      width: 7,
-                      height: 7,
-                      background: '#818cf8',
-                      animation: `velo-bounce 1s ease-in-out ${i * 0.18}s infinite`,
-                    }}
-                  />
+                  <div key={i} className="rounded-full" style={{
+                    width: 7, height: 7,
+                    background: 'white',
+                    animation: `velo-bounce 1s ease-in-out ${i * 0.18}s infinite`,
+                  }} />
                 ))}
               </div>
             ) : (
-              /* Mic icon */
-              <MicOutlined
-                style={{
-                  fontSize: 34,
-                  color: isSpeaking ? '#2DD4BF' : 'rgba(255,255,255,0.45)',
-                }}
-              />
+              <MicOutlined style={{
+                fontSize: 34,
+                color: isSpeaking ? 'white' : purple,
+              }} />
             )}
           </div>
         </div>
 
         {/* Status */}
         <div className="text-center">
-          <p style={{ color: '#f5f5f4', fontSize: 17, fontWeight: 300, letterSpacing: '0.01em' }}>
+          <p style={{ color: '#1e1b4b', fontSize: 17, fontWeight: 400, letterSpacing: '0.01em' }}>
             {statusLabel}
           </p>
           {pendingConfirmation && (
-            <p style={{ color: '#2DD4BF', fontSize: 13, fontWeight: 300, marginTop: 4 }}>
+            <p style={{ color: purple, fontSize: 13, fontWeight: 400, marginTop: 4 }}>
               {pendingConfirmation.response}
             </p>
           )}
         </div>
 
         {/* Divider */}
-        <div style={{ width: '100%', height: 1, background: 'rgba(255,255,255,0.07)' }} />
+        <div style={{ width: '100%', height: 1, background: 'rgba(139,92,246,0.1)' }} />
 
         {/* Example commands */}
         {!pendingConfirmation && (
           <div className="w-full flex flex-col gap-1.5">
             <p style={{
-              color: 'rgba(255,255,255,0.22)',
-              fontSize: 10,
-              letterSpacing: '0.1em',
-              textTransform: 'uppercase',
-              marginBottom: 6,
-              textAlign: 'center',
+              color: 'rgba(109,40,217,0.4)', fontSize: 10,
+              letterSpacing: '0.1em', textTransform: 'uppercase',
+              marginBottom: 6, textAlign: 'center',
             }}>
               Try saying
             </p>
             {exampleCommands.map((cmd, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-3 px-3 py-2 rounded-lg"
-                style={{
-                  background: 'rgba(255,255,255,0.03)',
-                  border: '1px solid rgba(255,255,255,0.05)',
-                }}
-              >
-                <span style={{ color: '#2DD4BF', fontSize: 12, width: 14, textAlign: 'center', flexShrink: 0 }}>
+              <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg" style={{
+                background: 'rgba(139,92,246,0.05)',
+                border: '1px solid rgba(139,92,246,0.1)',
+              }}>
+                <span style={{ color: purple, fontSize: 12, width: 14, textAlign: 'center', flexShrink: 0 }}>
                   {cmd.icon}
                 </span>
-                <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: 300 }}>
+                <span style={{ color: '#4c1d95', fontSize: 13, fontWeight: 300 }}>
                   "{cmd.text}"
                 </span>
               </div>
@@ -258,24 +214,14 @@ export const GlobalVoiceCommander: React.FC = () => {
         )}
 
         {/* Keyboard hints */}
-        <div className="flex items-center gap-3" style={{ color: 'rgba(255,255,255,0.18)', fontSize: 11 }}>
+        <div className="flex items-center gap-3" style={{ color: 'rgba(109,40,217,0.35)', fontSize: 11 }}>
           <span>
-            <kbd style={{
-              padding: '2px 6px', borderRadius: 4,
-              background: 'rgba(255,255,255,0.07)',
-              color: 'rgba(255,255,255,0.3)',
-              fontFamily: 'monospace', fontSize: 10,
-            }}>Esc</kbd>
+            <kbd style={{ padding: '2px 6px', borderRadius: 4, background: 'rgba(139,92,246,0.08)', color: 'rgba(109,40,217,0.5)', fontFamily: 'monospace', fontSize: 10 }}>Esc</kbd>
             {' '}close
           </span>
           <span style={{ opacity: 0.4 }}>·</span>
           <span>
-            <kbd style={{
-              padding: '2px 6px', borderRadius: 4,
-              background: 'rgba(255,255,255,0.07)',
-              color: 'rgba(255,255,255,0.3)',
-              fontFamily: 'monospace', fontSize: 10,
-            }}>Ctrl+Space</kbd>
+            <kbd style={{ padding: '2px 6px', borderRadius: 4, background: 'rgba(139,92,246,0.08)', color: 'rgba(109,40,217,0.5)', fontFamily: 'monospace', fontSize: 10 }}>Ctrl+Space</kbd>
             {' '}toggle
           </span>
         </div>
@@ -283,7 +229,7 @@ export const GlobalVoiceCommander: React.FC = () => {
 
       <style>{`
         @keyframes velo-bounce {
-          0%, 100% { transform: translateY(0); opacity: 0.5; }
+          0%, 100% { transform: translateY(0); opacity: 0.6; }
           50% { transform: translateY(-5px); opacity: 1; }
         }
       `}</style>
