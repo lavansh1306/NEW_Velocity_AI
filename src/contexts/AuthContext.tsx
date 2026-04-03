@@ -10,6 +10,7 @@ import {
   getCurrentOrgRole,
   getCurrentOrgName,
 } from '@/lib/orgContext';
+import { ML_ENGINE_URL, VOICE_AGENT_URL } from '@/lib/api-config';
 
 interface AuthContextType {
   user: User | null;
@@ -31,6 +32,23 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+/**
+ * Pre-warm both Python services on login.
+ * Render free tier spins down after inactivity — this silent ping
+ * wakes them up so they're ready by the time the user navigates to Plan.
+ * Errors are swallowed intentionally — this is best-effort only.
+ */
+const prewarmServices = () => {
+  if (ML_ENGINE_URL) {
+    fetch(`${ML_ENGINE_URL}/`, { method: 'GET' }).catch(() => {});
+    console.log('[Auth] Pre-warming ML engine...');
+  }
+  if (VOICE_AGENT_URL) {
+    fetch(`${VOICE_AGENT_URL}/`, { method: 'GET' }).catch(() => {});
+    console.log('[Auth] Pre-warming voice agent...');
+  }
+};
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -121,12 +139,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   /**
    * Syncs the Google Auth user to public.users table
-   * NOTE: The Supabase auth trigger automatically creates the user with a default organization
-   * This function just logs the result for debugging
    */
   const saveGoogleUserEmail = async (userEmail: string, userId: string, fullName?: string) => {
     try {
-      console.log('[Auth] Google user created by database trigger:',  { userId, userEmail, fullName });
+      console.log('[Auth] Google user created by database trigger:', { userId, userEmail, fullName });
       console.log('[Auth] Organization auto-created by trigger');
       return true;
     } catch (err: any) {
@@ -147,7 +163,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         // Skip auth state changes if page is hidden to prevent reload loops
-        // Also skip INITIAL_SESSION if we already have a session/org to prevent flickering on focus
         if (event === 'INITIAL_SESSION' && (document.hidden || (session && getCurrentOrgId()))) {
           console.log('[Auth] Skipping INITIAL_SESSION - page hidden or already initialized');
           setLoading(false);
@@ -175,7 +190,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           if (!getCurrentOrgId()) {
             setOrgLoading(true);
           }
-          
+
           // Use setTimeout to move async DB work outside the synchronous auth callback
           setTimeout(async () => {
             try {
@@ -183,6 +198,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 await saveGoogleUserEmail(userEmail, userId, fullName);
               }
               await lookupOrg(userId, accessToken);
+
+              // Pre-warm Python services after login so they're ready when user
+              // navigates to Plan. Fire-and-forget — errors are swallowed.
+              prewarmServices();
             } catch (err) {
               console.warn('[Auth] Background sync failed:', err);
             } finally {
@@ -196,6 +215,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setTimeout(async () => {
             try {
               await lookupOrg(session.user.id, session.access_token);
+
+              // Also pre-warm on page refresh if already logged in
+              prewarmServices();
             } catch (err) {
               console.warn('[Auth] Background org lookup failed:', err);
             } finally {
@@ -258,13 +280,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (data?.user?.identities?.length === 0) {
       throw new Error('An account with this email already exists.');
     }
-    
-    // Set state immediately if session is returned (prevents race condition)
+
     if (data?.session) {
       setSession(data.session);
       setUser(data.session.user);
     }
-    
+
     return data;
   };
 
@@ -330,6 +351,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
   };
+
   const resetPassword = async (email: string) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/auth/callback`,
