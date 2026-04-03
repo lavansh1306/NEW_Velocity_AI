@@ -2,82 +2,151 @@ import { useNavigate } from 'react-router-dom';
 import { useVoice } from '@/contexts/VoiceContext';
 import { geminiVoiceService, VoiceAction } from '@/services/geminiVoiceService';
 import { getDashboardData } from '@/services/dashboardService';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
-import { useLeaveManagementData } from './useLeaveManagementData';
+import { useRef } from 'react';
 
 export const useVoiceActions = () => {
   const navigate = useNavigate();
-  const { 
-    setProcessing, 
-    speak, 
-    enqueueAction, 
-    pendingConfirmation, 
+  const {
+    setProcessing,
+    speak,
+    enqueueAction,
+    pendingConfirmation,
     setPendingConfirmation,
     startListening,
-    status 
+    stopListening,
   } = useVoice();
-  const { orgId, user: authUser } = useAuth();
-  const { leaves, balances, leaveTypes, addLeaveRequest } = useLeaveManagementData();
+
+  // Track confirmation timeout so we can cancel it
+  const confirmationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Track how many times we've re-asked (max 2 retries)
+  const confirmationRetryRef = useRef(0);
+
+  /**
+   * Waits for speech synthesis to finish, THEN starts listening.
+   * This prevents the mic from picking up the agent's own voice.
+   */
+  const listenAfterSpeech = (delayMs = 400) => {
+    // If speech synthesis is active, wait for it to end before listening
+    if ('speechSynthesis' in window && window.speechSynthesis.speaking) {
+      const checkDone = setInterval(() => {
+        if (!window.speechSynthesis.speaking) {
+          clearInterval(checkDone);
+          setTimeout(() => startListening(), delayMs);
+        }
+      }, 100);
+      // Safety cutoff after 8 seconds — don't wait forever
+      setTimeout(() => clearInterval(checkDone), 8000);
+    } else {
+      setTimeout(() => startListening(), delayMs);
+    }
+  };
+
+  /**
+   * Schedule auto-cancel if user says nothing within 10 seconds
+   */
+  const scheduleConfirmationTimeout = () => {
+    if (confirmationTimeoutRef.current) {
+      clearTimeout(confirmationTimeoutRef.current);
+    }
+    confirmationTimeoutRef.current = setTimeout(() => {
+      setPendingConfirmation(null);
+      confirmationRetryRef.current = 0;
+      speak("No response received. Action cancelled.");
+      toast.info("Action cancelled — no response");
+    }, 10000);
+  };
+
+  const clearConfirmationTimeout = () => {
+    if (confirmationTimeoutRef.current) {
+      clearTimeout(confirmationTimeoutRef.current);
+      confirmationTimeoutRef.current = null;
+    }
+  };
 
   const handleVoiceCommand = async (transcript: string, currentPath: string) => {
-    // 0. Guard against multiple concurrent commands
-    // Note: status is now extracted from context at the top level
-    if (status === 'processing') {
-      console.warn('[useVoiceActions] Already processing a command, ignoring:', transcript);
-      return;
-    }
-
-    // 1. Handle Pending Confirmation
+    // ─── 1. Handle Pending Confirmation ──────────────────────────────────────
     if (pendingConfirmation) {
-      const text = transcript.toLowerCase();
-      const isConfirmed = text.includes('yes') || text.includes('confirm') || text.includes('sure') || text.includes('ok');
-      const isCancelled = text.includes('no') || text.includes('cancel') || text.includes('stop');
+      clearConfirmationTimeout();
+      const text = transcript.toLowerCase().trim();
+
+      const isConfirmed =
+        text.includes('yes') ||
+        text.includes('confirm') ||
+        text.includes('sure') ||
+        text.includes('ok') ||
+        text.includes('do it') ||
+        text.includes('go ahead') ||
+        text.includes('approve');
+
+      const isCancelled =
+        text.includes('no') ||
+        text.includes('cancel') ||
+        text.includes('stop') ||
+        text.includes('abort') ||
+        text.includes('never mind') ||
+        text.includes('nope');
 
       if (isConfirmed) {
         const actionToExecute = { ...pendingConfirmation, requiresConfirmation: false };
         setPendingConfirmation(null);
+        confirmationRetryRef.current = 0;
+        speak("Got it, doing it now.");
         await executeAction(actionToExecute, currentPath);
+
       } else if (isCancelled) {
         setPendingConfirmation(null);
-        speak("Okay, I've cancelled that action.");
+        confirmationRetryRef.current = 0;
+        speak("Okay, cancelled.");
         toast.info("Action cancelled");
+
       } else {
-        speak("I didn't catch that. Please say yes to confirm or no to cancel.");
-        // Stay in confirmation mode? Or just reset? 
-        // For now, let's reset to avoid stuck states, but keep the pending action
+        // Unrecognised response — retry up to 2 times then cancel
+        confirmationRetryRef.current += 1;
+
+        if (confirmationRetryRef.current >= 2) {
+          // Too many retries — cancel to avoid infinite loop
+          setPendingConfirmation(null);
+          confirmationRetryRef.current = 0;
+          speak("I couldn't understand. Action cancelled.");
+          toast.info("Action cancelled — unclear response");
+        } else {
+          // Re-ask and re-listen
+          speak("Sorry, I didn't catch that. Please say yes to confirm or no to cancel.");
+          toast.warning("Say yes or no");
+          scheduleConfirmationTimeout();
+          listenAfterSpeech(500);
+        }
       }
       return;
     }
 
+    // ─── 2. Normal Command Flow ───────────────────────────────────────────────
     setProcessing(true);
-    
+
     try {
       const action = await geminiVoiceService.parseIntent(transcript, currentPath);
-      
-      // Check if we are in fallback mode (Gemini error caught in service)
-      if (action.response?.includes("Standard Mode") || action.response?.includes("Standard command")) {
-        toast.info("Gemini is currently limited. Using Standard Mode.");
-      }
-      
-      // 2. Handle Multi-turn Prompt
+
+      // Multi-turn: agent needs more info
       if (action.prompt) {
         speak(action.prompt);
         toast.info(action.prompt);
-        // Important: We need to listen again for the answer
-        setTimeout(() => startListening(), 2000);
+        // Wait for speech to finish before re-listening
+        listenAfterSpeech(500);
         return;
       }
 
-      // 3. Handle Confirmation Gate
+      // Confirmation gate: destructive actions need yes/no
       if (action.requiresConfirmation) {
         setPendingConfirmation(action);
+        confirmationRetryRef.current = 0;
         const confirmMsg = action.response || `I'm about to ${action.type.replace(/_/g, ' ')}. Are you sure?`;
         speak(confirmMsg);
-        toast.warning("Confirmation required");
-        // Re-trigger listening automatically for the confirmation
-        setTimeout(() => startListening(), 2500);
+        toast.warning("Say yes to confirm or no to cancel");
+        // Schedule auto-cancel if user doesn't respond
+        scheduleConfirmationTimeout();
+        // Wait for speech to finish THEN listen — prevents mic picking up agent voice
+        listenAfterSpeech(600);
         return;
       }
 
@@ -87,7 +156,7 @@ export const useVoiceActions = () => {
       }
 
       await executeAction(action, currentPath);
-      
+
     } catch (error) {
       console.error('[useVoiceActions] Failed to handle command:', error);
       toast.error("Sorry, I had trouble processing that command.");
@@ -107,121 +176,17 @@ export const useVoiceActions = () => {
       case 'create_project':
         const { projectTitle, projectDescription, autoAnalyze } = action.params || {};
         console.log('[VoiceActions] Navigating to plan with:', { projectTitle, projectDescription, autoAnalyze });
-        navigate('/plan', { 
-          state: { 
-            voiceTitle: projectTitle, 
+        navigate('/plan', {
+          state: {
+            voiceTitle: projectTitle,
             voiceDescription: projectDescription,
-            autoAnalyze: autoAnalyze 
-          } 
+            autoAnalyze: autoAnalyze
+          }
         });
         break;
-      
+
       case 'create_task':
-        const { taskName: tName, projectName: pName, assigneeName } = action.params || {};
-        const nameToUse = tName || 'New Task';
-        
-        if (!orgId) {
-          speak("I'm sorry, I can't add tasks without an active organization.");
-          break;
-        }
-
-        try {
-          // 1. Fetch available projects to find the target
-          const { data: projects, error: projectsError } = await supabase
-            .from('projects')
-            .select('id, name')
-            .eq('organization_id', orgId)
-            .eq('status', 'active');
-
-          if (projectsError) throw projectsError;
-
-          let targetProjectId: string | null = null;
-          let targetProjectName = '';
-
-          if (pName) {
-            const matched = projects?.find(p => p.name.toLowerCase().includes(pName.toLowerCase()));
-            if (matched) {
-              targetProjectId = matched.id;
-              targetProjectName = matched.name;
-            } else {
-              // AUTO-CREATE PROJECT
-              speak(`Project ${pName} doesn't exist. I'll create it for you.`);
-              const { data: newProj, error: createError } = await supabase
-                .from('projects')
-                .insert({
-                  organization_id: orgId,
-                  name: pName,
-                  status: 'active',
-                  source: 'internal'
-                })
-                .select()
-                .single();
-              
-              if (createError) throw createError;
-              targetProjectId = newProj.id;
-              targetProjectName = newProj.name;
-            }
-          } else {
-            // Default to most recent if no project specified
-            if (projects && projects.length > 0) {
-              const sorted = [...projects].sort((a,b) => b.id.localeCompare(a.id)); // Simple heuristic
-              targetProjectId = sorted[0].id;
-              targetProjectName = sorted[0].name;
-            } else {
-              speak("You don't have any active projects. I'll create a default one for you.");
-              const { data: newProj, error: createError } = await supabase
-                .from('projects')
-                .insert({ organization_id: orgId, name: 'General Tasks', status: 'active' })
-                .select().single();
-              if (createError) throw createError;
-              targetProjectId = newProj.id;
-              targetProjectName = newProj.name;
-            }
-          }
-
-          // 2. Resolve Assignee if provided
-          let assigneeId = null;
-          if (assigneeName) {
-            const { data: members, error: membersError } = await supabase
-              .from('users')
-              .select('id, full_name')
-              .eq('organization_id', orgId);
-            
-            if (!membersError && members) {
-              const match = members.find(m => m.full_name?.toLowerCase().includes(assigneeName.toLowerCase()));
-              if (match) {
-                assigneeId = match.id;
-              } else {
-                speak(`I couldn't find a team member named ${assigneeName}. I'll leave the task unassigned.`);
-              }
-            }
-          }
-
-          // 3. Insert the task
-          const { error: insertError } = await supabase
-            .from('tasks')
-            .insert({
-              project_id: targetProjectId,
-              name: nameToUse,
-              status: 'not_started',
-              estimated_hours: 4,
-              assignee_id: assigneeId
-            });
-
-          if (insertError) throw insertError;
-
-          const assignmentMsg = assigneeName && assigneeId ? ` and assigned it to ${assigneeName}` : "";
-          const msg = `Done! Added task "${nameToUse}" to project ${targetProjectName}${assignmentMsg}.`;
-          speak(msg);
-          toast.success(msg);
-
-          // Force a refresh if on projects page
-          window.dispatchEvent(new CustomEvent('velo-refresh-data'));
-
-        } catch (err: any) {
-          console.error('[VoiceActions] Smart task creation failed:', err);
-          speak("I'm sorry, I encountered an error while setting up that task.");
-        }
+        toast.success(`Intent: Create task "${action.params?.taskName || 'New Task'}"`);
         break;
 
       case 'add_team_member':
@@ -230,8 +195,8 @@ export const useVoiceActions = () => {
           enqueueAction(action);
           navigate('/people');
         } else {
-          window.dispatchEvent(new CustomEvent('velo-add-member', { 
-            detail: { name, email, role } 
+          window.dispatchEvent(new CustomEvent('velo-add-member', {
+            detail: { name, email, role }
           }));
         }
         break;
@@ -241,8 +206,8 @@ export const useVoiceActions = () => {
           enqueueAction(action);
           navigate('/people');
         } else {
-          window.dispatchEvent(new CustomEvent('velo-delete-member', { 
-            detail: { name: action.params?.name } 
+          window.dispatchEvent(new CustomEvent('velo-delete-member', {
+            detail: { name: action.params?.name }
           }));
         }
         break;
@@ -257,73 +222,6 @@ export const useVoiceActions = () => {
         const summary = await geminiVoiceService.summarizeData(data, action.params?.query || action.type.replace('_', ' '));
         speak(summary);
         toast.info(summary);
-        break;
-
-      case 'request_leave':
-        const { startDate, endDate, reason, leaveType } = action.params || {};
-        
-        try {
-          // 1. Resolve Leave Type ID
-          let typeId = leaveTypes[0]?.id; // Default to first (usually Annual/Sick)
-          if (leaveType) {
-             const matched = leaveTypes.find(t => t.name.toLowerCase().includes(leaveType.toLowerCase()));
-             if (matched) typeId = matched.id;
-          }
-
-          // 2. Format Dates
-          const parseDate = (d: string) => {
-            if (d === 'tomorrow') {
-              const date = new Date();
-              date.setDate(date.getDate() + 1);
-              return date.toISOString().split('T')[0];
-            }
-            if (d === 'today') return new Date().toISOString().split('T')[0];
-            // Simple string date parsing (YYYY-MM-DD or Month Day)
-            try {
-              const parsed = new Date(d);
-              if (!isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0];
-            } catch {}
-            return new Date().toISOString().split('T')[0];
-          };
-
-          const sDate = parseDate(startDate || 'tomorrow');
-          const eDate = parseDate(endDate || startDate || 'tomorrow');
-
-          await addLeaveRequest({
-            startDate: sDate,
-            endDate: eDate,
-            reason: reason || 'Voice Request',
-            leave_type_id: typeId
-          });
-
-          const msg = `Leave request submitted for ${sDate}${eDate !== sDate ? ` to ${eDate}` : ''}.`;
-          speak(msg);
-          toast.success(msg);
-          
-          if (currentPath !== '/leave') {
-            navigate('/leave');
-          }
-        } catch (err: any) {
-          console.error('[VoiceActions] Leave request failed:', err);
-          speak("I'm sorry, I couldn't submit your leave request. Please check your balance.");
-        }
-        break;
-
-      case 'get_leave_status':
-        if (!leaves || leaves.length === 0) {
-          speak("You don't have any recent leave requests.");
-          break;
-        }
-
-        const myLeaves = leaves.filter(l => l.user_id === authUser?.id);
-        if (myLeaves.length === 0) {
-          speak("I couldn't find any leave requests for you.");
-        } else {
-          const latest = myLeaves[0];
-          const statusMsg = `Your request for ${latest.startDate} is currently ${latest.status}.`;
-          speak(statusMsg);
-          toast.info(statusMsg);
-        }
         break;
 
       case 'info':
