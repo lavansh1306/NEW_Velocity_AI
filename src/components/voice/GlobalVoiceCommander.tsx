@@ -19,7 +19,7 @@ export const GlobalVoiceCommander: React.FC = () => {
 
   const { handleVoiceCommand } = useVoiceActions();
   const hasProcessed = useRef(false);
-  const isOpen = isListening || status === 'processing' || status === 'speaking' || !!pendingConfirmation;
+  const isOpen = isListening || status === 'processing' || status === 'speaking';
 
   useEffect(() => {
     if (lastTranscript && !hasProcessed.current) {
