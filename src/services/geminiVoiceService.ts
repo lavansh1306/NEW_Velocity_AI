@@ -59,7 +59,7 @@ Current Page: ${currentPath}
 
 Action Categories & Parameters:
 1. General Commands (Accessible to All Users):
-   - navigate: { target: "/dashboard" | "/projects" | "/people" | "/plan" | "/settings" }
+   - navigate: { target: "/dashboard" | "/projects" | "/people" | "/plan" | "/settings" | "/leave" }
    - search: { query: "string" }
    - info: { response: "Natural spoken answer" } (For help/capabilities)
    - gantt_query: { query: "string" } (Timeline checks)
@@ -69,22 +69,24 @@ Action Categories & Parameters:
 2. Manager/Admin Only Commands (RESTRICTED):
    - approve_leave: { name: "string" } (Approve a pending request)
    - deny_leave: { name: "string" } (Reject a pending request)
-   - add_team_member: { name: "string", email: "string", role: "string" } (Invite new members)
+   - add_team_member: { name: "string", email: "string", role: "string" } (Invite new members - support "create team member X", "add developer Y")
    - delete_team_member: { name: "string" } (Remove members)
    - create_project: { projectTitle: "string", projectDescription: "string", autoAnalyze: boolean } (Plan new work)
    - create_task: { taskName: "string", projectName: "string (optional)", assigneeName: "string (optional)" } (Assign work)
 
 3. Employee Commands (Accessible to All):
-   - request_leave: { startDate: "string", endDate: "string", reason: "string" } (Apply for leave)
+   - request_leave: { startDate: "string", endDate: "string", reason: "string", leaveType: "string" } (Apply for leave)
 
 Rules:
-- If a user tries a RESTRICTED command, STILL parse the intent correctly, but the system will handle the permission check.
-- Extraction rules remain the same (extract as much detail as possible).
+- REPHRASING: If the transcript is messy (e.g. "create team member this or that"), extract the CORE intent.
+- DATE NORMALIZATION: Convert ANY date mentions like "15th April", "1504", "15 April 2024", "today", "tomorrow" into YYYY-MM-DD format.
+- If a user says "apply leave" without dates, use the current date in YYYY-MM-DD format.
+- EXTRACTION: Extract as much detail as possible (names, roles, emails, project titles).
 - Respond ONLY with JSON.
 
 JSON Structure:
 {
-  "type": "navigate" | "create_project" | "add_team_member" | "delete_team_member" | "create_task" | "search" | "info" | "gantt_query" | "resource_query" | "unknown",
+  "type": "navigate" | "create_project" | "add_team_member" | "delete_team_member" | "create_task" | "search" | "info" | "gantt_query" | "resource_query" | "request_leave" | "approve_leave" | "deny_leave" | "unknown",
   "target": "string (optional)",
   "params": {
     "projectTitle": "string",
@@ -96,7 +98,11 @@ JSON Structure:
     "taskName": "string",
     "projectName": "string",
     "assigneeName": "string",
-    "query": "string"
+    "query": "string",
+    "startDate": "YYYY-MM-DD",
+    "endDate": "YYYY-MM-DD",
+    "reason": "string",
+    "leaveType": "string"
   },
   "response": "Brief spoken confirmation of what you extracted",
   "requiresConfirmation": boolean,
@@ -408,7 +414,8 @@ Rules:
     const roles = Object.keys(roleMapping).sort((a, b) => b.length - a.length);
     const isInviteCommand = this.fuzzyMatch(words[0], 'add') || 
                            this.fuzzyMatch(words[0], 'invite') || 
-                           this.fuzzyMatch(words[0], 'new');
+                           this.fuzzyMatch(words[0], 'new') ||
+                           this.fuzzyMatch(words[0], 'create');
     
     const hasContext = text.includes('member') || text.includes('team') || text.includes('@') || roles.some(r => text.includes(r));
 
@@ -503,8 +510,8 @@ Rules:
       return {
         type: 'request_leave',
         params: {
-          startDate: dateMatch ? dateMatch[1]?.trim() : 'tomorrow',
-          endDate: dateMatch ? dateMatch[2]?.trim() : (dateMatch ? dateMatch[1]?.trim() : 'tomorrow'),
+          startDate: dateMatch ? dateMatch[1]?.trim() : 'today',
+          endDate: dateMatch ? dateMatch[2]?.trim() : (dateMatch ? dateMatch[1]?.trim() : 'today'),
           reason: reasonMatch ? reasonMatch[1]?.trim() : 'Personal'
         },
         response: `Standard Mode: I'll help you request leave for those dates.`,

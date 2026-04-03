@@ -291,22 +291,56 @@ export const useVoiceActions = () => {
 
           // 2. Format Dates
           const parseDate = (d: string) => {
-            if (d === 'tomorrow') {
+            const input = d.toLowerCase().trim();
+            if (!input || input === 'today') return new Date().toISOString().split('T')[0];
+            if (input === 'tomorrow') {
               const date = new Date();
               date.setDate(date.getDate() + 1);
               return date.toISOString().split('T')[0];
             }
-            if (d === 'today') return new Date().toISOString().split('T')[0];
-            // Simple string date parsing (YYYY-MM-DD or Month Day)
+
+            // 0. Check if it's already YYYY-MM-DD (Gemini normalized)
+            if (/^\d{4}-\d{2}-\d{2}$/.test(input)) return input;
+
+            // 1. Check for DDMMYYYY or DDMM formats
+            const digitsOnly = input.replace(/\D/g, '');
+            if (digitsOnly.length === 8) { 
+              // Handle DDMMYYYY or YYYYMMDD
+              if (digitsOnly.startsWith('20')) { // Likely YYYYMMDD
+                return `${digitsOnly.slice(0, 4)}-${digitsOnly.slice(4, 6)}-${digitsOnly.slice(6, 8)}`;
+              }
+              const day = digitsOnly.slice(0, 2);
+              const month = digitsOnly.slice(2, 4);
+              const year = digitsOnly.slice(4, 8);
+              return `${year}-${month}-${day}`;
+            }
+            if (digitsOnly.length === 4) { // DDMM
+              const day = digitsOnly.slice(0, 2);
+              const month = digitsOnly.slice(2, 4);
+              const year = new Date().getFullYear();
+              return `${year}-${month}-${day}`;
+            }
+            if (digitsOnly.length >= 1 && digitsOnly.length <= 2) { // Just DD
+              const day = digitsOnly.padStart(2, '0');
+              const now = new Date();
+              const month = (now.getMonth() + 1).toString().padStart(2, '0');
+              const year = now.getFullYear();
+              return `${year}-${month}-${day}`;
+            }
+
+            // 2. Standard JS Date parsing
             try {
-              const parsed = new Date(d);
-              if (!isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0];
+              const parsed = new Date(input);
+              if (!isNaN(parsed.getTime())) {
+                return parsed.toISOString().split('T')[0];
+              }
             } catch {}
+
             return new Date().toISOString().split('T')[0];
           };
 
-          const sDate = parseDate(startDate || 'tomorrow');
-          const eDate = parseDate(endDate || startDate || 'tomorrow');
+          const sDate = parseDate(startDate || 'today');
+          const eDate = parseDate(endDate || startDate || 'today');
 
           await addLeaveRequest({
             startDate: sDate,
