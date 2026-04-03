@@ -30,8 +30,16 @@ export const useVoiceActions = () => {
       }
 
       if (action.response) {
-        speak(action.response);
-        toast.info(action.response);
+        // Strip any Gemini meta-commentary before speaking
+        const cleanResponse = action.response
+          .replace(/^(in\s+)?(standard|default|normal)\s+mode[,.]?\s*/i, "")
+          .replace(/^(okay|ok|sure)[,.]?\s+(in\s+)?(standard|default|normal)\s+mode[,.]?\s*/i, "")
+          .trim();
+        const finalResponse = cleanResponse.length > 0
+          ? cleanResponse.charAt(0).toUpperCase() + cleanResponse.slice(1)
+          : action.response;
+        speak(finalResponse);
+        toast.info(finalResponse);
       }
 
       // For destructive actions: execute immediately + show undo toast
