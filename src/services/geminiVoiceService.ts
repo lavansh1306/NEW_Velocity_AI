@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { levenshteinDistance, phoneticNormalize, findBestMatch } from '@/lib/utils';
 
 export interface VoiceAction {
-  type: 'navigate' | 'create_task' | 'add_team_member' | 'delete_team_member' | 'create_project' | 'request_leave' | 'get_leave_status' | 'search' | 'info' | 'gantt_query' | 'resource_query' | 'unknown';
+  type: 'navigate' | 'create_task' | 'add_team_member' | 'delete_team_member' | 'create_project' | 'request_leave' | 'get_leave_status' | 'approve_leave' | 'deny_leave' | 'search' | 'info' | 'gantt_query' | 'resource_query' | 'unknown';
   target?: string;
   params?: {
     taskName?: string;
@@ -67,6 +67,8 @@ Action Types & Parameters:
 7. info: { response: "Natural spoken answer" }
 8. gantt_query: { query: "string" } (Use for "What's the timeline?", "When is X due?")
 9. resource_query: { query: "string" } (Use for "Who is busy?", "Who has the most tasks?")
+10. approve_leave: { name: "string" } (Manager action to approve a pending leave request)
+11. deny_leave: { name: "string" } (Manager action to reject a pending leave request)
 
 Rules:
 - If the user wants to DELETE or REMOVE a person/member, ALWAYS use type "delete_team_member".
@@ -450,7 +452,7 @@ Rules:
     }
 
 
-    // 4. Searching for Leave/Time-off
+    // 4. Leave/Time-off Management
     if (text.includes('leave') || text.includes('vacation') || text.includes('off') || text.includes('sick')) {
       const isStatusQuery = text.includes('status') || text.includes('when') || text.includes('approved') || text.includes('how many');
       
@@ -460,6 +462,24 @@ Rules:
           params: { query: text },
           response: "Checking your leave status..."
         };
+      }
+
+      // Check for Manager Approval/Denial
+      const isApprove = text.includes('approve') || text.includes('confirm') || text.includes('allow');
+      const isDeny = text.includes('deny') || text.includes('reject') || text.includes('cancel');
+
+      if (isApprove || isDeny) {
+         const noise = ['leave', 'vacation', 'off', 'sick', 'approve', 'confirm', 'allow', 'deny', 'reject', 'cancel', 'for', 'the', 'request', 'from'];
+         const words = text.split(' ');
+         const nameCandidates = words.filter(w => !noise.includes(w) && w.length > 2);
+         const nameMatch = nameCandidates.join(' ').trim();
+
+         return {
+           type: isApprove ? 'approve_leave' : 'deny_leave',
+           params: { name: nameMatch },
+           response: `Standard Mode: I'll help you ${isApprove ? 'approve' : 'deny'} leave for ${nameMatch || 'them'}.`,
+           requiresConfirmation: true
+         };
       }
 
       // Request leave extraction

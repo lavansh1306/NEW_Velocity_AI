@@ -232,9 +232,25 @@ export function useLeaveManagementData() {
     await fetchData();
   }, [state.currentOrgId, state.currentUser, fetchData]);
 
+  /**
+   * Action: Update Leave Request Status (Manager Side)
+   */
+  const updateLeaveStatus = useCallback(async (leaveId: string, status: 'approved' | 'rejected') => {
+    const { error } = await supabase
+      .from('leave_requests')
+      .update({ status })
+      .eq('id', leaveId);
+
+    if (error) throw error;
+    
+    // Refresh to reflect the change
+    await fetchData();
+  }, [fetchData]);
+
   return { 
     ...state, 
     refresh: fetchData, 
-    addLeaveRequest 
+    addLeaveRequest,
+    updateLeaveStatus 
   };
 }

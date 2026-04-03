@@ -19,7 +19,7 @@ export const useVoiceActions = () => {
     status 
   } = useVoice();
   const { orgId, user: authUser } = useAuth();
-  const { leaves, balances, leaveTypes, addLeaveRequest } = useLeaveManagementData();
+  const { leaves, balances, leaveTypes, addLeaveRequest, updateLeaveStatus } = useLeaveManagementData();
 
   const handleVoiceCommand = async (transcript: string, currentPath: string) => {
     // 0. Guard against multiple concurrent commands
@@ -323,6 +323,37 @@ export const useVoiceActions = () => {
           const statusMsg = `Your request for ${latest.startDate} is currently ${latest.status}.`;
           speak(statusMsg);
           toast.info(statusMsg);
+        }
+        break;
+
+      case 'approve_leave':
+      case 'deny_leave':
+        const targetName = action.params?.name;
+        if (!targetName) {
+          speak(`Whose leave request should I ${action.type === 'approve_leave' ? 'approve' : 'deny'}?`);
+          break;
+        }
+
+        const pendingRequest = leaves.find(l => 
+          l.status === 'pending' && 
+          (l.name.toLowerCase().includes(targetName.toLowerCase()) || 
+           targetName.toLowerCase().includes(l.name.toLowerCase()))
+        );
+
+        if (!pendingRequest) {
+          speak(`I couldn't find any pending leave requests for ${targetName}.`);
+          break;
+        }
+
+        try {
+          const newStatus = action.type === 'approve_leave' ? 'approved' : 'rejected';
+          await updateLeaveStatus(pendingRequest.id, newStatus);
+          const msg = `Successfully ${newStatus === 'approved' ? 'approved' : 'rejected'} the leave request for ${pendingRequest.name}.`;
+          speak(msg);
+          toast.success(msg);
+        } catch (err) {
+          console.error('[VoiceActions] Update leave failed:', err);
+          speak("I'm sorry, I couldn't update the leave status.");
         }
         break;
 
