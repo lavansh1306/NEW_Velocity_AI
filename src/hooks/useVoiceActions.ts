@@ -18,8 +18,8 @@ export const useVoiceActions = () => {
     startListening,
     status 
   } = useVoice();
-  const { orgId, user: authUser } = useAuth();
-  const { leaves, balances, leaveTypes, addLeaveRequest } = useLeaveManagementData();
+  const { orgId, orgRole, user: authUser } = useAuth();
+  const { leaves, balances, leaveTypes, addLeaveRequest, updateLeaveStatus } = useLeaveManagementData();
 
   const handleVoiceCommand = async (transcript: string, currentPath: string) => {
     // 0. Guard against multiple concurrent commands
@@ -97,6 +97,25 @@ export const useVoiceActions = () => {
   };
 
   const executeAction = async (action: VoiceAction, currentPath: string) => {
+    // 1. RBAC Check: Restrict Manager/Admin Commands
+    const restrictedActions: VoiceAction['type'][] = [
+      'approve_leave', 
+      'deny_leave', 
+      'add_team_member', 
+      'delete_team_member', 
+      'create_project', 
+      'create_task'
+    ];
+
+    const isManager = orgRole === 'admin' || orgRole === 'manager';
+
+    if (restrictedActions.includes(action.type) && !isManager) {
+      const msg = "I'm sorry, that action is restricted to managers and administrators.";
+      speak(msg);
+      toast.error(msg);
+      return;
+    }
+
     switch (action.type) {
       case 'navigate':
         if (action.target) {
@@ -323,6 +342,37 @@ export const useVoiceActions = () => {
           const statusMsg = `Your request for ${latest.startDate} is currently ${latest.status}.`;
           speak(statusMsg);
           toast.info(statusMsg);
+        }
+        break;
+
+      case 'approve_leave':
+      case 'deny_leave':
+        const targetName = action.params?.name;
+        if (!targetName) {
+          speak(`Whose leave request should I ${action.type === 'approve_leave' ? 'approve' : 'deny'}?`);
+          break;
+        }
+
+        const pendingRequest = leaves.find(l => 
+          l.status === 'pending' && 
+          (l.name.toLowerCase().includes(targetName.toLowerCase()) || 
+           targetName.toLowerCase().includes(l.name.toLowerCase()))
+        );
+
+        if (!pendingRequest) {
+          speak(`I couldn't find any pending leave requests for ${targetName}.`);
+          break;
+        }
+
+        try {
+          const newStatus = action.type === 'approve_leave' ? 'approved' : 'rejected';
+          await updateLeaveStatus(pendingRequest.id, newStatus);
+          const msg = `Successfully ${newStatus === 'approved' ? 'approved' : 'rejected'} the leave request for ${pendingRequest.name}.`;
+          speak(msg);
+          toast.success(msg);
+        } catch (err) {
+          console.error('[VoiceActions] Update leave failed:', err);
+          speak("I'm sorry, I couldn't update the leave status.");
         }
         break;
 
