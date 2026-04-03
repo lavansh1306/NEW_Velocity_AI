@@ -1,0 +1,74 @@
+﻿--- Testing Voice Parser Results ---
+
+[Input]:  Create project Website Redesign that does updating the landing page
+[Type]:   create_project
+[Params]: {
+  "projectTitle": "",
+  "projectDescription": "updating the landing page"
+}
+----------------------------------------
+[Input]:  Add project Mobile App
+[Type]:   create_project
+[Params]: {
+  "projectTitle": "",
+  "projectDescription": "mobile app"
+}
+----------------------------------------
+[Input]:  New project for tracking inventory
+[Type]:   create_project
+[Params]: {
+  "projectTitle": "",
+  "projectDescription": "for tracking inventory"
+}
+----------------------------------------
+[Input]:  Add task Fix login bug for Velocity AI project
+[Type]:   create_project
+[Params]: {
+  "projectTitle": "",
+  "projectDescription": ""
+}
+----------------------------------------
+[Input]:  Create task Update CSS to the core project
+[Type]:   create_project
+[Params]: {
+  "projectTitle": "",
+  "projectDescription": ""
+}
+----------------------------------------
+[Input]:  New task Drink water
+[Type]:   create_task
+[Params]: {
+  "taskName": "drink water"
+}
+----------------------------------------
+[Input]:  Add a task fix the header
+[Result]: NO MATCH (Fallback to Gemini)
+----------------------------------------
+[Input]:  Setup project XYZ that is a new dashboard
+[Type]:   create_project
+[Params]: {
+  "projectTitle": "",
+  "projectDescription": "a new dashboard"
+}
+----------------------------------------
+[Input]:  Add task Prepare report for the marketing project
+[Type]:   create_project
+[Params]: {
+  "projectTitle": "",
+  "projectDescription": ""
+}
+----------------------------------------
+[Input]:  Create project Alpha
+[Type]:   create_project
+[Params]: {
+  "projectTitle": "",
+  "projectDescription": "alpha"
+}
+----------------------------------------
+[Input]:  New task review design for Alpha project
+[Type]:   create_task
+[Params]: {
+  "taskName": "review design",
+  "projectName": "alpha"
+}
+----------------------------------------

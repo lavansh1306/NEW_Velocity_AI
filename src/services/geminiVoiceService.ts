@@ -247,6 +247,7 @@ Rules:
 
   private parseOfflineCommand(transcript: string): VoiceAction | null {
     const text = this.normalizeTranscript(transcript);
+    const words = text.split(' ');
     
     // 1. Navigation Shortcuts
     const navTargets: Record<string, string> = {
@@ -270,8 +271,12 @@ Rules:
 
     // 1a. "Create Project" Specialization (Direct Navigation to AI Planner)
     const projectKeywords = ['add project', 'create project', 'new project', 'plan project', 'start project', 'setup project'];
-    const isProjectCreate = projectKeywords.some(kw => text.includes(kw)) || 
-                           ((this.fuzzyMatch(text.split(' ')[0], 'create') || this.fuzzyMatch(text.split(' ')[0], 'add')) && text.includes('project'));
+    
+    // Improved Project detection: Must contain 'project' and NOT be a task command
+    const isTaskContext = text.includes('task');
+    const isProjectCreate = (projectKeywords.some(kw => text.includes(kw)) || 
+                           ((this.fuzzyMatch(words[0], 'create') || this.fuzzyMatch(words[0], 'add')) && text.includes('project')))
+                           && !isTaskContext;
 
     if (isProjectCreate) {
       // Extract projectTitle and projectDescription
@@ -284,10 +289,15 @@ Rules:
       if (nameMatch) title = nameMatch[1].trim();
       if (doingMatch) description = doingMatch[1].trim();
 
-      if (!description) {
-        const afterProject = text.split(/project|new|plan/).pop()?.trim();
-        if (afterProject && afterProject !== 'add' && afterProject !== 'create') {
-          description = afterProject;
+      // Better fallback: Extract title from between "project" and "that/does/to/for"
+      if (!title) {
+        const projectPos = text.indexOf('project');
+        if (projectPos !== -1) {
+          const afterProject = text.slice(projectPos + 7).trim();
+          const firstBreak = afterProject.split(/\s+(?:that|does|to|for|which|is)\s+/)[0];
+          if (firstBreak && firstBreak.length > 0) {
+            title = firstBreak;
+          }
         }
       }
 
@@ -305,7 +315,6 @@ Rules:
     }
 
     const navVerbs = ['go to', 'open', 'show', 'navigate to', 'take me to', 'view', 'switch to', 'move to', 'jump to', 'goto', 'visit'];
-    const words = text.split(' ');
     const lastWord = words[words.length - 1];
     
     // Check for direct keyword or verb + keyword
@@ -324,9 +333,9 @@ Rules:
     const isDeleteCommand = text.includes('delete') || text.includes('remove') || text.includes('fire') || 
                            this.fuzzyMatch(words[0], 'delete') || this.fuzzyMatch(words[0], 'remove');
 
-    const isTaskContext = text.includes('task') || text.includes('project') || text.includes('plan');
+    const isDeleteContext = text.includes('task') || text.includes('project') || text.includes('plan');
 
-    if (isDeleteCommand && !isTaskContext && (text.includes('member') || text.includes('team') || text.includes('person') || words.length > 2)) {
+    if (isDeleteCommand && !isDeleteContext && (text.includes('member') || text.includes('team') || text.includes('person') || words.length > 2)) {
       const noise = ['delete', 'remove', 'fire', 'member', 'team', 'person', 'from', 'the', 'named', 'called', 'please'];
       const actionWords = words.filter(w => !noise.includes(w) && !this.fuzzyMatch(w, 'delete') && !this.fuzzyMatch(w, 'remove'));
       
@@ -351,7 +360,8 @@ Rules:
 
     if (isTaskCommand && !isProjectCreate) {
       // Regex for "Add [Task] for [Project] project" or "Add [Task] to [Project]"
-      const taskWithProjectRegex = /(?:add|create|new)\s+(?:task\s+)?(.*?)\s+(?:for|to|in)\s+(?:the\s+)?(.*?)(?:\s+project)?$/i;
+      // Support "a task" or "the task"
+      const taskWithProjectRegex = /(?:add|create|new)\s+(?:a\s+|the\s+)?(?:task\s+)?(.*?)\s+(?:for|to|in)\s+(?:the\s+)?(.*?)(?:\s+project)?$/i;
       const match = text.match(taskWithProjectRegex);
       
       if (match) {
@@ -366,7 +376,7 @@ Rules:
       }
 
       // Fallback for just "Add task [Name]"
-      const simpleTaskRegex = /(?:add|create|new)\s+task\s+(.*)/i;
+      const simpleTaskRegex = /(?:add|create|new)\s+(?:a\s+|the\s+)?task\s+(.*)/i;
       const simpleMatch = text.match(simpleTaskRegex);
       if (simpleMatch) {
          return {
