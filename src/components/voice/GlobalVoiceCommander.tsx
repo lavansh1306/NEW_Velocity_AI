@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useVoice } from '@/contexts/VoiceContext';
 import { useVoiceActions } from '@/hooks/useVoiceActions';
@@ -14,13 +14,28 @@ export const GlobalVoiceCommander: React.FC = () => {
     startListening,
     stopListening,
     clearTranscript,
-    pendingConfirmation,
   } = useVoice();
 
   const { handleVoiceCommand } = useVoiceActions();
   const hasProcessed = useRef(false);
-  const isOpen = isListening || status === 'processing' || status === 'speaking';
 
+  // isOpen is controlled by us — not just by status
+  // This prevents the overlay from snapping shut between states
+  const [isOpen, setIsOpen] = useState(false);
+
+  const vol = Math.min(volumeLevel / 80, 1);
+  const isActive = status === 'listening';
+  const isProcessing = status === 'processing';
+  const isSpeaking = status === 'speaking';
+
+  // Keep overlay open as long as any voice activity is happening
+  useEffect(() => {
+    if (isListening || isProcessing || isSpeaking) {
+      setIsOpen(true);
+    }
+  }, [isListening, isProcessing, isSpeaking]);
+
+  // Process transcript
   useEffect(() => {
     if (lastTranscript && !hasProcessed.current) {
       hasProcessed.current = true;
@@ -30,14 +45,28 @@ export const GlobalVoiceCommander: React.FC = () => {
     }
   }, [lastTranscript, location.pathname, handleVoiceCommand, clearTranscript]);
 
+  const close = useCallback(() => {
+    stopListening();
+    setIsOpen(false);
+  }, [stopListening]);
+
+  const open = useCallback(() => {
+    setIsOpen(true);
+    startListening();
+  }, [startListening]);
+
+  // Global Ctrl+Space hotkey
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.ctrlKey && e.code === 'Space') {
       e.preventDefault();
-      if (isListening) { stopListening(); } else { startListening(); }
+      if (isOpen) { close(); } else { open(); }
       return;
     }
-    if (e.code === 'Escape' && isOpen) { e.preventDefault(); stopListening(); }
-  }, [isListening, isOpen, startListening, stopListening]);
+    if (e.code === 'Escape' && isOpen) {
+      e.preventDefault();
+      close();
+    }
+  }, [isOpen, open, close]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -46,19 +75,17 @@ export const GlobalVoiceCommander: React.FC = () => {
 
   if (!isOpen) return null;
 
-  const vol = Math.min(volumeLevel / 80, 1);
-  const isActive = status === 'listening';
-  const isProcessing = status === 'processing';
-  const isSpeaking = status === 'speaking';
-
   const statusLabel = {
     listening: 'Listening...',
     processing: 'Thinking...',
     speaking: 'Speaking...',
     connecting: 'Connecting...',
     error: 'Try again',
-    idle: pendingConfirmation ? 'Say yes or no' : 'Ready',
-  }[status] ?? 'Ready';
+    idle: 'Ready',
+  }[status] ?? 'Listening...';
+
+  const purple = '#8b5cf6';
+  const purpleDark = '#6d28d9';
 
   const exampleCommands = [
     { icon: '→', text: 'Go to projects' },
@@ -68,11 +95,6 @@ export const GlobalVoiceCommander: React.FC = () => {
     { icon: '×', text: 'Remove John from the team' },
   ];
 
-  // Purple palette
-  const purple = '#8b5cf6';
-  const purpleLight = '#a78bfa';
-  const purpleDark = '#6d28d9';
-
   return (
     <div
       className="fixed inset-0 z-[9999] flex items-center justify-center"
@@ -80,9 +102,8 @@ export const GlobalVoiceCommander: React.FC = () => {
         backdropFilter: 'blur(18px)',
         background: 'rgba(219, 225, 243, 0.6)',
       }}
-      onClick={(e) => { if (e.target === e.currentTarget) stopListening(); }}
+      onClick={(e) => { if (e.target === e.currentTarget) close(); }}
     >
-      {/* Card */}
       <div
         className="flex flex-col items-center gap-6 rounded-2xl px-10 py-10"
         style={{
@@ -123,20 +144,20 @@ export const GlobalVoiceCommander: React.FC = () => {
             style={{
               width: 88, height: 88,
               background: isProcessing
-                ? `linear-gradient(135deg, #4c1d95, #6d28d9)`
+                ? 'linear-gradient(135deg, #4c1d95, #6d28d9)'
                 : isSpeaking
-                ? `linear-gradient(135deg, #5b21b6, #7c3aed)`
+                ? 'linear-gradient(135deg, #5b21b6, #7c3aed)'
                 : isActive
                 ? `linear-gradient(135deg, ${purpleDark}, ${purple})`
-                : `linear-gradient(135deg, #ede9fe, #ddd6fe)`,
+                : 'linear-gradient(135deg, #ede9fe, #ddd6fe)',
               border: isActive || isSpeaking || isProcessing
                 ? `2px solid ${purple}`
-                : `2px solid rgba(139,92,246,0.3)`,
+                : '2px solid rgba(139,92,246,0.3)',
               boxShadow: isActive
                 ? `0 0 ${20 + vol * 30}px rgba(139,92,246,${0.35 + vol * 0.35})`
                 : isProcessing || isSpeaking
-                ? `0 0 24px rgba(109,40,217,0.5)`
-                : `0 4px 16px rgba(139,92,246,0.2)`,
+                ? '0 0 24px rgba(109,40,217,0.5)'
+                : '0 4px 16px rgba(139,92,246,0.2)',
               transition: 'all 80ms ease',
               cursor: 'pointer',
             }}
@@ -164,54 +185,42 @@ export const GlobalVoiceCommander: React.FC = () => {
                 ))}
               </div>
             ) : (
-              <MicOutlined style={{
-                fontSize: 34,
-                color: isSpeaking ? 'white' : purple,
-              }} />
+              <MicOutlined style={{ fontSize: 34, color: isSpeaking ? 'white' : purple }} />
             )}
           </div>
         </div>
 
         {/* Status */}
-        <div className="text-center">
-          <p style={{ color: '#1e1b4b', fontSize: 17, fontWeight: 400, letterSpacing: '0.01em' }}>
-            {statusLabel}
-          </p>
-          {pendingConfirmation && (
-            <p style={{ color: purple, fontSize: 13, fontWeight: 400, marginTop: 4 }}>
-              {pendingConfirmation.response}
-            </p>
-          )}
-        </div>
+        <p style={{ color: '#1e1b4b', fontSize: 17, fontWeight: 400 }}>
+          {statusLabel}
+        </p>
 
         {/* Divider */}
         <div style={{ width: '100%', height: 1, background: 'rgba(139,92,246,0.1)' }} />
 
         {/* Example commands */}
-        {!pendingConfirmation && (
-          <div className="w-full flex flex-col gap-1.5">
-            <p style={{
-              color: 'rgba(109,40,217,0.4)', fontSize: 10,
-              letterSpacing: '0.1em', textTransform: 'uppercase',
-              marginBottom: 6, textAlign: 'center',
+        <div className="w-full flex flex-col gap-1.5">
+          <p style={{
+            color: 'rgba(109,40,217,0.4)', fontSize: 10,
+            letterSpacing: '0.1em', textTransform: 'uppercase',
+            marginBottom: 6, textAlign: 'center',
+          }}>
+            Try saying
+          </p>
+          {exampleCommands.map((cmd, i) => (
+            <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg" style={{
+              background: 'rgba(139,92,246,0.05)',
+              border: '1px solid rgba(139,92,246,0.1)',
             }}>
-              Try saying
-            </p>
-            {exampleCommands.map((cmd, i) => (
-              <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg" style={{
-                background: 'rgba(139,92,246,0.05)',
-                border: '1px solid rgba(139,92,246,0.1)',
-              }}>
-                <span style={{ color: purple, fontSize: 12, width: 14, textAlign: 'center', flexShrink: 0 }}>
-                  {cmd.icon}
-                </span>
-                <span style={{ color: '#4c1d95', fontSize: 13, fontWeight: 300 }}>
-                  "{cmd.text}"
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
+              <span style={{ color: purple, fontSize: 12, width: 14, textAlign: 'center', flexShrink: 0 }}>
+                {cmd.icon}
+              </span>
+              <span style={{ color: '#4c1d95', fontSize: 13, fontWeight: 300 }}>
+                "{cmd.text}"
+              </span>
+            </div>
+          ))}
+        </div>
 
         {/* Keyboard hints */}
         <div className="flex items-center gap-3" style={{ color: 'rgba(109,40,217,0.35)', fontSize: 11 }}>
