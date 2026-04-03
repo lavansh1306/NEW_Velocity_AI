@@ -219,7 +219,7 @@ app.use('/api/invites', invitesRoutes);
 console.log('[Server] Invites routes mounted');
 
 // ============ Employee Routes ============
-app.use('/api/employee', employeeRoutes);
+
 console.log('[Server] Employee routes mounted');
 
 // ============ Organization Routes ============
