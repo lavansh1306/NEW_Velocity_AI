@@ -18,7 +18,7 @@ export const useVoiceActions = () => {
     startListening,
     status 
   } = useVoice();
-  const { orgId, user: authUser } = useAuth();
+  const { orgId, orgRole, user: authUser } = useAuth();
   const { leaves, balances, leaveTypes, addLeaveRequest, updateLeaveStatus } = useLeaveManagementData();
 
   const handleVoiceCommand = async (transcript: string, currentPath: string) => {
@@ -97,6 +97,25 @@ export const useVoiceActions = () => {
   };
 
   const executeAction = async (action: VoiceAction, currentPath: string) => {
+    // 1. RBAC Check: Restrict Manager/Admin Commands
+    const restrictedActions: VoiceAction['type'][] = [
+      'approve_leave', 
+      'deny_leave', 
+      'add_team_member', 
+      'delete_team_member', 
+      'create_project', 
+      'create_task'
+    ];
+
+    const isManager = orgRole === 'admin' || orgRole === 'manager';
+
+    if (restrictedActions.includes(action.type) && !isManager) {
+      const msg = "I'm sorry, that action is restricted to managers and administrators.";
+      speak(msg);
+      toast.error(msg);
+      return;
+    }
+
     switch (action.type) {
       case 'navigate':
         if (action.target) {

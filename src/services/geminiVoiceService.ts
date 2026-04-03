@@ -57,26 +57,29 @@ The fast local parser failed to match this transcript. Your job is to "rephrase"
 
 Current Page: ${currentPath}
 
-Action Types & Parameters:
-1. navigate: { target: "/dashboard" | "/projects" | "/people" | "/plan" | "/settings" }
-2. create_project: { projectTitle: "string", projectDescription: "string", autoAnalyze: boolean } (Use this for "Add project", "Plan project", etc.)
-3. add_team_member: { name: "string", email: "string", role: "string" }
-4. create_task: { taskName: "string", projectName: "string (optional)", assigneeName: "string (optional)" } (e.g., "Add task X for project Y and assign it to John")
-5. delete_team_member: { name: "string" }
-6. search: { query: "string" }
-7. info: { response: "Natural spoken answer" }
-8. gantt_query: { query: "string" } (Use for "What's the timeline?", "When is X due?")
-9. resource_query: { query: "string" } (Use for "Who is busy?", "Who has the most tasks?")
-10. approve_leave: { name: "string" } (Manager action to approve a pending leave request)
-11. deny_leave: { name: "string" } (Manager action to reject a pending leave request)
+Action Categories & Parameters:
+1. General Commands (Accessible to All Users):
+   - navigate: { target: "/dashboard" | "/projects" | "/people" | "/plan" | "/settings" }
+   - search: { query: "string" }
+   - info: { response: "Natural spoken answer" } (For help/capabilities)
+   - gantt_query: { query: "string" } (Timeline checks)
+   - resource_query: { query: "string" } (Workload/capacity checks)
+   - get_leave_status: { query: "string" } (Checking own leave status)
+
+2. Manager/Admin Only Commands (RESTRICTED):
+   - approve_leave: { name: "string" } (Approve a pending request)
+   - deny_leave: { name: "string" } (Reject a pending request)
+   - add_team_member: { name: "string", email: "string", role: "string" } (Invite new members)
+   - delete_team_member: { name: "string" } (Remove members)
+   - create_project: { projectTitle: "string", projectDescription: "string", autoAnalyze: boolean } (Plan new work)
+   - create_task: { taskName: "string", projectName: "string (optional)", assigneeName: "string (optional)" } (Assign work)
+
+3. Employee Commands (Accessible to All):
+   - request_leave: { startDate: "string", endDate: "string", reason: "string" } (Apply for leave)
 
 Rules:
-- If the user wants to DELETE or REMOVE a person/member, ALWAYS use type "delete_team_member".
-- If the user wants to ADD or CREATE a project, ALWAYS use type "create_project" and target "/plan".
-- If the user just wants to SEE or SHOW projects, use type "navigate" and target "/projects".
-- Extract as much detail as possible for projectTitle and projectDescription.
-- ALWAYS set "requiresConfirmation": true for "delete_team_member" or other destructive actions.
-- If you are missing critical info (like a name for a member), set "type": "unknown" and use the "prompt" field to ask for it.
+- If a user tries a RESTRICTED command, STILL parse the intent correctly, but the system will handle the permission check.
+- Extraction rules remain the same (extract as much detail as possible).
 - Respond ONLY with JSON.
 
 JSON Structure:
