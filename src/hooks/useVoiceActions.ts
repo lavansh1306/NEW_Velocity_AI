@@ -182,12 +182,19 @@ export const useVoiceActions = () => {
         break;
 
       case 'info':
+        // info responses spoken above — re-listen so overlay stays open
+        waitThenListen(600);
+        break;
+
+      case 'unknown':
+        // Speak fallback then re-open mic so user can try again immediately
+        const fallback = action.response || "I did not catch that. Try saying go to projects, plan a project, or add a team member.";
+        speak(fallback);
+        waitThenListen(600);
         break;
 
       default:
-        if (action.type !== 'unknown') {
-          console.warn('[VoiceActions] Unknown action:', action.type);
-        }
+        console.warn("[VoiceActions] Unknown action:", action.type);
         break;
     }
   };
