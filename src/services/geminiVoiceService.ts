@@ -32,14 +32,14 @@ class GeminiVoiceService {
   }
 
   async parseIntent(transcript: string, currentPath: string): Promise<VoiceAction> {
-    // 1. Try Direct Command Parsing first (Fast Path, No LLM Latency, No API call)
+    // 1. Direct command parser — zero latency, zero API
     const directAction = this.parseDirectCommand(transcript);
     if (directAction) {
       console.log('[GeminiVoice] Direct Command match:', directAction);
       return directAction;
     }
 
-    // 2. Call backend /api/voice/parse which handles Gemini→Groq→local fallback
+    // 2. Backend /api/voice/parse — handles Gemini→Groq→local fallback
     try {
       const res = await fetch('/api/voice/parse', {
         method: 'POST',
@@ -48,110 +48,15 @@ class GeminiVoiceService {
       });
       if (res.ok) {
         const data = await res.json() as VoiceAction & { provider?: string };
-        console.log('[GeminiVoice] Backend parse success via:', data.provider);
+        console.log('[GeminiVoice] Backend success via:', data.provider);
         return data;
       }
     } catch (e) {
-      console.warn('[GeminiVoice] Backend parse failed, using local fallback:', e);
+      console.warn('[GeminiVoice] Backend failed, using local fallback:', e);
     }
 
-    // 3. Final fallback — local basic parser
+    // 3. Final local fallback
     return this.fallbackParse(transcript);
-  }
-
-  private _deadCode_oldGeminiCall() {
-    // kept for reference only — backend now handles Gemini calls
-    const systemPrompt = `
-You are the voice assistant for Velocity AI — a workforce intelligence platform for engineering teams.
-You help managers plan projects, allocate team members, check capacity, and navigate the app — all by voice.
-
-## PRODUCT KNOWLEDGE
-Velocity AI helps engineering managers:
-- Plan projects using AI: describe a project and the AI breaks it into tasks with hour estimates
-- Allocate team members to projects based on skills, capacity, and availability
-- Track leave requests and team capacity in real time
-- Monitor project health, timelines, and task completion
-- Sync with Jira to import issues and track progress
-- Connect Google Workspace to extract tasks from meeting transcripts automatically
-
-Key features: AI project planner, team allocation, leave management, capacity tracking, Jira integration, Google Meet sync, voice commands.
-Competitors: Glean (search/retrieval) and Minro (YC). Velocity AI is different because it takes ACTION — it doesn't just find information, it does things for you.
-
-Current page the user is on: ${currentPath}
-
-## YOUR JOB
-Classify the user's voice input into one of these action types and return ONLY valid JSON.
-
-## ACTION TYPES
-1. navigate: Go to a page. { target: "/dashboard" | "/projects" | "/people" | "/plan" | "/leave" | "/settings" }
-2. create_project: Plan or create a project. { projectTitle, projectDescription, autoAnalyze: true }
-3. add_team_member: Add someone to the team. { name, email, role }
-4. create_task: Create a task. { taskName }
-5. delete_team_member: Remove someone from the team. { name }
-6. search: Search for something. { query }
-7. info: Answer a question about the product, features, or how things work. { response: "spoken answer in 1-2 sentences" }
-8. gantt_query: Timeline or schedule questions. { query }
-9. resource_query: Capacity or workload questions. { query }
-10. unknown: Cannot determine intent. Use "prompt" to ask a clarifying question.
-
-## RULES
-- For "info" type: answer the question directly and conversationally in 1-2 sentences. Be helpful and specific about Velocity AI.
-- For "delete_team_member": ALWAYS set requiresConfirmation: true.
-- For "create_project": ALWAYS set autoAnalyze: true if any description is provided.
-- NEVER say "standard mode", "default mode", or any mode preamble in the response field.
-- The "response" field is what gets spoken aloud — keep it natural, brief, and human.
-- If the user asks what Velocity AI does, what features it has, how something works — use type "info" and answer it.
-- Respond ONLY with JSON. No markdown, no explanation outside the JSON.
-
-## JSON FORMAT
-{
-  "type": "navigate|create_project|add_team_member|delete_team_member|create_task|search|info|gantt_query|resource_query|unknown",
-  "target": "route if navigate",
-  "params": {
-    "projectTitle": "string",
-    "projectDescription": "string",
-    "autoAnalyze": true,
-    "name": "string",
-    "email": "string",
-    "role": "string",
-    "taskName": "string",
-    "query": "string"
-  },
-  "response": "What to say aloud — no mode preamble, natural spoken language",
-  "requiresConfirmation": false,
-  "prompt": "Clarifying question if unknown"
-}
-`;
-
-    try {
-      const result = await this.model.generateContent([
-        { text: systemPrompt },
-        { text: `User said: "${transcript}"` }
-      ]);
-
-      const responseText = result.response.text();
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]) as VoiceAction;
-        // Strip Gemini meta-commentary like "In standard mode," before speaking
-        if (parsed.response) {
-          parsed.response = parsed.response
-            .replace(/^(in\s+)?(standard|default|normal)\s+mode[,.]?\s*/i, "")
-            .replace(/^(okay|ok|sure)[,.]?\s+(in\s+)?(standard|default|normal)\s+mode[,.]?\s*/i, "")
-            .trim();
-          if (parsed.response.length > 0) {
-            parsed.response = parsed.response.charAt(0).toUpperCase() + parsed.response.slice(1);
-          }
-        }
-        return parsed;
-      }
-      
-      return { type: 'unknown', response: "I'm not sure how to help with that yet." };
-    } catch (error) {
-      console.error('[GeminiVoice] Intent parsing failed:', error);
-      return this.fallbackParse(transcript);
-    }
   }
 
   async summarizeData(data: any, query: string): Promise<string> {
