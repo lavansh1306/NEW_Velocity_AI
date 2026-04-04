@@ -19,9 +19,16 @@ export const GlobalVoiceCommander: React.FC = () => {
   const { handleVoiceCommand } = useVoiceActions();
   const hasProcessed = useRef(false);
 
-  // isOpen is controlled by us — not just by status
+  // isOpen is controlled independently of status
   // This prevents the overlay from snapping shut between states
   const [isOpen, setIsOpen] = useState(false);
+
+  // Listen for close event fired by useVoiceActions after navigation/actions
+  useEffect(() => {
+    const handleClose = () => setIsOpen(false);
+    window.addEventListener('velo-close-voice', handleClose);
+    return () => window.removeEventListener('velo-close-voice', handleClose);
+  }, []);
 
   const vol = Math.min(volumeLevel / 80, 1);
   const isActive = status === 'listening';
