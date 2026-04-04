@@ -33,11 +33,31 @@ export const GlobalVoiceCommander: React.FC = () => {
     if (lastTranscript && !hasProcessed.current) {
       hasProcessed.current = true;
       setLiveText(lastTranscript);
-      handleVoiceCommand(lastTranscript, location.pathname);
-      clearTranscript();
-      setTimeout(() => { hasProcessed.current = false; }, 500);
+      // Small delay to let React state settle before processing
+      setTimeout(() => {
+        handleVoiceCommand(lastTranscript, location.pathname);
+        clearTranscript();
+        setTimeout(() => { hasProcessed.current = false; }, 500);
+      }, 50);
     }
   }, [lastTranscript]);
+
+  // When user clicks stop — also check window.pendingTranscript in case
+  // onresult fired but React state hasn't updated lastTranscript yet
+  const handleStop = () => {
+    stopListening();
+    // Give onresult a chance to fire after stop() is called
+    setTimeout(() => {
+      const pending = (window as any).pendingTranscript;
+      if (pending && !hasProcessed.current && !lastTranscript) {
+        hasProcessed.current = true;
+        setLiveText(pending);
+        handleVoiceCommand(pending, location.pathname);
+        (window as any).pendingTranscript = '';
+        setTimeout(() => { hasProcessed.current = false; }, 500);
+      }
+    }, 300);
+  };
 
   // Ctrl+Space global hotkey
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -46,7 +66,7 @@ export const GlobalVoiceCommander: React.FC = () => {
       if (isOpen) {
         if (isListening) {
           // Stop listening and process
-          stopListening();
+          handleStop();
         } else {
           // Close overlay
           setIsOpen(false);
@@ -86,10 +106,11 @@ export const GlobalVoiceCommander: React.FC = () => {
   const handleOrbClick = () => {
     if (isActive) {
       // User is done speaking — stop and process
-      stopListening();
+      handleStop();
     } else if (!isProcessing && !isSpeaking) {
       // Start listening
       setLiveText('');
+      (window as any).pendingTranscript = '';
       setTimeout(() => startListening(), 100);
     }
   };

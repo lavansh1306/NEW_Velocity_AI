@@ -55,10 +55,21 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       };
 
       recognition.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        console.log('[VoiceContext] Final result received:', transcript);
-        setLastTranscript(transcript);
-        setStatus('idle'); // We've heard something, it's done for this batch
+        // Capture the best transcript from all results (handles interim + final)
+        let finalTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+          } else {
+            // Use interim if no final yet
+            finalTranscript += event.results[i][0].transcript;
+          }
+        }
+        console.log('[VoiceContext] Result received:', finalTranscript);
+        // Store in ref immediately so stopListening can access it synchronously
+        (window as any).pendingTranscript = finalTranscript;
+        setLastTranscript(finalTranscript);
+        setStatus('idle');
       };
 
       recognition.onerror = (event: any) => {
