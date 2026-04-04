@@ -55,21 +55,10 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       };
 
       recognition.onresult = (event: any) => {
-        // Capture the best transcript from all results (handles interim + final)
-        let finalTranscript = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
-          } else {
-            // Use interim if no final yet
-            finalTranscript += event.results[i][0].transcript;
-          }
-        }
-        console.log('[VoiceContext] Result received:', finalTranscript);
-        // Store in ref immediately so stopListening can access it synchronously
-        (window as any).pendingTranscript = finalTranscript;
-        setLastTranscript(finalTranscript);
-        setStatus('idle');
+        const transcript = event.results[0][0].transcript;
+        console.log('[VoiceContext] Final result received:', transcript);
+        setLastTranscript(transcript);
+        setStatus('idle'); // We've heard something, it's done for this batch
       };
 
       recognition.onerror = (event: any) => {
@@ -148,12 +137,9 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Synchronous ref guard — prevents double-start race condition
-  // React state (isListening) updates async so two rapid calls can both pass
   const isStartingRef = useRef(false);
 
   const startListening = useCallback(async () => {
-    // Synchronous guards — checked before any async work
     if (isStartingRef.current) return;
     if (isListening) return;
     if ((window as any).isListeningIntent) return;
@@ -161,10 +147,19 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     isStartingRef.current = true;
 
     try {
-      await setupAudioProcessing();
       setLastTranscript('');
       setIsTriggered(true);
       setStatus('connecting');
+
+      // Request mic permission first — keeps stream alive before Speech Recognition starts
+      if (!streamRef.current || streamRef.current.getTracks().some(t => t.readyState === 'ended')) {
+        console.log('[VoiceContext] Requesting mic permission...');
+        streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
+        console.log('[VoiceContext] Mic permission granted');
+      }
+
+      // Small delay so Chrome registers mic as available to SpeechRecognition
+      await new Promise(resolve => setTimeout(resolve, 150));
 
       if (recognitionRef.current) {
         (window as any).isListeningIntent = true;
@@ -172,20 +167,23 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setStatus('listening');
         setIsListening(true);
         console.log('[VoiceContext] Native Speech Recognition started');
+        setupAudioProcessing().catch(() => {});
       } else {
         throw new Error('Speech Recognition not supported in this browser.');
       }
     } catch (err: any) {
-      // Ignore "already started" — it means we're already listening, not an error
       if (err?.name === 'InvalidStateError') {
-        console.log('[VoiceContext] Recognition already running, ignoring duplicate start');
         setIsListening(true);
         setStatus('listening');
-      } else {
-        console.error('[VoiceContext] Error starting speech recognition:', err);
+      } else if (err?.name === 'NotAllowedError') {
         setStatus('error');
-        toast.error('Microphone access failed. Please check your browser permissions.');
+        toast.error('Microphone access denied. Please allow mic access in your browser settings.');
+      } else {
+        console.error('[VoiceContext] Error starting:', err);
+        setStatus('error');
+        toast.error('Could not start microphone. Please try again.');
       }
+      (window as any).isListeningIntent = false;
     } finally {
       isStartingRef.current = false;
     }
