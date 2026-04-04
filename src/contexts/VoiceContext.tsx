@@ -137,17 +137,24 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  // Synchronous ref guard — prevents double-start race condition
+  // React state (isListening) updates async so two rapid calls can both pass
+  const isStartingRef = useRef(false);
+
   const startListening = useCallback(async () => {
+    // Synchronous guards — checked before any async work
+    if (isStartingRef.current) return;
     if (isListening) return;
-    // Extra guard: check if recognition is actually running
     if ((window as any).isListeningIntent) return;
+
+    isStartingRef.current = true;
 
     try {
       await setupAudioProcessing();
-      setLastTranscript(''); 
-      setIsTriggered(true); 
+      setLastTranscript('');
+      setIsTriggered(true);
       setStatus('connecting');
-      
+
       if (recognitionRef.current) {
         (window as any).isListeningIntent = true;
         recognitionRef.current.start();
@@ -157,10 +164,19 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       } else {
         throw new Error('Speech Recognition not supported in this browser.');
       }
-    } catch (err) {
-      console.error('[VoiceContext] Error starting speech recognition:', err);
-      setStatus('error');
-      toast.error('Failed to access microphone or start speech recognition.');
+    } catch (err: any) {
+      // Ignore "already started" — it means we're already listening, not an error
+      if (err?.name === 'InvalidStateError') {
+        console.log('[VoiceContext] Recognition already running, ignoring duplicate start');
+        setIsListening(true);
+        setStatus('listening');
+      } else {
+        console.error('[VoiceContext] Error starting speech recognition:', err);
+        setStatus('error');
+        toast.error('Microphone access failed. Please check your browser permissions.');
+      }
+    } finally {
+      isStartingRef.current = false;
     }
   }, [isListening]);
 
