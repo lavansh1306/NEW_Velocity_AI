@@ -32,18 +32,35 @@ class GeminiVoiceService {
   }
 
   async parseIntent(transcript: string, currentPath: string): Promise<VoiceAction> {
-    // 1. Try Direct Command Parsing first (Fast Path, No LLM Latency)
+    // 1. Try Direct Command Parsing first (Fast Path, No LLM Latency, No API call)
     const directAction = this.parseDirectCommand(transcript);
     if (directAction) {
-      console.log('[GeminiVoice] Using Direct Command:', directAction);
+      console.log('[GeminiVoice] Direct Command match:', directAction);
       return directAction;
     }
 
-    if (!this.model) {
-      console.warn('[GeminiVoice] Gemini API not configured. Falling back to basic parsing.');
-      return this.fallbackParse(transcript);
+    // 2. Call backend /api/voice/parse which handles Gemini→Groq→local fallback
+    try {
+      const res = await fetch('/api/voice/parse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transcript, currentPath })
+      });
+      if (res.ok) {
+        const data = await res.json() as VoiceAction & { provider?: string };
+        console.log('[GeminiVoice] Backend parse success via:', data.provider);
+        return data;
+      }
+    } catch (e) {
+      console.warn('[GeminiVoice] Backend parse failed, using local fallback:', e);
     }
 
+    // 3. Final fallback — local basic parser
+    return this.fallbackParse(transcript);
+  }
+
+  private _deadCode_oldGeminiCall() {
+    // kept for reference only — backend now handles Gemini calls
     const systemPrompt = `
 You are the voice assistant for Velocity AI — a workforce intelligence platform for engineering teams.
 You help managers plan projects, allocate team members, check capacity, and navigate the app — all by voice.

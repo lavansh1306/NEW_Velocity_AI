@@ -54,6 +54,7 @@ import leaveApprovalRoutes from "./src/api/leave-approval/routes.ts"
 import invitesRoutes from "./src/api/invites/routes.ts"
 import employeeRoutes from "./src/api/employee/routes.ts"
 import organizationRoutes from "./src/api/organization/routes.ts"
+import voiceRoutes from "./src/api/voice/routes.ts"
 const app = express()
 
 console.log("typeof express:", typeof express)
@@ -219,12 +220,16 @@ app.use('/api/invites', invitesRoutes);
 console.log('[Server] Invites routes mounted');
 
 // ============ Employee Routes ============
-
+app.use('/api/employee', employeeRoutes);
 console.log('[Server] Employee routes mounted');
 
 // ============ Organization Routes ============
 app.use('/api/organization', organizationRoutes);
 console.log('[Server] Organization routes mounted at /api/organization');
+
+// Voice parse with Gemini→Groq→local fallback
+app.use('/api/voice', voiceRoutes);
+console.log('[Server] Voice parse route mounted at /api/voice/parse');
 
 app.get('/api/debug-routes', (req, res) => {
   res.json({
