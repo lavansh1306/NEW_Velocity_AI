@@ -27,7 +27,7 @@ class GeminiVoiceService {
     if (apiKey) {
       this.genAI = new GoogleGenerativeAI(apiKey);
       // Using Gemini 3 Flash Preview for cutting-edge speed and intelligence
-      this.model = this.genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
+      this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
     }
   }
 

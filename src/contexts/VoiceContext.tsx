@@ -16,7 +16,7 @@ interface VoiceContextType {
   setProcessing: (processing: boolean) => void;
   clearTranscript: () => void;
   speak: (text: string) => void;
-  volumeLevel: number;
+  volumeLevel: number; // NEW: Voice activity level
   enqueueAction: (action: VoiceAction) => void;
   consumeAction: (type: string) => VoiceAction | null;
   setPendingConfirmation: (action: VoiceAction | null) => void;
@@ -29,33 +29,22 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [status, setStatus] = useState<VoiceStatus>('idle');
   const [lastTranscript, setLastTranscript] = useState('');
   const [isTriggered, setIsTriggered] = useState(false);
-  const [volumeLevel, setVolumeLevel] = useState(0);
+  const [volumeLevel, setVolumeLevel] = useState(0); 
   const [commandQueue, setCommandQueue] = useState<VoiceAction[]>([]);
-  const [pendingConfirmation, setPendingConfirmationState] = useState<VoiceAction | null>(null);
-
-  // Keep a ref that always reflects the latest pendingConfirmation
-  // This fixes the stale closure problem in speak() and listenAfterSpeech()
-  const pendingConfirmationRef = useRef<VoiceAction | null>(null);
-
+  const [pendingConfirmation, setPendingConfirmation] = useState<VoiceAction | null>(null);
   const recognitionRef = useRef<any>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const triggerPhrases = ['velocity', 'hey velocity', 'hi velocity', 'ok velocity'];
 
-  // Keep ref in sync with state
-  const setPendingConfirmation = useCallback((action: VoiceAction | null) => {
-    pendingConfirmationRef.current = action;
-    setPendingConfirmationState(action);
-  }, []);
-
   // Initialize Speech Recognition
   useEffect(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (SpeechRecognition) {
       const recognition = new SpeechRecognition();
-      recognition.continuous = false;
-      recognition.interimResults = false;
+      recognition.continuous = false; // Changed to false for better stability
+      recognition.interimResults = false; // Changed to false for better reliability
       recognition.lang = 'en-US';
       (window as any).isListeningIntent = false;
 
@@ -69,7 +58,7 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const transcript = event.results[0][0].transcript;
         console.log('[VoiceContext] Final result received:', transcript);
         setLastTranscript(transcript);
-        setStatus('idle');
+        setStatus('idle'); // We've heard something, it's done for this batch
       };
 
       recognition.onerror = (event: any) => {
@@ -80,6 +69,7 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           }
           setStatus('error');
         } else {
+          // No speech heard at all
           setIsListening(false);
           setStatus('idle');
         }
@@ -95,9 +85,9 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       recognitionRef.current = recognition;
     }
-  }, []);
+  }, []); // Initialize only ONCE on mount
 
-  // Setup Web Audio API Processing
+  // NEW: Setup Web Audio API Processing
   const setupAudioProcessing = async () => {
     try {
       if (!audioCtxRef.current) {
@@ -113,30 +103,34 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (!streamRef.current) {
         streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
         const source = audioCtxRef.current.createMediaStreamSource(streamRef.current);
-
+        
+        // High-pass filter to remove low-frequency rumble (noise isolation)
         const filter = audioCtxRef.current.createBiquadFilter();
         filter.type = 'highpass';
-        filter.frequency.value = 100;
-
+        filter.frequency.value = 100; // Cut off frequencies below 100Hz
+        
         source.connect(filter);
         filter.connect(analyserRef.current);
       }
 
+      // Monitoring loop for volume levels
       const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
       const updateVolume = () => {
         if (!analyserRef.current) return;
         analyserRef.current.getByteFrequencyData(dataArray);
+        
+        // Simple average for volume level
         const sum = dataArray.reduce((acc, v) => acc + v, 0);
         const avg = sum / dataArray.length;
         setVolumeLevel(avg);
-
+        
         if (isListening || isTriggered) {
           requestAnimationFrame(updateVolume);
         } else {
           setVolumeLevel(0);
         }
       };
-
+      
       updateVolume();
     } catch (err) {
       console.warn('[VoiceContext] Failed to setup local audio processing:', err);
@@ -145,13 +139,15 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const startListening = useCallback(async () => {
     if (isListening) return;
+    // Extra guard: check if recognition is actually running
+    if ((window as any).isListeningIntent) return;
 
     try {
       await setupAudioProcessing();
-      setLastTranscript('');
-      setIsTriggered(true);
+      setLastTranscript(''); 
+      setIsTriggered(true); 
       setStatus('connecting');
-
+      
       if (recognitionRef.current) {
         (window as any).isListeningIntent = true;
         recognitionRef.current.start();
@@ -176,17 +172,18 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setIsListening(false);
     setIsTriggered(false);
     setStatus('idle');
-    // Also clear pending confirmation when user manually stops
-    if (!pendingConfirmationRef.current) {
-      setPendingConfirmation(null);
-    }
+  }, []);
+
+  // handleToolCall is now deprecated in favor of useVoiceActions handling geminiVoiceService directly
+  const handleToolCall = useCallback((toolCall: any) => {
+    // Legacy support if needed, but the new flow uses useVoiceActions
   }, []);
 
   const setProcessing = (processing: boolean) => {
     setStatus(processing ? 'processing' : 'idle');
     if (!processing) {
       setIsTriggered(false);
-      setLastTranscript('');
+      setLastTranscript(''); // Clear transcript after processing
     }
   };
 
@@ -208,33 +205,26 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const speak = (text: string) => {
     if ('speechSynthesis' in window) {
+      // Cancel any ongoing speech
       window.speechSynthesis.cancel();
-
+      
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.onstart = () => setStatus('speaking');
-      utterance.onend = () => {
-        // KEY FIX: Only go idle if there's no pending confirmation waiting
-        // Otherwise keep status visible so the overlay stays open
-        if (!pendingConfirmationRef.current) {
-          setStatus('idle');
-        } else {
-          setStatus('listening');
-        }
-      };
+      utterance.onend = () => setStatus('idle');
       window.speechSynthesis.speak(utterance);
     }
   };
 
   return (
-    <VoiceContext.Provider value={{
-      isListening,
-      status,
-      lastTranscript,
-      isTriggered,
+    <VoiceContext.Provider value={{ 
+      isListening, 
+      status, 
+      lastTranscript, 
+      isTriggered, 
       volumeLevel,
       commandQueue,
       pendingConfirmation,
-      startListening,
+      startListening, 
       stopListening,
       setProcessing,
       clearTranscript,
