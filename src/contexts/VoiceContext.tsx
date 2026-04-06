@@ -38,6 +38,15 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const streamRef = useRef<MediaStream | null>(null);
   const triggerPhrases = ['velocity', 'hey velocity', 'hi velocity', 'ok velocity'];
 
+  useEffect(() => {
+    if (!('speechSynthesis' in window)) return;
+    window.speechSynthesis.getVoices();
+    window.speechSynthesis.onvoiceschanged = () => {
+      window.speechSynthesis.getVoices();
+    };
+  }, []);
+
+
   // Initialize Speech Recognition
   useEffect(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -204,16 +213,34 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [commandQueue]);
 
   const speak = (text: string) => {
-    if (!('speechSynthesis' in window)) return;
-    // setTimeout(0) escapes the async chain — Chrome blocks speechSynthesis
-    // inside async/await but allows it in a fresh task
+    if (!('speechSynthesis' in window) || !text?.trim()) return;
+
     setTimeout(() => {
-      window.speechSynthesis.cancel();
+      const synth = window.speechSynthesis;
+      const voices = synth.getVoices();
       const utterance = new SpeechSynthesisUtterance(text);
+
+      const preferred =
+        voices.find(v => /en-US|en_US/i.test(v.lang)) ||
+        voices.find(v => /en/i.test(v.lang)) ||
+        voices[0];
+
+      if (preferred) utterance.voice = preferred;
+      utterance.lang = preferred?.lang || 'en-US';
+      utterance.volume = 1;
+      utterance.rate = 1;
+      utterance.pitch = 1;
+
       utterance.onstart = () => setStatus('speaking');
       utterance.onend = () => setStatus('idle');
-      window.speechSynthesis.speak(utterance);
-    }, 0);
+      utterance.onerror = (e) => {
+        console.error('[VoiceContext] speechSynthesis error:', e);
+        setStatus('idle');
+      };
+
+      synth.cancel();
+      synth.speak(utterance);
+    }, 100);
   };
 
   return (
