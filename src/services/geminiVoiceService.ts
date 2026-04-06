@@ -211,15 +211,17 @@ Rules:
       manager: 'Product Manager',
       qa: 'QA Engineer',
       tester: 'QA Engineer',
-      developer: 'Frontend Developer',
-      engineer: 'Frontend Developer'
+      developer: 'Developer',
+      engineer: 'Engineer',
+      'data engineer': 'Data Engineer',
+      data: 'Data Engineer'
     };
 
     const roles = Object.keys(roleMapping).sort((a, b) => b.length - a.length);
 
     const addPatterns = [
-      /(?:^|\b)(?:add|invite|new)\s+([a-z]+(?:\s+[a-z]+)*)\s+(?:as\s+)?(frontend|backend|fullstack|designer|design|product manager|manager|qa|tester|developer|engineer)\b/i,
-      /^([a-z]+(?:\s+[a-z]+)*)\s+as\s+(?:a\s+)?(frontend|backend|fullstack|designer|design|product manager|manager|qa|tester|developer|engineer)\b/i,
+      /(?:^|\b)(?:add|invite|new)\s+([a-z]+(?:\s+[a-z]+)*)\s+(?:as\s+)?(data engineer|frontend|backend|fullstack|designer|design|product manager|manager|qa|tester|developer|engineer)\b/i,
+      /^([a-z]+(?:\s+[a-z]+)*)\s+as\s+(?:a\s+)?(data engineer|frontend|backend|fullstack|designer|design|product manager|manager|qa|tester|developer|engineer)\b/i,
       /^add\s+([a-z]+(?:\s+[a-z]+)*)\s+(.+)$/i
     ];
 
