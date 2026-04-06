@@ -1,13 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useVoice } from '@/contexts/VoiceContext';
-import { useVoiceActions } from '@/hooks/useVoiceActions';
 import { useLocation } from 'react-router-dom';
 import { Mic, MicOff, Loader2, Volume2, X } from 'lucide-react';
 import gsap from 'gsap';
 
 export const VoiceAgent: React.FC = () => {
   const { isListening, status, lastTranscript, isTriggered, volumeLevel, pendingConfirmation, startListening, stopListening } = useVoice();
-  const { handleVoiceCommand } = useVoiceActions();
   const location = useLocation();
   const orbRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -16,8 +14,6 @@ export const VoiceAgent: React.FC = () => {
   useEffect(() => {
     // If we transition from listening/processing to idle and have a transcript, execute it
     if (!isListening && isTriggered && lastTranscript && status === 'idle') {
-      console.log('[VoiceAgent] Recognition finished, processing transcript:', lastTranscript);
-      handleVoiceCommand(lastTranscript, location.pathname);
     }
     
     // If it was triggered but ended with no transcript, just reset
