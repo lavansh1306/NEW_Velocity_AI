@@ -202,15 +202,16 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [commandQueue]);
 
   const speak = (text: string) => {
-    if ('speechSynthesis' in window) {
-      // Cancel any ongoing speech
+    if (!('speechSynthesis' in window)) return;
+    // setTimeout(0) escapes the async chain — Chrome blocks speechSynthesis
+    // inside async/await but allows it in a fresh task
+    setTimeout(() => {
       window.speechSynthesis.cancel();
-      
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.onstart = () => setStatus('speaking');
       utterance.onend = () => setStatus('idle');
       window.speechSynthesis.speak(utterance);
-    }
+    }, 0);
   };
 
   return (
