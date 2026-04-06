@@ -299,6 +299,24 @@ export default function ProjectAnalytics() {
     if (!selectedTask) return;
     setIsTaskSaving(true);
     try {
+      // 1. Ensure team membership for the assignee
+      const teamId = (project as any)?.team_id;
+      const organizationId = orgId || (project as any)?.organization_id;
+      if (teamId && organizationId && taskForm.assignee_id) {
+        const memberDetails = orgMembers.find(m => m.id === taskForm.assignee_id);
+        if (memberDetails) {
+          const { error: rpcError } = await supabase.rpc('upsert_team_member', {
+            p_organization_id: organizationId,
+            p_team_id: teamId,
+            p_email: memberDetails.email,
+            p_name: memberDetails.name,
+            p_role: 'Team Member'
+          });
+          if (rpcError) console.error('Error syncing assignee to team:', rpcError);
+        }
+      }
+
+      // 2. Update the task
       const { error } = await supabase
         .from('tasks')
         .update({
@@ -316,6 +334,7 @@ export default function ProjectAnalytics() {
       toast.success('Task updated successfully');
       setIsTaskModalOpen(false);
       await refetchTasks();
+      await fetchOrgMembers(); // Refresh lists to show new team members
     } catch (err: any) {
       console.error('Error updating task:', err);
       toast.error('Failed to update task');
@@ -332,6 +351,25 @@ export default function ProjectAnalytics() {
 
     setIsTaskSaving(true);
     try {
+      const organizationId = orgId || (project as any)?.organization_id;
+      const teamId = (project as any)?.team_id;
+
+      // 1. Ensure team membership for the assignee
+      if (teamId && organizationId && newTaskForm.assignee_id) {
+        const memberDetails = orgMembers.find(m => m.id === newTaskForm.assignee_id);
+        if (memberDetails) {
+          const { error: rpcError } = await supabase.rpc('upsert_team_member', {
+            p_organization_id: organizationId,
+            p_team_id: teamId,
+            p_email: memberDetails.email,
+            p_name: memberDetails.name,
+            p_role: 'Team Member'
+          });
+          if (rpcError) console.error('Error syncing assignee to team:', rpcError);
+        }
+      }
+
+      // 2. Insert the task
       const { error } = await supabase
         .from('tasks')
         .insert({
@@ -350,6 +388,7 @@ export default function ProjectAnalytics() {
       setIsNewTaskModalOpen(false);
       setNewTaskForm({ name: '', description: '', estimated_hours: 0, assignee_id: '', start_date: getTodayDateString(), due_date: '' });
       await refetchTasks();
+      await fetchOrgMembers(); // Refresh lists to show new team members
     } catch (err: any) {
       console.error('Error creating task:', err);
       toast.error('Failed to create task');
@@ -1337,7 +1376,7 @@ export default function ProjectAnalytics() {
                   <label className="block text-sm text-[#78716C] mb-1 font-medium">Assignee</label>
                   <select value={newTaskForm.assignee_id} onChange={(e) => setNewTaskForm(prev => ({ ...prev, assignee_id: e.target.value }))} className="w-full px-4 py-3 rounded-xl border border-[#E7E5E4] bg-white focus:ring-2 focus:ring-[#0F766E]/20" disabled={isTaskSaving}>
                     <option value="">Unassigned</option>
-                    {assignableTeamMembers.map(member => (
+                    {orgMembers.map(member => (
                       <option key={member.id} value={member.id}>{member.name}</option>
                     ))}
                   </select>
@@ -1462,8 +1501,7 @@ export default function ProjectAnalytics() {
                     <label className="block text-sm text-[#78716C] mb-1 font-medium">Assignee</label>
                     <select value={taskForm.assignee_id} onChange={(e) => setTaskForm(prev => ({ ...prev, assignee_id: e.target.value }))} className="w-full px-4 py-3 rounded-xl border border-[#E7E5E4] bg-white focus:ring-2 focus:ring-[#0F766E]/20" disabled={isTaskSaving}>
                       <option value="">Unassigned</option>
-                      {/* Pull from active team members! */}
-                      {assignableTeamMembers.map(member => (
+                      {orgMembers.map(member => (
                         <option key={member.id} value={member.id}>{member.name}</option>
                       ))}
                     </select>
