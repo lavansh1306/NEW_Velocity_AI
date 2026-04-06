@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useVoice } from '@/contexts/VoiceContext';
 import { useVoiceActions } from '@/hooks/useVoiceActions';
-import { MicOutlined, StopOutlined, AutoAwesomeOutlined } from '@mui/icons-material';
+import { MicOutlined, AutoAwesomeOutlined } from '@mui/icons-material';
 
 export const GlobalVoiceCommander: React.FC = () => {
   const location = useLocation();
@@ -18,71 +18,71 @@ export const GlobalVoiceCommander: React.FC = () => {
 
   const { handleVoiceCommand } = useVoiceActions();
   const hasProcessed = useRef(false);
+  const silenceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [liveText, setLiveText] = useState('');
+  const [isFinal, setIsFinal] = useState(false);
 
-  // Listen for close event from useVoiceActions after navigation
+  // Close overlay event from useVoiceActions after navigation/actions
   useEffect(() => {
-    const handleClose = () => { stopListening(); setIsOpen(false); setLiveText(''); };
+    const handleClose = () => {
+      stopListening();
+      setIsOpen(false);
+      setLiveText('');
+      setIsFinal(false);
+    };
     window.addEventListener('velo-close-voice', handleClose);
     return () => window.removeEventListener('velo-close-voice', handleClose);
   }, [stopListening]);
 
-  // Listen for close event from useVoiceActions after navigation/actions
+  // Auto-listen when overlay opens
   useEffect(() => {
-    const handleClose = () => { stopListening(); setIsOpen(false); setLiveText(''); };
-    window.addEventListener('velo-close-voice', handleClose);
-    return () => window.removeEventListener('velo-close-voice', handleClose);
-  }, [stopListening]);
+    if (isOpen && !isListening && status === 'idle') {
+      setTimeout(() => startListening(), 200);
+    }
+  }, [isOpen]);
 
-  // Process transcript when speech recognition finalizes
+  // Process transcript
+  // Only process when we have a final result (status goes idle after final)
   useEffect(() => {
     if (lastTranscript && !hasProcessed.current) {
-      hasProcessed.current = true;
+      // Show live text always
       setLiveText(lastTranscript);
-      // Small delay to let React state settle before processing
-      setTimeout(() => {
-        handleVoiceCommand(lastTranscript, location.pathname);
-        clearTranscript();
-        setTimeout(() => { hasProcessed.current = false; }, 500);
-      }, 50);
-    }
-  }, [lastTranscript]);
 
-  // When user clicks stop — also check window.pendingTranscript in case
-  // onresult fired but React state hasn't updated lastTranscript yet
-  const handleStop = () => {
-    stopListening();
-    // Give onresult a chance to fire after stop() is called
-    setTimeout(() => {
-      const pending = (window as any).pendingTranscript;
-      if (pending && !hasProcessed.current && !lastTranscript) {
+      // If status is idle it means Speech Recognition returned a final result
+      if (status === 'idle') {
         hasProcessed.current = true;
-        setLiveText(pending);
-        handleVoiceCommand(pending, location.pathname);
-        (window as any).pendingTranscript = '';
-        setTimeout(() => { hasProcessed.current = false; }, 500);
+        setIsFinal(true);
+
+        // Clear silence timer
+        if (silenceTimer.current) clearTimeout(silenceTimer.current);
+
+        // Small delay then process
+        setTimeout(() => {
+          handleVoiceCommand(lastTranscript, location.pathname);
+          clearTranscript();
+          setTimeout(() => {
+            hasProcessed.current = false;
+            setIsFinal(false);
+          }, 500);
+        }, 100);
       }
-    }, 300);
-  };
+    }
+  }, [lastTranscript, status]);
 
   // Ctrl+Space global hotkey
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.ctrlKey && e.code === 'Space') {
       e.preventDefault();
       if (isOpen) {
-        if (isListening) {
-          // Stop listening and process
-          handleStop();
-        } else {
-          // Close overlay
-          setIsOpen(false);
-          setLiveText('');
-        }
+        stopListening();
+        setIsOpen(false);
+        setLiveText('');
+        setIsFinal(false);
       } else {
         setIsOpen(true);
         setLiveText('');
-        setTimeout(() => startListening(), 100);
+        setIsFinal(false);
       }
       return;
     }
@@ -91,6 +91,7 @@ export const GlobalVoiceCommander: React.FC = () => {
       stopListening();
       setIsOpen(false);
       setLiveText('');
+      setIsFinal(false);
     }
   }, [isOpen, isListening, startListening, stopListening]);
 
@@ -109,28 +110,15 @@ export const GlobalVoiceCommander: React.FC = () => {
   const purple = '#8b5cf6';
   const purpleDark = '#6d28d9';
 
-  // Button behavior: click to start OR click to stop+process
-  const handleOrbClick = () => {
-    if (isActive) {
-      // User is done speaking — stop and process
-      handleStop();
-    } else if (!isProcessing && !isSpeaking) {
-      // Start listening
-      setLiveText('');
-      (window as any).pendingTranscript = '';
-      setTimeout(() => startListening(), 100);
-    }
-  };
-
-  const statusLabel = isActive
-    ? 'Tap to stop recording'
-    : isProcessing
+  const statusLabel = isProcessing
     ? 'Thinking...'
     : isSpeaking
     ? 'Speaking...'
-    : liveText
-    ? 'Processing...'
-    : 'Tap to speak';
+    : isFinal
+    ? 'Got it...'
+    : isActive
+    ? 'Listening...'
+    : 'Starting...';
 
   const exampleCommands = [
     { icon: '→', text: 'Go to projects' },
@@ -149,6 +137,7 @@ export const GlobalVoiceCommander: React.FC = () => {
           stopListening();
           setIsOpen(false);
           setLiveText('');
+          setIsFinal(false);
         }
       }}
     >
@@ -169,7 +158,7 @@ export const GlobalVoiceCommander: React.FC = () => {
           </span>
         </div>
 
-        {/* Orb — click to start, click again to stop */}
+        {/* Orb */}
         <div className="relative flex items-center justify-center" style={{ width: 120, height: 120 }}>
           {isActive && (
             <>
@@ -187,7 +176,17 @@ export const GlobalVoiceCommander: React.FC = () => {
           )}
 
           <div
-            onClick={handleOrbClick}
+            onClick={() => {
+              if (!isProcessing && !isSpeaking) {
+                if (isActive) {
+                  stopListening();
+                } else {
+                  setLiveText('');
+                  setIsFinal(false);
+                  setTimeout(() => startListening(), 100);
+                }
+              }
+            }}
             className="relative flex flex-col items-center justify-center rounded-full select-none"
             style={{
               width: 88, height: 88,
@@ -207,10 +206,15 @@ export const GlobalVoiceCommander: React.FC = () => {
             }}
           >
             {isActive ? (
-              // Show STOP icon when listening — clear signal to user
-              <div className="flex flex-col items-center gap-1">
-                <StopOutlined style={{ fontSize: 28, color: 'white' }} />
-                <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 9, letterSpacing: '0.05em' }}>STOP</span>
+              <div className="flex items-center gap-[3px]">
+                {[0.5, 0.9, 0.6, 1, 0.7, 0.85, 0.5].map((h, i) => (
+                  <div key={i} className="rounded-full" style={{
+                    width: 3,
+                    height: `${5 + vol * 20 * h}px`,
+                    background: 'white',
+                    transition: 'height 80ms ease',
+                  }} />
+                ))}
               </div>
             ) : isProcessing ? (
               <div className="flex items-center gap-1.5">
@@ -222,11 +226,7 @@ export const GlobalVoiceCommander: React.FC = () => {
                 ))}
               </div>
             ) : (
-              // Show MIC icon when idle
-              <div className="flex flex-col items-center gap-1">
-                <MicOutlined style={{ fontSize: 28, color: isSpeaking ? 'white' : purple }} />
-                {!isSpeaking && <span style={{ color: 'rgba(109,40,217,0.6)', fontSize: 9, letterSpacing: '0.05em' }}>SPEAK</span>}
-              </div>
+              <MicOutlined style={{ fontSize: 34, color: isSpeaking ? 'white' : purple }} />
             )}
           </div>
         </div>
@@ -236,7 +236,7 @@ export const GlobalVoiceCommander: React.FC = () => {
           {statusLabel}
         </p>
 
-        {/* Live transcript — shows what was heard */}
+        {/* Live transcript */}
         {liveText && (
           <div style={{
             background: 'rgba(139,92,246,0.06)',
@@ -252,13 +252,13 @@ export const GlobalVoiceCommander: React.FC = () => {
 
         {/* Sound wave when listening */}
         {isActive && (
-          <div className="flex items-center gap-[3px]" style={{ height: 24 }}>
+          <div className="flex items-center gap-[3px]" style={{ height: 20 }}>
             {[0.5, 0.8, 0.6, 1, 0.7, 0.9, 0.5, 0.8, 0.6].map((h, i) => (
               <div key={i} className="rounded-full" style={{
                 width: 3,
-                height: `${4 + vol * 18 * h}px`,
+                height: `${3 + vol * 14 * h}px`,
                 background: purple,
-                opacity: 0.6 + vol * 0.4,
+                opacity: 0.5 + vol * 0.5,
                 transition: 'height 80ms ease',
               }} />
             ))}
@@ -268,7 +268,7 @@ export const GlobalVoiceCommander: React.FC = () => {
         {/* Divider */}
         <div style={{ width: '100%', height: 1, background: 'rgba(139,92,246,0.1)' }} />
 
-        {/* Example commands — hidden while listening to reduce distraction */}
+        {/* Example commands — only show when idle */}
         {!isActive && !isProcessing && !liveText && (
           <div className="w-full flex flex-col gap-1.5">
             <p style={{ color: 'rgba(109,40,217,0.35)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4, textAlign: 'center' }}>
