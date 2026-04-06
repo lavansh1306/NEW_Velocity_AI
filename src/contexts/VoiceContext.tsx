@@ -215,7 +215,7 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const speak = (text: string) => {
     if (!('speechSynthesis' in window) || !text?.trim()) return;
 
-    setTimeout(() => {
+    const runSpeak = () => {
       const synth = window.speechSynthesis;
       const voices = synth.getVoices();
       const utterance = new SpeechSynthesisUtterance(text);
@@ -231,16 +231,33 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       utterance.rate = 1;
       utterance.pitch = 1;
 
-      utterance.onstart = () => setStatus('speaking');
-      utterance.onend = () => setStatus('idle');
+      utterance.onstart = () => {
+        console.log('[VoiceContext] speech started:', text);
+        setStatus('speaking');
+      };
+
+      utterance.onend = () => {
+        console.log('[VoiceContext] speech ended');
+        setStatus('idle');
+      };
+
       utterance.onerror = (e) => {
         console.error('[VoiceContext] speechSynthesis error:', e);
         setStatus('idle');
       };
 
       synth.cancel();
-      synth.speak(utterance);
-    }, 100);
+      window.setTimeout(() => synth.speak(utterance), 50);
+    };
+
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length > 0) {
+      runSpeak();
+    } else {
+      window.speechSynthesis.onvoiceschanged = () => runSpeak();
+      window.speechSynthesis.getVoices();
+      window.setTimeout(runSpeak, 300);
+    }
   };
 
   return (
