@@ -87,6 +87,7 @@ Rules:
   private normalizeTranscript(text: string): string {
     return text.toLowerCase()
       .replace(/^(hello|hi|hey|velocity|bot|ai|please|can you|could you)\s+/g, '')
+      .replace(/\badd\s+(.+?)\s+to\s+(frontend|front end|backend|back end|developer|engineer|designer|qa|tester|product manager|manager)\b/g, 'add $1 as $2')
       .replace(/[.,!?;:]+$/, '') // Strip trailing punctuation
       .trim();
   }
