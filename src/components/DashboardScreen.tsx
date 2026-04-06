@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -49,6 +50,7 @@ export const DashboardScreen = () => {
         tempCustomRange, setTempCustomRange,
         appliedCustomRange, setAppliedCustomRange,
         isCalendarOpen, setIsCalendarOpen,
+        refresh,
     } = useDashboard();
 
     const [currentWeekStart, setCurrentWeekStart] = useState<Date>(getCurrentWeekMonday());
@@ -154,6 +156,10 @@ export const DashboardScreen = () => {
                     <p className="text-[#78716C] text-sm mt-1">Overview of your team's capacity and project health.</p>
                 </div>
                 <div className="flex items-center gap-3">
+                    <Button variant="outline" className="h-10 px-3 bg-white border-[#E7E5E4] rounded-lg shadow-sm hover:bg-[#F5F5F4]" onClick={() => refresh()}>
+                        <RefreshCw className={`h-4 w-4 text-[#78716C] ${isLoading ? 'animate-spin' : ''}`} />
+                        <span className="ml-2 text-sm text-[#78716C] font-medium">Refresh</span>
+                    </Button>
                     <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                         <div>
                             <Select value={dateRangeParam} onValueChange={(val) => {

@@ -173,7 +173,7 @@ export const PlanMyProjectScreen = () => {
         setDescriptionError(null);
         setIsAnalyzing(true);
         setThoughtLines([]);
-        setAnalysisStatus("Saving draft...");
+        setAnalysisStatus("Decomposing requirements...");
 
         const thoughts = ['Analyzing requirements...', 'Structuring tasks...', 'Finalizing plan...'];
         let tIdx = 0;
@@ -235,6 +235,7 @@ export const PlanMyProjectScreen = () => {
 
             setTasks(generatedTasks);
             setHasAnalyzed(true);
+            setAnalysisStatus("Analysis complete!");
             toast.success(`Project tasks generated via ${generatedTasks[0].id.includes('gemma') ? 'Gemma 4' : 'Legacy Engine'}!`);
 
             // Scroll to task section

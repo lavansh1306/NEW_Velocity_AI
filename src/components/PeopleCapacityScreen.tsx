@@ -28,6 +28,7 @@ import TuneOutlined from '@mui/icons-material/TuneOutlined';
 import DeleteOutlined from '@mui/icons-material/DeleteOutlined';
 import NotificationsActiveOutlined from '@mui/icons-material/NotificationsActiveOutlined';
 import ArrowForwardOutlined from '@mui/icons-material/ArrowForwardOutlined';
+import ArrowBackOutlined from '@mui/icons-material/ArrowBackOutlined';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { toast } from 'sonner';
 import { AISuggestionPanel, type AISuggestion } from './AISuggestionCard';
@@ -577,6 +578,9 @@ export const PeopleCapacityScreen = () => {
     const [voiceMemberData, setVoiceMemberData] = useState<{ name?: string; email?: string; role?: string } | null>(null);
 
 
+    const [selectedMemberIds, setSelectedMemberIds] = useState<Set<string>>(new Set());
+    const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+
     const [teamMembers, setTeamMembers] = useState<TeamMemberView[]>([]);
     const [pendingSkills, setPendingSkills] = useState<PendingSkillView[]>([]);
     const [allPersonDetails, setAllPersonDetails] = useState<Record<string, PersonDetailView>>({});
@@ -594,6 +598,50 @@ export const PeopleCapacityScreen = () => {
     const { consumeAction } = useVoice();
     
     const detailPanelRef = useRef<HTMLDivElement>(null);
+
+    const toggleMemberSelection = (e: React.MouseEvent, memberId: string) => {
+        e.stopPropagation();
+        const next = new Set(selectedMemberIds);
+        if (next.has(memberId)) {
+            next.delete(memberId);
+        } else {
+            next.add(memberId);
+        }
+        setSelectedMemberIds(next);
+    };
+
+    const handleBulkDelete = async () => {
+        if (selectedMemberIds.size === 0) return;
+        
+        if (!confirm(`Are you sure you want to remove ${selectedMemberIds.size} team members? This action cannot be undone.`)) {
+            return;
+        }
+
+        setIsBulkDeleting(true);
+        try {
+            const orgId = getCurrentOrgId();
+            if (!orgId) throw new Error('Organization not found');
+
+            const idsToDelete = Array.from(selectedMemberIds);
+            
+            // Clean up tasks in bulk
+            await supabase.from('task_assignments').delete().in('user_id', idsToDelete);
+
+            // Soft delete in loop (RPC doesn't support array yet or we can make one)
+            for (const id of idsToDelete) {
+                await supabase.rpc('soft_delete_user', { target_user_id: id });
+            }
+
+            setTeamMembers(prev => prev.filter(m => !selectedMemberIds.has(m.id)));
+            setSelectedMemberIds(new Set());
+            toast.success(`Removed ${idsToDelete.length} members successfully`);
+        } catch (error) {
+            console.error('Bulk delete error:', error);
+            toast.error('Failed to complete bulk deletion');
+        } finally {
+            setIsBulkDeleting(false);
+        }
+    };
 
     const handleRemoveMember = async (e: React.MouseEvent | null, memberId: string, memberName: string) => {
         if (e) e.stopPropagation();
@@ -1040,13 +1088,25 @@ export const PeopleCapacityScreen = () => {
                 {/* Header */}
                 <div className="flex items-center justify-between mb-8">
                     <h1 className="text-4xl font-light text-[#1C1917] tracking-tight">People & Capacity</h1>
-                    <Button
-                        className="bg-[#1C1917] hover:bg-[#292524] h-11 px-6 rounded-xl font-light transition-all duration-300 text-white shadow-md"
-                        onClick={() => setIsAddMemberOpen(true)}
-                    >
-                        <AddOutlined style={{ fontSize: 16 }} className="mr-2" />
-                        Add Team Member
-                    </Button>
+                        <div className="flex gap-3">
+                            {selectedMemberIds.size > 0 && (
+                                <Button
+                                    variant="outline"
+                                    onClick={handleBulkDelete}
+                                    disabled={isBulkDeleting}
+                                    className="h-11 px-6 rounded-xl border-[#BE123C]/20 text-[#BE123C] hover:bg-[#BE123C]/5 font-light transition-all"
+                                >
+                                    {isBulkDeleting ? 'Deleting...' : `Delete ${selectedMemberIds.size} Members`}
+                                </Button>
+                            )}
+                            <Button
+                                className="bg-[#1C1917] hover:bg-[#292524] h-11 px-6 rounded-xl font-light transition-all duration-300 text-white shadow-md"
+                                onClick={() => setIsAddMemberOpen(true)}
+                            >
+                                <AddOutlined style={{ fontSize: 16 }} className="mr-2" />
+                                Add Team Member
+                            </Button>
+                        </div>
                 </div>
 
                 <AddTeamMemberModal 
@@ -1220,7 +1280,15 @@ export const PeopleCapacityScreen = () => {
                 {selectedPerson && personDetails && (
                     <div ref={detailPanelRef} className="mb-6 bg-white border border-[#E7E5E4] rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.06)] overflow-hidden animate-in slide-in-from-top-4 fade-in duration-300">
                         {/* Detail Header */}
-                        <div className="px-8 pt-8 pb-0">
+                            <div className="flex items-center gap-4 mb-6">
+                                <button
+                                    onClick={() => setSelectedPerson(null)}
+                                    className="flex items-center gap-2 text-xs text-[#78716C] hover:text-[#1C1917] transition-colors bg-[#F5F5F4] px-3 py-1.5 rounded-lg border border-[#E7E5E4]"
+                                >
+                                    <ArrowBackOutlined style={{ fontSize: 14 }} />
+                                    Back to List
+                                </button>
+                            </div>
                             <div className="flex items-start justify-between mb-8">
                                 <div className="flex items-center gap-5">
                                     <Avatar className="w-16 h-16 border-2 border-[#2DD4BF]/25 shadow-md">
@@ -1248,7 +1316,6 @@ export const PeopleCapacityScreen = () => {
                                     <CloseOutlined style={{ fontSize: 20 }} />
                                 </button>
                             </div>
-                        </div>
 
                         {/* Detail Content - 3 Column Grid */}
                         <div className="px-8 pb-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -1444,15 +1511,23 @@ export const PeopleCapacityScreen = () => {
                             key={idx}
                             onClick={() => setSelectedPerson(member)}
                             style={{ transitionDelay: selectedPerson ? `${idx * 30}ms` : '0ms' }}
-                            className={`backdrop-blur-[32px] border rounded-2xl p-6 shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] cursor-pointer transition-all duration-300 group ${selectedPerson?.name === member.name
+                            className={`backdrop-blur-[32px] border rounded-2xl p-6 shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] cursor-pointer transition-all duration-300 group relative ${selectedPerson?.name === member.name
                                 ? 'bg-white border-[#2DD4BF]/40 ring-1 ring-[#2DD4BF]/20 scale-[0.98]'
                                 : selectedPerson
                                     ? 'bg-white border-[#E7E5E4] hover:border-[#2DD4BF]/25 hover:bg-white opacity-75 hover:opacity-100'
                                     : 'bg-white border-[#E7E5E4] hover:border-[#2DD4BF]/25 hover:bg-white'
-                                }`}
+                                } ${selectedMemberIds.has(member.id) ? 'border-[#2DD4BF] bg-[#2DD4BF]/[0.02]' : ''}`}
                         >
+                            {/* Checkbox for selection */}
+                            <div 
+                                onClick={(e) => toggleMemberSelection(e, member.id)}
+                                className={`absolute top-4 left-4 w-5 h-5 rounded border-2 transition-all flex items-center justify-center z-20 ${selectedMemberIds.has(member.id) ? 'bg-[#2DD4BF] border-[#2DD4BF]' : 'border-[#E7E5E4] bg-white opacity-0 group-hover:opacity-100'}`}
+                            >
+                                {selectedMemberIds.has(member.id) && <CheckCircleOutlined style={{ fontSize: 14, color: 'white' }} />}
+                            </div>
+
                             {/* Top: Avatar, Name, Role, Status */}
-                            <div className="flex items-start gap-4 mb-5">
+                            <div className="flex items-start gap-4 mb-5 pl-4">
                                 <Avatar className="w-11 h-11 border border-[#2DD4BF]/20 shadow-sm">
                                     <AvatarFallback className="bg-[#2DD4BF]/[0.08] text-[#1C1917] text-sm font-light">{member.avatar}</AvatarFallback>
                                 </Avatar>

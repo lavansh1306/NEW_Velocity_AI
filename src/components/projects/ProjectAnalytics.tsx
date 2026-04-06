@@ -599,8 +599,29 @@ export default function ProjectAnalytics() {
 
                 <div className="bg-white rounded-[24px] border border-[#E7E5E4] p-8 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative group">
                   {/* Edit Icon - Top Right Corner */}
-                  <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  <div className="absolute top-6 right-6 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                     <BannerEditIcon onEdit={openEditModal} isLoading={isSaving} />
+                    <button 
+                      onClick={async () => {
+                        if (confirm(`Are you sure you want to delete project "${project.name}"? This action cannot be undone.`)) {
+                          setIsSaving(true);
+                          try {
+                            const { error } = await supabase.from('projects').delete().eq('id', project.id);
+                            if (error) throw error;
+                            toast.success('Project deleted successfully');
+                            navigate('/projects');
+                          } catch (err) {
+                            console.error(err);
+                            toast.error('Failed to delete project');
+                            setIsSaving(false);
+                          }
+                        }
+                      }}
+                      className="p-2 hover:bg-red-50 text-[#A8A29E] hover:text-red-500 rounded-lg transition-all border border-transparent hover:border-red-100 bg-white shadow-sm"
+                      title="Delete Project"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
                   </div>
 
                   <div className="space-y-4">
@@ -610,9 +631,19 @@ export default function ProjectAnalytics() {
                     <h1 className="text-3xl md:text-4xl font-light text-[#1C1917] tracking-tight">
                       {project.name}
                     </h1>
-                    <p className="text-sm text-[#78716C]">
-                      {startDate} &rarr; Active · <span className="text-[#A8A29E]">{metrics.totalTasks} issues tracked</span>
-                    </p>
+                    <div className="flex items-center gap-4 text-sm text-[#78716C]">
+                      <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[#F5F5F4] rounded-lg border border-[#E7E5E4] text-[#1C1917]">
+                        <Clock className="w-3.5 h-3.5 text-[#A8A29E]" />
+                        <span>{startDate}</span>
+                      </div>
+                      <span className="text-[#D6D3D1]">·</span>
+                      <span className="flex items-center gap-1.5 px-2.5 py-1 bg-[#F0FDFA] rounded-lg border border-teal-100 text-[#0F766E]">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        Active
+                      </span>
+                      <span className="text-[#D6D3D1]">·</span>
+                      <span className="text-[#A8A29E] font-light">{metrics.totalTasks} issues tracked</span>
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-8">
@@ -1063,7 +1094,7 @@ export default function ProjectAnalytics() {
                                         </span>
                                       </div>
                                     </div>
-                                    <div className="text-right flex-shrink-0">
+                                    <div className="text-right flex items-center gap-4 flex-shrink-0">
                                       <span className={`text-xs px-2 py-1 rounded border ${
                                         isAbandoned ? 'bg-[#E5E7EB] text-[#6B7280] border-gray-300' :
                                         ['done', 'resolved', 'closed', 'complete'].some(s => issue.status?.toLowerCase().includes(s))
@@ -1072,6 +1103,25 @@ export default function ProjectAnalytics() {
                                         }`}>
                                         {issue.status}
                                       </span>
+                                      <button
+                                        onClick={async (e) => {
+                                          e.stopPropagation();
+                                          if (confirm(`Are you sure you want to delete task "${issue.summary}"?`)) {
+                                            try {
+                                              const { error } = await supabase.from('tasks').delete().eq('id', issue.id);
+                                              if (error) throw error;
+                                              toast.success('Task deleted successfully');
+                                              await refetchTasks();
+                                            } catch (err) {
+                                              console.error(err);
+                                              toast.error('Failed to delete task');
+                                            }
+                                          }
+                                        }}
+                                        className="p-1.5 hover:bg-red-50 text-[#A8A29E] hover:text-red-500 rounded-lg transition-colors"
+                                      >
+                                        <X className="w-3.5 h-3.5" />
+                                      </button>
                                     </div>
                                   </div>
                                 );
