@@ -225,11 +225,28 @@ export const getNotifications = async () => {
         .eq('organization_id', orgId)
         .eq('status', 'pending');
 
-    return (leaves || []).map(l => ({
+    const { data: suggestions } = await supabase
+        .from('ai_task_suggestions')
+        .select('id, task_name, created_at')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+    const leaveNotifs = (leaves || []).map(l => ({
         id: l.id,
         type: 'approval',
         message: `${(l.users as any)?.name} requested leave`,
         date: l.start_date,
         isRead: false
     }));
+
+    const suggestionNotifs = (suggestions || []).map(s => ({
+        id: s.id,
+        type: 'suggestion',
+        message: `AI extracted task: ${s.task_name}`,
+        date: s.created_at,
+        isRead: false
+    }));
+
+    return [...leaveNotifs, ...suggestionNotifs];
 };
