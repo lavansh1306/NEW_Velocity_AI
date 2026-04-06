@@ -19,6 +19,14 @@ export const GlobalVoiceCommander: React.FC = () => {
   const { handleVoiceCommand } = useVoiceActions();
   const hasProcessed = useRef(false);
   const [isOpen, setIsOpen] = useState(false);
+
+  // Auto-listen when overlay opens
+  useEffect(() => {
+    if (isOpen) {
+      hasProcessed.current = false;
+      setTimeout(() => startListening(), 300);
+    }
+  }, [isOpen]);
   const [liveText, setLiveText] = useState('');
 
   // Listen for close event from useVoiceActions after navigation
