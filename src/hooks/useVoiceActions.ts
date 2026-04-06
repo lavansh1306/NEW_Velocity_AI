@@ -82,7 +82,8 @@ export const useVoiceActions = () => {
     switch (action.type) {
       case 'navigate':
         if (action.target) {
-          navigate(action.target);
+          window.dispatchEvent(new CustomEvent('velo-close-voice'));
+          setTimeout(() => navigate(action.target), 150);
         }
         break;
 
