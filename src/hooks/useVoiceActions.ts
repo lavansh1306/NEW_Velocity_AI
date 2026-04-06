@@ -80,7 +80,7 @@ export const useVoiceActions = () => {
       case 'navigate':
         if (action.target) {
           closeVoiceOverlay();
-          setTimeout(() => navigate(action.target!), 150);
+          setTimeout(() => navigate(action.target!), 900);
         }
         break;
 
@@ -95,7 +95,7 @@ export const useVoiceActions = () => {
               autoAnalyze: autoAnalyze 
             } 
           });
-        }, 150);
+        }, 900);
         break;
       }
       
