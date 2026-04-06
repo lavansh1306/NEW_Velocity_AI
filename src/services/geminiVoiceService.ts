@@ -27,19 +27,19 @@ class GeminiVoiceService {
     if (apiKey) {
       this.genAI = new GoogleGenerativeAI(apiKey);
       // Using Gemini 3 Flash Preview for cutting-edge speed and intelligence
-      this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+      this.model = this.genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
     }
   }
 
   async parseIntent(transcript: string, currentPath: string): Promise<VoiceAction> {
-    // 1. Direct command parser — zero latency, zero API
+    // 1. Try Direct Command Parsing first (Fast Path, No LLM Latency)
     const directAction = this.parseDirectCommand(transcript);
     if (directAction) {
-      console.log('[GeminiVoice] Direct Command match:', directAction);
+      console.log('[GeminiVoice] Using Direct Command:', directAction);
       return directAction;
     }
 
-    // 2. Backend /api/voice/parse — handles Gemini→Groq→local fallback
+    // 2. Backend /api/voice/parse — Gemini→Groq→local fallback chain
     try {
       const res = await fetch('/api/voice/parse', {
         method: 'POST',
@@ -52,13 +52,11 @@ class GeminiVoiceService {
         return data;
       }
     } catch (e) {
-      console.warn('[GeminiVoice] Backend failed, using local fallback:', e);
+      console.warn('[GeminiVoice] Backend failed, local fallback:', e);
     }
 
-    // 3. Final local fallback
     return this.fallbackParse(transcript);
   }
-
   async summarizeData(data: any, query: string): Promise<string> {
     if (!this.model) return "I have the data, but I'm unable to summarize it right now.";
 
@@ -172,7 +170,7 @@ Rules:
       }
     }
 
-    // 2. Add Team Member — forgiving parser handles accents and varied phrasing
+    // 2. Add Team Member (Robust Extraction)
     const roleMapping: Record<string, string> = {
       'front end': 'Frontend Developer',
       'frontend': 'Frontend Developer',
@@ -180,58 +178,25 @@ Rules:
       'backend': 'Backend Developer',
       'full stack': 'Full Stack Developer',
       'fullstack': 'Full Stack Developer',
-      'full-stack': 'Full Stack Developer',
       'designer': 'Designer',
       'design': 'Designer',
-      'ux': 'Designer',
-      'ui': 'Designer',
       'product manager': 'Product Manager',
-      'product': 'Product Manager',
       'manager': 'Product Manager',
       'qa': 'QA Engineer',
-      'quality': 'QA Engineer',
       'tester': 'QA Engineer',
-      'testing': 'QA Engineer',
-      'developer': 'Developer',
-      'dev': 'Developer',
-      'develop': 'Developer',
-      'engineer': 'Engineer',
-      'engineering': 'Engineer',
-      'coder': 'Developer',
-      'programmer': 'Developer',
-      'data': 'Data Engineer',
-      'devops': 'DevOps Engineer',
-      'mobile': 'Mobile Developer',
-      'android': 'Mobile Developer',
-      'ios': 'Mobile Developer',
+      'developer': 'Frontend Developer',
+      'engineer': 'Frontend Developer'
     };
 
     const roles = Object.keys(roleMapping).sort((a, b) => b.length - a.length);
-
-    // Very forgiving invite detection — just needs "add" or "invite" + a name-like word
-    const isInviteCommand = 
-      text.includes('add') || 
-      text.includes('invite') || 
-      text.includes('include') ||
-      text.includes('bring') ||
-      text.includes('onboard') ||
-      text.includes('new member') ||
-      text.includes('new team');
-
-    // hasContext is now much looser — any name-like word after add/invite qualifies
-    const hasRole = roles.some(r => text.includes(r));
-    const hasEmail = text.includes('@');
-    // Detect if there's a capitalized name-like word (person name)
-    const words = text.split(/\s+/).map((w: string) => w.replace(/[.,!?;:]+$/, ''));
-    const hasNameLikeWord = words.some((w: string) => w.length > 2 && /^[a-z]/.test(w));
-
-    const hasContext = hasRole || hasEmail || hasNameLikeWord || text.includes('member') || text.includes('team');
+    const isInviteCommand = text.includes('add') || text.includes('invite') || text.includes('new');
+    const hasContext = text.includes('member') || text.includes('team') || text.includes('@') || roles.some(r => text.includes(r));
 
     if (isInviteCommand && hasContext) {
-      const cleanWords = words;
-      let email = cleanWords.find((w: string) => w.includes('@')) || '';
-
-      // Find role — try all role keys, longest first
+      const words = text.split(/\s+/);
+      const cleanWords = words.map(w => w.replace(/[.,!?;:]+$/, ''));
+      let email = cleanWords.find(w => w.includes('@')) || '';
+      
       let role = 'Team Member';
       for (const r of roles) {
         if (text.includes(r)) {
@@ -240,52 +205,41 @@ Rules:
         }
       }
 
-      // Strip noise to find name — keep everything that's not a command/role word
-      const commandNoise = new Set([
-        'add', 'invite', 'include', 'bring', 'onboard', 'new',
-        'team', 'member', 'for', 'as', 'is', 'a', 'an', 'the',
-        'email', 'with', 'role', 'position', 'at', 'called',
-        'named', 'and', 'to', 'my', 'our', 'please', 'can',
-        'you', 'could', 'would', 'like', 'want', 'need',
-      ]);
-
-      // Also remove individual role words
-      const roleWords = new Set(roles.flatMap((r: string) => r.split(' ')));
-
-      let nameWords = cleanWords.filter((w: string) =>
-        !commandNoise.has(w) &&
-        !roleWords.has(w) &&
-        !w.includes('@') &&
+      const commandNoise = ['add', 'invite', 'new', 'team', 'member', 'for', 'as', 'is', 'a', 'the', 'email', 'with', 'role', 'position', 'at', 'called', 'named', 'and'];
+      const roleNoise = roles.flatMap(r => r.split(' '));
+      const allNoise = [...commandNoise, ...roleNoise];
+      
+      let nameWords = cleanWords.filter(w => 
+        !allNoise.includes(w) && 
+        !w.includes('@') && 
         w.length > 1
       );
-
-      let nameCandidate = nameWords.join(' ').trim();
-
-      // Clean up leftover "as X" at start
-      nameCandidate = nameCandidate.replace(/^as\s+/i, '').trim();
-
-      // If name is still empty but email exists, extract from email handle
+      
+      let nameCandidate = nameWords.join(' ').replace(/^as\s+/, '').trim();
+      
+      // Heuristic: If name is missing but email is present, extract from email handle
       if (!nameCandidate && email) {
         const handle = email.split('@')[0];
-        const doubled = handle.match(/^([a-z]{3,})$/);
+        // Split repeated names like 'krishkrish' -> 'Krish Krish'
+        const doubled = handle.match(/^([a-z]{3,})\1$/);
         if (doubled) {
           nameCandidate = `${doubled[1]} ${doubled[1]}`;
         } else {
-          nameCandidate = handle.replace(/[^a-zA-Z\s]/g, ' ').trim();
+          nameCandidate = handle.replace(/[^a-zA-Z]/g, ' ').trim();
         }
       }
 
-      // Capitalize name
-      const finalName = nameCandidate
-        .split(/\s+/)
-        .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
-        .join(' ') || 'New Member';
-
       if (email || nameCandidate) {
+        if (nameCandidate.toLowerCase().startsWith('as ')) nameCandidate = nameCandidate.slice(3);
+
         return {
           type: 'add_team_member',
-          params: { name: finalName, email, role },
-          response: `Adding ${finalName} as ${role}.`
+          params: { 
+            name: nameCandidate.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') || 'New Member', 
+            email: email, 
+            role: role 
+          },
+          response: `Sure, I'll add ${nameCandidate || 'them'} as a ${role}.`
         };
       }
     }

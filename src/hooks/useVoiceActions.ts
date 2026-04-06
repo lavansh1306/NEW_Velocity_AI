@@ -4,6 +4,11 @@ import { geminiVoiceService, VoiceAction } from '@/services/geminiVoiceService';
 import { getDashboardData } from '@/services/dashboardService';
 import { toast } from 'sonner';
 
+// Global event so GlobalVoiceCommander can close after action
+export const closeVoiceOverlay = () => {
+  window.dispatchEvent(new CustomEvent('velo-close-voice'));
+};
+
 export const useVoiceActions = () => {
   const navigate = useNavigate();
   const { 
@@ -32,8 +37,6 @@ export const useVoiceActions = () => {
         toast.info("Action cancelled");
       } else {
         speak("I didn't catch that. Please say yes to confirm or no to cancel.");
-        // Stay in confirmation mode? Or just reset? 
-        // For now, let's reset to avoid stuck states, but keep the pending action
       }
       return;
     }
@@ -43,29 +46,50 @@ export const useVoiceActions = () => {
     try {
       const action = await geminiVoiceService.parseIntent(transcript, currentPath);
       
-      // 2. Handle Multi-turn Prompt
+      // Handle Multi-turn Prompt
       if (action.prompt) {
         speak(action.prompt);
         toast.info(action.prompt);
-        // Important: We need to listen again for the answer
         setTimeout(() => startListening(), 2000);
         return;
       }
 
-      // 3. Handle Confirmation Gate
+      // Handle Confirmation Gate — use undo toast instead of yes/no loop
       if (action.requiresConfirmation) {
-        setPendingConfirmation(action);
-        const confirmMsg = action.response || `I'm about to ${action.type.replace(/_/g, ' ')}. Are you sure?`;
-        speak(confirmMsg);
-        toast.warning("Confirmation required");
-        // Re-trigger listening automatically for the confirmation
-        setTimeout(() => startListening(), 2500);
+        let undone = false;
+        const actionLabel = action.type === 'delete_team_member'
+          ? `Removing ${action.params?.name || 'member'} from team`
+          : action.type.replace(/_/g, ' ');
+
+        if (action.response) {
+          const clean = action.response.replace(/^(in\s+)?(standard|default|normal)\s+mode[,.]?\s*/i, '').trim();
+          speak(clean || action.response);
+        }
+
+        toast(actionLabel, {
+          duration: 5000,
+          action: {
+            label: 'Undo',
+            onClick: () => {
+              undone = true;
+              speak("Okay, undone.");
+              toast.success("Action undone");
+            }
+          }
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        if (!undone) {
+          closeVoiceOverlay();
+          await executeAction(action, currentPath);
+        }
         return;
       }
 
       if (action.response) {
-        speak(action.response);
-        toast.info(action.response);
+        const clean = action.response.replace(/^(in\s+)?(standard|default|normal)\s+mode[,.]?\s*/i, '').trim();
+        speak(clean || action.response);
+        toast.info(clean || action.response);
       }
 
       await executeAction(action, currentPath);
@@ -82,31 +106,35 @@ export const useVoiceActions = () => {
     switch (action.type) {
       case 'navigate':
         if (action.target) {
-          navigate(action.target);
+          closeVoiceOverlay();
+          setTimeout(() => navigate(action.target!), 150);
         }
         break;
 
       case 'create_project':
-        const { projectTitle, projectDescription, autoAnalyze } = action.params || {};
-        console.log('[VoiceActions] Navigating to plan with:', { projectTitle, projectDescription, autoAnalyze });
-        navigate('/plan', { 
-          state: { 
-            voiceTitle: projectTitle, 
-            voiceDescription: projectDescription,
-            autoAnalyze: autoAnalyze 
-          } 
-        });
+        closeVoiceOverlay();
+        setTimeout(() => {
+          navigate('/plan', { 
+            state: { 
+              voiceTitle: action.params?.projectTitle, 
+              voiceDescription: action.params?.projectDescription,
+              autoAnalyze: action.params?.autoAnalyze
+            } 
+          });
+        }, 150);
         break;
       
       case 'create_task':
-        toast.success(`Intent: Create task "${action.params?.taskName || 'New Task'}"`);
+        toast.success(`Creating task "${action.params?.taskName || 'New Task'}"`);
+        closeVoiceOverlay();
         break;
 
       case 'add_team_member':
         const { name, email, role } = action.params || {};
+        closeVoiceOverlay();
         if (currentPath !== '/people') {
           enqueueAction(action);
-          navigate('/people');
+          setTimeout(() => navigate('/people'), 150);
         } else {
           window.dispatchEvent(new CustomEvent('velo-add-member', { 
             detail: { name, email, role } 
@@ -115,9 +143,10 @@ export const useVoiceActions = () => {
         break;
 
       case 'delete_team_member':
+        closeVoiceOverlay();
         if (currentPath !== '/people') {
           enqueueAction(action);
-          navigate('/people');
+          setTimeout(() => navigate('/people'), 150);
         } else {
           window.dispatchEvent(new CustomEvent('velo-delete-member', { 
             detail: { name: action.params?.name } 
@@ -127,6 +156,7 @@ export const useVoiceActions = () => {
 
       case 'search':
         toast.info(`Searching for "${action.params?.query || 'anything'}"`);
+        closeVoiceOverlay();
         break;
 
       case 'gantt_query':
@@ -138,6 +168,11 @@ export const useVoiceActions = () => {
         break;
 
       case 'info':
+        break;
+
+      case 'unknown':
+        const fallback = action.response || "I didn't catch that. Try saying go to projects or add a team member.";
+        speak(fallback);
         break;
 
       default:

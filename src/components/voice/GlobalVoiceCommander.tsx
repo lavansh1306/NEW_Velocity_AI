@@ -28,6 +28,13 @@ export const GlobalVoiceCommander: React.FC = () => {
     return () => window.removeEventListener('velo-close-voice', handleClose);
   }, [stopListening]);
 
+  // Listen for close event from useVoiceActions after navigation/actions
+  useEffect(() => {
+    const handleClose = () => { stopListening(); setIsOpen(false); setLiveText(''); };
+    window.addEventListener('velo-close-voice', handleClose);
+    return () => window.removeEventListener('velo-close-voice', handleClose);
+  }, [stopListening]);
+
   // Process transcript when speech recognition finalizes
   useEffect(() => {
     if (lastTranscript && !hasProcessed.current) {
