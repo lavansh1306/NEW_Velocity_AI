@@ -235,12 +235,17 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return null;
   }, [commandQueue]);
 
-  const speak = (text: string) => {
-    if (!('speechSynthesis' in window) || !text?.trim()) return;
+  const speak = async (text: string) => {
+    console.log('[VoiceContext] speak called with:', text);
+    if (!text?.trim()) return;
 
-    const synth = window.speechSynthesis;
+    const fallbackBrowserSpeak = () => {
+      if (!('speechSynthesis' in window)) {
+        setStatus('idle');
+        return;
+      }
 
-    const runSpeak = () => {
+      const synth = window.speechSynthesis;
       const voices = synth.getVoices();
       const utterance = new SpeechSynthesisUtterance(text);
 
@@ -256,50 +261,74 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       utterance.pitch = 1;
 
       utterance.onstart = () => {
-        console.log('[VoiceContext] speech started:', text);
+        console.log('[VoiceContext] browser fallback speech started');
         setStatus('speaking');
       };
 
       utterance.onend = () => {
-        console.log('[VoiceContext] speech ended');
-        if (statusRef.current === 'speaking') {
-          setStatus('idle');
-        }
+        console.log('[VoiceContext] browser fallback speech ended');
+        setStatus('idle');
       };
 
       utterance.onerror = (e) => {
-        console.error('[VoiceContext] speechSynthesis error:', e);
-        if (statusRef.current === 'speaking') {
-          setStatus('idle');
-        }
+        console.error('[VoiceContext] browser fallback speech error:', e);
+        setStatus('idle');
       };
 
       try {
-        if (synth.speaking) {
-          synth.cancel();
-        }
-        setTimeout(() => {
-          try {
-            synth.speak(utterance);
-          } catch (err) {
-            console.error('[VoiceContext] speechSynthesis speak failed:', err);
-          }
-        }, 120);
+        synth.cancel();
+        setTimeout(() => synth.speak(utterance), 50);
       } catch (err) {
-        console.error('[VoiceContext] speech setup failed:', err);
+        console.error('[VoiceContext] browser fallback speak failed:', err);
+        setStatus('idle');
       }
     };
 
     try {
-      const voices = synth.getVoices();
-      if (voices.length > 0) {
-        runSpeak();
-      } else {
-        synth.getVoices();
-        setTimeout(runSpeak, 300);
+      setStatus('speaking');
+
+      const res = await fetch('/api/voice/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error('[VoiceContext] /api/voice/tts failed:', errText);
+        fallbackBrowserSpeak();
+        return;
       }
-    } catch (err) {
-      console.error('[VoiceContext] speech preflight failed:', err);
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+
+      audio.onplay = () => {
+        console.log('[VoiceContext] audio playback started');
+        setStatus('speaking');
+      };
+
+      audio.onended = () => {
+        console.log('[VoiceContext] audio playback ended');
+        URL.revokeObjectURL(url);
+        setStatus('idle');
+      };
+
+      audio.onerror = (e) => {
+        console.error('[VoiceContext] audio playback error:', e);
+        URL.revokeObjectURL(url);
+        fallbackBrowserSpeak();
+      };
+
+      audio.play().catch((e) => {
+        console.error('[VoiceContext] audio play failed:', e);
+        URL.revokeObjectURL(url);
+        fallbackBrowserSpeak();
+      });
+    } catch (e) {
+      console.error('[VoiceContext] speak failed:', e);
+      fallbackBrowserSpeak();
     }
   };
 

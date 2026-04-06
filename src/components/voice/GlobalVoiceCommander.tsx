@@ -39,7 +39,13 @@ export const GlobalVoiceCommander: React.FC = () => {
 
   // Listen for close event from useVoiceActions after navigation
   useEffect(() => {
-    const handleClose = () => { stopListening(); setIsOpen(false); setLiveText(''); };
+    const handleClose = () => {
+      if (startTimeoutRef.current) clearTimeout(startTimeoutRef.current);
+      if (startTimeoutRef.current) clearTimeout(startTimeoutRef.current);
+      stopListening();
+      setIsOpen(false);
+      setLiveText('');
+    };
     window.addEventListener('velo-close-voice', handleClose);
     return () => window.removeEventListener('velo-close-voice', handleClose);
   }, [stopListening]);
@@ -70,6 +76,7 @@ export const GlobalVoiceCommander: React.FC = () => {
     if (e.ctrlKey && e.code === 'Space') {
       e.preventDefault();
       if (isOpen) {
+        if (startTimeoutRef.current) clearTimeout(startTimeoutRef.current);
         stopListening();
         setIsOpen(false);
         setLiveText('');
@@ -82,6 +89,7 @@ export const GlobalVoiceCommander: React.FC = () => {
     }
     if (e.code === 'Escape' && isOpen) {
       e.preventDefault();
+      if (startTimeoutRef.current) clearTimeout(startTimeoutRef.current);
       stopListening();
       setIsOpen(false);
       setLiveText('');
@@ -137,6 +145,7 @@ export const GlobalVoiceCommander: React.FC = () => {
       style={{ backdropFilter: 'blur(18px)', background: 'rgba(219, 225, 243, 0.6)' }}
       onClick={(e) => {
         if (e.target === e.currentTarget) {
+          if (startTimeoutRef.current) clearTimeout(startTimeoutRef.current);
           stopListening();
           setIsOpen(false);
           setLiveText('');

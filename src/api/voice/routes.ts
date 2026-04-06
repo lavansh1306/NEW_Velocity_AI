@@ -39,19 +39,21 @@ Current page: ${currentPath}
 
 {"type":"...","target":"","params":{"projectTitle":"","projectDescription":"","autoAnalyze":true,"name":"","email":"","role":"","taskName":"","query":""},"response":"","requiresConfirmation":false,"prompt":""}`;
 
-// ── Local rule-based fallback — zero API calls ───────────────────────────────
 function localParse(transcript: string): object {
   const text = transcript.toLowerCase().trim();
 
-  // Navigation
   const navMap: Record<string, string> = {
-    'dashboard': '/dashboard',
-    'projects': '/projects', 'project': '/projects',
-    'people': '/people', 'team': '/people',
-    'plan': '/plan',
-    'leave': '/leave',
-    'settings': '/settings', 'setting': '/settings',
+    dashboard: '/dashboard',
+    projects: '/projects',
+    project: '/projects',
+    people: '/people',
+    team: '/people',
+    plan: '/plan',
+    leave: '/leave',
+    settings: '/settings',
+    setting: '/settings',
   };
+
   const isNav = text.includes('go') || text.includes('open') || text.includes('show') || text.includes('navigate') || text.includes('take me');
   for (const [key, path] of Object.entries(navMap)) {
     if (text.includes(key) && isNav) {
@@ -59,55 +61,247 @@ function localParse(transcript: string): object {
     }
   }
 
-  // Add team member
   const isAdd = text.includes('add') || text.includes('invite') || text.includes('onboard') || text.includes('bring');
   const hasRoleOrMember = ['developer', 'designer', 'engineer', 'manager', 'frontend', 'backend', 'fullstack', 'qa', 'member', 'team'].some(w => text.includes(w));
   if (isAdd && hasRoleOrMember) {
     const roleMap: Record<string, string> = {
-      'frontend': 'Frontend Developer', 'front end': 'Frontend Developer',
-      'backend': 'Backend Developer', 'back end': 'Backend Developer',
-      'fullstack': 'Full Stack Developer', 'full stack': 'Full Stack Developer',
-      'designer': 'Designer', 'ux': 'Designer', 'ui': 'Designer',
-      'product manager': 'Product Manager', 'manager': 'Product Manager',
-      'qa': 'QA Engineer', 'tester': 'QA Engineer',
-      'engineer': 'Engineer', 'developer': 'Developer', 'dev': 'Developer',
+      frontend: 'Frontend Developer',
+      'front end': 'Frontend Developer',
+      backend: 'Backend Developer',
+      'back end': 'Backend Developer',
+      fullstack: 'Full Stack Developer',
+      'full stack': 'Full Stack Developer',
+      designer: 'Designer',
+      ux: 'Designer',
+      ui: 'Designer',
+      'product manager': 'Product Manager',
+      manager: 'Product Manager',
+      qa: 'QA Engineer',
+      tester: 'QA Engineer',
+      engineer: 'Engineer',
+      developer: 'Developer',
+      dev: 'Developer',
     };
+
     let role = 'Team Member';
     const sortedRoles = Object.keys(roleMap).sort((a, b) => b.length - a.length);
     for (const r of sortedRoles) {
-      if (text.includes(r)) { role = roleMap[r]; break; }
+      if (text.includes(r)) {
+        role = roleMap[r];
+        break;
+      }
     }
+
     const noise = new Set(['add', 'invite', 'onboard', 'bring', 'new', 'team', 'member', 'as', 'a', 'an', 'the', 'please', 'frontend', 'backend', 'fullstack', 'designer', 'manager', 'engineer', 'developer', 'dev', 'qa', 'full', 'stack', 'front', 'back', 'end', 'ux', 'ui', 'tester', 'product']);
     const email = text.split(/\s+/).find(w => w.includes('@')) || '';
     const words = text.split(/\s+/).filter(w => !noise.has(w) && w.length > 1 && !w.includes('@'));
     const name = words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') || 'New Member';
-    return { type: 'add_team_member', params: { name, email, role }, response: `Adding ${name} as ${role}.`, provider: 'local' };
+
+    return {
+      type: 'add_team_member',
+      params: { name, email, role },
+      response: `Adding ${name} as ${role}.`,
+      provider: 'local'
+    };
   }
 
-  // Remove team member
   const isRemove = text.includes('remove') || text.includes('delete') || text.includes('fire');
   if (isRemove) {
     const noise = new Set(['remove', 'delete', 'fire', 'from', 'the', 'team', 'member', 'please']);
     const words = text.split(/\s+/).filter(w => !noise.has(w) && w.length > 1);
     const name = words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') || 'team member';
-    return { type: 'delete_team_member', params: { name }, response: `Removing ${name} from the team.`, requiresConfirmation: true, provider: 'local' };
+    return {
+      type: 'delete_team_member',
+      params: { name },
+      response: `Removing ${name} from the team.`,
+      requiresConfirmation: true,
+      provider: 'local'
+    };
   }
 
-  // Create project
   const isCreate = text.includes('create project') || text.includes('new project') || text.includes('add project') || text.includes('plan project') || text.includes('plan a');
   if (isCreate) {
-    return { type: 'create_project', params: { projectDescription: transcript, autoAnalyze: true }, response: 'Opening the project planner.', provider: 'local' };
+    return {
+      type: 'create_project',
+      params: { projectDescription: transcript, autoAnalyze: true },
+      response: 'Opening the project planner.',
+      provider: 'local'
+    };
   }
 
-  // Capacity/resource query
   if (text.includes('bandwidth') || text.includes('capacity') || text.includes('available') || text.includes('who has') || text.includes('who is')) {
-    return { type: 'resource_query', params: { query: transcript }, response: 'Checking team capacity.', provider: 'local' };
+    return {
+      type: 'resource_query',
+      params: { query: transcript },
+      response: 'Checking team capacity.',
+      provider: 'local'
+    };
   }
 
-  return { type: 'unknown', response: "I didn't catch that. Try saying go to projects, or add a team member.", provider: 'local' };
+  return {
+    type: 'unknown',
+    response: "I didn't catch that. Try saying go to projects, or add a team member.",
+    provider: 'local'
+  };
 }
 
-// ── Main voice parse endpoint ────────────────────────────────────────────────
+function pcmToWav(pcmBuffer: Buffer, sampleRate = 24000, channels = 1, bitsPerSample = 16) {
+  const byteRate = sampleRate * channels * bitsPerSample / 8;
+  const blockAlign = channels * bitsPerSample / 8;
+  const dataSize = pcmBuffer.length;
+  const buffer = Buffer.alloc(44 + dataSize);
+
+  buffer.write('RIFF', 0);
+  buffer.writeUInt32LE(36 + dataSize, 4);
+  buffer.write('WAVE', 8);
+  buffer.write('fmt ', 12);
+  buffer.writeUInt32LE(16, 16);
+  buffer.writeUInt16LE(1, 20);
+  buffer.writeUInt16LE(channels, 22);
+  buffer.writeUInt32LE(sampleRate, 24);
+  buffer.writeUInt32LE(byteRate, 28);
+  buffer.writeUInt16LE(blockAlign, 32);
+  buffer.writeUInt16LE(bitsPerSample, 34);
+  buffer.write('data', 36);
+  buffer.writeUInt32LE(dataSize, 40);
+  pcmBuffer.copy(buffer, 44);
+
+  return buffer;
+}
+
+async function tryGeminiTts(text: string) {
+  const geminiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+  if (!geminiKey) throw new Error('Gemini API key missing');
+
+  const geminiRes = await fetch(
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': geminiKey
+      },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text }] }],
+        generationConfig: {
+          responseModalities: ['AUDIO'],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: {
+                voiceName: 'Kore'
+              }
+            }
+          }
+        }
+      })
+    }
+  ) as any;
+
+  const data = await geminiRes.json() as any;
+
+  if (!geminiRes.ok) {
+    throw new Error(`Gemini TTS failed: ${JSON.stringify(data)}`);
+  }
+
+  const base64Audio = data?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+  if (!base64Audio) {
+    throw new Error('Gemini TTS returned no audio data');
+  }
+
+  const pcmBuffer = Buffer.from(base64Audio, 'base64');
+  return pcmToWav(pcmBuffer);
+}
+
+async function tryElevenLabsTts(text: string) {
+  const key = process.env.ELEVENLABS_API_KEY;
+  if (!key) throw new Error('ElevenLabs API key missing');
+
+  const voiceId = process.env.ELEVENLABS_VOICE_ID || '21m00Tcm4TlvDq8ikWAM';
+
+  const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'xi-api-key': key,
+      'Accept': 'audio/mpeg'
+    },
+    body: JSON.stringify({
+      text,
+      model_id: 'eleven_multilingual_v2'
+    })
+  }) as any;
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`ElevenLabs TTS failed: ${err}`);
+  }
+
+  return Buffer.from(await res.arrayBuffer());
+}
+
+async function tryOpenAITts(text: string) {
+  const key = process.env.OPENAI_API_KEY;
+  if (!key) throw new Error('OpenAI API key missing');
+
+  const res = await fetch('https://api.openai.com/v1/audio/speech', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${key}`
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini-tts',
+      voice: 'alloy',
+      input: text,
+      format: 'mp3'
+    })
+  }) as any;
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`OpenAI TTS failed: ${err}`);
+  }
+
+  return Buffer.from(await res.arrayBuffer());
+}
+
+router.post('/tts', async (req: Request, res: Response) => {
+  const { text } = req.body || {};
+
+  if (!text || typeof text !== 'string') {
+    return res.status(400).json({ error: 'text is required' });
+  }
+
+  try {
+    const wavBuffer = await tryGeminiTts(text);
+    res.setHeader('Content-Type', 'audio/wav');
+    res.setHeader('Content-Length', String(wavBuffer.length));
+    return res.send(wavBuffer);
+  } catch (geminiError) {
+    console.warn('[VoiceTTS] Gemini failed:', geminiError);
+  }
+
+  try {
+    const mp3Buffer = await tryElevenLabsTts(text);
+    res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('Content-Length', String(mp3Buffer.length));
+    return res.send(mp3Buffer);
+  } catch (elevenError) {
+    console.warn('[VoiceTTS] ElevenLabs failed:', elevenError);
+  }
+
+  try {
+    const mp3Buffer = await tryOpenAITts(text);
+    res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('Content-Length', String(mp3Buffer.length));
+    return res.send(mp3Buffer);
+  } catch (openaiError) {
+    console.warn('[VoiceTTS] OpenAI failed:', openaiError);
+  }
+
+  return res.status(500).json({ error: 'All TTS providers failed' });
+});
+
 router.post('/parse', async (req: Request, res: Response) => {
   const { transcript, currentPath = '/' } = req.body;
 
@@ -122,7 +316,6 @@ router.post('/parse', async (req: Request, res: Response) => {
   const prompt = SYSTEM_PROMPT(currentPath);
   const userMessage = `User said: "${transcript}"`;
 
-  // ── 1. Gemini 2.0 Flash ──────────────────────────────────────────────────
   if (geminiKey) {
     try {
       const geminiRes = await fetch(
@@ -131,7 +324,7 @@ router.post('/parse', async (req: Request, res: Response) => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt + '\n\n' + userMessage }] }],
+            contents: [{ parts: [{ text: prompt + '\\n\\n' + userMessage }] }],
             generationConfig: { responseMimeType: 'application/json' }
           })
         }
@@ -145,7 +338,7 @@ router.post('/parse', async (req: Request, res: Response) => {
             const parsed = JSON.parse(text);
             console.log('[VoiceParse] ✅ Gemini success');
             return res.json({ ...parsed, provider: 'gemini' });
-          } catch { /* fall through */ }
+          } catch {}
         }
       } else if (geminiRes.status === 429) {
         console.warn('[VoiceParse] Gemini rate limited → trying Groq');
@@ -157,7 +350,6 @@ router.post('/parse', async (req: Request, res: Response) => {
     }
   }
 
-  // ── 2. Groq Llama 3.1 8B ────────────────────────────────────────────────
   if (groqKey) {
     try {
       const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -186,7 +378,7 @@ router.post('/parse', async (req: Request, res: Response) => {
             const parsed = JSON.parse(text);
             console.log('[VoiceParse] ✅ Groq success');
             return res.json({ ...parsed, provider: 'groq' });
-          } catch { /* fall through */ }
+          } catch {}
         }
       } else if (groqRes.status === 429) {
         console.warn('[VoiceParse] Groq rate limited → using local parser');
@@ -198,7 +390,6 @@ router.post('/parse', async (req: Request, res: Response) => {
     }
   }
 
-  // ── 3. Local parser — always works ──────────────────────────────────────
   console.log('[VoiceParse] ✅ Local parser');
   return res.json(localParse(transcript));
 });
