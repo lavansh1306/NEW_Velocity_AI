@@ -72,9 +72,9 @@ export default function Projects() {
           </div>
 
           {/* Ingestion Control */}
-          <div className="mb-8">
+          {/* <div className="mb-8">
             <IngestionControl projectId={filteredProjects[0]?.id || null} userId={user?.id || ''} />
-          </div>
+          </div> */}
 
           {/* Project List */}
           <div className="bg-white rounded-3xl border border-[#E7E5E4] overflow-hidden min-h-[400px]">

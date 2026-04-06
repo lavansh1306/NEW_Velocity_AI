@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { levenshteinDistance, phoneticNormalize, findBestMatch } from '@/lib/utils';
 
 export interface VoiceAction {
-  type: 'navigate' | 'create_task' | 'add_team_member' | 'delete_team_member' | 'create_project' | 'request_leave' | 'get_leave_status' | 'approve_leave' | 'deny_leave' | 'search' | 'info' | 'gantt_query' | 'resource_query' | 'unknown';
+  type: 'navigate' | 'create_task' | 'assign_task' | 'delete_task' | 'add_team_member' | 'delete_team_member' | 'create_project' | 'request_leave' | 'get_leave_status' | 'approve_leave' | 'deny_leave' | 'search' | 'info' | 'gantt_query' | 'resource_query' | 'unknown';
   target?: string;
   params?: {
     taskName?: string;
@@ -14,6 +14,7 @@ export interface VoiceAction {
     projectDescription?: string;
     projectName?: string; // Target project for a task
     assigneeName?: string; // Target team member for a task
+    fromAssigneeName?: string; // For "switch" commands
     autoAnalyze?: boolean;
     startDate?: string;
     endDate?: string;
@@ -72,7 +73,9 @@ Action Categories & Parameters:
    - add_team_member: { name: "string", email: "string", role: "string" } (Invite new members - support "create team member X", "add developer Y")
    - delete_team_member: { name: "string" } (Remove members)
    - create_project: { projectTitle: "string", projectDescription: "string", autoAnalyze: boolean } (Plan new work)
-   - create_task: { taskName: "string", projectName: "string (optional)", assigneeName: "string (optional)" } (Assign work)
+   - create_task: { taskName: "string", projectName: "string (optional)", assigneeName: "string (optional)" } (Create new work)
+   - assign_task: { taskName: "string", assigneeName: "string", fromAssigneeName: "string (optional)" } (Assign existing task to someone - support "assign task X to Y", "switch task X from A to B")
+   - delete_task: { taskName: "string" } (Delete an existing task)
 
 3. Employee Commands (Accessible to All):
    - request_leave: { startDate: "string", endDate: "string", reason: "string", leaveType: "string" } (Apply for leave)
@@ -88,7 +91,7 @@ Rules:
 
 JSON Structure:
 {
-  "type": "navigate" | "create_project" | "add_team_member" | "delete_team_member" | "create_task" | "search" | "info" | "gantt_query" | "resource_query" | "request_leave" | "approve_leave" | "deny_leave" | "unknown",
+  "type": "navigate" | "create_project" | "add_team_member" | "delete_team_member" | "create_task" | "assign_task" | "delete_task" | "search" | "info" | "gantt_query" | "resource_query" | "request_leave" | "approve_leave" | "deny_leave" | "unknown",
   "target": "string (optional)",
   "params": {
     "projectTitle": "string",
@@ -100,6 +103,7 @@ JSON Structure:
     "taskName": "string",
     "projectName": "string",
     "assigneeName": "string",
+    "fromAssigneeName": "string",
     "query": "string",
     "startDate": "YYYY-MM-DD",
     "endDate": "YYYY-MM-DD",
@@ -392,6 +396,71 @@ Rules:
           type: 'create_task',
           params: { taskName: simpleMatch[1]?.trim() },
           response: `Standard Mode: Adding task "${simpleMatch[1]?.trim()}" for you.`
+        };
+      }
+    }
+
+    // 1d. Task Assignment (Robust Extraction)
+    const isAssignCommand = text.includes('assign') || text.includes('switch') || text.includes('change');
+    
+    if (isAssignCommand) {
+      // Pattern: "switch [assignee for] task [name] from [old] to [new]"
+      const switchRegex = /(?:switch|change)(?:\s+assignee)?(?:\s+for)?(?:\s+task)?\s+(.*?)\s+from\s+(.*?)\s+to\s+(.*)/i;
+      const switchMatch = text.match(switchRegex);
+      
+      if (switchMatch) {
+         return {
+           type: 'assign_task',
+           params: {
+             taskName: switchMatch[1]?.trim(),
+             fromAssigneeName: switchMatch[2]?.trim(),
+             assigneeName: switchMatch[3]?.trim()
+           },
+           response: `Standard Mode: Switching task "${switchMatch[1]?.trim()}" to ${switchMatch[3]?.trim()}.`
+         };
+      }
+
+      // Pattern: "assign(?: task)? [name] to [new]"
+      const assignRegex = /assign(?:\s+task)?\s+(.*?)\s+to\s+(.*)/i;
+      const assignMatch = text.match(assignRegex);
+      
+      if (assignMatch) {
+        return {
+          type: 'assign_task',
+          params: {
+            taskName: assignMatch[1]?.trim(),
+            assigneeName: assignMatch[2]?.trim()
+          },
+          response: `Standard Mode: Assigning task "${assignMatch[1]?.trim()}" to ${assignMatch[2]?.trim()}.`
+        };
+      }
+
+      // Pattern: "change task [name] to [new]"
+      const changeRegex = /change(?:\s+task)?\s+(.*?)\s+to\s+(.*)/i;
+      const changeMatch = text.match(changeRegex);
+      if (changeMatch) {
+        return {
+          type: 'assign_task',
+          params: {
+            taskName: changeMatch[1]?.trim(),
+            assigneeName: changeMatch[2]?.trim()
+          },
+          response: `Standard Mode: Changing task "${changeMatch[1]?.trim()}" to ${changeMatch[2]?.trim()}.`
+        };
+      }
+    }
+
+    // 1e. Task Deletion (Robust Extraction)
+    const isDeleteTaskCommand = (text.includes('delete') || text.includes('remove') || text.includes('get rid of')) && text.includes('task');
+    if (isDeleteTaskCommand) {
+      const deleteRegex = /(?:delete|remove|get\s+rid\s+of)\s+task\s+(.*)/i;
+      const deleteMatch = text.match(deleteRegex);
+      if (deleteMatch) {
+        return {
+          type: 'delete_task',
+          params: { taskName: deleteMatch[1]?.trim() },
+          requiresConfirmation: true,
+          response: `Standard Mode: I'll help you delete task "${deleteMatch[1]?.trim()}".`
         };
       }
     }

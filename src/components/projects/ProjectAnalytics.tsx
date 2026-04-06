@@ -13,6 +13,7 @@ import {
   ArrowLeft, LayoutGrid, Users, CheckSquare,
   Clock, Lightbulb, Sparkles, Loader2, ChevronDown, ChevronUp, X, Plus, AlertTriangle, TrendingDown
 } from 'lucide-react';
+import { peopleService } from '@/services/peopleService';
 
 export default function ProjectAnalytics() {
   const { id } = useParams();
@@ -67,6 +68,7 @@ export default function ProjectAnalytics() {
   const [isAddTeamMemberModalOpen, setIsAddTeamMemberModalOpen] = useState(false);
   const [isAddingTeamMember, setIsAddingTeamMember] = useState(false);
   const [orgMembers, setOrgMembers] = useState<any[]>([]);
+  const [assignableTeamMembers, setAssignableTeamMembers] = useState<any[]>([]);
   const [loadingOrgMembers, setLoadingOrgMembers] = useState(false);
   const [localAllocatedMembers, setLocalAllocatedMembers] = useState<any[]>([]);
   const [addTeamMemberForm, setAddTeamMemberForm] = useState({
@@ -82,7 +84,12 @@ export default function ProjectAnalytics() {
   const [showAbandonConfirmation, setShowAbandonConfirmation] = useState(false);
   const [taskToAbandon, setTaskToAbandon] = useState<any>(null);
 
-  const { loading, error, project, issues, metrics, teamMembers, allocatedTeamMembers } = useProjectAnalytics(id);
+  const { loading, error, project, issues, metrics, teamMembers, allocatedTeamMembers, refetch: refetchProjectData } = useProjectAnalytics(id);
+  
+  // Refetch functions that trigger the unified analytics hook
+  const refetchTasks = async () => refetchProjectData();
+  const refetchAllocatedTeamMembers = async () => refetchProjectData();
+  
   const { orgId } = useAuth();
 
   // Sync local issues with hook data
@@ -104,12 +111,12 @@ export default function ProjectAnalytics() {
     }
   }, [selectedTaskStatus]);
 
-  // Fetch organization members when modal opens
+  // Fetch organization members when modal or task modals open
   useEffect(() => {
-    if (isAddTeamMemberModalOpen && project) {
+    if ((isAddTeamMemberModalOpen || isNewTaskModalOpen || isTaskModalOpen) && project) {
       fetchOrgMembers();
     }
-  }, [isAddTeamMemberModalOpen, project]);
+  }, [isAddTeamMemberModalOpen, isNewTaskModalOpen, isTaskModalOpen, project]);
 
   // Sync local allocated members with hook data
   useEffect(() => {
@@ -132,36 +139,51 @@ export default function ProjectAnalytics() {
 
   const fetchOrgMembers = async () => {
     setLoadingOrgMembers(true);
+
     try {
-      // Use orgId from auth context, fallback to project.organization_id
-      const organizationId = orgId || project?.organization_id;
-      
+      const organizationId = orgId || (project as any)?.organization_id;
+
       if (!organizationId) {
-        console.error('No organization ID available');
-        toast.error('Unable to load organization members - missing organization context');
+        console.error("No organization ID available");
         return;
       }
 
-      // Fetch from users table instead of organization_members
-      const { data, error } = await supabase
-        .from('users')
-        .select('id, name, email')
-        .eq('organization_id', organizationId)
-        .order('name', { ascending: true });
+      // 1. Fetch ALL active organization members (for the "Add Team Member" modal)
+      // This matches the logic on the People & Capacity page
+      const allOrgMembers = await peopleService.fetchAllTeamMembers(organizationId);
+      
+      const mappedOrgMembers = allOrgMembers.map((member) => ({
+        id: member.id,
+        name: member.name || "Unknown Member",
+        email: (member as any).email || ""
+      }));
 
-      if (error) throw error;
-      
-      // Map the response to get user details
-      const members = data?.map((user: any) => ({
-        id: user.id,
-        email: user.email,
-        name: user.name || 'Unknown Member'
-      })) || [];
-      
-      setOrgMembers(members);
+      setOrgMembers(mappedOrgMembers);
+
+      // 2. Fetch ONLY members of this project's team (for the Task Assignee dropdown)
+      if ((project as any)?.team_id) {
+        const teamMembersList = await peopleService.fetchAllTeamMembers(
+          organizationId,
+          [(project as any).team_id]
+        );
+
+        const assignable = teamMembersList.map((member) => ({
+          id: member.id,
+          name: member.name || "Unknown Member",
+          email: (member as any).email || ""
+        }));
+
+        setAssignableTeamMembers(assignable);
+      } else {
+        // Fallback to org members if no team_id assigned? 
+        // User previously requested only team members for assignment.
+        setAssignableTeamMembers([]);
+      }
+
     } catch (err: any) {
-      console.error('Error fetching organization members:', err);
-      toast.error('Failed to load organization members');
+      console.error("Error fetching members:", err);
+      toast.error("Failed to load members");
+      setAssignableTeamMembers([]);
     } finally {
       setLoadingOrgMembers(false);
     }
@@ -277,6 +299,24 @@ export default function ProjectAnalytics() {
     if (!selectedTask) return;
     setIsTaskSaving(true);
     try {
+      // 1. Ensure team membership for the assignee
+      const teamId = (project as any)?.team_id;
+      const organizationId = orgId || (project as any)?.organization_id;
+      if (teamId && organizationId && taskForm.assignee_id) {
+        const memberDetails = orgMembers.find(m => m.id === taskForm.assignee_id);
+        if (memberDetails) {
+          const { error: rpcError } = await supabase.rpc('upsert_team_member', {
+            p_organization_id: organizationId,
+            p_team_id: teamId,
+            p_email: memberDetails.email,
+            p_name: memberDetails.name,
+            p_role: 'Team Member'
+          });
+          if (rpcError) console.error('Error syncing assignee to team:', rpcError);
+        }
+      }
+
+      // 2. Update the task
       const { error } = await supabase
         .from('tasks')
         .update({
@@ -294,6 +334,7 @@ export default function ProjectAnalytics() {
       toast.success('Task updated successfully');
       setIsTaskModalOpen(false);
       await refetchTasks();
+      await fetchOrgMembers(); // Refresh lists to show new team members
     } catch (err: any) {
       console.error('Error updating task:', err);
       toast.error('Failed to update task');
@@ -310,6 +351,25 @@ export default function ProjectAnalytics() {
 
     setIsTaskSaving(true);
     try {
+      const organizationId = orgId || (project as any)?.organization_id;
+      const teamId = (project as any)?.team_id;
+
+      // 1. Ensure team membership for the assignee
+      if (teamId && organizationId && newTaskForm.assignee_id) {
+        const memberDetails = orgMembers.find(m => m.id === newTaskForm.assignee_id);
+        if (memberDetails) {
+          const { error: rpcError } = await supabase.rpc('upsert_team_member', {
+            p_organization_id: organizationId,
+            p_team_id: teamId,
+            p_email: memberDetails.email,
+            p_name: memberDetails.name,
+            p_role: 'Team Member'
+          });
+          if (rpcError) console.error('Error syncing assignee to team:', rpcError);
+        }
+      }
+
+      // 2. Insert the task
       const { error } = await supabase
         .from('tasks')
         .insert({
@@ -328,6 +388,7 @@ export default function ProjectAnalytics() {
       setIsNewTaskModalOpen(false);
       setNewTaskForm({ name: '', description: '', estimated_hours: 0, assignee_id: '', start_date: getTodayDateString(), due_date: '' });
       await refetchTasks();
+      await fetchOrgMembers(); // Refresh lists to show new team members
     } catch (err: any) {
       console.error('Error creating task:', err);
       toast.error('Failed to create task');
@@ -431,85 +492,6 @@ export default function ProjectAnalytics() {
       setUpdatingTask(false);
     }
   };
-
-  const refetchAllocatedTeamMembers = async () => {
-    if (!project?.id) return;
-    
-    try {
-      // Fetch fresh data from project_team_allocations
-      const { data: allocations, error } = await supabase
-        .from('project_team_allocations')
-        .select('id, user_id, allocation_percentage, start_date, end_date, users(id, name, email)')
-        .eq('project_id', project.id);
-
-      if (error) throw error;
-
-      const freshMembers = allocations?.map((a: any) => ({
-        id: a.id,
-        user_id: a.user_id,
-        name: a.users?.name || 'Unknown',
-        email: a.users?.email,
-        role: 'Team Member',
-        allocated_hours: Math.round((40 * a.allocation_percentage) / 100),
-        start_date: a.start_date,
-        end_date: a.end_date,
-        allocation_percentage: a.allocation_percentage
-      })) || [];
-
-      setLocalAllocatedMembers(freshMembers);
-    } catch (err: any) {
-      console.error('Error refetching team members:', err);
-    }
-  };
-
-  const refetchTasks = async () => {
-    if (!project?.id) return;
-    
-    try {
-      // Fetch fresh task data
-      const { data: tasksData, error } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('project_id', project.id);
-
-      if (error) throw error;
-
-      // Fetch all organization users for mapping assignees
-      const { data: orgUsers } = await supabase
-        .from('users')
-        .select('id, name, email')
-        .eq('organization_id', project.organization_id);
-
-      const orgUsersMap = new Map(orgUsers?.map(u => [u.id, u]) || []);
-
-      // Map tasks to issues format
-      const freshIssues = (tasksData || []).map(t => {
-        const assignedUser = orgUsersMap.get(t.assignee_id);
-        return {
-          id: t.id,
-          issue_key: `TASK-${t.id.substring(0, 4)}`,
-          issue_type: 'Task',
-          summary: t.name,
-          status: t.status || 'not_started',
-          assignee: assignedUser?.name || 'Unassigned',
-          time_spent_seconds: (t.actual_hours || 0) * 3600,
-          original_estimate_seconds: (t.estimated_hours || 0) * 3600,
-          created_date: t.created_at,
-          description: t.description,
-          assignee_id: t.assignee_id,
-          estimated_hours: t.estimated_hours,
-          actual_hours: t.actual_hours,
-          start_date: t.start_date,
-          due_date: t.due_date
-        };
-      });
-
-      setLocalIssues(freshIssues);
-    } catch (err: any) {
-      console.error('Error refetching tasks:', err);
-    }
-  };
-
   const handleAddTeamMember = async () => {
     if (!addTeamMemberForm.user_id || !addTeamMemberForm.end_date || !project) {
       toast.error('Please fill in all required fields');
@@ -518,13 +500,32 @@ export default function ProjectAnalytics() {
 
     setIsAddingTeamMember(true);
     try {
-      // Validate organization context before insert
-      if (!project.organization_id) {
-        console.warn('Project missing organization_id:', project.id);
-        toast.error('Project configuration error: missing organization context');
+      const organizationId = orgId || (project as any).organization_id;
+      if (!organizationId) {
+        toast.error('Organization context missing');
         return;
       }
 
+      const teamId = (project as any).team_id;
+      
+      // 1. If the project has a team, ensure the user is added to the team first
+      // This follows the logic on the People & Capacity page to keep data in sync
+      if (teamId) {
+        const memberDetails = orgMembers.find(m => m.id === addTeamMemberForm.user_id);
+        if (memberDetails) {
+          const { error: rpcError } = await supabase.rpc('upsert_team_member', {
+            p_organization_id: organizationId,
+            p_team_id: teamId,
+            p_email: memberDetails.email,
+            p_name: memberDetails.name,
+            p_role: 'Team Member'
+          });
+
+          if (rpcError) console.error('Error adding member to team:', rpcError);
+        }
+      }
+
+      // 2. Add member to project allocations
       const { error } = await supabase
         .from('project_team_allocations')
         .insert({
@@ -536,13 +537,9 @@ export default function ProjectAnalytics() {
         });
 
       if (error) {
-        console.error('Supabase error details:', {
-          message: error.message,
-          details: error.details,
-          code: error.code,
-          hint: error.hint,
-          fullError: error
-        });
+        if (error.message?.includes('UNIQUE')) {
+          throw new Error('This member is already allocated to this project');
+        }
         throw error;
       }
       
@@ -555,23 +552,13 @@ export default function ProjectAnalytics() {
         end_date: ''
       });
       
-      // Refetch allocated team members to show the newly added member
-      await refetchAllocatedTeamMembers();
+      // Refetch the data to update the UI and lists
+      await refetchProjectData();
+      await fetchOrgMembers();
+
     } catch (err: any) {
       console.error('Error adding team member:', err);
-      
-      // Show more detailed error message
-      let errorMsg = 'Failed to add team member';
-      if (err.message) {
-        errorMsg = err.message;
-        if (err.message.includes('policy')) {
-          errorMsg = 'Permission denied: ' + err.message + ' (Check if user and project are in the same organization)';
-        } else if (err.message.includes('UNIQUE')) {
-          errorMsg = 'This team member is already allocated to this project';
-        }
-      }
-      
-      toast.error(errorMsg);
+      toast.error(err.message || 'Failed to add team member');
     } finally {
       setIsAddingTeamMember(false);
     }
@@ -1389,8 +1376,8 @@ export default function ProjectAnalytics() {
                   <label className="block text-sm text-[#78716C] mb-1 font-medium">Assignee</label>
                   <select value={newTaskForm.assignee_id} onChange={(e) => setNewTaskForm(prev => ({ ...prev, assignee_id: e.target.value }))} className="w-full px-4 py-3 rounded-xl border border-[#E7E5E4] bg-white focus:ring-2 focus:ring-[#0F766E]/20" disabled={isTaskSaving}>
                     <option value="">Unassigned</option>
-                    {localAllocatedMembers.map(member => (
-                      <option key={member.user_id} value={member.user_id}>{member.name}</option>
+                    {orgMembers.map(member => (
+                      <option key={member.id} value={member.id}>{member.name}</option>
                     ))}
                   </select>
                 </div>
@@ -1514,9 +1501,8 @@ export default function ProjectAnalytics() {
                     <label className="block text-sm text-[#78716C] mb-1 font-medium">Assignee</label>
                     <select value={taskForm.assignee_id} onChange={(e) => setTaskForm(prev => ({ ...prev, assignee_id: e.target.value }))} className="w-full px-4 py-3 rounded-xl border border-[#E7E5E4] bg-white focus:ring-2 focus:ring-[#0F766E]/20" disabled={isTaskSaving}>
                       <option value="">Unassigned</option>
-                      {/* Pull from the Team we fetched in the hook! */}
-                      {localAllocatedMembers.map(member => (
-                        <option key={member.user_id} value={member.user_id}>{member.name}</option>
+                      {orgMembers.map(member => (
+                        <option key={member.id} value={member.id}>{member.name}</option>
                       ))}
                     </select>
                   </div>
