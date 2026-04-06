@@ -48,13 +48,13 @@ export const GlobalVoiceCommander: React.FC = () => {
     if (lastTranscript && !hasProcessed.current) {
       hasProcessed.current = true;
       setLiveText(lastTranscript);
+      // Small delay to let React state settle before processing
       setTimeout(() => {
         handleVoiceCommand(lastTranscript, location.pathname);
-        setIsOpen(false);
         setTimeout(() => { hasProcessed.current = false; }, 500);
       }, 50);
     }
-  }, [lastTranscript, isListening, handleVoiceCommand, location.pathname]);
+  }, [lastTranscript, isListening]);
 
   const handleStop = () => {
     stopListening();
