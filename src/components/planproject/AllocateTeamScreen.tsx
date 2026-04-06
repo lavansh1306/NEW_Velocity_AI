@@ -132,8 +132,11 @@ export const AllocateTeamScreen = () => {
             // 4. Insert Tasks WITH Assignees (Crucial for Analytics)
             const tasksToInsert = tasks.map((t: any) => {
                 // Find which AI-recommended person was assigned this specific task
+                // Use robust trimming and case-insensitive matching for task_fit
+                const taskNameClean = t.task.trim().toLowerCase();
                 const assignee = recommendedTeam.find(m => 
-                    selectedTeamIds.includes(m.id) && m.task_fit.includes(t.task)
+                    selectedTeamIds.includes(m.id) && 
+                    m.task_fit.some((fit: string) => fit.trim().toLowerCase() === taskNameClean)
                 );
                 
                 return {
@@ -141,7 +144,7 @@ export const AllocateTeamScreen = () => {
                     name: t.task, 
                     estimated_hours: t.estimatedHours, 
                     status: 'not_started',
-                    assignee_id: assignee ? assignee.id : null // Map to assignee_id
+                    assignee_id: assignee ? assignee.id : null
                 };
             });
             await supabase.from('tasks').insert(tasksToInsert);

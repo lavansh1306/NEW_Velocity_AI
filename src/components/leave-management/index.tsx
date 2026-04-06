@@ -428,7 +428,7 @@ export default function LeaveManagementTab() {
                           </span>
                           <div className="mt-2 space-y-1 overflow-y-auto max-h-[82px] hide-scrollbar flex flex-col gap-1">
                             {/* Leaves */}
-                            {dayLeaves.map(l => (
+                            {dayLeaves.slice(0, 2).map(l => (
                               <div 
                                 key={l.id} 
                                 className={`text-[9px] font-medium px-1.5 py-0.5 rounded-md truncate border ${
@@ -448,7 +448,7 @@ export default function LeaveManagementTab() {
                             ))}
 
                             {/* Tasks */}
-                            {dayTasks.map((t, idx) => (
+                            {dayTasks.slice(0, 2 - Math.min(dayLeaves.length, 2)).map((t, idx) => (
                               <div 
                                 key={`t-${idx}`} 
                                 className="text-[9px] font-medium px-1.5 py-0.5 rounded-md truncate border bg-blue-50 text-blue-900 border-blue-100"
@@ -457,6 +457,12 @@ export default function LeaveManagementTab() {
                                 {t.assigneeName ? t.assigneeName.split(' ')[0] : t.assignee.split('@')[0]}: {t.taskName}
                               </div>
                             ))}
+
+                            {(dayLeaves.length + dayTasks.length) > 2 && (
+                              <div className="text-[8px] text-[#A8A29E] font-medium text-center pt-0.5">
+                                +{dayLeaves.length + dayTasks.length - 2} more
+                              </div>
+                            )}
                           </div>
                         </div>
                       );

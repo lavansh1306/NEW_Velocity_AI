@@ -84,8 +84,14 @@ export const GlobalSearch = () => {
                     onChange={(e) => setQuery(e.target.value)}
                     onKeyDown={handleKeyDown}
                     placeholder="Search projects, people, tasks..."
-                    className="pl-10 h-10 bg-white border border-[#E7E5E4] rounded-lg text-sm focus:bg-white focus:border-[#2DD4BF] focus:ring-1 focus:ring-[#2DD4BF]/20 focus:shadow-sm transition-all placeholder:text-[#D6D3D1] font-light shadow-sm"
+                    className="pl-10 pr-10 h-10 bg-white border border-[#E7E5E4] rounded-lg text-sm focus:bg-white focus:border-[#2DD4BF] focus:ring-1 focus:ring-[#2DD4BF]/20 focus:shadow-sm transition-all placeholder:text-[#D6D3D1] font-light shadow-sm"
                 />
+                <button 
+                    onClick={() => { if (query.length > 1) setIsOpen(true); }}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 hover:bg-[#F5F5F4] rounded-md transition-colors"
+                >
+                    <Search className="h-3.5 w-3.5 text-[#2DD4BF]" strokeWidth={2} />
+                </button>
             </div>
 
             {isOpen && (

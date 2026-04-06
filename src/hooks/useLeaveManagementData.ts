@@ -215,6 +215,9 @@ export function useLeaveManagementData() {
     const targetUserId = request.user_id || state.currentUser?.id;
     if (!targetUserId) throw new Error("Target user ID is missing.");
 
+    const isManager = state.currentUser?.role === 'admin' || state.currentUser?.role === 'manager';
+    const finalStatus = isManager ? 'approved' : 'pending';
+
     // 2. Insert Leave Request
     const { error } = await supabase.from('leave_requests').insert([{
       organization_id: state.currentOrgId,
@@ -223,7 +226,7 @@ export function useLeaveManagementData() {
       start_date: request.startDate,
       end_date: request.endDate,
       reason: request.reason,
-      status: 'pending' // Forced default for new requests
+      status: finalStatus
     }]);
 
     if (error) throw error;

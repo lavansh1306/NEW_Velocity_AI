@@ -94,6 +94,7 @@ export const useDashboard = () => {
         notifications,
         isNotificationsOpen,
         setIsNotificationsOpen,
-        markAllRead
+        markAllRead,
+        refresh: fetchDashboard
     };
 };

@@ -8,9 +8,9 @@ import { VoiceInput } from './VoiceInput';
 
 interface PlanHeaderProps {
     projectTitle: string;
-    setProjectTitle: (title: string) => void;
+    setProjectTitle: React.Dispatch<React.SetStateAction<string>>;
     projectDescription: string;
-    setProjectDescription: (desc: string) => void;
+    setProjectDescription: React.Dispatch<React.SetStateAction<string>>;
     uploadedFileName: string | null;
     handleFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
     clearFileUpload: () => void;
