@@ -34,45 +34,29 @@ export default function OnboardingWelcome() {
       setVoiceStatus('Listening...');
     };
 
-    recognition.onresult = async (event: any) => {
+    recognition.onresult = (event) => {
       const transcript = event.results[0][0].transcript;
-      setVoiceStatus('Processing...');
       setIsVoiceListening(false);
+      setVoiceStatus('Got it!');
 
-      try {
-        const res = await fetch('/api/voice/parse', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            transcript,
-            currentPath: '/onboarding/welcome',
-            systemOverride: `Extract organization name and team name from this onboarding statement. 
-            Return JSON: {"orgName": "...", "teamName": "...", "teamSize": number, "industry": "..."}.
-            If no team name mentioned, use "Engineering" as default.
-            Only return JSON, no markdown.`
-          })
-        });
-        if (res.ok) {
-          const data = await res.json();
-          // Try to parse as onboarding data first
-          if (data.orgName) {
-            if (data.orgName) setOrgName(data.orgName);
-            if (data.teamName) setTeamName(data.teamName);
-            setVoiceStatus("Got it! Org: " + data.orgName);
-          } else if (data.params?.name) {
-            setOrgName(data.params.name);
-            setVoiceStatus("Set org to " + data.params.name);
-          } else {
-            // Fallback: just set org name to transcript
-            setOrgName(transcript);
-            setVoiceStatus('Set from voice');
-          }
-        }
-      } catch (e) {
-        // Simple fallback — set org name directly from transcript
-        setOrgName(transcript);
-        setVoiceStatus('Set from voice');
+      const t = transcript.toLowerCase();
+      let extractedOrg = '';
+      let extractedTeam = '';
+
+      const atMatch = transcript.match(/(?:at|@)\s+([A-Za-z][^,\.]+?)(?:\s*,|\s+we|\s+our|\s+engineering|\s+team|$)/i);
+      const calledMatch = transcript.match(/(?:called|named|is)\s+([A-Za-z][^,\.]+?)(?:\s*,|\s+we|\s+our|\s+engineering|\s+team|$)/i);
+      if (atMatch) extractedOrg = atMatch[1].trim();
+      else if (calledMatch) extractedOrg = calledMatch[1].trim();
+      else extractedOrg = transcript;
+
+      const teamTypes = ['engineering','product','design','frontend','backend','devops','data','mobile'];
+      for (const tt of teamTypes) {
+        if (t.includes(tt)) { extractedTeam = tt.charAt(0).toUpperCase() + tt.slice(1) + ' Team'; break; }
       }
+
+      if (extractedOrg) setOrgName(extractedOrg);
+      if (extractedTeam) setTeamName(extractedTeam);
+      setVoiceStatus(extractedOrg ? 'Filled from voice!' : 'Try again');
       setTimeout(() => setVoiceStatus(''), 3000);
     };
 
