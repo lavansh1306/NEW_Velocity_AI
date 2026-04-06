@@ -108,6 +108,11 @@ export const useVoiceActions = () => {
         if (currentPath !== '/people') {
           enqueueAction(action);
           navigate('/people');
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('velo-add-member', {
+              detail: { name, email, role }
+            }));
+          }, 500);
         } else {
           window.dispatchEvent(new CustomEvent('velo-add-member', { 
             detail: { name, email, role } 
