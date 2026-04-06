@@ -48,7 +48,7 @@ export const GlobalVoiceCommander: React.FC = () => {
         setTimeout(() => { hasProcessed.current = false; }, 500);
       }, 50);
     }
-  }, [lastTranscript]);
+  }, [lastTranscript, isListening]);
 
   // When user clicks stop — also check window.pendingTranscript in case
   // onresult fired but React state hasn't updated lastTranscript yet
