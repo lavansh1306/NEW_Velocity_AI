@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useVoice } from '@/contexts/VoiceContext';
 import { geminiVoiceService, VoiceAction } from '@/services/geminiVoiceService';
+import { findBestMatch } from '@/lib/utils';
 import { getDashboardData } from '@/services/dashboardService';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -23,7 +24,6 @@ export const useVoiceActions = () => {
 
   const handleVoiceCommand = async (transcript: string, currentPath: string) => {
     // 0. Guard against multiple concurrent commands
-    // Note: status is now extracted from context at the top level
     if (status === 'processing') {
       console.warn('[useVoiceActions] Already processing a command, ignoring:', transcript);
       return;
@@ -45,8 +45,6 @@ export const useVoiceActions = () => {
         toast.info("Action cancelled");
       } else {
         speak("I didn't catch that. Please say yes to confirm or no to cancel.");
-        // Stay in confirmation mode? Or just reset? 
-        // For now, let's reset to avoid stuck states, but keep the pending action
       }
       return;
     }
@@ -56,27 +54,24 @@ export const useVoiceActions = () => {
     try {
       const action = await geminiVoiceService.parseIntent(transcript, currentPath);
       
-      // Check if we are in fallback mode (Gemini error caught in service)
       if (action.response?.includes("Standard Mode") || action.response?.includes("Standard command")) {
         toast.info("Gemini is currently limited. Using Standard Mode.");
       }
       
-      // 2. Handle Multi-turn Prompt
       if (action.prompt) {
         speak(action.prompt);
         toast.info(action.prompt);
-        // Important: We need to listen again for the answer
         setTimeout(() => startListening(), 2000);
         return;
       }
 
-      // 3. Handle Confirmation Gate
       if (action.requiresConfirmation) {
         setPendingConfirmation(action);
-        const confirmMsg = action.response || `I'm about to ${action.type.replace(/_/g, ' ')}. Are you sure?`;
+        const confirmType = action.type.replace(/_/g, ' ');
+        const nameText = action.params?.taskName || action.params?.name || '';
+        const confirmMsg = action.response || `I'm about to ${confirmType} ${nameText}. Are you sure?`;
         speak(confirmMsg);
         toast.warning("Confirmation required");
-        // Re-trigger listening automatically for the confirmation
         setTimeout(() => startListening(), 2500);
         return;
       }
@@ -104,7 +99,9 @@ export const useVoiceActions = () => {
       'add_team_member', 
       'delete_team_member', 
       'create_project', 
-      'create_task'
+      'create_task',
+      'assign_task',
+      'delete_task'
     ];
 
     const isManager = orgRole === 'admin' || orgRole === 'manager';
@@ -136,25 +133,32 @@ export const useVoiceActions = () => {
         break;
       
       case 'create_task':
-        const { taskName: tName, projectName: pName, assigneeName } = action.params || {};
+        const { taskName: tName, projectName: pName, assigneeName: cAssigneeName } = action.params || {};
         const nameToUse = tName || 'New Task';
         
-        if (!orgId) {
-          speak("I'm sorry, I can't add tasks without an active organization.");
-          break;
-        }
-
         try {
-          // 1. Fetch available projects to find the target
-          const { data: projects, error: projectsError } = await supabase
+          const projectMatch = currentPath.match(/\/projects\/([a-f0-9-]{36})/i);
+          let targetProjectId = projectMatch ? projectMatch[1] : null;
+          let targetOrgId = orgId;
+
+          // Resolve Target Organization context
+          if (targetProjectId) {
+             const { data: proj } = await supabase.from('projects').select('organization_id').eq('id', targetProjectId).single();
+             if (proj) targetOrgId = proj.organization_id;
+          }
+
+          if (!targetOrgId) {
+            speak("I need more context about your organization to create a task.");
+            break;
+          }
+
+          // Fetch active projects for this org
+          const { data: projects } = await supabase
             .from('projects')
-            .select('id, name')
-            .eq('organization_id', orgId)
+            .select('id, name, organization_id')
+            .eq('organization_id', targetOrgId)
             .eq('status', 'active');
 
-          if (projectsError) throw projectsError;
-
-          let targetProjectId: string | null = null;
           let targetProjectName = '';
 
           if (pName) {
@@ -163,34 +167,25 @@ export const useVoiceActions = () => {
               targetProjectId = matched.id;
               targetProjectName = matched.name;
             } else {
-              // AUTO-CREATE PROJECT
               speak(`Project ${pName} doesn't exist. I'll create it for you.`);
               const { data: newProj, error: createError } = await supabase
                 .from('projects')
-                .insert({
-                  organization_id: orgId,
-                  name: pName,
-                  status: 'active',
-                  source: 'internal'
-                })
-                .select()
-                .single();
-              
+                .insert({ organization_id: targetOrgId, name: pName, status: 'active', source: 'internal' })
+                .select().single();
               if (createError) throw createError;
               targetProjectId = newProj.id;
               targetProjectName = newProj.name;
             }
-          } else {
-            // Default to most recent if no project specified
+          } else if (!targetProjectId) {
             if (projects && projects.length > 0) {
-              const sorted = [...projects].sort((a,b) => b.id.localeCompare(a.id)); // Simple heuristic
+              const sorted = [...projects].sort((a,b) => b.id.localeCompare(a.id));
               targetProjectId = sorted[0].id;
               targetProjectName = sorted[0].name;
             } else {
-              speak("You don't have any active projects. I'll create a default one for you.");
+              speak("Creating a default project for your new task.");
               const { data: newProj, error: createError } = await supabase
                 .from('projects')
-                .insert({ organization_id: orgId, name: 'General Tasks', status: 'active' })
+                .insert({ organization_id: targetOrgId, name: 'General Tasks', status: 'active' })
                 .select().single();
               if (createError) throw createError;
               targetProjectId = newProj.id;
@@ -198,25 +193,20 @@ export const useVoiceActions = () => {
             }
           }
 
-          // 2. Resolve Assignee if provided
           let assigneeId = null;
-          if (assigneeName) {
-            const { data: members, error: membersError } = await supabase
+          if (cAssigneeName) {
+            const { data: members } = await supabase
               .from('users')
-              .select('id, full_name')
-              .eq('organization_id', orgId);
+              .select('id, name')
+              .eq('organization_id', targetOrgId);
             
-            if (!membersError && members) {
-              const match = members.find(m => m.full_name?.toLowerCase().includes(assigneeName.toLowerCase()));
-              if (match) {
-                assigneeId = match.id;
-              } else {
-                speak(`I couldn't find a team member named ${assigneeName}. I'll leave the task unassigned.`);
-              }
+            if (members) {
+              const match = findBestMatch(cAssigneeName, members, (m) => m.name || "");
+              if (match) assigneeId = match.id;
+              else speak(`I couldn't find a team member named ${cAssigneeName}. I'll leave the task unassigned for now.`);
             }
           }
 
-          // 3. Insert the task
           const { error: insertError } = await supabase
             .from('tasks')
             .insert({
@@ -228,18 +218,153 @@ export const useVoiceActions = () => {
             });
 
           if (insertError) throw insertError;
-
-          const assignmentMsg = assigneeName && assigneeId ? ` and assigned it to ${assigneeName}` : "";
-          const msg = `Done! Added task "${nameToUse}" to project ${targetProjectName}${assignmentMsg}.`;
+          const msg = `Done! Added task "${nameToUse}" to ${targetProjectName || 'project'}${cAssigneeName && assigneeId ? ` and assigned it to ${cAssigneeName}` : ""}.`;
           speak(msg);
           toast.success(msg);
+          window.dispatchEvent(new CustomEvent('velo-refresh-data'));
+        } catch (err: any) {
+          console.error('[VoiceActions] Smart task creation failed:', err);
+          speak("I encountered an error while setting up that task.");
+        }
+        break;
 
-          // Force a refresh if on projects page
+      case 'assign_task':
+        const { taskName: aTaskName, assigneeName: aAssigneeName } = action.params || {};
+        if (!aTaskName || !aAssigneeName) {
+          speak("Who would you like to assign this task to?");
+          break;
+        }
+
+        try {
+          const projectMatch = currentPath.match(/\/projects\/([a-f0-9-]{36})/i);
+          let targetId = projectMatch ? projectMatch[1] : null;
+          let targetOrgId = orgId;
+
+          // 1. Resolve Project and Org ID (Prioritize current project)
+          if (targetId) {
+             const { data: proj } = await supabase.from('projects').select('organization_id').eq('id', targetId).single();
+             if (proj) targetOrgId = proj.organization_id;
+          } else {
+            // Fallback: Use user's primary org and find most recent project
+            if (orgId) {
+              const { data: recentProj } = await supabase
+                .from('projects')
+                .select('id, name, organization_id')
+                .eq('organization_id', orgId)
+                .eq('status', 'active')
+                .order('updated_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+              if (recentProj) {
+                targetId = recentProj.id;
+                targetOrgId = recentProj.organization_id;
+              }
+            }
+          }
+
+          // Strict validation to prevent 400 Bad Request on empty Org ID in query
+          if (!targetId || !targetOrgId) {
+            speak("I'm not sure which project you're working in. Please open a project page first.");
+            break;
+          }
+
+          console.log(`[VoiceActions] Assigning task in Org: ${targetOrgId}, Project: ${targetId}`);
+
+          // 2. Fetch Data with correct Org context
+          const [{ data: tasks }, { data: members }] = await Promise.all([
+            supabase.from('tasks').select('id, name, assignee_id').eq('project_id', targetId),
+            supabase.from('users').select('id, name, email').eq('organization_id', targetOrgId)
+          ]);
+
+          if (!tasks || tasks.length === 0) {
+            speak("I couldn't find any tasks to update in this project.");
+            break;
+          }
+
+          const matchedTask = findBestMatch(aTaskName, tasks, (t) => t.name);
+          if (!matchedTask) {
+            speak(`I couldn't find a task named "${aTaskName}".`);
+            break;
+          }
+
+          const matchedMember = findBestMatch(aAssigneeName, members || [], (m) => m.name || "");
+          if (!matchedMember) {
+            speak(`I couldn't find a team member named "${aAssigneeName}".`);
+            break;
+          }
+
+          if (matchedTask.assignee_id === matchedMember.id) {
+            speak(`${matchedMember.name} is already assigned to "${matchedTask.name}".`);
+            break;
+          }
+
+          const { error: updateError } = await supabase
+            .from('tasks')
+            .update({ assignee_id: matchedMember.id })
+            .eq('id', matchedTask.id);
+
+          if (updateError) throw updateError;
+          const successMsg = `Done! Assigned "${matchedTask.name}" to ${matchedMember.name}.`;
+          speak(successMsg);
+          toast.success(successMsg);
+          window.dispatchEvent(new CustomEvent('velo-refresh-data'));
+        } catch (err: any) {
+          console.error('[VoiceActions] Task assignment failed:', err);
+          speak("I ran into an issue updating that task. Please try again or check the dashboard.");
+        }
+        break;
+
+      case 'delete_task':
+        const { taskName: dTaskName } = action.params || {};
+        if (!dTaskName) {
+          speak("Which task should I delete?");
+          break;
+        }
+
+        try {
+          const projectMatch = currentPath.match(/\/projects\/([a-f0-9-]{36})/i);
+          let targetId = projectMatch ? projectMatch[1] : null;
+
+          if (!targetId && orgId) {
+             const { data: recentProj } = await supabase
+              .from('projects')
+              .select('id, name')
+              .eq('organization_id', orgId)
+              .eq('status', 'active')
+              .order('updated_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            if (recentProj) targetId = recentProj.id;
+          }
+
+          if (!targetId) {
+            speak("Please open a project page first so I know which task list to check.");
+            break;
+          }
+
+          const { data: tasks } = await supabase.from('tasks').select('id, name').eq('project_id', targetId);
+          if (!tasks || tasks.length === 0) {
+            speak("This project doesn't have any tasks yet.");
+            break;
+          }
+
+          const matchedTask = findBestMatch(dTaskName, tasks, (t) => t.name);
+          if (!matchedTask) {
+            speak(`I couldn't find a task named "${dTaskName}".`);
+            break;
+          }
+
+          const { error: deleteError } = await supabase.from('tasks').delete().eq('id', matchedTask.id);
+          if (deleteError) throw deleteError;
+
+          const successMsg = `Successfully deleted task "${matchedTask.name}".`;
+          speak(successMsg);
+          toast.success(successMsg);
           window.dispatchEvent(new CustomEvent('velo-refresh-data'));
 
         } catch (err: any) {
-          console.error('[VoiceActions] Smart task creation failed:', err);
-          speak("I'm sorry, I encountered an error while setting up that task.");
+          console.error('[VoiceActions] Task deletion failed:', err);
+          speak("I couldn't delete that task. There might be an issue with the connection.");
         }
         break;
 
@@ -249,9 +374,7 @@ export const useVoiceActions = () => {
           enqueueAction(action);
           navigate('/people');
         } else {
-          window.dispatchEvent(new CustomEvent('velo-add-member', { 
-            detail: { name, email, role } 
-          }));
+          window.dispatchEvent(new CustomEvent('velo-add-member', { detail: { name, email, role } }));
         }
         break;
 
@@ -260,9 +383,7 @@ export const useVoiceActions = () => {
           enqueueAction(action);
           navigate('/people');
         } else {
-          window.dispatchEvent(new CustomEvent('velo-delete-member', { 
-            detail: { name: action.params?.name } 
-          }));
+          window.dispatchEvent(new CustomEvent('velo-delete-member', { detail: { name: action.params?.name } }));
         }
         break;
 
@@ -272,24 +393,21 @@ export const useVoiceActions = () => {
 
       case 'gantt_query':
       case 'resource_query':
-        const data = await getDashboardData();
-        const summary = await geminiVoiceService.summarizeData(data, action.params?.query || action.type.replace('_', ' '));
+        const dashData = await getDashboardData();
+        const summary = await geminiVoiceService.summarizeData(dashData, action.params?.query || action.type.replace('_', ' '));
         speak(summary);
         toast.info(summary);
         break;
 
       case 'request_leave':
         const { startDate, endDate, reason, leaveType } = action.params || {};
-        
         try {
-          // 1. Resolve Leave Type ID
-          let typeId = leaveTypes[0]?.id; // Default to first (usually Annual/Sick)
+          let typeId = leaveTypes[0]?.id;
           if (leaveType) {
-             const matched = leaveTypes.find(t => t.name.toLowerCase().includes(leaveType.toLowerCase()));
-             if (matched) typeId = matched.id;
+            const matched = leaveTypes.find(t => t.name.toLowerCase().includes(leaveType.toLowerCase()));
+            if (matched) typeId = matched.id;
           }
 
-          // 2. Format Dates
           const parseDate = (d: string) => {
             const input = d.toLowerCase().trim();
             if (!input || input === 'today') return new Date().toISOString().split('T')[0];
@@ -298,67 +416,29 @@ export const useVoiceActions = () => {
               date.setDate(date.getDate() + 1);
               return date.toISOString().split('T')[0];
             }
-
-            // 0. Check if it's already YYYY-MM-DD (Gemini normalized)
             if (/^\d{4}-\d{2}-\d{2}$/.test(input)) return input;
-
-            // 1. Check for DDMMYYYY or DDMM formats
             const digitsOnly = input.replace(/\D/g, '');
-            if (digitsOnly.length === 8) { 
-              // Handle DDMMYYYY or YYYYMMDD
-              if (digitsOnly.startsWith('20')) { // Likely YYYYMMDD
-                return `${digitsOnly.slice(0, 4)}-${digitsOnly.slice(4, 6)}-${digitsOnly.slice(6, 8)}`;
-              }
-              const day = digitsOnly.slice(0, 2);
-              const month = digitsOnly.slice(2, 4);
-              const year = digitsOnly.slice(4, 8);
-              return `${year}-${month}-${day}`;
+            if (digitsOnly.length === 8) {
+              if (digitsOnly.startsWith('20')) return `${digitsOnly.slice(0, 4)}-${digitsOnly.slice(4, 6)}-${digitsOnly.slice(6, 8)}`;
+              return `${digitsOnly.slice(4, 8)}-${digitsOnly.slice(2, 4)}-${digitsOnly.slice(0, 2)}`;
             }
-            if (digitsOnly.length === 4) { // DDMM
-              const day = digitsOnly.slice(0, 2);
-              const month = digitsOnly.slice(2, 4);
-              const year = new Date().getFullYear();
-              return `${year}-${month}-${day}`;
-            }
-            if (digitsOnly.length >= 1 && digitsOnly.length <= 2) { // Just DD
-              const day = digitsOnly.padStart(2, '0');
-              const now = new Date();
-              const month = (now.getMonth() + 1).toString().padStart(2, '0');
-              const year = now.getFullYear();
-              return `${year}-${month}-${day}`;
-            }
-
-            // 2. Standard JS Date parsing
             try {
               const parsed = new Date(input);
-              if (!isNaN(parsed.getTime())) {
-                return parsed.toISOString().split('T')[0];
-              }
+              if (!isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0];
             } catch {}
-
             return new Date().toISOString().split('T')[0];
           };
 
           const sDate = parseDate(startDate || 'today');
           const eDate = parseDate(endDate || startDate || 'today');
-
-          await addLeaveRequest({
-            startDate: sDate,
-            endDate: eDate,
-            reason: reason || 'Voice Request',
-            leave_type_id: typeId
-          });
-
+          await addLeaveRequest({ startDate: sDate, endDate: eDate, reason: reason || 'Voice Request', leave_type_id: typeId });
           const msg = `Leave request submitted for ${sDate}${eDate !== sDate ? ` to ${eDate}` : ''}.`;
           speak(msg);
           toast.success(msg);
-          
-          if (currentPath !== '/leave') {
-            navigate('/leave');
-          }
+          if (currentPath !== '/leave') navigate('/leave');
         } catch (err: any) {
           console.error('[VoiceActions] Leave request failed:', err);
-          speak("I'm sorry, I couldn't submit your leave request. Please check your balance.");
+          speak("I couldn't submit your leave request. Please check your allocation.");
         }
         break;
 
@@ -367,13 +447,11 @@ export const useVoiceActions = () => {
           speak("You don't have any recent leave requests.");
           break;
         }
-
         const myLeaves = leaves.filter(l => l.user_id === authUser?.id);
         if (myLeaves.length === 0) {
           speak("I couldn't find any leave requests for you.");
         } else {
-          const latest = myLeaves[0];
-          const statusMsg = `Your request for ${latest.startDate} is currently ${latest.status}.`;
+          const statusMsg = `Your request for ${myLeaves[0].startDate} is currently ${myLeaves[0].status}.`;
           speak(statusMsg);
           toast.info(statusMsg);
         }
@@ -386,27 +464,20 @@ export const useVoiceActions = () => {
           speak(`Whose leave request should I ${action.type === 'approve_leave' ? 'approve' : 'deny'}?`);
           break;
         }
-
-        const pendingRequest = leaves.find(l => 
-          l.status === 'pending' && 
-          (l.name.toLowerCase().includes(targetName.toLowerCase()) || 
-           targetName.toLowerCase().includes(l.name.toLowerCase()))
-        );
-
+        const pendingRequest = leaves.find(l => l.status === 'pending' && (l.name.toLowerCase().includes(targetName.toLowerCase()) || targetName.toLowerCase().includes(l.name.toLowerCase())));
         if (!pendingRequest) {
           speak(`I couldn't find any pending leave requests for ${targetName}.`);
           break;
         }
-
         try {
           const newStatus = action.type === 'approve_leave' ? 'approved' : 'rejected';
           await updateLeaveStatus(pendingRequest.id, newStatus);
-          const msg = `Successfully ${newStatus === 'approved' ? 'approved' : 'rejected'} the leave request for ${pendingRequest.name}.`;
+          const msg = `Successfully ${newStatus} the leave request for ${pendingRequest.name}.`;
           speak(msg);
           toast.success(msg);
         } catch (err) {
           console.error('[VoiceActions] Update leave failed:', err);
-          speak("I'm sorry, I couldn't update the leave status.");
+          speak("I'm sorry, I couldn't update the leave status at this time.");
         }
         break;
 
@@ -414,9 +485,7 @@ export const useVoiceActions = () => {
         break;
 
       default:
-        if (action.type !== 'unknown') {
-          console.warn('[useVoiceActions] Unknown action type:', action.type);
-        }
+        if (action.type !== 'unknown') console.warn('[useVoiceActions] Unknown action type:', action.type);
         break;
     }
   };

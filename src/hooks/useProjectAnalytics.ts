@@ -90,6 +90,16 @@ export function useProjectAnalytics(projectId: string | undefined) {
   const refetch = useCallback(() => {
     setRefreshSignal(prev => prev + 1);
   }, []);
+
+  // Listen for global refresh events (e.g. from Voice Actions)
+  useEffect(() => {
+    const handleRefresh = () => {
+      console.log('🔄 Global refresh event received in useProjectAnalytics');
+      refetch();
+    };
+    window.addEventListener('velo-refresh-data', handleRefresh);
+    return () => window.removeEventListener('velo-refresh-data', handleRefresh);
+  }, [refetch]);
   
   const [project, setProject] = useState<ProjectData | null>(null);
   const [issues, setIssues] = useState<JiraIssue[]>([]);
