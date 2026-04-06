@@ -147,8 +147,6 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setStatus('connecting');
       
       if (recognitionRef.current) {
-        // Small delay so getUserMedia stream is fully active before SpeechRecognition starts
-        await new Promise(resolve => setTimeout(resolve, 200));
         (window as any).isListeningIntent = true;
         recognitionRef.current.start();
         setStatus('listening');
@@ -157,16 +155,10 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       } else {
         throw new Error('Speech Recognition not supported in this browser.');
       }
-    } catch (err: any) {
-      if (err?.name === 'InvalidStateError') {
-        // Already started — just update state
-        setIsListening(true);
-        setStatus('listening');
-      } else {
-        console.error('[VoiceContext] Error starting speech recognition:', err);
-        setStatus('error');
-        toast.error('Failed to access microphone. Please try again.');
-      }
+    } catch (err) {
+      console.error('[VoiceContext] Error starting speech recognition:', err);
+      setStatus('error');
+      toast.error('Failed to access microphone or start speech recognition.');
     }
   }, [isListening]);
 
@@ -208,24 +200,6 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
     return null;
   }, [commandQueue]);
-
-  // Unlock speech synthesis on first user interaction
-  // Chrome blocks it until a gesture has occurred
-  useEffect(() => {
-    const unlock = () => {
-      const utterance = new SpeechSynthesisUtterance('');
-      utterance.volume = 0;
-      window.speechSynthesis.speak(utterance);
-      window.removeEventListener('click', unlock);
-      window.removeEventListener('keydown', unlock);
-    };
-    window.addEventListener('click', unlock);
-    window.addEventListener('keydown', unlock);
-    return () => {
-      window.removeEventListener('click', unlock);
-      window.removeEventListener('keydown', unlock);
-    };
-  }, []);
 
   const speak = (text: string) => {
     if ('speechSynthesis' in window) {
