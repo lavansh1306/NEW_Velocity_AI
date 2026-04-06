@@ -18,15 +18,20 @@ export const GlobalVoiceCommander: React.FC = () => {
 
   const { handleVoiceCommand } = useVoiceActions();
   const hasProcessed = useRef(false);
+  const startTimeoutRef = useRef<number | null>(null);
   const [isOpen, setIsOpen] = useState(false);
 
   // Auto-listen when overlay opens — only once on open
   useEffect(() => {
-    if (isOpen && !isListening) {
-      hasProcessed.current = false;
-      setTimeout(() => startListening(), 300);
-    }
-  }, [isOpen]);
+    if (!isOpen || isListening) return;
+
+    hasProcessed.current = false;
+    startTimeoutRef.current = window.setTimeout(() => startListening(), 300);
+
+    return () => {
+      if (startTimeoutRef.current) clearTimeout(startTimeoutRef.current);
+    };
+  }, [isOpen, isListening, startListening]);
   const [liveText, setLiveText] = useState('');
 
   // Listen for close event from useVoiceActions after navigation
@@ -44,7 +49,6 @@ export const GlobalVoiceCommander: React.FC = () => {
       // Small delay to let React state settle before processing
       setTimeout(() => {
         handleVoiceCommand(lastTranscript, location.pathname);
-        clearTranscript();
         setTimeout(() => { hasProcessed.current = false; }, 500);
       }, 50);
     }
