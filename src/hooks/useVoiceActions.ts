@@ -105,29 +105,44 @@ export const useVoiceActions = () => {
 
       case 'add_team_member':
         const { name, email, role } = action.params || {};
+        closeVoiceOverlay();
         if (currentPath !== '/people') {
           enqueueAction(action);
-          navigate('/people');
           setTimeout(() => {
-            window.dispatchEvent(new CustomEvent('velo-add-member', {
-              detail: { name, email, role }
-            }));
-          }, 500);
+            navigate('/people');
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('velo-add-member', {
+                detail: { name, email, role }
+              }));
+            }, 500);
+          }, 150);
         } else {
-          window.dispatchEvent(new CustomEvent('velo-add-member', { 
-            detail: { name, email, role } 
-          }));
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('velo-add-member', { 
+              detail: { name, email, role } 
+            }));
+          }, 150);
         }
         break;
 
       case 'delete_team_member':
+        closeVoiceOverlay();
         if (currentPath !== '/people') {
           enqueueAction(action);
-          navigate('/people');
+          setTimeout(() => {
+            navigate('/people');
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('velo-delete-member', { 
+                detail: { name: action.params?.name } 
+              }));
+            }, 500);
+          }, 150);
         } else {
-          window.dispatchEvent(new CustomEvent('velo-delete-member', { 
-            detail: { name: action.params?.name } 
-          }));
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('velo-delete-member', { 
+              detail: { name: action.params?.name } 
+            }));
+          }, 150);
         }
         break;
 
