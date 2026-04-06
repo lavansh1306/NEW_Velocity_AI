@@ -133,7 +133,13 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
 
       if (!streamRef.current) {
-        streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
+        streamRef.current = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          }
+        });
         const source = audioCtxRef.current.createMediaStreamSource(streamRef.current);
         
         // High-pass filter to remove low-frequency rumble (noise isolation)
