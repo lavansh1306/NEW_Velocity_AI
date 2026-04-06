@@ -12,6 +12,7 @@ export default function OnboardingWelcome() {
   const { user, loading: authLoading } = useAuth();
   const { createOrganization, loading, error, clearError, orgId } = useOnboarding();
   const [orgName, setOrgName] = useState('');
+  const [voiceFilled, setVoiceFilled] = useState(false);
   const [teamName, setTeamName] = useState('');
   const [isVoiceListening, setIsVoiceListening] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState('');
@@ -54,7 +55,7 @@ export default function OnboardingWelcome() {
         if (t.includes(tt)) { extractedTeam = tt.charAt(0).toUpperCase() + tt.slice(1) + ' Team'; break; }
       }
 
-      if (extractedOrg) setOrgName(extractedOrg);
+      if (extractedOrg) { setOrgName(extractedOrg); setVoiceFilled(true); }
       if (extractedTeam) setTeamName(extractedTeam);
       setVoiceStatus(extractedOrg ? 'Filled from voice!' : 'Try again');
       setTimeout(() => setVoiceStatus(''), 3000);
@@ -136,7 +137,7 @@ export default function OnboardingWelcome() {
 
         {/* Organization Name Input */}
         <div className="w-[450px] mb-4">
-          <OrganizationPicker
+          {voiceFilled ? (<div><label className="block text-sm text-[#78716C] mb-2 font-light">Organization Name</label><input value={orgName} onChange={e => setOrgName(e.target.value)} className="w-full h-11 px-3 bg-white border border-[#E7E5E4] rounded-md text-[#1C1917] text-sm" /></div>) : (<OrganizationPicker
             value={orgName}
             onSelect={(org) => {
               if (org) setOrgName(org.name);
@@ -144,7 +145,7 @@ export default function OnboardingWelcome() {
             }}
             onCreate={(name) => setOrgName(name)}
             onClear={() => setOrgName('')}
-          />
+          />)}
         </div>
 
         {/* Team Name Input */}
