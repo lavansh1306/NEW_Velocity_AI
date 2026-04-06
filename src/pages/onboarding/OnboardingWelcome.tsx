@@ -58,10 +58,10 @@ export default function OnboardingWelcome() {
           if (data.orgName) {
             if (data.orgName) setOrgName(data.orgName);
             if (data.teamName) setTeamName(data.teamName);
-            setVoiceStatus(\`Got it! Org: \${data.orgName}\`);
+            setVoiceStatus("Got it! Org: " + data.orgName);
           } else if (data.params?.name) {
             setOrgName(data.params.name);
-            setVoiceStatus(\`Set org to \${data.params.name}\`);
+            setVoiceStatus("Set org to " + data.params.name);
           } else {
             // Fallback: just set org name to transcript
             setOrgName(transcript);
