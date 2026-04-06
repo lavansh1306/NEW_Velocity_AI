@@ -85,6 +85,11 @@ export function useProjectAnalytics(projectId: string | undefined) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshSignal, setRefreshSignal] = useState(0);
+  
+  const refetch = useCallback(() => {
+    setRefreshSignal(prev => prev + 1);
+  }, []);
   
   const [project, setProject] = useState<ProjectData | null>(null);
   const [issues, setIssues] = useState<JiraIssue[]>([]);
@@ -260,38 +265,43 @@ export function useProjectAnalytics(projectId: string | undefined) {
           // First try project_team_allocations
           const { data: allocations } = await supabase
             .from('project_team_allocations')
-            .select('id, user_id, allocation_percentage, start_date, end_date, users(id, name, email)')
+            .select('id, user_id, allocation_percentage, start_date, end_date, users(id, name, email, is_active)')
             .eq('project_id', projData.id);
 
           if (allocations && allocations.length > 0) {
-            fetchedAllocatedMembers = allocations.map((a: any) => ({
-              id: a.id,
-              user_id: a.user_id,
-              name: a.users?.name || 'Unknown',
-              email: a.users?.email,
-              role: 'Team Member',
-              allocated_hours: Math.round((40 * a.allocation_percentage) / 100),
-              start_date: a.start_date,
-              end_date: a.end_date,
-              allocation_percentage: a.allocation_percentage
-            }));
+            fetchedAllocatedMembers = allocations
+              .filter((a: any) => a.users && a.users.is_active !== false)
+              .map((a: any) => ({
+                id: a.id,
+                user_id: a.user_id,
+                name: a.users?.name || 'Unknown',
+                email: a.users?.email,
+                role: 'Team Member',
+                allocated_hours: Math.round((40 * a.allocation_percentage) / 100),
+                start_date: a.start_date,
+                end_date: a.end_date,
+                allocation_percentage: a.allocation_percentage
+              }));
           }
           
           // Fallback to team_members if no allocations found
           if (fetchedAllocatedMembers.length === 0 && projData.team_id) {
             const { data: memberEntries } = await supabase
               .from('team_members')
-              .select('id, user_id, role, users(id, name, email, role, capacity_hours_per_week)')
-              .eq('team_id', projData.team_id);
+              .select('id, user_id, role, status, users(id, name, email, role, capacity_hours_per_week, is_active)')
+              .eq('team_id', projData.team_id)
+              .eq('status', 'active');
 
             if (memberEntries && memberEntries.length > 0) {
-              fetchedAllocatedMembers = memberEntries.map((m: any) => ({
-                id: m.id, user_id: m.user_id, name: m.users?.name || 'Unknown',
-                email: m.users?.email, role: m.role || m.users?.role || 'Team Member',
-                allocated_hours: m.users?.capacity_hours_per_week || 40,
-                start_date: projData.created_at, end_date: new Date(Date.now() + 2592000000).toISOString(),
-                allocation_percentage: 100
-              }));
+              fetchedAllocatedMembers = memberEntries
+                .filter((m: any) => m.users && m.users.is_active !== false)
+                .map((m: any) => ({
+                  id: m.id, user_id: m.user_id, name: m.users?.name || 'Unknown',
+                  email: m.users?.email, role: m.role || m.users?.role || 'Team Member',
+                  allocated_hours: m.users?.capacity_hours_per_week || 40,
+                  start_date: projData.created_at, end_date: new Date(Date.now() + 2592000000).toISOString(),
+                  allocation_percentage: 100
+                }));
             }
           }
 
@@ -342,40 +352,25 @@ export function useProjectAnalytics(projectId: string | undefined) {
           if (projData.team_id) {
             const { data: tmData, error: tmError } = await supabase
               .from('team_members')
-              .select('id, user_id, users(id, name, email, role)')
-              .eq('team_id', projData.team_id);
+              .select('id, user_id, status, users(id, name, email, role, is_active)')
+              .eq('team_id', projData.team_id)
+              .eq('status', 'active');
               
             console.log('👫 Team members fetched from team_members table:', tmData?.length, 'Error:', tmError);
             if (tmData && tmData.length > 0) {
-              allTeamMembers = tmData.map((tm: any) => ({
-                id: tm.user_id,
-                user_id: tm.user_id,
-                name: tm.users?.name || 'Unknown',
-                email: tm.users?.email,
-                role: tm.users?.role || 'Team Member'
-              }));
+              allTeamMembers = tmData
+                .filter((tm: any) => tm.users && tm.users.is_active !== false)
+                .map((tm: any) => ({
+                  id: tm.user_id,
+                  user_id: tm.user_id,
+                  name: tm.users?.name || 'Unknown',
+                  email: tm.users?.email,
+                  role: tm.users?.role || 'Team Member'
+                }));
             }
           }
           
-          // If no team members found via team_id, try fetching from organization members
-          if (allTeamMembers.length === 0 && projData.organization_id) {
-            const { data: orgMembers, error: omError } = await supabase
-              .from('organization_members')
-              .select('user_id, role, users(id, name, email)')
-              .eq('org_id', projData.organization_id);
-              
-            console.log('🏢 Organization members fetched:', orgMembers?.length, 'Error:', omError);
-            if (orgMembers && orgMembers.length > 0) {
-              allTeamMembers = orgMembers.map((om: any) => ({
-                id: om.user_id,
-                user_id: om.user_id,
-                name: om.users?.name || 'Unknown',
-                email: om.users?.email,
-                role: om.role || 'Team Member'
-              }));
-            }
-          }
-          
+          // Removed fallback to organization members to ensure only team members are shown
           console.log('📊 Total team members available:', allTeamMembers.length, allTeamMembers.map((m: any) => m.name));
 
           // --- REALTIME SUBSCRIPTION ---
@@ -455,7 +450,7 @@ export function useProjectAnalytics(projectId: string | undefined) {
     };
 
     fetchAndSubscribe();
-  }, [projectId, user, calculateMetrics]);
+  }, [projectId, user, calculateMetrics, refreshSignal]);
 
-  return { loading, error, project, issues, metrics, teamMembers, allocatedTeamMembers };
+  return { loading, error, project, issues, metrics, teamMembers, allocatedTeamMembers, refetch };
 }
