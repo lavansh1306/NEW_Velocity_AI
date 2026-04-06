@@ -43,6 +43,7 @@ export const useVoiceActions = () => {
     
     try {
       const action = await geminiVoiceService.parseIntent(transcript, currentPath);
+      setProcessing(false);
       
       if (action.prompt) {
         speak(action.prompt);
@@ -70,7 +71,6 @@ export const useVoiceActions = () => {
     } catch (error) {
       console.error('[useVoiceActions] Failed to handle command:', error);
       toast.error('Sorry, I had trouble processing that command.');
-    } finally {
       setProcessing(false);
     }
   };

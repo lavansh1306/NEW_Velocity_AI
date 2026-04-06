@@ -26,7 +26,7 @@ export const GlobalVoiceCommander: React.FC = () => {
     if (!isOpen || isListening) return;
 
     hasProcessed.current = false;
-    startTimeoutRef.current = window.setTimeout(() => startListening(), 300);
+    startTimeoutRef.current = window.setTimeout(() => startListening(), 600);
 
     return () => {
       if (startTimeoutRef.current) clearTimeout(startTimeoutRef.current);
