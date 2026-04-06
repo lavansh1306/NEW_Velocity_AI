@@ -33,8 +33,8 @@ class GeminiVoiceService {
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
     if (apiKey) {
       this.genAI = new GoogleGenerativeAI(apiKey);
-      // Using Gemma 4 26B MoE for faster reasoning and agentic workflows
-      this.model = this.genAI.getGenerativeModel({ model: 'gemma-4-26b-it' });
+      // Using Gemma 4 31B IT for superior reasoning and larger context
+      this.model = this.genAI.getGenerativeModel({ model: 'gemma-4-31b-it' });
     }
   }
 
@@ -82,7 +82,9 @@ Rules:
 - DATE NORMALIZATION: Convert ANY date mentions like "15th April", "1504", "15 April 2024", "today", "tomorrow" into YYYY-MM-DD format.
 - If a user says "apply leave" without dates, use the current date in YYYY-MM-DD format.
 - EXTRACTION: Extract as much detail as possible (names, roles, emails, project titles).
-- Respond ONLY with JSON.
+- Respond ONLY with valid JSON.
+- DO NOT include points, internal reasoning, draft versions, or anything other than the JSON object.
+- NO preamble or postamble.
 
 JSON Structure:
 {
@@ -158,6 +160,7 @@ Rules:
 - Be concise.
 - Focus on the specific question asked.
 - Use natural, spoken language.
+- CRITICAL: Respond ONLY with the final text to be spoken. Do NOT include any internal reasoning, draft versions, roles, or metadata. No markdown, no "Response:", just the plain text.
 `;
 
     try {
