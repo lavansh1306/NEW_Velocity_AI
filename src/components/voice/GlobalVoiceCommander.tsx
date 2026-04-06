@@ -18,6 +18,7 @@ export const GlobalVoiceCommander: React.FC = () => {
 
   const { handleVoiceCommand } = useVoiceActions();
   const hasProcessed = useRef(false);
+  const lastProcessedTranscriptRef = useRef('');
   const startTimeoutRef = useRef<number | null>(null);
   const [isOpen, setIsOpen] = useState(false);
 
@@ -45,16 +46,19 @@ export const GlobalVoiceCommander: React.FC = () => {
 
   // Process transcript when speech recognition finalizes
   useEffect(() => {
-    if (lastTranscript && !hasProcessed.current) {
-      hasProcessed.current = true;
-      setLiveText(lastTranscript);
-      // Small delay to let React state settle before processing
-      setTimeout(() => {
-        handleVoiceCommand(lastTranscript, location.pathname);
-        setTimeout(() => { hasProcessed.current = false; }, 500);
-      }, 50);
-    }
-  }, [lastTranscript, isListening]);
+    if (!lastTranscript) return;
+    if (hasProcessed.current) return;
+    if (lastProcessedTranscriptRef.current === lastTranscript) return;
+
+    hasProcessed.current = true;
+    lastProcessedTranscriptRef.current = lastTranscript;
+    setLiveText(lastTranscript);
+
+    setTimeout(() => {
+      handleVoiceCommand(lastTranscript, location.pathname);
+      setTimeout(() => { hasProcessed.current = false; }, 500);
+    }, 50);
+  }, [lastTranscript, isListening, handleVoiceCommand, location.pathname]);
 
   const handleStop = () => {
     stopListening();
@@ -70,6 +74,7 @@ export const GlobalVoiceCommander: React.FC = () => {
         setIsOpen(false);
         setLiveText('');
       } else {
+        lastProcessedTranscriptRef.current = '';
         setIsOpen(true);
         setLiveText('');
       }
