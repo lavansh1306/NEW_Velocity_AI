@@ -4,6 +4,10 @@ import { geminiVoiceService, VoiceAction } from '@/services/geminiVoiceService';
 import { getDashboardData } from '@/services/dashboardService';
 import { toast } from 'sonner';
 
+export const closeVoiceOverlay = () => {
+  window.dispatchEvent(new CustomEvent('velo-close-voice'));
+};
+
 export const useVoiceActions = () => {
   const navigate = useNavigate();
   const { 
@@ -16,7 +20,6 @@ export const useVoiceActions = () => {
   } = useVoice();
 
   const handleVoiceCommand = async (transcript: string, currentPath: string) => {
-    // 1. Handle Pending Confirmation
     if (pendingConfirmation) {
       const text = transcript.toLowerCase();
       const isConfirmed = text.includes('yes') || text.includes('confirm') || text.includes('sure') || text.includes('ok');
@@ -29,11 +32,9 @@ export const useVoiceActions = () => {
       } else if (isCancelled) {
         setPendingConfirmation(null);
         speak("Okay, I've cancelled that action.");
-        toast.info("Action cancelled");
+        toast.info('Action cancelled');
       } else {
         speak("I didn't catch that. Please say yes to confirm or no to cancel.");
-        // Stay in confirmation mode? Or just reset? 
-        // For now, let's reset to avoid stuck states, but keep the pending action
       }
       return;
     }
@@ -43,22 +44,18 @@ export const useVoiceActions = () => {
     try {
       const action = await geminiVoiceService.parseIntent(transcript, currentPath);
       
-      // 2. Handle Multi-turn Prompt
       if (action.prompt) {
         speak(action.prompt);
         toast.info(action.prompt);
-        // Important: We need to listen again for the answer
         setTimeout(() => startListening(), 2000);
         return;
       }
 
-      // 3. Handle Confirmation Gate
       if (action.requiresConfirmation) {
         setPendingConfirmation(action);
         const confirmMsg = action.response || `I'm about to ${action.type.replace(/_/g, ' ')}. Are you sure?`;
         speak(confirmMsg);
-        toast.warning("Confirmation required");
-        // Re-trigger listening automatically for the confirmation
+        toast.warning('Confirmation required');
         setTimeout(() => startListening(), 2500);
         return;
       }
@@ -72,7 +69,7 @@ export const useVoiceActions = () => {
       
     } catch (error) {
       console.error('[useVoiceActions] Failed to handle command:', error);
-      toast.error("Sorry, I had trouble processing that command.");
+      toast.error('Sorry, I had trouble processing that command.');
     } finally {
       setProcessing(false);
     }
@@ -82,28 +79,31 @@ export const useVoiceActions = () => {
     switch (action.type) {
       case 'navigate':
         if (action.target) {
-          window.dispatchEvent(new CustomEvent('velo-close-voice'));
-          setTimeout(() => navigate(action.target), 150);
+          closeVoiceOverlay();
+          setTimeout(() => navigate(action.target!), 150);
         }
         break;
 
-      case 'create_project':
+      case 'create_project': {
         const { projectTitle, projectDescription, autoAnalyze } = action.params || {};
-        console.log('[VoiceActions] Navigating to plan with:', { projectTitle, projectDescription, autoAnalyze });
-        navigate('/plan', { 
-          state: { 
-            voiceTitle: projectTitle, 
-            voiceDescription: projectDescription,
-            autoAnalyze: autoAnalyze 
-          } 
-        });
+        closeVoiceOverlay();
+        setTimeout(() => {
+          navigate('/plan', { 
+            state: { 
+              voiceTitle: projectTitle, 
+              voiceDescription: projectDescription,
+              autoAnalyze: autoAnalyze 
+            } 
+          });
+        }, 150);
         break;
+      }
       
       case 'create_task':
         toast.success(`Intent: Create task "${action.params?.taskName || 'New Task'}"`);
         break;
 
-      case 'add_team_member':
+      case 'add_team_member': {
         const { name, email, role } = action.params || {};
         closeVoiceOverlay();
         if (currentPath !== '/people') {
@@ -124,6 +124,7 @@ export const useVoiceActions = () => {
           }, 150);
         }
         break;
+      }
 
       case 'delete_team_member':
         closeVoiceOverlay();
@@ -151,14 +152,27 @@ export const useVoiceActions = () => {
         break;
 
       case 'gantt_query':
-      case 'resource_query':
+      case 'resource_query': {
         const data = await getDashboardData();
-        const summary = await geminiVoiceService.summarizeData(data, action.params?.query || action.type.replace('_', ' '));
+        const summary = await geminiVoiceService.summarizeData(
+          data,
+          action.params?.query || action.type.replace('_', ' ')
+        );
         speak(summary);
         toast.info(summary);
         break;
+      }
 
       case 'info':
+        if (action.response) {
+          speak(action.response);
+          toast.info(action.response);
+        }
+        break;
+
+      case 'unknown':
+        speak(action.response || "Sorry, I'm having trouble understanding that command.");
+        toast.error(action.response || "Sorry, I'm having trouble understanding that command.");
         break;
 
       default:
