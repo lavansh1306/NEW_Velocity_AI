@@ -54,36 +54,19 @@ export const GlobalVoiceCommander: React.FC = () => {
     }
   }, [lastTranscript, isListening]);
 
-  // When user clicks stop — also check window.pendingTranscript in case
-  // onresult fired but React state hasn't updated lastTranscript yet
   const handleStop = () => {
     stopListening();
-    // Give onresult a chance to fire after stop() is called
-    setTimeout(() => {
-      const pending = (window as any).pendingTranscript;
-      if (pending && !hasProcessed.current && !lastTranscript) {
-        hasProcessed.current = true;
-        setLiveText(pending);
-        handleVoiceCommand(pending, location.pathname);
-        (window as any).pendingTranscript = '';
-        setTimeout(() => { hasProcessed.current = false; }, 500);
-      }
-    }, 300);
+    setLiveText('');
   };
 
   // Ctrl+Space global hotkey
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.ctrlKey && e.code === 'Space') {
       e.preventDefault();
-      if (isOpen && !isListening) {
-        if (isListening) {
-          // Stop listening and process
-          handleStop();
-        } else {
-          // Close overlay
-          setIsOpen(false);
-          setLiveText('');
-        }
+      if (isOpen) {
+        stopListening();
+        setIsOpen(false);
+        setLiveText('');
       } else {
         setIsOpen(true);
         setLiveText('');
@@ -114,21 +97,18 @@ export const GlobalVoiceCommander: React.FC = () => {
   const purple = '#8b5cf6';
   const purpleDark = '#6d28d9';
 
-  // Button behavior: click to start OR click to stop+process
+  // Button behavior: click to start listening, click again to cancel
   const handleOrbClick = () => {
     if (isActive) {
-      // User is done speaking — stop and process
       handleStop();
     } else if (!isProcessing && !isSpeaking) {
-      // Start listening
       setLiveText('');
-      (window as any).pendingTranscript = '';
       setTimeout(() => startListening(), 100);
     }
   };
 
   const statusLabel = isActive
-    ? 'Tap orb when done speaking'
+    ? 'Listening...'
     : isProcessing
     ? 'Thinking...'
     : isSpeaking
