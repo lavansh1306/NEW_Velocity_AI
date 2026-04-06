@@ -37,6 +37,21 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const analyserRef = useRef<AnalyserNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const triggerPhrases = ['velocity', 'hey velocity', 'hi velocity', 'ok velocity'];
+  const isListeningRef = useRef(false);
+  const isTriggeredRef = useRef(false);
+  const statusRef = useRef<VoiceStatus>('idle');
+
+  useEffect(() => {
+    isListeningRef.current = isListening;
+  }, [isListening]);
+
+  useEffect(() => {
+    isTriggeredRef.current = isTriggered;
+  }, [isTriggered]);
+
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
 
   useEffect(() => {
     if (!('speechSynthesis' in window)) return;
@@ -93,8 +108,11 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       recognition.onend = () => {
         console.log('[VoiceContext] Speech recognition ended');
         setIsListening(false);
+        isListeningRef.current = false;
         (window as any).isListeningIntent = false;
-        if (status !== 'error') setStatus('idle');
+        if (statusRef.current !== 'error' && statusRef.current !== 'speaking') {
+          setStatus('idle');
+        }
       };
 
       recognitionRef.current = recognition;
@@ -138,7 +156,7 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const avg = sum / dataArray.length;
         setVolumeLevel(avg);
         
-        if (isListening || isTriggered) {
+        if (isListeningRef.current || isTriggeredRef.current) {
           requestAnimationFrame(updateVolume);
         } else {
           setVolumeLevel(0);
@@ -179,7 +197,7 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       recognitionRef.current.stop();
     }
     setIsListening(false);
-    setIsTriggered(false);
+    isListeningRef.current = false;
     setStatus('idle');
   }, []);
 
@@ -192,7 +210,6 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setStatus(processing ? 'processing' : 'idle');
     if (!processing) {
       setIsTriggered(false);
-      setLastTranscript(''); // Clear transcript after processing
     }
   };
 
@@ -246,7 +263,7 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setStatus('idle');
       };
 
-      if (synth.speaking || synth.pending) {
+      if (synth.speaking) {
         synth.cancel();
       }
       window.setTimeout(() => {
