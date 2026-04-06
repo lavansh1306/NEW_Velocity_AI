@@ -209,6 +209,24 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return null;
   }, [commandQueue]);
 
+  // Unlock speech synthesis on first user interaction
+  // Chrome blocks it until a gesture has occurred
+  useEffect(() => {
+    const unlock = () => {
+      const utterance = new SpeechSynthesisUtterance('');
+      utterance.volume = 0;
+      window.speechSynthesis.speak(utterance);
+      window.removeEventListener('click', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+    window.addEventListener('click', unlock);
+    window.addEventListener('keydown', unlock);
+    return () => {
+      window.removeEventListener('click', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+  }, []);
+
   const speak = (text: string) => {
     if ('speechSynthesis' in window) {
       // Cancel any ongoing speech
