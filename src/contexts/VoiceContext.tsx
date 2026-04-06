@@ -246,8 +246,16 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setStatus('idle');
       };
 
-      synth.cancel();
-      window.setTimeout(() => synth.speak(utterance), 50);
+      if (synth.speaking || synth.pending) {
+        synth.cancel();
+      }
+      window.setTimeout(() => {
+        try {
+          synth.speak(utterance);
+        } catch (e) {
+          console.error('[VoiceContext] speechSynthesis speak failed:', e);
+        }
+      }, 50);
     };
 
     const voices = window.speechSynthesis.getVoices();

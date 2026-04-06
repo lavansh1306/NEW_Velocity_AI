@@ -70,7 +70,6 @@ export const GlobalVoiceCommander: React.FC = () => {
       } else {
         setIsOpen(true);
         setLiveText('');
-        setTimeout(() => startListening(), 100);
       }
       return;
     }
@@ -103,7 +102,7 @@ export const GlobalVoiceCommander: React.FC = () => {
       handleStop();
     } else if (!isProcessing && !isSpeaking) {
       setLiveText('');
-      setTimeout(() => startListening(), 100);
+      startListening();
     }
   };
 
