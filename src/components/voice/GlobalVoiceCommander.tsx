@@ -123,14 +123,14 @@ export const GlobalVoiceCommander: React.FC = () => {
   };
 
   const statusLabel = isActive
-    ? 'Tap orb when done speaking'
+    ? 'Tap to stop recording'
     : isProcessing
     ? 'Thinking...'
     : isSpeaking
     ? 'Speaking...'
     : liveText
     ? 'Processing...'
-    : 'Tap orb to speak';
+    : 'Tap to speak';
 
   const exampleCommands = [
     { icon: '→', text: 'Go to projects' },
