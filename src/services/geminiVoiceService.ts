@@ -190,6 +190,40 @@ Rules:
     };
 
     const roles = Object.keys(roleMapping).sort((a, b) => b.length - a.length);
+
+    const statementPatterns = [
+      /^add\s+(.+?)\s+as\s+a?n?\s+(.+)$/i,
+      /^add\s+(.+?)\s+is\s+a?n?\s+(.+)$/i,
+      /^(.+?)\s+is\s+a?n?\s+(.+)$/i,
+      /^add\s+(.+?)\s+(.+)$/i
+    ];
+
+    for (const pattern of statementPatterns) {
+      const match = text.match(pattern);
+      if (!match) continue;
+
+      const rawName = match[1].trim();
+      const rawRoleText = match[2].trim().toLowerCase();
+
+      let matchedRole = '';
+      for (const r of roles) {
+        if (rawRoleText.includes(r)) {
+          matchedRole = roleMapping[r];
+          break;
+        }
+      }
+
+      if (rawName && matchedRole) {
+        return {
+          type: 'add_team_member',
+          params: {
+            name: rawName.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+            role: matchedRole
+          },
+          response: `Sure, I'll add ${rawName} as a ${matchedRole}.`
+        };
+      }
+    }
     const isInviteCommand = text.includes('add') || text.includes('invite') || text.includes('new');
     const hasContext = text.includes('member') || text.includes('team') || text.includes('@') || roles.some(r => text.includes(r));
 
