@@ -224,6 +224,22 @@ Rules:
         };
       }
     }
+    const forceAddMatch = text.match(/(?:^|\b)(?:add|invite|new)\s+([a-z]+(?:\s+[a-z]+)*)\s+(?:as\s+)?(front end|frontend|back end|backend|full stack|fullstack|designer|design|product manager|manager|qa|tester|developer|engineer)\b/i);
+    if (forceAddMatch) {
+      const rawName = forceAddMatch[1].trim();
+      const rawRole = forceAddMatch[2].trim().toLowerCase();
+      const mappedRole = roleMapping[rawRole] || 'Team Member';
+
+      return {
+        type: 'add_team_member',
+        params: {
+          name: rawName.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+          role: mappedRole
+        },
+        response: `Sure, I'll add ${rawName} as a ${mappedRole}.`
+      };
+    }
+
     const isInviteCommand = text.includes('add') || text.includes('invite') || text.includes('new');
 
     const forceAddMatch = text.match(/add\s+([a-z]+(?:\s+[a-z]+)*)\s+(?:as|is|to)?\s*(front end|frontend|back end|backend|full stack|fullstack|designer|design|product manager|manager|qa|tester|developer|engineer)/i);
