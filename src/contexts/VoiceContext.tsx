@@ -48,10 +48,15 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       recognition.lang = 'en-US';
       (window as any).isListeningIntent = false;
 
-      recognition.onstart = () => {
+      recognition.onstart = async () => {
         console.log('[VoiceContext] Speech recognition started');
         setIsListening(true);
         setStatus('listening');
+        try {
+          await setupAudioProcessing();
+        } catch (err) {
+          console.warn('[VoiceContext] Audio processing setup failed:', err);
+        }
       };
 
       recognition.onresult = (event: any) => {
@@ -141,24 +146,21 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (isListening) return;
 
     try {
-      await setupAudioProcessing();
-      setLastTranscript(''); 
-      setIsTriggered(true); 
+      setLastTranscript('');
+      setIsTriggered(true);
       setStatus('connecting');
       
       if (recognitionRef.current) {
         (window as any).isListeningIntent = true;
         recognitionRef.current.start();
-        setStatus('listening');
-        setIsListening(true);
-        console.log('[VoiceContext] Native Speech Recognition started');
+        console.log('[VoiceContext] Native Speech Recognition starting');
       } else {
         throw new Error('Speech Recognition not supported in this browser.');
       }
     } catch (err) {
       console.error('[VoiceContext] Error starting speech recognition:', err);
       setStatus('error');
-      toast.error('Failed to access microphone or start speech recognition.');
+      toast.error(`Voice start failed: ${err instanceof Error ? err.message : 'unknown error'}`);
     }
   }, [isListening]);
 
