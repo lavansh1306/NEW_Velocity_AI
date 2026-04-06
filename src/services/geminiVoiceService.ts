@@ -33,8 +33,8 @@ class GeminiVoiceService {
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
     if (apiKey) {
       this.genAI = new GoogleGenerativeAI(apiKey);
-      // Using Gemini 3 Flash Preview for cutting-edge speed and intelligence
-      this.model = this.genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
+      // Using Gemma 4 31B IT for superior reasoning and larger context
+      this.model = this.genAI.getGenerativeModel({ model: 'gemma-4-31b-it' });
     }
   }
 
@@ -42,13 +42,13 @@ class GeminiVoiceService {
     // 1. Try Direct Command Parsing first (Fast Path, No LLM Latency)
     const directAction = this.parseOfflineCommand(transcript);
     if (directAction) {
-      console.log('[GeminiVoice] Using Offline Command:', directAction);
+      console.log('[Gemma4Voice] Using Offline Command:', directAction);
       return directAction;
     }
 
     if (!this.model) {
-      console.warn('[GeminiVoice] Gemini API not configured. Using Standard Mode.');
-      return this.parseOfflineCommand(transcript) || { type: 'unknown', response: "Gemini is unavailable and I couldn't match that command locally." };
+      console.warn('[Gemma4Voice] Gemini API not configured. Using Standard Mode.');
+      return this.parseOfflineCommand(transcript) || { type: 'unknown', response: "Gemma 4 is unavailable and I couldn't match that command locally." };
     }
 
     const systemPrompt = `
@@ -82,7 +82,9 @@ Rules:
 - DATE NORMALIZATION: Convert ANY date mentions like "15th April", "1504", "15 April 2024", "today", "tomorrow" into YYYY-MM-DD format.
 - If a user says "apply leave" without dates, use the current date in YYYY-MM-DD format.
 - EXTRACTION: Extract as much detail as possible (names, roles, emails, project titles).
-- Respond ONLY with JSON.
+- Respond ONLY with valid JSON.
+- DO NOT include points, internal reasoning, draft versions, or anything other than the JSON object.
+- NO preamble or postamble.
 
 JSON Structure:
 {
@@ -113,7 +115,7 @@ JSON Structure:
     try {
       // Add a 10-second timeout to prevent getting stuck
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Gemini API Timeout')), 10000)
+        setTimeout(() => reject(new Error('Gemma 4 API Timeout')), 30000)
       );
 
       const result = await Promise.race([
@@ -133,10 +135,10 @@ JSON Structure:
       
       return { type: 'unknown', response: "I'm not sure how to help with that yet." };
     } catch (error: any) {
-      if (error.message === 'Gemini API Timeout') {
-        console.warn('[GeminiVoice] Gemini request timed out. Falling back to Standard Mode.');
+      if (error.message === 'Gemma 4 API Timeout') {
+        console.warn('[Gemma4Voice] Gemma 4 request timed out. Falling back to Standard Mode.');
       } else {
-        console.error('[GeminiVoice] Intent parsing failed:', error);
+        console.error('[Gemma4Voice] Intent parsing failed:', error);
       }
       return this.parseOfflineCommand(transcript) || { type: 'unknown', response: "Standard Mode couldn't match that command." };
     }
@@ -158,11 +160,12 @@ Rules:
 - Be concise.
 - Focus on the specific question asked.
 - Use natural, spoken language.
+- CRITICAL: Respond ONLY with the final text to be spoken. Do NOT include any internal reasoning, draft versions, roles, or metadata. No markdown, no "Response:", just the plain text.
 `;
 
     try {
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Summarization Timeout')), 8000)
+        setTimeout(() => reject(new Error('Summarization Timeout')), 20000)
       );
 
       const result = await Promise.race([
@@ -176,11 +179,11 @@ Rules:
       const isTimeout = error.message === 'Summarization Timeout';
       
       if (isQuotaError) {
-        console.warn('[GeminiVoice] Quota exceeded. Falling back to Local Summarizer.');
+        console.warn('[Gemma4Voice] Quota exceeded. Falling back to Local Summarizer.');
       } else if (isTimeout) {
-        console.warn('[GeminiVoice] Summarization timed out. Falling back to Local Summarizer.');
+        console.warn('[Gemma4Voice] Summarization timed out. Falling back to Local Summarizer.');
       } else {
-        console.error('[GeminiVoice] Summarization failed:', error);
+        console.error('[Gemma4Voice] Summarization failed:', error);
       }
       
       return this.summarizeDataLocally(data, query);

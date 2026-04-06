@@ -19,6 +19,7 @@ import { DraftPlansList } from './manager/DraftPlansList';
 import { PublishPlanModal } from './manager/PublishPlanModal';
 import { PlanEmptyState } from './planproject/PlanEmptyState';
 import { ML_ENGINE_URL } from '@/lib/api-config';
+import { gemmaPlannerService } from '@/services/gemmaPlannerService';
 
 // ── HOOKS ──
 import { useAutoSavePlan } from '@/hooks/useAutoSavePlan';
@@ -186,36 +187,55 @@ export const PlanMyProjectScreen = () => {
         try {
             // Save current typed data immediately before analysis starts
             await flushSave({ title: projectTitle, description: projectDescription, tasks });
-            setAnalysisStatus("Analyzing requirements...");
+            setAnalysisStatus("Decomposing with Gemma 4...");
 
-            if (!ML_ENGINE_URL) {
-                throw new Error("ML Engine URL is not configured.");
+            let generatedTasks: EditableTask[] = [];
+
+            try {
+                // PRIMARY: Internal Gemma 4 Planner (Fastest & most direct)
+                console.log('[PlanMyProject] Using Gemma 4 31B for decomposition...');
+                const data = await gemmaPlannerService.decomposeProject(projectDescription);
+                generatedTasks = data.suggested_tasks.map((t: any, idx: number) => ({
+                    id: `gemma-${idx}-${Date.now()}`,
+                    task: t.task_name,
+                    estimatedHours: t.estimated_hours,
+                    requiredSkills: t.required_skills || []
+                }));
+            } catch (gemmaError) {
+                console.warn('[PlanMyProject] Gemma 4 failed, falling back to legacy ML engine:', gemmaError);
+                setAnalysisStatus("Gemma busy, falling back to legacy engine...");
+                
+                // FALLBACK: Legacy Python ML Engine
+                if (ML_ENGINE_URL) {
+                    const response = await fetch(`${ML_ENGINE_URL}/api/v1/planner/decompose`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ project_description: projectDescription }),
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        generatedTasks = data.suggested_tasks.map((t: any, idx: number) => ({
+                            id: `task-${idx}-${Date.now()}`,
+                            task: t.task_name,
+                            estimatedHours: t.estimated_hours,
+                            requiredSkills: t.required_skills || []
+                        }));
+                    } else {
+                        throw new Error("Both Gemma and Legacy engine failed.");
+                    }
+                } else {
+                    throw gemmaError;
+                }
             }
 
-            console.log(`[PlanMyProject] Connecting to: ${ML_ENGINE_URL}/api/v1/planner/decompose`);
-            const response = await fetch(`${ML_ENGINE_URL}/api/v1/planner/decompose`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ project_description: projectDescription }),
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                console.error('[PlanMyProject] Decomposition failed:', response.status, errorData);
-                throw new Error(errorData.detail || `HTTP ${response.status}: Analysis failed`);
+            if (generatedTasks.length === 0) {
+                throw new Error("No tasks were generated.");
             }
-
-            const data = await response.json();
-            const generatedTasks = data.suggested_tasks.map((t: any, idx: number) => ({
-                id: `task-${idx}-${Date.now()}`,
-                task: t.task_name,
-                estimatedHours: t.estimated_hours,
-                requiredSkills: t.required_skills || []
-            }));
 
             setTasks(generatedTasks);
             setHasAnalyzed(true);
-            toast.success('Project tasks generated!');
+            toast.success(`Project tasks generated via ${generatedTasks[0].id.includes('gemma') ? 'Gemma 4' : 'Legacy Engine'}!`);
 
             // Scroll to task section
             setTimeout(() => taskSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);

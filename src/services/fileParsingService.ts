@@ -137,15 +137,15 @@ class FileParsingService {
       throw new Error('Gemini API is not configured. Please set VITE_GEMINI_API_KEY environment variable.');
     }
 
-    // Try gemini-1.5-pro first, fall back to gemini-pro if not available
+    // Use Gemma 4 31B IT for superior document parsing and reasoning
     let model;
     try {
-      model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-pro-latest' });
+      model = this.genAI.getGenerativeModel({ model: 'gemma-4-31b-it' });
     } catch {
       try {
-        model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
+        model = this.genAI.getGenerativeModel({ model: 'gemma-3-27b-it' });
       } catch {
-        model = this.genAI.getGenerativeModel({ model: 'gemini-pro' });
+        model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-pro-latest' });
       }
     }
 
