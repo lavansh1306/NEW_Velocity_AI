@@ -137,55 +137,28 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const isStartingRef = useRef(false);
-
   const startListening = useCallback(async () => {
-    if (isStartingRef.current) return;
     if (isListening) return;
-    if ((window as any).isListeningIntent) return;
-
-    isStartingRef.current = true;
 
     try {
-      setLastTranscript('');
-      setIsTriggered(true);
+      await setupAudioProcessing();
+      setLastTranscript(''); 
+      setIsTriggered(true); 
       setStatus('connecting');
-
-      // Request mic permission first — keeps stream alive before Speech Recognition starts
-      if (!streamRef.current || streamRef.current.getTracks().some(t => t.readyState === 'ended')) {
-        console.log('[VoiceContext] Requesting mic permission...');
-        streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
-        console.log('[VoiceContext] Mic permission granted');
-      }
-
-      // Small delay so Chrome registers mic as available to SpeechRecognition
-      await new Promise(resolve => setTimeout(resolve, 150));
-
+      
       if (recognitionRef.current) {
         (window as any).isListeningIntent = true;
         recognitionRef.current.start();
         setStatus('listening');
         setIsListening(true);
         console.log('[VoiceContext] Native Speech Recognition started');
-        setupAudioProcessing().catch(() => {});
       } else {
         throw new Error('Speech Recognition not supported in this browser.');
       }
-    } catch (err: any) {
-      if (err?.name === 'InvalidStateError') {
-        setIsListening(true);
-        setStatus('listening');
-      } else if (err?.name === 'NotAllowedError') {
-        setStatus('error');
-        toast.error('Microphone access denied. Please allow mic access in your browser settings.');
-      } else {
-        console.error('[VoiceContext] Error starting:', err);
-        setStatus('error');
-        toast.error('Could not start microphone. Please try again.');
-      }
-      (window as any).isListeningIntent = false;
-    } finally {
-      isStartingRef.current = false;
+    } catch (err) {
+      console.error('[VoiceContext] Error starting speech recognition:', err);
+      setStatus('error');
+      toast.error('Failed to access microphone or start speech recognition.');
     }
   }, [isListening]);
 

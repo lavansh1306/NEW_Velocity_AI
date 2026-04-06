@@ -18,59 +18,41 @@ export const GlobalVoiceCommander: React.FC = () => {
 
   const { handleVoiceCommand } = useVoiceActions();
   const hasProcessed = useRef(false);
-  const silenceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [liveText, setLiveText] = useState('');
-  const [isFinal, setIsFinal] = useState(false);
 
-  // Close overlay event from useVoiceActions after navigation/actions
+  // Close overlay event
   useEffect(() => {
     const handleClose = () => {
       stopListening();
       setIsOpen(false);
       setLiveText('');
-      setIsFinal(false);
     };
     window.addEventListener('velo-close-voice', handleClose);
     return () => window.removeEventListener('velo-close-voice', handleClose);
   }, [stopListening]);
 
-  // Auto-listen when overlay opens
+  // Auto-start listening when overlay opens
   useEffect(() => {
-    if (isOpen && !isListening && status === 'idle') {
-      setTimeout(() => startListening(), 200);
+    if (isOpen) {
+      hasProcessed.current = false;
+      setLiveText('');
+      setTimeout(() => startListening(), 300);
     }
   }, [isOpen]);
 
-  // Process transcript
-  // Only process when we have a final result (status goes idle after final)
+  // Process when transcript arrives — original simple flow
   useEffect(() => {
-    if (lastTranscript && !hasProcessed.current) {
-      // Show live text always
+    if (lastTranscript && !hasProcessed.current && !isListening) {
+      hasProcessed.current = true;
       setLiveText(lastTranscript);
-
-      // If status is idle it means Speech Recognition returned a final result
-      if (status === 'idle') {
-        hasProcessed.current = true;
-        setIsFinal(true);
-
-        // Clear silence timer
-        if (silenceTimer.current) clearTimeout(silenceTimer.current);
-
-        // Small delay then process
-        setTimeout(() => {
-          handleVoiceCommand(lastTranscript, location.pathname);
-          clearTranscript();
-          setTimeout(() => {
-            hasProcessed.current = false;
-            setIsFinal(false);
-          }, 500);
-        }, 100);
-      }
+      handleVoiceCommand(lastTranscript, location.pathname);
+      clearTranscript();
+      setTimeout(() => { hasProcessed.current = false; }, 1000);
     }
-  }, [lastTranscript, status]);
+  }, [lastTranscript, isListening]);
 
-  // Ctrl+Space global hotkey
+  // Ctrl+Space
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.ctrlKey && e.code === 'Space') {
       e.preventDefault();
@@ -78,11 +60,8 @@ export const GlobalVoiceCommander: React.FC = () => {
         stopListening();
         setIsOpen(false);
         setLiveText('');
-        setIsFinal(false);
       } else {
         setIsOpen(true);
-        setLiveText('');
-        setIsFinal(false);
       }
       return;
     }
@@ -91,9 +70,8 @@ export const GlobalVoiceCommander: React.FC = () => {
       stopListening();
       setIsOpen(false);
       setLiveText('');
-      setIsFinal(false);
     }
-  }, [isOpen, isListening, startListening, stopListening]);
+  }, [isOpen, stopListening]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -106,18 +84,13 @@ export const GlobalVoiceCommander: React.FC = () => {
   const isActive = isListening;
   const isProcessing = status === 'processing';
   const isSpeaking = status === 'speaking';
-
   const purple = '#8b5cf6';
   const purpleDark = '#6d28d9';
 
-  const statusLabel = isProcessing
-    ? 'Thinking...'
-    : isSpeaking
-    ? 'Speaking...'
-    : isFinal
-    ? 'Got it...'
-    : isActive
-    ? 'Listening...'
+  const statusLabel = isProcessing ? 'Thinking...'
+    : isSpeaking ? 'Speaking...'
+    : liveText ? 'Got it...'
+    : isActive ? 'Listening...'
     : 'Starting...';
 
   const exampleCommands = [
@@ -137,7 +110,6 @@ export const GlobalVoiceCommander: React.FC = () => {
           stopListening();
           setIsOpen(false);
           setLiveText('');
-          setIsFinal(false);
         }
       }}
     >
@@ -174,7 +146,6 @@ export const GlobalVoiceCommander: React.FC = () => {
               }} />
             </>
           )}
-
           <div
             onClick={() => {
               if (!isProcessing && !isSpeaking) {
@@ -182,7 +153,6 @@ export const GlobalVoiceCommander: React.FC = () => {
                   stopListening();
                 } else {
                   setLiveText('');
-                  setIsFinal(false);
                   setTimeout(() => startListening(), 100);
                 }
               }
@@ -209,10 +179,8 @@ export const GlobalVoiceCommander: React.FC = () => {
               <div className="flex items-center gap-[3px]">
                 {[0.5, 0.9, 0.6, 1, 0.7, 0.85, 0.5].map((h, i) => (
                   <div key={i} className="rounded-full" style={{
-                    width: 3,
-                    height: `${5 + vol * 20 * h}px`,
-                    background: 'white',
-                    transition: 'height 80ms ease',
+                    width: 3, height: `${5 + vol * 20 * h}px`,
+                    background: 'white', transition: 'height 80ms ease',
                   }} />
                 ))}
               </div>
@@ -244,31 +212,26 @@ export const GlobalVoiceCommander: React.FC = () => {
             borderRadius: 10, padding: '8px 14px',
             width: '100%', textAlign: 'center',
           }}>
-            <p style={{ color: '#4c1d95', fontSize: 13, fontStyle: 'italic' }}>
-              "{liveText}"
-            </p>
+            <p style={{ color: '#4c1d95', fontSize: 13, fontStyle: 'italic' }}>"{liveText}"</p>
           </div>
         )}
 
-        {/* Sound wave when listening */}
+        {/* Sound wave */}
         {isActive && (
           <div className="flex items-center gap-[3px]" style={{ height: 20 }}>
-            {[0.5, 0.8, 0.6, 1, 0.7, 0.9, 0.5, 0.8, 0.6].map((h, i) => (
+            {[0.5, 0.8, 0.6, 1, 0.7, 0.9, 0.5].map((h, i) => (
               <div key={i} className="rounded-full" style={{
-                width: 3,
-                height: `${3 + vol * 14 * h}px`,
-                background: purple,
-                opacity: 0.5 + vol * 0.5,
+                width: 3, height: `${3 + vol * 14 * h}px`,
+                background: purple, opacity: 0.5 + vol * 0.5,
                 transition: 'height 80ms ease',
               }} />
             ))}
           </div>
         )}
 
-        {/* Divider */}
         <div style={{ width: '100%', height: 1, background: 'rgba(139,92,246,0.1)' }} />
 
-        {/* Example commands — only show when idle */}
+        {/* Example commands */}
         {!isActive && !isProcessing && !liveText && (
           <div className="w-full flex flex-col gap-1.5">
             <p style={{ color: 'rgba(109,40,217,0.35)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4, textAlign: 'center' }}>
@@ -276,8 +239,7 @@ export const GlobalVoiceCommander: React.FC = () => {
             </p>
             {exampleCommands.map((cmd, i) => (
               <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg" style={{
-                background: 'rgba(139,92,246,0.04)',
-                border: '1px solid rgba(139,92,246,0.08)',
+                background: 'rgba(139,92,246,0.04)', border: '1px solid rgba(139,92,246,0.08)',
               }}>
                 <span style={{ color: purple, fontSize: 12, width: 14, textAlign: 'center', flexShrink: 0 }}>{cmd.icon}</span>
                 <span style={{ color: '#4c1d95', fontSize: 13, fontWeight: 300 }}>"{cmd.text}"</span>
@@ -286,7 +248,6 @@ export const GlobalVoiceCommander: React.FC = () => {
           </div>
         )}
 
-        {/* Keyboard hints */}
         <div className="flex items-center gap-3" style={{ color: 'rgba(109,40,217,0.3)', fontSize: 11 }}>
           <span>
             <kbd style={{ padding: '2px 6px', borderRadius: 4, background: 'rgba(139,92,246,0.07)', color: 'rgba(109,40,217,0.45)', fontFamily: 'monospace', fontSize: 10 }}>Esc</kbd>
@@ -299,7 +260,6 @@ export const GlobalVoiceCommander: React.FC = () => {
           </span>
         </div>
       </div>
-
       <style>{`
         @keyframes velo-bounce {
           0%, 100% { transform: translateY(0); opacity: 0.5; }
