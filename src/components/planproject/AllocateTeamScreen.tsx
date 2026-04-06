@@ -146,6 +146,37 @@ export const AllocateTeamScreen = () => {
             });
             await supabase.from('tasks').insert(tasksToInsert);
 
+            // Fire RL feedback — train the model on manager's selections
+            const mlUrl = import.meta.env.VITE_LLM_URL;
+            if (mlUrl) {
+                const feedbackPromises = recommendedTeam.map(async (member: any) => {
+                    const wasSelected = selectedTeamIds.includes(member.id);
+                    const reward = wasSelected ? 1.0 : -1.0;
+                    try {
+                        await fetch(`${mlUrl}/api/v1/planner/feedback`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                user_id: member.id,
+                                task_name: (member.task_fit || []).join(', '),
+                                reward,
+                                org_id: currentOrgId,
+                                skill_match_score: (member.match_percentage || 50) / 100,
+                                capacity_pct: (member.availability || 50) / 100,
+                                current_load_pct: 1 - ((member.availability || 50) / 100),
+                                role_match: 1.0,
+                                jira_history_count: 0.5,
+                                leave_risk: member.availability === 0 ? 1.0 : 0.0
+                            })
+                        });
+                    } catch (e) {
+                        console.warn('[RL] Feedback failed for', member.id, e);
+                    }
+                });
+                await Promise.allSettled(feedbackPromises);
+                console.log('[RL] Feedback sent for', recommendedTeam.length, 'members');
+            }
+
             toast.success("Project launched successfully!");
             navigate(`/projects/${proj.id}`); // Navigate to fixed route
         } catch (e) {
