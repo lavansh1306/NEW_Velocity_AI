@@ -673,6 +673,7 @@ export const PeopleCapacityScreen = () => {
 
         const handleVoiceAddMember = (e: any) => {
             const data = e.detail;
+            console.log('[PeopleCapacityScreen] velo-add-member event received:', data);
             setVoiceMemberData(data);
             setIsAddMemberOpen(true);
         };
