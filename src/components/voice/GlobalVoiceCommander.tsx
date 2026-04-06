@@ -22,16 +22,18 @@ export const GlobalVoiceCommander: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
 
   // Auto-listen when overlay opens — only once on open
+  // Auto-listen when overlay opens — only once on open
   useEffect(() => {
-    if (!isOpen || isListening) return;
+    if (!isOpen || isListening || !!lastTranscript || status === 'speaking' || status === 'processing') return;
 
     hasProcessed.current = false;
-    startTimeoutRef.current = window.setTimeout(() => startListening(), 600);
+    startTimeoutRef.current = window.setTimeout(() => startListening(), 300);
 
     return () => {
       if (startTimeoutRef.current) clearTimeout(startTimeoutRef.current);
     };
-  }, [isOpen, isListening, startListening]);
+  }, [isOpen, isListening, lastTranscript, status, startListening]);
+
   const [liveText, setLiveText] = useState('');
 
   // Listen for close event from useVoiceActions after navigation
