@@ -61,7 +61,7 @@ export const useVoiceActions = () => {
         return;
       }
 
-      if (action.response) {
+      if (action.response && action.type !== 'navigate') {
         speak(action.response);
         toast.info(action.response);
       }
@@ -79,8 +79,14 @@ export const useVoiceActions = () => {
     switch (action.type) {
       case 'navigate':
         if (action.target) {
-          closeVoiceOverlay();
-          setTimeout(() => navigate(action.target!), 900);
+          if (action.response) {
+            speak(action.response);
+            toast.info(action.response);
+          }
+          setTimeout(() => {
+            closeVoiceOverlay();
+            setTimeout(() => navigate(action.target!), 250);
+          }, 900);
         }
         break;
 
