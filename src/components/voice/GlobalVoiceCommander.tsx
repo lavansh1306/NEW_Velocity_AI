@@ -20,9 +20,9 @@ export const GlobalVoiceCommander: React.FC = () => {
   const hasProcessed = useRef(false);
   const [isOpen, setIsOpen] = useState(false);
 
-  // Auto-listen when overlay opens
+  // Auto-listen when overlay opens — only once on open
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !isListening) {
       hasProcessed.current = false;
       setTimeout(() => startListening(), 300);
     }
@@ -71,7 +71,7 @@ export const GlobalVoiceCommander: React.FC = () => {
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.ctrlKey && e.code === 'Space') {
       e.preventDefault();
-      if (isOpen) {
+      if (isOpen && !isListening) {
         if (isListening) {
           // Stop listening and process
           handleStop();
