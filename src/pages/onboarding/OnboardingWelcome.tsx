@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Loader2 } from 'lucide-react';
+import { ChevronRight, Loader2, Mic, MicOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useOnboarding } from '@/contexts/OnboardingContext';
@@ -13,6 +13,84 @@ export default function OnboardingWelcome() {
   const { createOrganization, loading, error, clearError, orgId } = useOnboarding();
   const [orgName, setOrgName] = useState('');
   const [teamName, setTeamName] = useState('');
+  const [isVoiceListening, setIsVoiceListening] = useState(false);
+  const [voiceStatus, setVoiceStatus] = useState('');
+  const recognitionRef = useRef<any>(null);
+
+  const startVoiceOnboarding = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setVoiceStatus('Voice not supported in this browser');
+      return;
+    }
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+    recognitionRef.current = recognition;
+
+    recognition.onstart = () => {
+      setIsVoiceListening(true);
+      setVoiceStatus('Listening...');
+    };
+
+    recognition.onresult = async (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setVoiceStatus('Processing...');
+      setIsVoiceListening(false);
+
+      try {
+        const res = await fetch('/api/voice/parse', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            transcript,
+            currentPath: '/onboarding/welcome',
+            systemOverride: `Extract organization name and team name from this onboarding statement. 
+            Return JSON: {"orgName": "...", "teamName": "...", "teamSize": number, "industry": "..."}.
+            If no team name mentioned, use "Engineering" as default.
+            Only return JSON, no markdown.`
+          })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          // Try to parse as onboarding data first
+          if (data.orgName) {
+            if (data.orgName) setOrgName(data.orgName);
+            if (data.teamName) setTeamName(data.teamName);
+            setVoiceStatus(\`Got it! Org: \${data.orgName}\`);
+          } else if (data.params?.name) {
+            setOrgName(data.params.name);
+            setVoiceStatus(\`Set org to \${data.params.name}\`);
+          } else {
+            // Fallback: just set org name to transcript
+            setOrgName(transcript);
+            setVoiceStatus('Set from voice');
+          }
+        }
+      } catch (e) {
+        // Simple fallback — set org name directly from transcript
+        setOrgName(transcript);
+        setVoiceStatus('Set from voice');
+      }
+      setTimeout(() => setVoiceStatus(''), 3000);
+    };
+
+    recognition.onerror = () => {
+      setIsVoiceListening(false);
+      setVoiceStatus('Could not hear you, try again');
+      setTimeout(() => setVoiceStatus(''), 3000);
+    };
+
+    recognition.onend = () => setIsVoiceListening(false);
+
+    recognition.start();
+  };
+
+  const stopVoice = () => {
+    recognitionRef.current?.stop();
+    setIsVoiceListening(false);
+  };
 
   const handleStart = async () => {
     if (!orgName.trim() || !teamName.trim() || !user) return;
@@ -47,9 +125,30 @@ export default function OnboardingWelcome() {
           Welcome to Velocity AI!
         </h1>
         
-        <p className="text-base text-[#78716C] text-center mb-12 font-light">
+        <p className="text-base text-[#78716C] text-center mb-8 font-light">
           Let's get your workspace set up in 4 quick steps
         </p>
+
+        {/* Voice Onboarding Button */}
+        <div className="flex flex-col items-center mb-8">
+          <button
+            onClick={isVoiceListening ? stopVoice : startVoiceOnboarding}
+            className={`flex items-center gap-2 px-5 py-3 rounded-full text-sm font-medium transition-all ${
+              isVoiceListening
+                ? 'bg-red-50 border-2 border-red-300 text-red-600 animate-pulse'
+                : 'bg-teal-50 border-2 border-teal-200 text-teal-700 hover:bg-teal-100'
+            }`}
+          >
+            {isVoiceListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+            {isVoiceListening ? 'Stop listening' : 'Fill with voice'}
+          </button>
+          {voiceStatus && (
+            <p className="text-xs text-[#78716C] mt-2">{voiceStatus}</p>
+          )}
+          {!isVoiceListening && !voiceStatus && (
+            <p className="text-xs text-[#A8A29E] mt-2">Say: "I run an engineering team at Acme Corp"</p>
+          )}
+        </div>
 
         {/* Organization Name Input */}
         <div className="w-[450px] mb-4">
@@ -66,9 +165,7 @@ export default function OnboardingWelcome() {
 
         {/* Team Name Input */}
         <div className="w-[450px] mb-8">
-          <label className="block text-sm text-[#78716C] mb-2 font-light">
-            Team Name <span className="text-[#BE123C] ml-0.5">*</span>
-          </label>
+          <label className="block text-sm text-[#78716C] mb-2 font-light">Team Name</label>
           <Input
             value={teamName}
             onChange={(e) => setTeamName(e.target.value)}

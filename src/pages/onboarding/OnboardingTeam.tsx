@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, X, Plus, Loader2, Trash2 } from 'lucide-react';
+import { ChevronLeft, X, Plus, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useOnboarding } from '@/contexts/OnboardingContext';
@@ -9,9 +9,19 @@ import TeamInviteBanner from '@/components/onboarding/TeamInviteBanner';
 import PasteImportModal from '@/components/onboarding/PasteImportModal';
 import JiraImportModal from '@/components/onboarding/JiraImportModal';
 import { getSkillsForRole } from '@/services/skillSuggester';
-import { roleService } from '@/services/roleService';
 
-const PREDEFINED_ROLES = roleService.getRoles();
+const PREDEFINED_ROLES = [
+  "Engineer",
+  "Designer",
+  "Product Manager",
+  "Engineering Manager",
+  "QA Engineer",
+  "Data Scientist",
+  "Frontend Developer",
+  "Backend Developer",
+  "Full Stack Developer",
+  "DevOps Engineer"
+];
 
 export default function OnboardingTeam() {
   const navigate = useNavigate();
@@ -29,6 +39,59 @@ export default function OnboardingTeam() {
   const [csvInputMode, setCSVInputMode] = useState<'upload' | 'paste'>('upload');
   const [importModal, setImportModal] = useState<'paste' | 'jira' | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isVoiceListening, setIsVoiceListening] = useState(false);
+  const [voiceStatus, setVoiceStatus] = useState('');
+  const voiceRecognitionRef = useRef<any>(null);
+
+  const startVoiceAddMember = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) { setVoiceStatus('Voice not supported'); return; }
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+    voiceRecognitionRef.current = recognition;
+
+    recognition.onstart = () => { setIsVoiceListening(true); setVoiceStatus('Listening...'); };
+
+    recognition.onresult = async (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setVoiceStatus('Processing...');
+      setIsVoiceListening(false);
+
+      try {
+        const res = await fetch('/api/voice/parse', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ transcript, currentPath: '/onboarding/team' })
+        });
+        if (res.ok) {
+          const action = await res.json();
+          if (action.type === 'add_team_member' && action.params) {
+            const { name, email, role } = action.params;
+            const newMember = {
+              name: name || '',
+              email: email || '',
+              role: role || 'Engineer',
+              type: 'employee',
+              skills: getSkillsForRole(role || 'Engineer')
+            };
+            setMembers(prev => [...prev, newMember]);
+            setVoiceStatus(`Added ${name || 'member'} as ${role || 'Engineer'}`);
+          } else {
+            setVoiceStatus('Try: "Add Sarah as frontend developer"');
+          }
+        }
+      } catch (e) {
+        setVoiceStatus('Could not process, try again');
+      }
+      setTimeout(() => setVoiceStatus(''), 3000);
+    };
+
+    recognition.onerror = () => { setIsVoiceListening(false); setVoiceStatus('Could not hear you'); setTimeout(() => setVoiceStatus(''), 3000); };
+    recognition.onend = () => setIsVoiceListening(false);
+    recognition.start();
+  };
 
   const addMember = () => {
     setMembers([...members, { name: '', email: '', role: 'Engineer', type: 'employee', skills: getSkillsForRole('Engineer') }]);
@@ -239,16 +302,35 @@ David Lee,david@example.com,Frontend Developer`;
           />
         )}
 
-        <p className="text-base text-[#78716C] text-center mb-10 font-light max-w-xl mx-auto">
+        <p className="text-base text-[#78716C] text-center mb-6 font-light max-w-xl mx-auto">
           Add the people you'll be planning projects with. You can always add more later.
         </p>
+
+        {/* Voice Add Member */}
+        <div className="flex flex-col items-center mb-8">
+          <button
+            onClick={isVoiceListening ? () => voiceRecognitionRef.current?.stop() : startVoiceAddMember}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition-all ${
+              isVoiceListening
+                ? 'bg-red-50 border-2 border-red-300 text-red-600 animate-pulse'
+                : 'bg-teal-50 border-2 border-teal-200 text-teal-700 hover:bg-teal-100'
+            }`}
+          >
+            {isVoiceListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+            {isVoiceListening ? 'Stop' : 'Add member by voice'}
+          </button>
+          {voiceStatus
+            ? <p className="text-xs text-[#78716C] mt-2">{voiceStatus}</p>
+            : <p className="text-xs text-[#A8A29E] mt-2">Say: "Add Sarah as frontend developer"</p>
+          }
+        </div>
 
         {/* Table */}
         {!isCSVMode && (
           <div className="mb-6">
             <div className="bg-[#FAFAF9] px-4 py-3 border-b border-[#E7E5E4] flex gap-4">
-              <div className="w-[140px] text-xs font-normal text-[#78716C] uppercase">Name</div>
-              <div className="w-[190px] text-xs font-normal text-[#78716C] uppercase">Email</div>
+              <div className="flex-1 text-xs font-normal text-[#78716C] uppercase">Name</div>
+              <div className="flex-1 text-xs font-normal text-[#78716C] uppercase">Email</div>
               <div className="w-[200px] text-xs font-normal text-[#78716C] uppercase">Role</div>
               <div className="flex-1 text-xs font-normal text-[#78716C] uppercase">Skills</div>
               <div className="w-8"></div>
@@ -257,33 +339,33 @@ David Lee,david@example.com,Frontend Developer`;
           <div className="space-y-0 pb-32">
             {members.map((member, idx) => (
               <div key={idx} className="flex gap-4 px-4 py-4 border-b border-[#E7E5E4] items-center group relative z-0" style={{ zIndex: openRoleDropdown === idx ? 50 : 1 }}>
-                <div className="w-[140px]">
+                <div className="flex-1">
                   <Input
                     placeholder="Jane Doe"
                     value={member.name || ''}
                     onChange={(e) => updateMember(idx, 'name', e.target.value)}
-                    className="h-9 border-transparent hover:border-[#E7E5E4] focus:border-[#0F766E] bg-transparent px-2 placeholder:text-[#D6D3D1] text-sm"
+                    className="h-10 border-transparent hover:border-[#E7E5E4] focus:border-[#0F766E] bg-transparent px-2 placeholder:text-[#D6D3D1]"
                   />
                 </div>
-                <div className="w-[190px]">
+                <div className="flex-1">
                   <Input
                     placeholder="jane@company.com"
                     value={member.email || ''}
                     onChange={(e) => updateMember(idx, 'email', e.target.value)}
-                    className="h-9 border-transparent hover:border-[#E7E5E4] focus:border-[#0F766E] bg-transparent px-2 placeholder:text-[#D6D3D1] text-sm"
+                    className="h-10 border-transparent hover:border-[#E7E5E4] focus:border-[#0F766E] bg-transparent px-2 placeholder:text-[#D6D3D1]"
                   />
                 </div>
                 <div className="w-[200px] relative">
                   <Input
-                    placeholder="Select role"
+                    placeholder="Select or type role"
                     value={member.role || ''}
                     onChange={(e) => updateMember(idx, 'role', e.target.value)}
                     onFocus={() => setOpenRoleDropdown(idx)}
                     onBlur={() => setTimeout(() => setOpenRoleDropdown(null), 200)}
-                    className="h-9 border-transparent hover:border-[#E7E5E4] focus:border-[#0F766E] bg-transparent px-2 w-full placeholder:text-[#D6D3D1] text-sm"
+                    className="h-10 border-transparent hover:border-[#E7E5E4] focus:border-[#0F766E] bg-transparent px-2 w-full placeholder:text-[#D6D3D1]"
                   />
                   {openRoleDropdown === idx && (
-                    <div className="absolute top-full left-0 w-[240px] mt-1 bg-white border border-[#E7E5E4] rounded-md shadow-lg max-h-48 overflow-y-auto z-50">
+                    <div className="absolute top-full left-0 w-full mt-1 bg-white border border-[#E7E5E4] rounded-md shadow-lg max-h-48 overflow-y-auto z-50">
                       {PREDEFINED_ROLES.filter(role => role.toLowerCase().includes((member.role || '').toLowerCase())).map((role) => (
                         <div
                           key={role}
@@ -301,11 +383,11 @@ David Lee,david@example.com,Frontend Developer`;
                 </div>
 
                 {/* Skills Column */}
-                <div className="flex-1 flex flex-wrap gap-1.5 items-center min-h-[40px] py-1">
+                <div className="flex-1 flex flex-wrap gap-1.5 items-center content-start">
                   {(member.skills || []).map((skill) => (
                     <div
                       key={skill}
-                      className="flex items-center gap-1 px-2 py-0.5 bg-[#0F766E]/10 border border-[#0F766E]/30 rounded-full text-[11px] text-[#0F766E] whitespace-nowrap"
+                      className="flex items-center gap-1 px-2 py-1 bg-[#0F766E]/10 border border-[#0F766E]/30 rounded-full text-xs text-[#0F766E] whitespace-nowrap"
                     >
                       {skill}
                       <button
@@ -338,8 +420,8 @@ David Lee,david@example.com,Frontend Developer`;
                         setNewSkillText('');
                         setActiveSkillInput(null);
                       }}
-                      placeholder="Add..."
-                      className="h-7 px-2 py-1 text-xs border-[#E7E5E4] focus:border-[#0F766E] bg-transparent w-20"
+                      placeholder="Add skill..."
+                      className="h-7 px-2 py-1 text-xs border-[#E7E5E4] focus:border-[#0F766E] bg-transparent w-24"
                     />
                   ) : (
                     <button
@@ -352,15 +434,12 @@ David Lee,david@example.com,Frontend Developer`;
                   )}
                 </div>
 
-                <div className="w-8 flex justify-center">
-                  <button
-                    onClick={() => removeMember(idx)}
-                    className="w-8 h-8 flex items-center justify-center text-[#A8A29E] hover:text-[#EF4444] transition-colors"
-                    title="Remove member"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
+                <button
+                  onClick={() => removeMember(idx)}
+                  className="w-8 h-8 flex items-center justify-center text-[#D6D3D1] hover:text-[#EF4444] transition-colors opacity-0 group-hover:opacity-100"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
             ))}
           </div>
