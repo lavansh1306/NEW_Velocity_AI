@@ -238,8 +238,9 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const speak = (text: string) => {
     if (!('speechSynthesis' in window) || !text?.trim()) return;
 
+    const synth = window.speechSynthesis;
+
     const runSpeak = () => {
-      const synth = window.speechSynthesis;
       const voices = synth.getVoices();
       const utterance = new SpeechSynthesisUtterance(text);
 
@@ -261,33 +262,44 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       utterance.onend = () => {
         console.log('[VoiceContext] speech ended');
-        setStatus('idle');
+        if (statusRef.current === 'speaking') {
+          setStatus('idle');
+        }
       };
 
       utterance.onerror = (e) => {
         console.error('[VoiceContext] speechSynthesis error:', e);
-        setStatus('idle');
+        if (statusRef.current === 'speaking') {
+          setStatus('idle');
+        }
       };
 
-      if (synth.speaking) {
-        synth.cancel();
-      }
-      window.setTimeout(() => {
-        try {
-          synth.speak(utterance);
-        } catch (e) {
-          console.error('[VoiceContext] speechSynthesis speak failed:', e);
+      try {
+        if (synth.speaking) {
+          synth.cancel();
         }
-      }, 50);
+        setTimeout(() => {
+          try {
+            synth.speak(utterance);
+          } catch (err) {
+            console.error('[VoiceContext] speechSynthesis speak failed:', err);
+          }
+        }, 120);
+      } catch (err) {
+        console.error('[VoiceContext] speech setup failed:', err);
+      }
     };
 
-    const voices = window.speechSynthesis.getVoices();
-    if (voices.length > 0) {
-      runSpeak();
-    } else {
-      window.speechSynthesis.onvoiceschanged = () => runSpeak();
-      window.speechSynthesis.getVoices();
-      window.setTimeout(runSpeak, 300);
+    try {
+      const voices = synth.getVoices();
+      if (voices.length > 0) {
+        runSpeak();
+      } else {
+        synth.getVoices();
+        setTimeout(runSpeak, 300);
+      }
+    } catch (err) {
+      console.error('[VoiceContext] speech preflight failed:', err);
     }
   };
 
