@@ -34,6 +34,17 @@ export const GlobalSearch = () => {
     }, [query]);
 
     useEffect(() => {
+        const handleSlash = (e) => {
+            if (e.key === "/" && e.target.tagName !== "INPUT" && e.target.tagName !== "TEXTAREA") {
+                e.preventDefault();
+                if (inputRef.current) inputRef.current.focus();
+            }
+        };
+        window.addEventListener("keydown", handleSlash);
+        return () => window.removeEventListener("keydown", handleSlash);
+    }, []);
+
+    useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
                 setIsOpen(false);
