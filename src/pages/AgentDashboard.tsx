@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { getCurrentOrgId } from '@/lib/orgContext';
-import { CheckCircle2, Clock, Users, Zap, RefreshCw } from 'lucide-react';
+import { CheckCircle2, Clock, Users, Zap, RefreshCw, Brain } from 'lucide-react';
+import { SkillGraph } from '@/components/SkillGraph';
 
 interface AgentStats {
   totalSuggestions: number;
@@ -184,6 +185,16 @@ export default function AgentDashboard() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* Engineer Skill Graph */}
+      <div className="bg-white border border-gray-200 rounded-xl p-6 mt-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Brain className="w-4 h-4 text-primary" />
+          <h2 className="text-sm font-medium text-gray-900">Engineer Skill Graph</h2>
+          <span className="text-xs text-gray-400 ml-1">— built from completed task history</span>
+        </div>
+        <SkillGraph />
       </div>
     </div>
   );
