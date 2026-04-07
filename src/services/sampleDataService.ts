@@ -4,18 +4,15 @@ import { getCurrentOrgId } from '@/lib/orgContext';
 export const hasSampleData = async (): Promise<boolean> => {
   const orgId = getCurrentOrgId();
   if (!orgId) return false;
-  const { data } = await supabase
-    .from('projects')
-    .select('id')
-    .eq('organization_id', orgId)
-    .eq('source', 'sample')
-    .limit(1);
-  return (data?.length || 0) > 0;
+  // Check if sample data was already loaded via localStorage flag
+  return localStorage.getItem('sampleDataLoaded_' + orgId) === 'true';
 };
 
 export const createSampleData = async (): Promise<void> => {
   const orgId = getCurrentOrgId();
   if (!orgId) throw new Error('No org');
+  // Prevent double creation
+  if (localStorage.getItem('sampleDataLoaded_' + orgId) === 'true') return;
 
   // 1. Create sample team
   const { data: team } = await supabase
@@ -39,7 +36,6 @@ export const createSampleData = async (): Promise<void> => {
       email: m.email,
       organization_id: orgId,
       role: 'employee',
-      is_sample: true,
     })))
     .select();
 
@@ -61,7 +57,7 @@ export const createSampleData = async (): Promise<void> => {
       name: 'Mobile App Redesign',
       description: 'Complete redesign of the iOS and Android apps with new design system, improved performance, and better accessibility.',
       status: 'active',
-      source: 'sample',
+
       start_date: new Date().toISOString().split('T')[0],
       allocated_team_members: userIds,
     })
@@ -84,6 +80,9 @@ export const createSampleData = async (): Promise<void> => {
   await supabase.from('tasks').insert(
     tasks.map(t => ({ ...t, project_id: project.id }))
   );
+
+  // Mark as loaded
+  localStorage.setItem('sampleDataLoaded_' + orgId, 'true');
 
   // 6. Create sample leave requests
   const nextWeek = new Date();
