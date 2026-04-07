@@ -4,6 +4,7 @@ import { StandupCard } from '@/components/StandupCard';
 import { AgentSyncCard } from '@/components/AgentSyncCard';
 import { BurnoutWarning } from '@/components/BurnoutWarning';
 import { BriefMeCard } from '@/components/BriefMeCard';
+import { DeadlineRiskPredictor } from '@/components/DeadlineRiskPredictor';
 import { MoodPulseWidget } from '@/components/MoodPulse';
 import { VelocityAISidebar } from '@/components/dashboard/VelocityAISidebar';
 
@@ -16,6 +17,7 @@ const DashboardPage = () => {
         <StandupCard />
         <AgentSyncCard />
         <BurnoutWarning />
+        <DeadlineRiskPredictor />
         <MoodPulseWidget />
         <DashboardScreen />
       </div>

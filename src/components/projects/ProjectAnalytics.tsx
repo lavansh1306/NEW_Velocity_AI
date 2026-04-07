@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { RetroGenerator } from '@/components/RetroGenerator';
 import { useParams, useNavigate } from 'react-router-dom';
 import { VelocityAISidebar } from '@/components/dashboard/VelocityAISidebar';
 import { Button } from '@/components/ui/button';
@@ -80,6 +81,7 @@ export default function ProjectAnalytics() {
   const [localIssues, setLocalIssues] = useState<any[]>([]);
   const [showAbandonedTasks, setShowAbandonedTasks] = useState(false);
   const [showAbandonConfirmation, setShowAbandonConfirmation] = useState(false);
+  const [showRetro, setShowRetro] = useState(false);
   const [taskToAbandon, setTaskToAbandon] = useState<any>(null);
 
   const { loading, error, project, issues, metrics, teamMembers, allocatedTeamMembers } = useProjectAnalytics(id);
@@ -371,11 +373,12 @@ export default function ProjectAnalytics() {
         .eq('id', project?.id);
 
       if (error) throw error;
-      toast.success('Project marked as completed');
+      toast.success('Project marked as completed!');
       setShowCompletionWarning(false);
       setIsConfirmingCompletion(false);
+      setShowRetro(true);
       // Optionally navigate back
-      setTimeout(() => navigate('/projects'), 1500);
+      setTimeout(() => navigate('/projects'), 3000);
     } catch (err: any) {
       console.error('Error completing project:', err);
       toast.error('Failed to complete project');

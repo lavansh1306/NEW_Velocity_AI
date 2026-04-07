@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { getCurrentOrgId } from '@/lib/orgContext';
 import { CheckCircle2, Clock, Users, Zap, RefreshCw, Brain } from 'lucide-react';
 import { SkillGraph } from '@/components/SkillGraph';
+import { AccuracyTracker } from '@/components/AccuracyTracker';
 
 interface AgentStats {
   totalSuggestions: number;
@@ -185,6 +186,11 @@ export default function AgentDashboard() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* AI Accuracy Tracker */}
+      <div className="mt-6">
+        <AccuracyTracker />
       </div>
 
       {/* Engineer Skill Graph */}
