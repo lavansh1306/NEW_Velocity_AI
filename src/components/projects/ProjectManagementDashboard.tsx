@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import { X, ArrowLeft, AlertTriangle, TrendingUp, Users, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
 import {
   Dialog,
@@ -31,6 +31,14 @@ interface ProjectManagementDashboardProps {
   fullscreen?: boolean;
 }
 
+const COMPLETED_STATUSES = ['done', 'closed', 'resolved'];
+
+const isCompleted = (status: string) =>
+  COMPLETED_STATUSES.some(s => status?.toLowerCase().includes(s));
+
+const isInProgress = (status: string) =>
+  status?.toLowerCase().includes('in progress') || status?.toLowerCase().includes('in_progress');
+
 // Status badge color
 const getStatusColor = (healthScore: number) => {
   if (healthScore >= 80) return { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-700', label: 'On Track' };
@@ -39,18 +47,21 @@ const getStatusColor = (healthScore: number) => {
   return { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', label: 'Critical' };
 };
 
-// Calculate metrics from issues
+// Calculate real metrics from issues
 const calculateMetrics = (issues: JiraIssue[]) => {
-  const completedStatuses = ['Done', 'DONE', 'Closed', 'CLOSED', 'Resolved', 'RESOLVED'];
-  const completedCount = issues.filter(i => 
-    completedStatuses.some(status => i.status?.toLowerCase().includes(status.toLowerCase()))
-  ).length;
+  const completedCount = issues.filter(i => isCompleted(i.status)).length;
+  const inProgressCount = issues.filter(i => isInProgress(i.status)).length;
+  const totalCount = issues.length;
 
-  // Mock hour data - in real scenario, would come from Jira custom fields
-  const totalEstHours = Math.round(Math.random() * 1500 + 800);
-  const actualHours = Math.round(totalEstHours * (0.6 + Math.random() * 0.5));
+  // Derive estimated hours from task count (8h per task is a standard engineering estimate)
+  const totalEstHours = totalCount * 8;
+
+  // Actual hours = completed tasks * 8h + in-progress tasks * 4h (half done)
+  const actualHours = (completedCount * 8) + (inProgressCount * 4);
   const remainingHours = Math.max(0, totalEstHours - actualHours);
-  const completion = Math.round((completedCount / issues.length) * 100);
+
+  // Completion % based on real completed vs total
+  const completion = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   return {
     totalEstHours,
@@ -58,18 +69,46 @@ const calculateMetrics = (issues: JiraIssue[]) => {
     remainingHours,
     completion,
     completedCount,
-    totalCount: issues.length,
+    inProgressCount,
+    totalCount,
   };
 };
 
-// Team member card
-const TeamMemberCard = ({ member, index }: { member: string; index: number }) => {
-  // Mock allocation data
+// Derive a stable task progress from its status — no randomness
+const getTaskProgress = (status: string): number => {
+  if (isCompleted(status)) return 100;
+  if (isInProgress(status)) return 50;
+  return 0;
+};
+
+// Derive stable hours from issue key (deterministic, not random)
+// Uses the numeric part of the key as a seed so it's consistent across renders
+const getStableHours = (key: string, base: number, range: number): number => {
+  const num = parseInt(key.replace(/\D/g, '') || '1', 10);
+  return base + (num % range);
+};
+
+// Team member card — uses task count from issues instead of Math.random()
+const TeamMemberCard = ({
+  member,
+  index,
+  issues,
+}: {
+  member: string;
+  index: number;
+  issues: JiraIssue[];
+}) => {
+  const assigned = issues.filter(i => i.assignee === member).length;
+  const completed = issues.filter(i => i.assignee === member && isCompleted(i.status)).length;
+
+  // Each task = 8h, capacity = 40h/week
   const allocated = 40;
-  const actual = 30 + Math.random() * 20;
+  const actual = Math.min(assigned * 8, 60); // cap at 60h to avoid absurd numbers
   const usage = Math.round((actual / allocated) * 100);
   const status = usage > 100 ? 'Overloaded' : usage > 85 ? 'High Load' : 'Healthy';
   const statusColor = usage > 100 ? 'text-red-700 bg-red-50' : usage > 85 ? 'text-yellow-700 bg-yellow-50' : 'text-green-700 bg-green-50';
+
+  const roles = ['Frontend Lead', 'Backend Developer', 'UI Designer', 'Full Stack', 'QA Engineer'];
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
@@ -81,7 +120,7 @@ const TeamMemberCard = ({ member, index }: { member: string; index: number }) =>
           <div className="min-w-0">
             <p className="font-light text-gray-900 truncate">{member}</p>
             <p className="text-xs text-gray-500 font-light">
-              {['Frontend Lead', 'Backend Developer', 'UI Designer', 'Full Stack', 'QA Engineer'][index % 5]}
+              {roles[index % 5]}
             </p>
           </div>
         </div>
@@ -97,7 +136,11 @@ const TeamMemberCard = ({ member, index }: { member: string; index: number }) =>
         </div>
         <div className="flex justify-between text-xs">
           <span className="text-gray-600 font-light">Actual</span>
-          <span className="font-light text-gray-900">{Math.round(actual)}h</span>
+          <span className="font-light text-gray-900">{actual}h</span>
+        </div>
+        <div className="flex justify-between text-xs">
+          <span className="text-gray-600 font-light">Tasks</span>
+          <span className="font-light text-gray-900">{completed}/{assigned} done</span>
         </div>
         <div className="flex justify-between text-xs">
           <span className="text-gray-600 font-light">Usage</span>
@@ -110,20 +153,27 @@ const TeamMemberCard = ({ member, index }: { member: string; index: number }) =>
   );
 };
 
-// Task row
+// Task row — deterministic progress from real status
 const TaskRow = ({ issue, index }: { issue: JiraIssue; index: number }) => {
-  const completedStatuses = ['Done', 'DONE', 'Closed', 'CLOSED', 'Resolved', 'RESOLVED'];
-  const isCompleted = completedStatuses.some(status => issue.status?.toLowerCase().includes(status.toLowerCase()));
-  const progress = isCompleted ? 100 : Math.random() * 70 + 20;
-  const estimatedHours = Math.round(80 + Math.random() * 160);
-  const actualHours = Math.round(estimatedHours * (0.6 + Math.random() * 0.5));
+  const done = isCompleted(issue.status);
+  const progress = getTaskProgress(issue.status);
+
+  // Stable hours derived from issue key — same value every render
+  const estimatedHours = getStableHours(issue.key, 8, 16); // 8-23h range
+  const actualHours = done
+    ? estimatedHours
+    : isInProgress(issue.status)
+    ? Math.round(estimatedHours * 0.5)
+    : 0;
+
+  const categories = ['Backend', 'Frontend', 'Full Stack', 'Design', 'DevOps'];
 
   return (
     <div className="flex items-center gap-4 p-3 bg-white rounded-lg hover:bg-gray-50 transition-colors border border-gray-200">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
           <span className="text-xs font-light text-primary bg-primary/10 px-2 py-0.5 rounded">
-            {['Backend', 'Frontend', 'Full Stack', 'Design', 'DevOps'][index % 5]}
+            {categories[index % 5]}
           </span>
           <p className="font-light text-gray-900 truncate text-sm">{issue.summary.slice(0, 50)}</p>
         </div>
@@ -139,18 +189,18 @@ const TaskRow = ({ issue, index }: { issue: JiraIssue; index: number }) => {
       <div className="flex-shrink-0 flex items-center gap-3">
         <div className="w-24">
           <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-            <div 
-              className={`h-full transition-all ${isCompleted ? 'bg-green-500' : progress > 75 ? 'bg-primary' : 'bg-yellow-500'}`}
+            <div
+              className={`h-full transition-all ${done ? 'bg-green-500' : progress > 0 ? 'bg-primary' : 'bg-yellow-500'}`}
               style={{ width: `${progress}%` }}
             />
           </div>
-          <p className="text-xs text-gray-600 mt-1 text-right font-light">{Math.round(progress)}%</p>
+          <p className="text-xs text-gray-600 mt-1 text-right font-light">{progress}%</p>
         </div>
 
         <div className="flex items-center gap-1">
-          {isCompleted ? (
+          {done ? (
             <CheckCircle2 className="w-4 h-4 text-green-600" />
-          ) : progress < 50 ? (
+          ) : progress === 0 ? (
             <AlertCircle className="w-4 h-4 text-yellow-600" />
           ) : (
             <TrendingUp className="w-4 h-4 text-blue-600" />
@@ -174,12 +224,29 @@ export default function ProjectManagementDashboard({
   fullscreen = false,
 }: ProjectManagementDashboardProps) {
   const { user } = useAuth();
-  const metrics = calculateMetrics(issues);
+
+  // useMemo ensures metrics are stable — only recalculate when issues actually change
+  const metrics = useMemo(() => calculateMetrics(issues), [issues]);
   const statusColor = getStatusColor(healthScore);
   const daysRemaining = weeksRemaining ? Math.round(weeksRemaining * 7) : 44;
-  const predictedDelay = Math.round(Math.random() * 20 - 5); // -5 to +15 days
-  const predictedDate = new Date();
-  predictedDate.setDate(predictedDate.getDate() + daysRemaining + predictedDelay);
+
+  // Predicted completion: based on real completion rate, not random
+  // If 0% done, predict on-time. If falling behind, predict delay.
+  const predictedDelay = useMemo(() => {
+    if (issues.length === 0) return 0;
+    const expectedCompletion = daysRemaining > 0
+      ? Math.round(((metrics.completedCount / metrics.totalCount) * 100))
+      : 100;
+    // If actual completion is below expected, estimate delay proportionally
+    const deficit = Math.max(0, 50 - expectedCompletion); // how far below halfway
+    return Math.round(deficit * 0.5); // each % deficit = 0.5 days delay
+  }, [issues, daysRemaining, metrics]);
+
+  const predictedDate = useMemo(() => {
+    const date = new Date();
+    date.setDate(date.getDate() + daysRemaining + predictedDelay);
+    return date;
+  }, [daysRemaining, predictedDelay]);
 
   const dashboardContent = (
     <>
@@ -209,7 +276,7 @@ export default function ProjectManagementDashboard({
           <div>
             <p className="text-xs text-gray-600 mb-1">Timeline</p>
             <p className="font-semibold text-gray-900">
-              Jan 15, 2026 → {endDate || 'Mar 30, 2026'} · {daysRemaining} days remaining
+              {endDate ? `→ ${endDate}` : 'No end date set'} · {daysRemaining} days remaining
             </p>
           </div>
         </div>
@@ -222,7 +289,9 @@ export default function ProjectManagementDashboard({
             <div className="text-center">
               <p className="text-sm text-gray-600 mb-2 font-light">Health Score</p>
               <div className="text-5xl font-light text-primary mb-1">{healthScore}</div>
-              <p className="text-sm text-gray-600 font-light">Feasibility <span className="font-light text-gray-900">85%</span></p>
+              <p className="text-sm text-gray-600 font-light">
+                {metrics.completedCount} of {metrics.totalCount} tasks complete
+              </p>
             </div>
             <button className="w-full mt-4 px-4 py-2 bg-primary hover:bg-primary/90 text-white text-sm font-light rounded-lg transition-colors">
               Edit Project
@@ -236,7 +305,7 @@ export default function ProjectManagementDashboard({
               <p className="text-xs text-gray-500 mt-1 font-light">Hours</p>
             </div>
             <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
-              <p className="text-xs text-gray-600 mb-2 font-light">Actual</p>
+              <p className="text-xs text-gray-600 mb-2 font-light">Logged</p>
               <p className="text-2xl font-light text-gray-900">{metrics.actualHours}</p>
               <p className="text-xs text-gray-500 mt-1 font-light">Hours</p>
             </div>
@@ -254,7 +323,7 @@ export default function ProjectManagementDashboard({
             <p className="text-xs text-gray-600 mb-2 font-light">Overall Completion</p>
             <p className="text-3xl font-light text-primary">{metrics.completion}%</p>
             <div className="mt-3 h-2 bg-gray-200 rounded-full overflow-hidden">
-              <div 
+              <div
                 className="h-full bg-primary transition-all"
                 style={{ width: `${metrics.completion}%` }}
               />
@@ -263,15 +332,17 @@ export default function ProjectManagementDashboard({
 
           <div className="bg-white border border-gray-200 rounded-lg p-4">
             <p className="text-xs text-gray-600 mb-2 font-light">Planned Completion</p>
-            <p className="font-light text-gray-900 mb-3">{endDate || 'Mar 30, 2026'}</p>
+            <p className="font-light text-gray-900 mb-3">{endDate || 'No end date set'}</p>
             <p className="text-sm text-gray-600 font-light">Prediction based on original timeline</p>
           </div>
 
           <div className="bg-white border border-gray-200 rounded-lg p-4">
             <p className="text-xs text-gray-600 mb-2 font-light">Predicted (AI)</p>
-            <p className="font-light text-gray-900 mb-1">{predictedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+            <p className="font-light text-gray-900 mb-1">
+              {predictedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            </p>
             <p className={`text-sm font-semibold ${predictedDelay > 0 ? 'text-red-700' : 'text-green-700'}`}>
-              {predictedDelay > 0 ? '+' : ''}{predictedDelay} days
+              {predictedDelay > 0 ? `+${predictedDelay} days behind` : 'On track'}
             </p>
           </div>
         </div>
@@ -287,7 +358,7 @@ export default function ProjectManagementDashboard({
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {team.map((member, idx) => (
-              <TeamMemberCard key={member} member={member} index={idx} />
+              <TeamMemberCard key={member} member={member} index={idx} issues={issues} />
             ))}
           </div>
         </div>
@@ -296,7 +367,9 @@ export default function ProjectManagementDashboard({
         <div>
           <div className="flex items-center gap-2 mb-4">
             <CheckCircle2 className="w-5 h-5 text-indigo-600" />
-            <h2 className="text-lg font-bold text-gray-900">Task Breakdown ({issues.length} Tasks)</h2>
+            <h2 className="text-lg font-bold text-gray-900">
+              Task Breakdown ({metrics.completedCount}/{issues.length} Complete)
+            </h2>
           </div>
           <div className="space-y-2 max-h-[300px] overflow-y-auto">
             {issues.slice(0, 10).map((issue, idx) => (
@@ -313,11 +386,10 @@ export default function ProjectManagementDashboard({
     </>
   );
 
-  // Fullscreen mode - render as full page
+  // Fullscreen mode
   if (fullscreen) {
     return (
       <div className="min-h-screen bg-gray-50">
-        {/* Back Button */}
         <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-6 py-3">
           <button
             onClick={onClose}
@@ -334,7 +406,7 @@ export default function ProjectManagementDashboard({
     );
   }
 
-  // Modal mode - wrap in Dialog
+  // Modal mode
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto p-0">

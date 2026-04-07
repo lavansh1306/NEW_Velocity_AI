@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Bell, ChevronRight } from 'lucide-react';
 import { GlobalSearch } from './GlobalSearch';
 import { NotificationDropdown } from './NotificationDropdown';
+import { getNotifications } from '@/services/dashboardService';
+import { PresenceIndicator } from '@/components/PresenceIndicator';
 
 interface TopHeaderProps {
     activeLabel: string;
@@ -10,9 +12,33 @@ interface TopHeaderProps {
 
 export const TopHeader = ({ activeLabel, actions }: TopHeaderProps) => {
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+    const [notifications, setNotifications] = useState<any[]>([]);
 
-    // Notifications — populated dynamically when notification system is implemented
-    const notifications: { id: string; title: string; description: string; time: string; type: 'success' | 'info' | 'warning' }[] = [];
+    useEffect(() => {
+        const load = async () => {
+            try {
+                const data = await getNotifications();
+                const mapped = data.map((n: any) => ({
+                    id: n.id,
+                    title: n.type === 'suggestion' ? '🤖 AI Task Suggestion' : 'Leave Request',
+                    description: n.message,
+                    time: n.date ? new Date(n.date).toLocaleDateString() : '',
+                    type: n.type === 'suggestion' ? 'suggestion' : 'warning',
+                    taskName: n.message?.replace('AI extracted task: ', ''),
+                    projectId: n.projectId,
+                    suggestedUserId: n.suggestedUserId,
+                    estimatedHours: n.estimatedHours,
+                }));
+                setNotifications(mapped);
+            } catch (e) {
+                console.warn('Failed to load notifications:', e);
+            }
+        };
+        load();
+        // Refresh every 2 minutes
+        const interval = setInterval(load, 120000);
+        return () => clearInterval(interval);
+    }, []);
 
     return (
         <div className="h-16 border-b border-[#E7E5E4] flex items-center justify-between px-8 bg-[#F5F5F4]/80 backdrop-blur-md sticky top-0 z-30 shadow-sm shadow-stone-200/50">
@@ -31,6 +57,7 @@ export const TopHeader = ({ activeLabel, actions }: TopHeaderProps) => {
             {/* Right Actions */}
             <div className="flex items-center gap-5 relative">
                 {actions}
+                <PresenceIndicator />
 
                 <button
                     className={`relative p-2 rounded-lg transition-all duration-200 border border-transparent ${isNotificationsOpen

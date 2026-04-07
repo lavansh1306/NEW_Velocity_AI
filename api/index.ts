@@ -7,6 +7,7 @@ import invitesRoutes from '../src/api/invites/routes.js';
 import employeeRoutes from '../src/api/employee/routes.js';
 import organizationRoutes from '../src/api/organization/routes.js';
 import authRoutes from '../src/api/auth/routes.js';
+import voiceRoutes from '../src/api/voice/routes.js';
 
 // Create a fresh Express app instance for this serverless function
 const app = express();
@@ -78,6 +79,7 @@ app.use('/api/leave-approval', leaveApprovalRoutes);
 app.use('/api/invites', invitesRoutes);
 app.use('/api/employee', employeeRoutes);
 app.use('/api/organization', organizationRoutes);
+app.use('/api/voice', voiceRoutes);
 app.use('/api/v1/analyze', leaveApprovalRoutes);
 
 // Also mount at root level for backwards compatibility

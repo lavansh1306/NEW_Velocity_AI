@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Loader2 } from 'lucide-react';
+import { ChevronRight, Loader2, Mic, MicOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useOnboarding } from '@/contexts/OnboardingContext';
@@ -12,7 +12,71 @@ export default function OnboardingWelcome() {
   const { user, loading: authLoading } = useAuth();
   const { createOrganization, loading, error, clearError, orgId } = useOnboarding();
   const [orgName, setOrgName] = useState('');
+  const [voiceFilled, setVoiceFilled] = useState(false);
+  const [joinableOrg, setJoinableOrg] = useState<{id:string;name:string;members:number} | null>(null);
   const [teamName, setTeamName] = useState('');
+  const [isVoiceListening, setIsVoiceListening] = useState(false);
+  const [voiceStatus, setVoiceStatus] = useState('');
+  const recognitionRef = useRef<any>(null);
+
+  const startVoiceOnboarding = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setVoiceStatus('Voice not supported in this browser');
+      return;
+    }
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+    recognitionRef.current = recognition;
+
+    recognition.onstart = () => {
+      setIsVoiceListening(true);
+      setVoiceStatus('Listening...');
+    };
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      setIsVoiceListening(false);
+      setVoiceStatus('Got it!');
+
+      const t = transcript.toLowerCase();
+      let extractedOrg = '';
+      let extractedTeam = '';
+
+      const atMatch = transcript.match(/(?:at|@)\s+([A-Za-z][^,\.]+?)(?:\s*,|\s+we|\s+our|\s+engineering|\s+team|$)/i);
+      const calledMatch = transcript.match(/(?:called|named|is)\s+([A-Za-z][^,\.]+?)(?:\s*,|\s+we|\s+our|\s+engineering|\s+team|$)/i);
+      if (atMatch) extractedOrg = atMatch[1].trim();
+      else if (calledMatch) extractedOrg = calledMatch[1].trim();
+      else extractedOrg = transcript;
+
+      const teamTypes = ['engineering','product','design','frontend','backend','devops','data','mobile'];
+      for (const tt of teamTypes) {
+        if (t.includes(tt)) { extractedTeam = tt.charAt(0).toUpperCase() + tt.slice(1) + ' Team'; break; }
+      }
+
+      if (extractedOrg) { setOrgName(extractedOrg); setVoiceFilled(true); }
+      if (extractedTeam) setTeamName(extractedTeam);
+      setVoiceStatus(extractedOrg ? 'Filled from voice!' : 'Try again');
+      setTimeout(() => setVoiceStatus(''), 3000);
+    };
+
+    recognition.onerror = () => {
+      setIsVoiceListening(false);
+      setVoiceStatus('Could not hear you, try again');
+      setTimeout(() => setVoiceStatus(''), 3000);
+    };
+
+    recognition.onend = () => setIsVoiceListening(false);
+
+    recognition.start();
+  };
+
+  const stopVoice = () => {
+    recognitionRef.current?.stop();
+    setIsVoiceListening(false);
+  };
 
   const handleStart = async () => {
     if (!orgName.trim() || !teamName.trim() || !user) return;
@@ -26,6 +90,35 @@ export default function OnboardingWelcome() {
   };
 
 
+
+  if (joinableOrg) return (
+    <div className="min-h-screen bg-[#FDFDFB] font-['Inter',sans-serif] flex flex-col items-center justify-center px-4">
+      <div className="text-6xl mb-6">🎉</div>
+      <h1 className="text-3xl font-light text-[#1C1917] text-center mb-3">Your team is already here</h1>
+      <p className="text-base text-[#78716C] text-center mb-2 font-light">
+        <strong>{joinableOrg.name}</strong> has {joinableOrg.members} member{joinableOrg.members !== 1 ? 's' : ''} on Velocity AI.
+      </p>
+      <p className="text-sm text-[#A8A29E] text-center mb-10 font-light">Join them instead of creating a new workspace.</p>
+      <div className="flex flex-col gap-3 w-full max-w-sm">
+        <Button
+          onClick={async () => {
+            clearError();
+            try {
+              await createOrganization(joinableOrg.name, 'Engineering');
+              navigate('/onboarding/settings');
+            } catch {}
+          }}
+          disabled={loading}
+          className="h-12 bg-[#0F766E] hover:bg-[#0F766E]/90 text-white rounded-lg font-normal text-base"
+        >
+          {loading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Joining...</> : 'Join ' + joinableOrg.name + ' →'}
+        </Button>
+        <button onClick={() => setJoinableOrg(null)} className="text-sm text-[#78716C] hover:text-[#1C1917] text-center">
+          Create a new workspace instead
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-[#FDFDFB] font-['Inter',sans-serif] relative overflow-hidden">
@@ -47,28 +140,47 @@ export default function OnboardingWelcome() {
           Welcome to Velocity AI!
         </h1>
         
-        <p className="text-base text-[#78716C] text-center mb-12 font-light">
+        <p className="text-base text-[#78716C] text-center mb-8 font-light">
           Let's get your workspace set up in 4 quick steps
         </p>
 
+        {/* Voice Onboarding Button */}
+        <div className="flex flex-col items-center mb-8">
+          <button
+            onClick={isVoiceListening ? stopVoice : startVoiceOnboarding}
+            className={`flex items-center gap-2 px-5 py-3 rounded-full text-sm font-medium transition-all ${
+              isVoiceListening
+                ? 'bg-red-50 border-2 border-red-300 text-red-600 animate-pulse'
+                : 'bg-teal-50 border-2 border-teal-200 text-teal-700 hover:bg-teal-100'
+            }`}
+          >
+            {isVoiceListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+            {isVoiceListening ? 'Stop listening' : 'Fill with voice'}
+          </button>
+          {voiceStatus && (
+            <p className="text-xs text-[#78716C] mt-2">{voiceStatus}</p>
+          )}
+          {!isVoiceListening && !voiceStatus && (
+            <p className="text-xs text-[#A8A29E] mt-2">Say: "I run an engineering team at Acme Corp"</p>
+          )}
+        </div>
+
         {/* Organization Name Input */}
         <div className="w-[450px] mb-4">
-          <OrganizationPicker
+          {voiceFilled ? (<div><label className="block text-sm text-[#78716C] mb-2 font-light">Organization Name</label><input value={orgName} onChange={e => setOrgName(e.target.value)} className="w-full h-11 px-3 bg-white border border-[#E7E5E4] rounded-md text-[#1C1917] text-sm" /></div>) : (<OrganizationPicker
             value={orgName}
             onSelect={(org) => {
-              if (org) setOrgName(org.name);
-              else setOrgName('');
+              if (org) { setOrgName(org.name); setJoinableOrg(org as any); }
+              else { setOrgName(''); setJoinableOrg(null); }
             }}
             onCreate={(name) => setOrgName(name)}
             onClear={() => setOrgName('')}
-          />
+          />)}
         </div>
 
         {/* Team Name Input */}
         <div className="w-[450px] mb-8">
-          <label className="block text-sm text-[#78716C] mb-2 font-light">
-            Team Name <span className="text-[#BE123C] ml-0.5">*</span>
-          </label>
+          <label className="block text-sm text-[#78716C] mb-2 font-light">Team Name</label>
           <Input
             value={teamName}
             onChange={(e) => setTeamName(e.target.value)}

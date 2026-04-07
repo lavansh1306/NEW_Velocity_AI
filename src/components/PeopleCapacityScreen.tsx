@@ -701,24 +701,27 @@ export const PeopleCapacityScreen = () => {
 
     // Listen for voice command events
     useEffect(() => {
-        // 1. Consume "Add Member" action from centralized queue
-        const addAction = consumeAction('add_team_member');
-        if (addAction) {
-            console.log('[PeopleCapacityScreen] Consumed add_team_member action:', addAction);
-            setVoiceMemberData(addAction.params || null);
-            setIsAddMemberOpen(true);
-        }
+        const tryConsumeQueuedActions = () => {
+            const addAction = consumeAction('add_team_member');
+            if (addAction) {
+                console.log('[PeopleCapacityScreen] Consumed add_team_member action:', addAction);
+                setVoiceMemberData(addAction.params || null);
+                setIsAddMemberOpen(true);
+            }
 
-        // 2. Consume "Delete Member" action from centralized queue
-        const deleteAction = consumeAction('delete_team_member');
-        if (deleteAction && deleteAction.params?.name) {
-            console.log('[PeopleCapacityScreen] Consumed delete_team_member action:', deleteAction);
-            setPendingVoiceDelete(deleteAction.params.name);
-        }
+            const deleteAction = consumeAction('delete_team_member');
+            if (deleteAction && deleteAction.params?.name) {
+                console.log('[PeopleCapacityScreen] Consumed delete_team_member action:', deleteAction);
+                setPendingVoiceDelete(deleteAction.params.name);
+            }
+        };
 
-        // Support for real-time events if the user is already on the page
+        tryConsumeQueuedActions();
+        const retryTimer = setTimeout(tryConsumeQueuedActions, 700);
+
         const handleVoiceAddMember = (e: any) => {
             const data = e.detail;
+            console.log('[PeopleCapacityScreen] velo-add-member event received:', data);
             setVoiceMemberData(data);
             setIsAddMemberOpen(true);
         };
@@ -731,6 +734,7 @@ export const PeopleCapacityScreen = () => {
         window.addEventListener('velo-add-member', handleVoiceAddMember);
         window.addEventListener('velo-delete-member', handleVoiceDeleteMember);
         return () => {
+            clearTimeout(retryTimer);
             window.removeEventListener('velo-add-member', handleVoiceAddMember);
             window.removeEventListener('velo-delete-member', handleVoiceDeleteMember);
         };

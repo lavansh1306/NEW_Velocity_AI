@@ -1,3 +1,4 @@
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import React, { useState, useEffect } from 'react';
 import { Users, AlertCircle, RefreshCw, BarChart3, CalendarCheck } from 'lucide-react';
 import { EmployeeProfile, LeaveRequest } from './types';
@@ -19,7 +20,7 @@ interface CapacityAnalysisProps {
   onRefresh?: () => void;
 }
 
-export const CapacityAnalysis: React.FC<CapacityAnalysisProps> = ({ 
+const CapacityAnalysisInner: React.FC<CapacityAnalysisProps> = ({ 
   employees, 
   approvedLeaves, 
   onRefresh 
@@ -235,3 +236,8 @@ export const CapacityAnalysis: React.FC<CapacityAnalysisProps> = ({
     </div>
   );
 };
+export const CapacityAnalysis = (props: any) => (
+  <ErrorBoundary componentName="Capacity Analysis">
+    <CapacityAnalysisInner {...props} />
+  </ErrorBoundary>
+);

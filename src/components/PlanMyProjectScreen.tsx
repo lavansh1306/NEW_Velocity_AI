@@ -13,6 +13,7 @@ import { getCurrentOrgId } from '@/lib/orgContext';
 
 // ── CHILD COMPONENTS ──
 import { PlanHeader } from './planproject/PlanHeader';
+import { ScopeEstimator } from '@/components/ScopeEstimator';
 import { TaskStats } from './planproject/TaskStats';
 import { TaskBreakdown } from './planproject/TaskBreakdown';
 import { DraftPlansList } from './manager/DraftPlansList';
@@ -449,6 +450,12 @@ export const PlanMyProjectScreen = () => {
                     analysisStatus={analysisStatus}
                     thoughtLines={thoughtLines}
                     handleAnalyze={handleAnalyze}
+                />
+
+                {/* Scope Estimator — wire below Plan header */}
+                <ScopeEstimator
+                    projectTitle={projectTitle}
+                    projectDescription={projectDescription}
                 />
 
                 {hasAnalyzed && (

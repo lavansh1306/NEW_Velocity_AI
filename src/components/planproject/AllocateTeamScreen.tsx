@@ -191,6 +191,18 @@ export const AllocateTeamScreen = () => {
                                                 <span key={i} className="px-2 py-0.5 bg-[#F0FDFA] text-[#0F766E] border border-[#CCFBF1] rounded text-[9px] font-medium">{t}</span>
                                             ))}
                                         </div>
+                                        {/* Confidence Score */}
+                                        <div className="flex items-center justify-between mb-3">
+                                          <div className="flex items-center gap-2">
+                                            <div className="h-1.5 flex-1 w-24 bg-gray-100 rounded-full overflow-hidden">
+                                              <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.round((m.match_percentage || m.skill_match_score * 100 || 70))}%` }} />
+                                            </div>
+                                            <span className="text-xs font-semibold text-emerald-700">{Math.round(m.match_percentage || m.skill_match_score * 100 || 70)}% match</span>
+                                          </div>
+                                          {m.remaining_capacity_hours != null && (
+                                            <span className="text-[10px] text-[#78716C]">{Math.round(m.remaining_capacity_hours)}h free</span>
+                                          )}
+                                        </div>
                                         <div className="p-3 bg-emerald-50 rounded-xl text-[11px] italic text-[#44403C]">"{m.justification}"</div>
                                     </div>
                                 );

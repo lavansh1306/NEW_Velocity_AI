@@ -33,7 +33,7 @@ export default function AnalyticsPanel({ project, report }: Props) {
       <div className="max-w-7xl mx-auto px-6">
         <div className="mb-8 flex items-end justify-between">
           <div>
-            <h2 className="text-3xl font-light text-gray-900">{project.title} — Health Reportt</h2>
+            <h2 className="text-3xl font-light text-gray-900">{project.title} — Health Report</h2>
             <p className="text-sm text-gray-500 mt-1">Real-time status tracking based on Jira activity</p>
           </div>
           <div className="text-right">

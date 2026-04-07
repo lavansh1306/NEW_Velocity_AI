@@ -47,6 +47,7 @@ import EmployeeProfile from "./pages/employee/EmployeeProfile";
 import { EmployeeTimeScreen } from "./pages/employee/EmployeeTimeScreen";
 import { VoiceProvider } from "@/contexts/VoiceContext";
 import { VoiceAgent } from "@/components/voice/VoiceAgent";
+import { GlobalVoiceCommander } from "@/components/voice/GlobalVoiceCommander";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -74,7 +75,7 @@ const ManagerRoute = ({ children }: { children: React.ReactNode }) => {
         navigate('/app/employee/dashboard', { replace: true });
       }
     }
-  }, [orgRole, loading]); // Remove navigate from dependencies
+  }, [orgRole, loading]);
 
   if (loading) return null;
   return <>{children}</>;
@@ -91,7 +92,7 @@ const EmployeeRoute = ({ children }: { children: React.ReactNode }) => {
         navigate('/dashboard', { replace: true });
       }
     }
-  }, [orgRole, loading]); // Remove navigate from dependencies
+  }, [orgRole, loading]);
 
   if (loading) return null;
   return <>{children}</>;
@@ -109,6 +110,8 @@ const App = () => (
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <VoiceProvider>
               <VoiceAgent />
+              {/* Global voice overlay — Ctrl+Space from anywhere in the app */}
+              <GlobalVoiceCommander />
               <OnboardingProvider>
               <Routes>
                 {/* 1. Public Marketing Routes */}
