@@ -1,11 +1,16 @@
 /**
  * api-config.ts
  * Centralized configuration for all external API endpoints and environment variables.
- * This prevents hardcoding and ensures consistent configuration across the application.
+ * Hard validation on startup for critical config — missing VITE_LLM_URL throws a visible error.
  */
 
-// 1. Validate required environment variables (optional: add more rigorous checks here)
-const getEnvVar = (key: string, defaultValue? : string): string => {
+// Critical vars — app cannot function without these
+const CRITICAL_VARS = ['VITE_LLM_URL'];
+
+// Optional vars — warn but don't block
+const OPTIONAL_VARS = ['VITE_LLM_URL2', 'VITE_API_BASE_URL'];
+
+const getEnvVar = (key: string, defaultValue?: string): string => {
   const value = import.meta.env[key];
   if (!value && defaultValue === undefined) {
     console.warn(`[API Configuration] Warning: Missing environment variable: ${key}`);
@@ -14,12 +19,37 @@ const getEnvVar = (key: string, defaultValue? : string): string => {
   return value || defaultValue || '';
 };
 
-// 2. Export centralized constants
+// Hard validation — throw immediately if critical vars are missing in production
+if (import.meta.env.PROD) {
+  const missing = CRITICAL_VARS.filter(key => !import.meta.env[key]);
+  if (missing.length > 0) {
+    const msg = `[API Configuration] FATAL: Missing critical environment variables: ${missing.join(', ')}. The AI planning flow will not work. Add these to your Vercel environment variables.`;
+    console.error(msg);
+    // Show visible error overlay in production
+    document.addEventListener('DOMContentLoaded', () => {
+      const div = document.createElement('div');
+      div.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#fee2e2;border-bottom:2px solid #ef4444;padding:12px 24px;font-family:monospace;font-size:13px;color:#991b1b;';
+      div.innerHTML = `⚠️ Configuration Error: <strong>${missing.join(', ')}</strong> not set. AI features unavailable. Contact your administrator.`;
+      document.body?.prepend(div);
+    });
+  }
+}
+
+// Warn about optional vars in dev
+if (import.meta.env.DEV) {
+  OPTIONAL_VARS.forEach(key => {
+    if (!import.meta.env[key]) {
+      console.warn(`[API Configuration] Warning: Missing environment variable: ${key}`);
+    }
+  });
+}
+
+// Export centralized constants
 export const ML_ENGINE_URL = getEnvVar('VITE_LLM_URL').replace(/\/$/, '');
 export const VOICE_AGENT_URL = getEnvVar('VITE_LLM_URL2').replace(/\/$/, '');
 export const API_BASE_URL = getEnvVar('VITE_API_BASE_URL').replace(/\/$/, '');
 
-// 3. Validation Summary for debugging (logged once in dev mode)
+// Validation summary for debugging
 if (import.meta.env.DEV) {
   console.log('[API Configuration] Initialized:', {
     ML_ENGINE_URL: ML_ENGINE_URL || 'MISSING',
