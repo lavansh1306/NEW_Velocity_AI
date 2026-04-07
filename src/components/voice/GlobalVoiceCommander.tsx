@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { useVoice } from '@/contexts/VoiceContext';
 import { useVoiceActions } from '@/hooks/useVoiceActions';
 import { MicOutlined, StopOutlined, AutoAwesomeOutlined } from '@mui/icons-material';
+import { ShortcutLegend } from '@/components/ShortcutLegend';
 
 export const GlobalVoiceCommander: React.FC = () => {
   const location = useLocation();
@@ -21,6 +22,7 @@ export const GlobalVoiceCommander: React.FC = () => {
   const lastProcessedTranscriptRef = useRef('');
   const startTimeoutRef = useRef<number | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [showLegend, setShowLegend] = useState(false);
 
   // Auto-listen when overlay opens — only once on open
   // Auto-listen when overlay opens — only once on open
@@ -47,6 +49,8 @@ export const GlobalVoiceCommander: React.FC = () => {
       setLiveText('');
     };
     window.addEventListener('velo-close-voice', handleClose);
+    const handleOpen = () => { lastProcessedTranscriptRef.current = ''; setIsOpen(true); setLiveText(''); };
+    window.addEventListener('velo-open-voice', handleOpen);
     return () => window.removeEventListener('velo-close-voice', handleClose);
   }, [stopListening]);
 
@@ -78,6 +82,7 @@ export const GlobalVoiceCommander: React.FC = () => {
 
   // Ctrl+Space global hotkey
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === '?') { e.preventDefault(); setShowLegend(s => !s); return; }
     if (e.ctrlKey && e.code === 'Space') {
       e.preventDefault();
       if (isOpen) {
@@ -305,6 +310,8 @@ export const GlobalVoiceCommander: React.FC = () => {
           </span>
         </div>
       </div>
+
+      {showLegend && <ShortcutLegend onClose={() => setShowLegend(false)} />}
 
       <style>{`
         @keyframes velo-bounce {
