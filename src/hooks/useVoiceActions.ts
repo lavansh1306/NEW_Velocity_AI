@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { useEffect, useRef } from 'react';
 import { useVoice } from '@/contexts/VoiceContext';
 import { geminiVoiceService, VoiceAction } from '@/services/geminiVoiceService';
 import { getDashboardData } from '@/services/dashboardService';
@@ -19,6 +20,19 @@ export const useVoiceActions = () => {
     setPendingConfirmation,
     startListening
   } = useVoice();
+
+  // Listen for cancel events from GlobalVoiceCommander (Escape key or "cancel" voice command)
+  const cancelledRef = useRef(false);
+  useEffect(() => {
+    const handleCancel = () => {
+      cancelledRef.current = true;
+      setProcessing(false);
+      setPendingConfirmation(null);
+      toast.info('Action cancelled');
+    };
+    window.addEventListener('velo-cancel-action', handleCancel);
+    return () => window.removeEventListener('velo-cancel-action', handleCancel);
+  }, []);
 
   const handleVoiceCommand = async (transcript: string, currentPath: string, context?: { currentProjectId?: string }) => {
     if (pendingConfirmation) {

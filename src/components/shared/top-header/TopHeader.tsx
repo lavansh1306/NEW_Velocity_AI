@@ -3,6 +3,7 @@ import { Bell, ChevronRight } from 'lucide-react';
 import { GlobalSearch } from './GlobalSearch';
 import { NotificationDropdown } from './NotificationDropdown';
 import { getNotifications } from '@/services/dashboardService';
+import { PresenceIndicator } from '@/components/PresenceIndicator';
 
 interface TopHeaderProps {
     activeLabel: string;
@@ -56,6 +57,7 @@ export const TopHeader = ({ activeLabel, actions }: TopHeaderProps) => {
             {/* Right Actions */}
             <div className="flex items-center gap-5 relative">
                 {actions}
+                <PresenceIndicator />
 
                 <button
                     className={`relative p-2 rounded-lg transition-all duration-200 border border-transparent ${isNotificationsOpen

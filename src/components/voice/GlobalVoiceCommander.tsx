@@ -96,6 +96,7 @@ export const GlobalVoiceCommander: React.FC = () => {
       e.preventDefault();
       if (startTimeoutRef.current) clearTimeout(startTimeoutRef.current);
       stopListening();
+      window.dispatchEvent(new CustomEvent('velo-cancel-action'));
       setIsOpen(false);
       setLiveText('');
     }

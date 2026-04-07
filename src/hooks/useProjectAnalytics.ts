@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { calculateProjectHealthScore } from '@/services/healthService';
 
 export interface ProjectMetrics {
   totalEstHours: number;
@@ -75,11 +76,7 @@ interface ProjectData {
   organization_id?: string;
 }
 
-function calculateHealthScore(completedTasks: number, totalTasks: number, estimatedHours: number, actualHours: number): number {
-  const taskFactor = totalTasks > 0 ? (completedTasks / totalTasks) : 1;
-  const timeFactor = estimatedHours > 0 ? Math.min(1, (estimatedHours / Math.max(actualHours, 1))) : 1;
-  return Math.round(((taskFactor * 0.6) + (timeFactor * 0.4)) * 100);
-}
+// calculateHealthScore replaced by calculateProjectHealthScore from healthService.ts
 
 export function useProjectAnalytics(projectId: string | undefined) {
   const { user } = useAuth();
@@ -142,7 +139,14 @@ export function useProjectAnalytics(projectId: string | undefined) {
 
     const totalEstHours = Math.round(totalEstSeconds / 3600);
     const actualHours = Math.round(totalSpentSeconds / 3600);
-    const healthScore = calculateHealthScore(completedCount, allIssues.length, totalEstHours, actualHours);
+    // Use real health scoring from healthService (schedule 40%, resource 30%, risk 20%, quality 10%)
+    const healthMetrics = calculateProjectHealthScore({
+      issues: allIssues,
+      startDate: projData.start_date ? new Date(projData.start_date) : undefined,
+      endDate: projData.end_date ? new Date(projData.end_date) : undefined,
+      teamMembers: Array.from(memberMap.keys()),
+    });
+    const healthScore = healthMetrics.compositeScore;
 
     const members: TeamMember[] = Array.from(memberMap.entries())
       .filter(([name]) => name !== 'Unassigned')
