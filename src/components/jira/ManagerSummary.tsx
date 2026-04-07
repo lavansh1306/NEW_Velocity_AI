@@ -48,7 +48,7 @@ export default function ManagerSummary({ tasks }: ManagerSummaryProps) {
   const [selectedAssignee, setSelectedAssignee] = useState<string | null>(null)
   const [workingPeriod, setWorkingPeriod] = useState<WorkingPeriod>({})
   const [showBlockTimeResult, setShowBlockTimeResult] = useState(false)
-  const [issueFixes, setIssueFixes] = useState<Record<string, { start?: string; due?: string }>>({})
+  const [issueFixes] = useState<Record<string, { start?: string; due?: string }>>({})
 
   const MS_PER_DAY = 24 * 60 * 60 * 1000
 
@@ -69,11 +69,6 @@ export default function ManagerSummary({ tasks }: ManagerSummaryProps) {
 
   const { byAssignee, weeks, tasksPerWeekPerAssignee, totals, idleDaysByAssignee } = useMemo(() => {
     const byAssignee: { [key: string]: Issue[] } = {}
-    const normalizeDate = (d: Date | string): Date => {
-      const nd = new Date(d)
-      nd.setHours(0, 0, 0, 0)
-      return nd
-    }
     const weeksSet = new Set<string>()
 
     tasks.forEach(t => {
@@ -179,7 +174,7 @@ export default function ManagerSummary({ tasks }: ManagerSummaryProps) {
     }).sort((a, b) => b.count - a.count)
 
     return { byAssignee, weeks, tasksPerWeekPerAssignee, totals, idleDaysByAssignee }
-  }, [tasks, workingPeriod, issueFixes])
+  }, [tasks, workingPeriod, issueFixes, DEFAULT_WORKING_START, DEFAULT_WORKING_END, MS_PER_DAY, businessDaysBetween])
 
   const topAssignees = totals.slice(0, 8)
 
@@ -364,7 +359,7 @@ export default function ManagerSummary({ tasks }: ManagerSummaryProps) {
                 let e = sourceDueRaw ? normDate(sourceDueRaw) : normDate(sourceStartRaw)
                 // Defensive: if end is before start in source data, clamp end to start
                 if (e.getTime() < s.getTime()) e = new Date(s.getTime())
-                return ({ start: s, end: e, key: t.key, summary: t.summary, __raw: { sourceStartRaw, sourceDueRaw } as any })
+                return ({ start: s, end: e, key: t.key, summary: t.summary })
               })
               
               if (assigneeTasks.length === 0) {
@@ -438,19 +433,6 @@ export default function ManagerSummary({ tasks }: ManagerSummaryProps) {
               
 
               
-
-              // Detect anomalies (start > due) from source data (before merge)
-              const anomalies: Array<{ key: string; start: string; due: string | null }> = []
-              byAssignee[selectedAssignee].forEach(t => {
-                const fix = issueFixes[t.key] || {}
-                const sourceStartRaw = fix.start ?? t.start ?? t.created!
-                const sourceDueRaw = fix.due ?? t.due ?? null
-                const sMs = startOfDayUTC_local(new Date(sourceStartRaw))
-                const eMs = sourceDueRaw ? startOfDayUTC_local(new Date(sourceDueRaw)) + msPerDay_local : sMs + msPerDay_local
-                if (eMs < sMs) {
-                  anomalies.push({ key: t.key, start: String(sourceStartRaw), due: String(sourceDueRaw) })
-                }
-              })
 
               // Optionally clip to the current working period so free periods outside it are not shown
               const workingStartMs = startOfDayUTC_local(currentStart)

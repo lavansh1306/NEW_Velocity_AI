@@ -21,20 +21,27 @@ interface JiraIssue {
   due?: string;
   start?: string;
   duration?: number;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 interface JiraProject {
   key: string;
   name: string;
   title: string;
-  [key: string]: any;
+  [key: string]: unknown;
+}
+
+
+interface DashboardMetrics {
+  teamUtilization: number;
+  availableCapacity: number;
+  projectsAtRisk: number;
 }
 
 interface JiraDashboardProps {
   jiraIssues: JiraIssue[];
   jiraProjects: JiraProject[];
-  dashboardMetrics: any;
+  dashboardMetrics: DashboardMetrics;
   upcomingDeadlines: JiraIssue[];
 }
 
@@ -73,7 +80,7 @@ export const JiraPoweredDashboard = ({
 
       weeks.push({
         week: `Week ${i + 1}`,
-        utilization: Math.min(100, utilization + Math.random() * 20),
+        utilization,
         available: available,
       });
     }
@@ -100,10 +107,10 @@ export const JiraPoweredDashboard = ({
     const recommendations = [];
 
     // Check utilization
-    if (currentWeekMetrics.weeklyUtilization > 100) {
+    if (currentWeekMetrics.weeklyUtilization >= 95) {
       recommendations.push({
         severity: 'rose',
-        title: 'Team is overutilized',
+        title: 'Team is near full utilization',
         description: `Current week utilization at ${currentWeekMetrics.weeklyUtilization}%. Consider redistributing tasks.`,
       });
     } else if (currentWeekMetrics.weeklyUtilization > 85) {
@@ -161,7 +168,7 @@ export const JiraPoweredDashboard = ({
               <KPICard
                 label="Team Utilization"
                 value={`${currentWeekMetrics.weeklyUtilization}%`}
-                sublabel={currentWeekMetrics.weeklyUtilization > 100 ? 'Overallocated' : 'Within target'}
+                sublabel={currentWeekMetrics.weeklyUtilization >= 95 ? 'Near capacity' : 'Within target'}
               />
               <KPICard
                 label="Available Capacity"
@@ -230,8 +237,8 @@ export const JiraPoweredDashboard = ({
                       </div>
                       <div className="flex items-center gap-6">
                         <div className="text-right">
-                          <div className="text-sm text-gray-900 font-light">{daysLeft} days</div>
-                          <div className="text-xs text-gray-400 font-light">remaining</div>
+                          <div className="text-sm text-gray-900 font-light">{Math.abs(daysLeft)} days</div>
+                          <div className="text-xs text-gray-400 font-light">{daysLeft < 0 ? 'overdue' : 'remaining'}</div>
                         </div>
                         <StatusBadge status={status} />
                       </div>
