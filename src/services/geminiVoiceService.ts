@@ -1,17 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export interface VoiceAction {
-  type:
-    | 'navigate'
-    | 'create_task'
-    | 'add_team_member'
-    | 'delete_team_member'
-    | 'create_project'
-    | 'search'
-    | 'info'
-    | 'gantt_query'
-    | 'resource_query'
-    | 'unknown';
+  type: 'navigate' | 'create_task' | 'update_task' | 'add_team_member' | 'delete_team_member' | 'create_project' | 'search' | 'info' | 'gantt_query' | 'resource_query' | 'approve_leave' | 'unknown';
   target?: string;
   params?: {
     taskName?: string;
@@ -22,10 +12,12 @@ export interface VoiceAction {
     projectTitle?: string;
     projectDescription?: string;
     autoAnalyze?: boolean;
+    hours?: number;
+    status?: string;
   };
   response?: string;
-  requiresConfirmation?: boolean;
-  prompt?: string;
+  requiresConfirmation?: boolean; // NEW: Flag for high-risk actions
+  prompt?: string; // NEW: For multi-turn clarifying questions
 }
 
 class GeminiVoiceService {
@@ -36,24 +28,26 @@ class GeminiVoiceService {
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
     if (apiKey) {
       this.genAI = new GoogleGenerativeAI(apiKey);
+      // Using Gemini 3 Flash Preview for cutting-edge speed and intelligence
       this.model = this.genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
     }
   }
 
   async parseIntent(transcript: string, currentPath: string): Promise<VoiceAction> {
+    // 1. Try Direct Command Parsing first (Fast Path, No LLM Latency)
     const directAction = this.parseDirectCommand(transcript);
     if (directAction) {
       console.log('[GeminiVoice] Using Direct Command:', directAction);
       return directAction;
     }
 
+    // 2. Backend /api/voice/parse — Gemini→Groq→local fallback chain
     try {
       const res = await fetch('/api/voice/parse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ transcript, currentPath })
       });
-
       if (res.ok) {
         const data = await res.json() as VoiceAction & { provider?: string };
         console.log('[GeminiVoice] Backend success via:', data.provider);
@@ -65,24 +59,22 @@ class GeminiVoiceService {
 
     return this.fallbackParse(transcript);
   }
-
   async summarizeData(data: any, query: string): Promise<string> {
     if (!this.model) return "I have the data, but I'm unable to summarize it right now.";
 
     const prompt = `
-You are the Voice Summary Layer for Velocity AI.
+You are the "Voice Summary Layer" for Velocity AI. 
 The user asked: "${query}"
-
-Below is the raw JSON data related to their query.
-Your job is to provide a brief, professional, spoken summary in 1 to 2 sentences.
+Below is the raw JSON data related to their query. 
+Your job is to provide a BRIEF (1-2 sentences), professional, and spoken summary.
 
 Data:
 ${JSON.stringify(data, null, 2)}
 
 Rules:
-- Be concise
-- Focus on the user's exact question
-- Use natural spoken language
+- Be concise.
+- Focus on the specific question asked.
+- Use natural, spoken language.
 `;
 
     try {
@@ -95,50 +87,42 @@ Rules:
   }
 
   private normalizeTranscript(text: string): string {
-    return text
-      .toLowerCase()
-      .replace(/^(hello|hi|hey|velocity|hey velocity|ok velocity|bot|ai|please|can you|could you)\s+/g, '')
-      .replace(/\bfront\s*end\b/g, 'frontend')
-      .replace(/\bback\s*end\b/g, 'backend')
-      .replace(/\bfull\s*stack\b/g, 'fullstack')
-      .replace(/\badd\s+(.+?)\s+to\s+(frontend|backend|developer|engineer|designer|qa|tester|product manager|manager)\b/g, 'add $1 as $2')
-      .replace(/[.,!?;:]+$/g, '')
-      .replace(/\s+/g, ' ')
+    return text.toLowerCase()
+      .replace(/^(hello|hi|hey|velocity|bot|ai|please|can you|could you)\s+/g, '')
+      .replace(/[.,!?;:]+$/, '') // Strip trailing punctuation
       .trim();
   }
 
   private parseDirectCommand(transcript: string): VoiceAction | null {
     const text = this.normalizeTranscript(transcript);
-
+    
+    // 1. Navigation Shortcuts
     const navTargets: Record<string, string> = {
-      dashboard: '/dashboard',
-      project: '/projects',
-      projects: '/projects',
-      team: '/people',
-      people: '/people',
-      plan: '/plan',
-      setting: '/settings',
-      settings: '/settings',
-      ai: '/velocity-ai',
-      velocity: '/velocity-ai'
+      'dashboard': '/dashboard',
+      'project': '/projects',
+      'team': '/people',
+      'people': '/people',
+      'plan': '/plan',
+      'setting': '/settings',
+      'ai': '/velocity-ai',
+      'velocity': '/velocity-ai'
     };
 
-    const isProjectCreate =
-      text.includes('add project') ||
-      text.includes('create project') ||
-      text.includes('new project') ||
-      text.includes('plan project');
-
+    // 1a. "Create Project" Specialization (Direct Navigation to AI Planner)
+    const isProjectCreate = text.includes('add project') || text.includes('create project') || text.includes('new project') || text.includes('plan project');
     if (isProjectCreate) {
+      // Extract projectTitle and projectDescription
+      // Variants: "Add a project named X that does Y" or "Create a project X to do Y"
       let title = '';
       let description = '';
 
-      const nameMatch = text.match(/(?:named|called)\s+(.+?)(?=\s+(?:that does|to do|for doing|which does|that is)\s+|$)/i);
+      const nameMatch = text.match(/(?:named|called)\s+([^that|who|to|which|for]+)/i);
       const doingMatch = text.match(/(?:that does|to do|for doing|which does|that is)\s+(.+)/i);
 
       if (nameMatch) title = nameMatch[1].trim();
       if (doingMatch) description = doingMatch[1].trim();
 
+      // If no description but text after "project"
       if (!description) {
         const afterProject = text.split(/project|new|plan/).pop()?.trim();
         if (afterProject && afterProject !== 'add' && afterProject !== 'create') {
@@ -148,106 +132,116 @@ Rules:
 
       return {
         type: 'create_project',
-        params: {
-          projectTitle: title,
+        params: { 
+          projectTitle: title, 
           projectDescription: description,
-          autoAnalyze: !!description
+          autoAnalyze: !!description // Only auto-analyze if we have a description
         },
-        response: description
+        response: description 
           ? `Sure, I'll set up that plan for ${title || 'the project'} and start the analysis.`
-          : 'Opening the project planner for you.'
+          : `Opening the project planner for you.`
       };
     }
 
-    if (
-      text.startsWith('go to ') ||
-      text.startsWith('open ') ||
-      text.startsWith('show ') ||
-      text.startsWith('take me to ')
-    ) {
-      const cleaned = text
-        .replace(/^(go to|open|show|take me to)\s+/, '')
-        .replace(/\b(the|page|screen|tab|section|me)\b/g, '')
-        .replace(/\s+/g, ' ')
-        .trim();
-
+    if (text.startsWith('go to ') || text.startsWith('open ') || text.startsWith('show ')) {
+      const targetStr = text.split(' ').slice(-1)[0].replace(/[.,!?;]$/, '');
       for (const [key, path] of Object.entries(navTargets)) {
-        if (cleaned.includes(key)) {
-          return {
-            type: 'navigate',
-            target: path,
-            response: `Opening ${key}.`
-          };
+        if (targetStr.includes(key)) {
+          return { type: 'navigate', target: path, response: `Opening ${key}.` };
         }
       }
     }
 
+    // 1b. "Delete Team Member" Specialization (Direct Deletion)
     const isDeleteCommand = text.includes('delete') || text.includes('remove') || text.includes('fire');
-    if (isDeleteCommand) {
+    if (isDeleteCommand && (text.includes('member') || text.includes('team') || text.includes('person') || text.split(/\s+/).length > 1)) {
       const noise = ['delete', 'remove', 'fire', 'member', 'team', 'person', 'from', 'the', 'named', 'called'];
       const words = text.split(/\s+/).filter(w => !noise.includes(w) && w.length > 1);
+      
+      // Clean words from punctuation as well
       const cleanWords = words.map(w => w.replace(/[.,!?;:]+$/, ''));
       const nameMatch = cleanWords.join(' ').trim();
-
+      
       if (nameMatch) {
-        return {
+         return {
           type: 'delete_team_member',
-          params: {
-            name: nameMatch.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
-          },
+          params: { name: nameMatch.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') },
           response: `I'll help you remove ${nameMatch} from the team.`,
-          requiresConfirmation: true
+          requiresConfirmation: true // High-risk action
         };
       }
     }
 
+    // 2. Add Team Member (Robust Extraction)
     const roleMapping: Record<string, string> = {
-      frontend: 'Frontend Developer',
-      backend: 'Backend Developer',
-      fullstack: 'Full Stack Developer',
-      designer: 'Designer',
-      design: 'Designer',
+      'front end': 'Frontend Developer',
+      'frontend': 'Frontend Developer',
+      'back end': 'Backend Developer',
+      'backend': 'Backend Developer',
+      'full stack': 'Full Stack Developer',
+      'fullstack': 'Full Stack Developer',
+      'designer': 'Designer',
+      'design': 'Designer',
       'product manager': 'Product Manager',
-      manager: 'Product Manager',
-      qa: 'QA Engineer',
-      tester: 'QA Engineer',
-      developer: 'Developer',
-      engineer: 'Engineer',
-      'data engineer': 'Data Engineer',
-      data: 'Data Engineer'
+      'manager': 'Product Manager',
+      'qa': 'QA Engineer',
+      'tester': 'QA Engineer',
+      'developer': 'Frontend Developer',
+      'engineer': 'Frontend Developer'
     };
 
     const roles = Object.keys(roleMapping).sort((a, b) => b.length - a.length);
+    const isInviteCommand = text.includes('add') || text.includes('invite') || text.includes('new');
+    const hasContext = text.includes('member') || text.includes('team') || text.includes('@') || roles.some(r => text.includes(r));
 
-    const addPatterns = [
-      /(?:^|\b)(?:add|invite|new)\s+([a-z]+(?:\s+[a-z]+)*)\s+(?:as\s+)?(data engineer|frontend|backend|fullstack|designer|design|product manager|manager|qa|tester|developer|engineer)\b/i,
-      /^([a-z]+(?:\s+[a-z]+)*)\s+as\s+(?:a\s+)?(data engineer|frontend|backend|fullstack|designer|design|product manager|manager|qa|tester|developer|engineer)\b/i,
-      /^add\s+([a-z]+(?:\s+[a-z]+)*)\s+(.+)$/i
-    ];
-
-    for (const pattern of addPatterns) {
-      const match = text.match(pattern);
-      if (!match) continue;
-
-      const rawName = match[1]?.trim();
-      const rawRoleText = match[2]?.trim().toLowerCase();
-
-      let matchedRole = '';
+    if (isInviteCommand && hasContext) {
+      const words = text.split(/\s+/);
+      const cleanWords = words.map(w => w.replace(/[.,!?;:]+$/, ''));
+      let email = cleanWords.find(w => w.includes('@')) || '';
+      
+      let role = 'Team Member';
       for (const r of roles) {
-        if (rawRoleText.includes(r)) {
-          matchedRole = roleMapping[r];
+        if (text.includes(r)) {
+          role = roleMapping[r];
           break;
         }
       }
 
-      if (rawName && matchedRole) {
+      const commandNoise = ['add', 'invite', 'new', 'team', 'member', 'for', 'as', 'is', 'a', 'the', 'email', 'with', 'role', 'position', 'at', 'called', 'named', 'and'];
+      const roleNoise = roles.flatMap(r => r.split(' '));
+      const allNoise = [...commandNoise, ...roleNoise];
+      
+      let nameWords = cleanWords.filter(w => 
+        !allNoise.includes(w) && 
+        !w.includes('@') && 
+        w.length > 1
+      );
+      
+      let nameCandidate = nameWords.join(' ').replace(/^as\s+/, '').trim();
+      
+      // Heuristic: If name is missing but email is present, extract from email handle
+      if (!nameCandidate && email) {
+        const handle = email.split('@')[0];
+        // Split repeated names like 'krishkrish' -> 'Krish Krish'
+        const doubled = handle.match(/^([a-z]{3,})\1$/);
+        if (doubled) {
+          nameCandidate = `${doubled[1]} ${doubled[1]}`;
+        } else {
+          nameCandidate = handle.replace(/[^a-zA-Z]/g, ' ').trim();
+        }
+      }
+
+      if (email || nameCandidate) {
+        if (nameCandidate.toLowerCase().startsWith('as ')) nameCandidate = nameCandidate.slice(3);
+
         return {
           type: 'add_team_member',
-          params: {
-            name: rawName.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
-            role: matchedRole
+          params: { 
+            name: nameCandidate.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') || 'New Member', 
+            email: email, 
+            role: role 
           },
-          response: `Sure, I'll add ${rawName} as a ${matchedRole}.`
+          response: `Sure, I'll add ${nameCandidate || 'them'} as a ${role}.`
         };
       }
     }
@@ -256,27 +250,18 @@ Rules:
   }
 
   private fallbackParse(transcript: string): VoiceAction {
-    const text = this.normalizeTranscript(transcript);
-
-    if (text.includes('dashboard')) {
-      return { type: 'navigate', target: '/dashboard', response: 'Opening dashboard.' };
-    }
-
+    const text = transcript.toLowerCase();
+    
+    // Quick basic fallback before LLM
+    if (text.includes('dashboard')) return { type: 'navigate', target: '/dashboard', response: "Opening dashboard." };
     if (text.includes('project')) {
       if (text.includes('add') || text.includes('new') || text.includes('create')) {
-        return { type: 'create_project', params: {}, response: 'Opening project planner.' };
+        return { type: 'create_project', params: {}, response: "Opening project planner." };
       }
-      return { type: 'navigate', target: '/projects', response: 'Opening projects.' };
+      return { type: 'navigate', target: '/projects', response: "Opening projects." };
     }
-
-    if (text.includes('people') || text.includes('team')) {
-      return { type: 'navigate', target: '/people', response: 'Opening people.' };
-    }
-
-    return {
-      type: 'unknown',
-      response: "Sorry, I'm having trouble understanding that command."
-    };
+    
+    return { type: 'unknown', response: "I heard you, but I'm not sure what you'd like me to do." };
   }
 }
 

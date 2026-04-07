@@ -28,7 +28,9 @@ Current page: ${currentPath}
 7. info: Answer product questions. { response: "1-2 sentence answer" }
 8. gantt_query: Timeline questions. { query }
 9. resource_query: Capacity/workload questions. { query }
-10. unknown: { prompt: "clarifying question" }
+10. approve_leave: Approve leave by name. { name }
+11. update_task: Update task status. { taskName, status: "completed"|"in_progress", hours: number }
+12. unknown: { prompt: "clarifying question" }
 
 ## RULES
 - NEVER say "standard mode" or any mode preamble in response field.
@@ -102,6 +104,28 @@ function localParse(transcript: string): object {
   // Capacity/resource query
   if (text.includes('bandwidth') || text.includes('capacity') || text.includes('available') || text.includes('who has') || text.includes('who is')) {
     return { type: 'resource_query', params: { query: transcript }, response: 'Checking team capacity.', provider: 'local' };
+  }
+
+  // Update task status — "I finished X, took Y hours"
+  const isTaskUpdate = text.includes('finished') || text.includes('completed') || text.includes('done with') || text.includes('took') || text.includes('spent');
+  const hasTaskContext = text.includes('task') || text.includes('module') || text.includes('feature') || text.includes('ticket') || text.includes('issue') || text.split(/\s+/).length > 3;
+  if (isTaskUpdate && hasTaskContext) {
+    // Extract hours
+    const hoursMatch = text.match(/(\d+)\s*(?:hours?|hrs?)/);
+    const hours = hoursMatch ? parseInt(hoursMatch[1]) : null;
+    // Extract task name — everything after "finished/completed" before "took/spent"
+    const taskMatch = transcript.match(/(?:finished|completed|done with)\s+(?:the\s+)?([^,\.]+?)(?:\s+(?:took|spent|,|\.|$))/i);
+    const taskName = taskMatch ? taskMatch[1].trim() : transcript;
+    return res.json({ type: 'update_task', params: { taskName, status: 'completed', hours }, response: hours ? `Got it, marking as done and logging ${hours} hours.` : 'Marking that as completed.', provider: 'local' });
+  }
+
+  // Update task status — "I finished the auth module, took 6 hours"
+  if (text.includes('finished') || text.includes('completed') || text.includes('done with') || (text.includes('took') && text.includes('hour'))) {
+    const hoursMatch = text.match(/(\d+)\s*(?:hours?|hrs?)/);
+    const hours = hoursMatch ? parseInt(hoursMatch[1]) : null;
+    const taskMatch = transcript.match(/(?:finished|completed|done with)\s+(?:the\s+)?([^,\.]+?)(?:\s+(?:took|spent|,|\.|$))/i);
+    const taskName = taskMatch ? taskMatch[1].trim() : transcript.replace(/took.*|spent.*/i, '').trim();
+    return { type: 'update_task', params: { taskName, status: 'completed', hours }, response: hours ? `Got it, marking as done and logging ${hours} hours.` : 'Marking that as completed.', provider: 'local' };
   }
 
   // Approve leave

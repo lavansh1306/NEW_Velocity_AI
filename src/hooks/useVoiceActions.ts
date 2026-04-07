@@ -158,15 +158,31 @@ export const useVoiceActions = () => {
         toast.info(`Searching for "${action.params?.query || 'anything'}"`);
         break;
 
+      // #26 improved resource_query with formatted capacity response
       case 'gantt_query':
       case 'resource_query': {
-        const data = await getDashboardData();
-        const summary = await geminiVoiceService.summarizeData(
-          data,
-          action.params?.query || action.type.replace('_', ' ')
-        );
-        speak(summary);
-        toast.info(summary);
+        try {
+          const data = await getDashboardData();
+          const members = (data as any)?.teamCapacity || (data as any)?.team_members || [];
+          let capacitySummary = '';
+          if (Array.isArray(members) && members.length > 0) {
+            const available = members
+              .filter((m: any) => (m.available_hours || m.availableHours || 0) > 0)
+              .map((m: any) => {
+                const hours = m.available_hours || m.availableHours || 0;
+                const name = m.name || m.full_name || 'Someone';
+                return `${name} has ${hours} hours free`;
+              });
+            if (available.length > 0) capacitySummary = available.slice(0, 4).join(', ') + '.';
+          }
+          const summary = capacitySummary
+            ? capacitySummary
+            : await geminiVoiceService.summarizeData(data, action.params?.query || 'team capacity this week');
+          speak(summary);
+          toast.info(summary);
+        } catch {
+          speak("I couldn't retrieve capacity data right now.");
+        }
         break;
       }
 
@@ -177,7 +193,49 @@ export const useVoiceActions = () => {
         }
         break;
 
-      // NEW: Voice-driven leave approval
+      // #25 Natural language task status update
+      case 'update_task': {
+        const taskName = (action.params as any)?.taskName;
+        const hours = (action.params as any)?.hours;
+        const status = (action.params as any)?.status || 'completed';
+        if (!taskName) {
+          speak("Which task would you like to update?");
+          break;
+        }
+        try {
+          const { data: tasks } = await supabase
+            .from('tasks')
+            .select('id, name')
+            .ilike('name', `%${taskName}%`)
+            .limit(1);
+
+          if (!tasks || tasks.length === 0) {
+            speak(`I couldn't find a task matching "${taskName}".`);
+            toast.error(`Task not found: ${taskName}`);
+            break;
+          }
+          const task = tasks[0];
+          await supabase.from('tasks').update({ status }).eq('id', task.id);
+          if (hours && hours > 0) {
+            await supabase.from('timesheets').insert({
+              task_id: task.id,
+              hours_logged: hours,
+              logged_at: new Date().toISOString(),
+              notes: `Voice logged: ${hours} hours`,
+            });
+          }
+          const hoursMsg = hours ? ` and logged ${hours} hours` : '';
+          speak(`Done. Marked "${task.name}" as ${status}${hoursMsg}.`);
+          toast.success(`Task updated: ${task.name}`);
+        } catch (e) {
+          console.error('[VoiceActions] update_task error:', e);
+          speak('Something went wrong updating the task.');
+        }
+        closeVoiceOverlay();
+        break;
+      }
+
+      // Voice-driven leave approval
       case 'approve_leave': {
         const personName = action.params?.name;
         if (!personName) {
