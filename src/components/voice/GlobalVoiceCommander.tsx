@@ -38,6 +38,8 @@ export const GlobalVoiceCommander: React.FC = () => {
   }, [isOpen, isListening, lastTranscript, status, startListening]);
 
   const [liveText, setLiveText] = useState('');
+  const [commandHistory, setCommandHistory] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
 
   // Listen for close event from useVoiceActions after navigation
   useEffect(() => {
@@ -63,6 +65,7 @@ export const GlobalVoiceCommander: React.FC = () => {
     hasProcessed.current = true;
     lastProcessedTranscriptRef.current = lastTranscript;
     setLiveText(lastTranscript);
+    setCommandHistory(prev => [{text: lastTranscript, time: new Date()}, ...prev].slice(0, 10));
 
     setTimeout(() => {
       const pathParts = location.pathname.split('/');

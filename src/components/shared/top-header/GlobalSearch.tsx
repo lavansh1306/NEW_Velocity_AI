@@ -83,7 +83,8 @@ export const GlobalSearch = () => {
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder="Search projects, people, tasks..."
+                    ref={inputRef}
+                    placeholder="Search projects, people, tasks... (press /)"
                     className="pl-10 h-10 bg-white border border-[#E7E5E4] rounded-lg text-sm focus:bg-white focus:border-[#2DD4BF] focus:ring-1 focus:ring-[#2DD4BF]/20 focus:shadow-sm transition-all placeholder:text-[#D6D3D1] font-light shadow-sm"
                 />
             </div>
