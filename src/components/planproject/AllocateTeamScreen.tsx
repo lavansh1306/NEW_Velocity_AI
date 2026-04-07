@@ -146,37 +146,6 @@ export const AllocateTeamScreen = () => {
             });
             await supabase.from('tasks').insert(tasksToInsert);
 
-            // Fire RL feedback — train the model on manager's selections
-            const mlUrl = import.meta.env.VITE_LLM_URL;
-            if (mlUrl) {
-                const feedbackPromises = recommendedTeam.map(async (member: any) => {
-                    const wasSelected = selectedTeamIds.includes(member.id);
-                    const reward = wasSelected ? 1.0 : -1.0;
-                    try {
-                        await fetch(`${mlUrl}/api/v1/planner/feedback`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                user_id: member.id,
-                                task_name: (member.task_fit || []).join(', '),
-                                reward,
-                                org_id: currentOrgId,
-                                skill_match_score: (member.match_percentage || 50) / 100,
-                                capacity_pct: (member.availability || 50) / 100,
-                                current_load_pct: 1 - ((member.availability || 50) / 100),
-                                role_match: 1.0,
-                                jira_history_count: 0.5,
-                                leave_risk: member.availability === 0 ? 1.0 : 0.0
-                            })
-                        });
-                    } catch (e) {
-                        console.warn('[RL] Feedback failed for', member.id, e);
-                    }
-                });
-                await Promise.allSettled(feedbackPromises);
-                console.log('[RL] Feedback sent for', recommendedTeam.length, 'members');
-            }
-
             toast.success("Project launched successfully!");
             navigate(`/projects/${proj.id}`); // Navigate to fixed route
         } catch (e) {
@@ -218,6 +187,18 @@ export const AllocateTeamScreen = () => {
                                             {m.task_fit.map((t: string, i: number) => (
                                                 <span key={i} className="px-2 py-0.5 bg-[#F0FDFA] text-[#0F766E] border border-[#CCFBF1] rounded text-[9px] font-medium">{t}</span>
                                             ))}
+                                        </div>
+                                        {/* Confidence Score */}
+                                        <div className="flex items-center justify-between mb-3">
+                                          <div className="flex items-center gap-2">
+                                            <div className="h-1.5 flex-1 w-24 bg-gray-100 rounded-full overflow-hidden">
+                                              <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.round((m.match_percentage || m.skill_match_score * 100 || 70))}%` }} />
+                                            </div>
+                                            <span className="text-xs font-semibold text-emerald-700">{Math.round(m.match_percentage || m.skill_match_score * 100 || 70)}% match</span>
+                                          </div>
+                                          {m.remaining_capacity_hours != null && (
+                                            <span className="text-[10px] text-[#78716C]">{Math.round(m.remaining_capacity_hours)}h free</span>
+                                          )}
                                         </div>
                                         <div className="p-3 bg-emerald-50 rounded-xl text-[11px] italic text-[#44403C]">"{m.justification}"</div>
                                     </div>
