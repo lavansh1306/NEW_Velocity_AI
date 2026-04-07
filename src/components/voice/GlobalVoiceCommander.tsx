@@ -61,7 +61,12 @@ export const GlobalVoiceCommander: React.FC = () => {
     setLiveText(lastTranscript);
 
     setTimeout(() => {
-      handleVoiceCommand(lastTranscript, location.pathname);
+      const pathParts = location.pathname.split('/');
+      const projectsIdx = pathParts.indexOf('projects');
+      const currentProjectId = projectsIdx >= 0 && pathParts[projectsIdx + 1] && pathParts[projectsIdx + 1].length > 10
+        ? pathParts[projectsIdx + 1]
+        : undefined;
+      handleVoiceCommand(lastTranscript, location.pathname, { currentProjectId });
       setTimeout(() => { hasProcessed.current = false; }, 500);
     }, 50);
   }, [lastTranscript, isListening, handleVoiceCommand, location.pathname]);
