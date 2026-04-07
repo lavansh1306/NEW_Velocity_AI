@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export interface VoiceAction {
-  type: 'navigate' | 'create_task' | 'update_task' | 'add_team_member' | 'delete_team_member' | 'create_project' | 'search' | 'info' | 'gantt_query' | 'resource_query' | 'approve_leave' | 'unknown';
+  type: 'navigate' | 'create_task' | 'update_task' | 'add_team_member' | 'delete_team_member' | 'create_project' | 'sprint_plan' | 'project_report' | 'search' | 'info' | 'gantt_query' | 'resource_query' | 'approve_leave' | 'unknown';
   target?: string;
   params?: {
     taskName?: string;

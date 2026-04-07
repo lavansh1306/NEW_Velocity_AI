@@ -32,6 +32,7 @@ Active project ID: ${currentProjectId} — if user says "this project" or "assig
 10. approve_leave: Approve leave by name. { name }
 11. project_report: Generate health report for a project. { projectId, projectName }
 11. update_task: Update task status. { taskName, status: "completed"|"in_progress", hours: number }
+12. sprint_plan: Plan next sprint using team capacity. No params needed.
 12. unknown: { prompt: "clarifying question" }
 
 ## RULES
@@ -115,6 +116,11 @@ function localParse(transcript: string, currentProjectId?: string): object {
     return { type: 'project_report', params: { projectId: currentProjectId, projectName }, response: `Generating health report for ${projectName}.`, provider: 'local' };
   }
 
+  // Sprint planning
+  if ((text.includes('sprint') || text.includes('plan next') || text.includes('next sprint')) && (text.includes('plan') || text.includes('sprint'))) {
+    return { type: 'sprint_plan', params: {}, response: 'Opening sprint planner with your team capacity data.', provider: 'local' };
+  }
+
   // Update task status — "I finished X, took Y hours"
   const isTaskUpdate = text.includes('finished') || text.includes('completed') || text.includes('done with') || text.includes('took') || text.includes('spent');
   const hasTaskContext = text.includes('task') || text.includes('module') || text.includes('feature') || text.includes('ticket') || text.includes('issue') || text.split(/\s+/).length > 3;
@@ -133,6 +139,11 @@ function localParse(transcript: string, currentProjectId?: string): object {
     const nameMatch = transcript.match(/(?:report|health|status)(?:\s+(?:for|on|of))?\s+(?:the\s+)?([^?]+?)(?:\?|$)/i);
     const projectName = nameMatch ? nameMatch[1].trim() : 'this project';
     return { type: 'project_report', params: { projectId: currentProjectId, projectName }, response: `Generating health report for ${projectName}.`, provider: 'local' };
+  }
+
+  // Sprint planning
+  if ((text.includes('sprint') || text.includes('plan next') || text.includes('next sprint')) && (text.includes('plan') || text.includes('sprint'))) {
+    return { type: 'sprint_plan', params: {}, response: 'Opening sprint planner with your team capacity data.', provider: 'local' };
   }
 
   // Update task status — "I finished the auth module, took 6 hours"

@@ -119,6 +119,34 @@ export const useVoiceActions = () => {
         }, 900);
         break;
       }
+
+      // #2 Sprint Planning — pre-fill Plan page with capacity and leave context
+      case 'sprint_plan': {
+        closeVoiceOverlay();
+        try {
+          const data = await getDashboardData();
+          const capacity = (data as any)?.kpis?.find((k: any) => k.label === 'AVAILABLE CAPACITY');
+          const teamSize = (data as any)?.kpis?.find((k: any) => k.label?.includes('TEAM'));
+          
+          const capacityHours = capacity?.value?.replace('h', '') || '0';
+          const sprintDesc = `Sprint planning context: Team has ${capacityHours} hours available this week. Plan tasks that fit within team capacity. Focus on highest priority incomplete work.`;
+          
+          speak('Opening sprint planner with your team capacity data.');
+          setTimeout(() => {
+            navigate('/plan', {
+              state: {
+                voiceTitle: `Sprint ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+                voiceDescription: sprintDesc,
+                autoAnalyze: false,
+                sprintMode: true,
+              }
+            });
+          }, 900);
+        } catch (e) {
+          navigate('/plan');
+        }
+        break;
+      }
       
       case 'create_task':
         toast.success(`Intent: Create task "${action.params?.taskName || 'New Task'}"`);
