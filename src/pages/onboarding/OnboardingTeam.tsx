@@ -472,6 +472,20 @@ David Lee,david@example.com,Frontend Developer`;
 
             <div className="mb-12">
               <p className="text-sm text-[#78716C] text-center mb-4 font-light">Import your team</p>
+              {/* Jira — primary import CTA */}
+              <div className="flex justify-center mb-4">
+                <button
+                  onClick={() => setImportModal('jira')}
+                  className="flex items-center gap-3 px-8 py-4 bg-[#0052CC] hover:bg-[#0052CC]/90 text-white rounded-xl transition-all text-sm font-medium shadow-md"
+                >
+                  <span className="text-xl">🔗</span>
+                  <div className="text-left">
+                    <div className="font-semibold">Import from Jira</div>
+                    <div className="text-xs text-blue-200 font-light">Your team is already there</div>
+                  </div>
+                </button>
+              </div>
+              <p className="text-xs text-[#A8A29E] text-center mb-3">or import another way</p>
               <div className="flex justify-center gap-3">
                 <button
                   onClick={() => setIsCSVMode(true)}
@@ -484,12 +498,6 @@ David Lee,david@example.com,Frontend Developer`;
                   className="flex items-center gap-2 px-5 py-3 border-2 border-[#E7E5E4] bg-white rounded-lg hover:border-[#0F766E]/40 hover:bg-[#FAFAF9] transition-all text-sm font-medium text-[#1C1917]"
                 >
                   <span className="text-lg">📋</span> Paste Data
-                </button>
-                <button
-                  onClick={() => setImportModal('jira')}
-                  className="flex items-center gap-2 px-5 py-3 border-2 border-[#E7E5E4] bg-white rounded-lg hover:border-[#0F766E]/40 hover:bg-[#FAFAF9] transition-all text-sm font-medium text-[#1C1917]"
-                >
-                  <span className="text-lg">🔗</span> From Jira
                 </button>
               </div>
             </div>
