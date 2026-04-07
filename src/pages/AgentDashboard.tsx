@@ -4,13 +4,6 @@ import { getCurrentOrgId } from '@/lib/orgContext';
 import { CheckCircle2, Clock, Users, Zap, RefreshCw, Brain } from 'lucide-react';
 import { SkillGraph } from '@/components/SkillGraph';
 import { AccuracyTracker } from '@/components/AccuracyTracker';
-import { TeamDNAReport } from '@/components/TeamDNAReport';
-import { TeamBenchmarks } from '@/components/TeamBenchmarks';
-import { ManagerReportCard } from '@/components/ManagerReportCard';
-import { PredictiveHiring } from '@/components/PredictiveHiring';
-import { WorkloadRebalancer } from '@/components/WorkloadRebalancer';
-import { StakeholderUpdate } from '@/components/StakeholderUpdate';
-import { RiskHeatmap } from '@/components/RiskHeatmap';
 
 interface AgentStats {
   totalSuggestions: number;
@@ -199,27 +192,6 @@ export default function AgentDashboard() {
       <div className="mt-6">
         <AccuracyTracker />
       </div>
-
-      {/* Team DNA Report */}
-      <div className="mt-6"><TeamDNAReport /></div>
-
-      {/* Team Benchmarks */}
-      <div className="mt-6"><TeamBenchmarks /></div>
-
-      {/* Manager Report Card */}
-      <div className="mt-6"><ManagerReportCard /></div>
-
-      {/* Risk Heatmap */}
-      <div className="mt-6"><RiskHeatmap /></div>
-
-      {/* Workload Rebalancer */}
-      <div className="mt-6"><WorkloadRebalancer /></div>
-
-      {/* Predictive Hiring */}
-      <div className="mt-6"><PredictiveHiring /></div>
-
-      {/* Stakeholder Update Generator */}
-      <div className="mt-6"><StakeholderUpdate /></div>
 
       {/* Engineer Skill Graph */}
       <div className="bg-white border border-gray-200 rounded-xl p-6 mt-6">
