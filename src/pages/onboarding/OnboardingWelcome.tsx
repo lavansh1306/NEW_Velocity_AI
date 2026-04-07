@@ -13,6 +13,7 @@ export default function OnboardingWelcome() {
   const { createOrganization, loading, error, clearError, orgId } = useOnboarding();
   const [orgName, setOrgName] = useState('');
   const [voiceFilled, setVoiceFilled] = useState(false);
+  const [joinableOrg, setJoinableOrg] = useState<{id:string;name:string;members:number} | null>(null);
   const [teamName, setTeamName] = useState('');
   const [isVoiceListening, setIsVoiceListening] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState('');
@@ -90,6 +91,35 @@ export default function OnboardingWelcome() {
 
 
 
+  if (joinableOrg) return (
+    <div className="min-h-screen bg-[#FDFDFB] font-['Inter',sans-serif] flex flex-col items-center justify-center px-4">
+      <div className="text-6xl mb-6">🎉</div>
+      <h1 className="text-3xl font-light text-[#1C1917] text-center mb-3">Your team is already here</h1>
+      <p className="text-base text-[#78716C] text-center mb-2 font-light">
+        <strong>{joinableOrg.name}</strong> has {joinableOrg.members} member{joinableOrg.members !== 1 ? 's' : ''} on Velocity AI.
+      </p>
+      <p className="text-sm text-[#A8A29E] text-center mb-10 font-light">Join them instead of creating a new workspace.</p>
+      <div className="flex flex-col gap-3 w-full max-w-sm">
+        <Button
+          onClick={async () => {
+            clearError();
+            try {
+              await createOrganization(joinableOrg.name, 'Engineering');
+              navigate('/onboarding/settings');
+            } catch {}
+          }}
+          disabled={loading}
+          className="h-12 bg-[#0F766E] hover:bg-[#0F766E]/90 text-white rounded-lg font-normal text-base"
+        >
+          {loading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Joining...</> : 'Join ' + joinableOrg.name + ' →'}
+        </Button>
+        <button onClick={() => setJoinableOrg(null)} className="text-sm text-[#78716C] hover:text-[#1C1917] text-center">
+          Create a new workspace instead
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-[#FDFDFB] font-['Inter',sans-serif] relative overflow-hidden">
       {/* Background Effects */}
@@ -140,8 +170,8 @@ export default function OnboardingWelcome() {
           {voiceFilled ? (<div><label className="block text-sm text-[#78716C] mb-2 font-light">Organization Name</label><input value={orgName} onChange={e => setOrgName(e.target.value)} className="w-full h-11 px-3 bg-white border border-[#E7E5E4] rounded-md text-[#1C1917] text-sm" /></div>) : (<OrganizationPicker
             value={orgName}
             onSelect={(org) => {
-              if (org) setOrgName(org.name);
-              else setOrgName('');
+              if (org) { setOrgName(org.name); setJoinableOrg(org as any); }
+              else { setOrgName(''); setJoinableOrg(null); }
             }}
             onCreate={(name) => setOrgName(name)}
             onClear={() => setOrgName('')}
