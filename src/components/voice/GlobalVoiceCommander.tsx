@@ -112,6 +112,7 @@ export const GlobalVoiceCommander: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
+  if (showLegend) return <ShortcutLegend onClose={() => setShowLegend(false)} />;
   if (!isOpen) return null;
 
   const vol = Math.min(volumeLevel / 80, 1);
@@ -310,8 +311,6 @@ export const GlobalVoiceCommander: React.FC = () => {
           </span>
         </div>
       </div>
-
-      {showLegend && <ShortcutLegend onClose={() => setShowLegend(false)} />}
 
       <style>{`
         @keyframes velo-bounce {
