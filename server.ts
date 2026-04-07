@@ -54,7 +54,6 @@ import leaveApprovalRoutes from "./src/api/leave-approval/routes.ts"
 import invitesRoutes from "./src/api/invites/routes.ts"
 import employeeRoutes from "./src/api/employee/routes.ts"
 import organizationRoutes from "./src/api/organization/routes.ts"
-import voiceRoutes from "./src/api/voice/routes.ts"
 const app = express()
 
 console.log("typeof express:", typeof express)
@@ -227,9 +226,29 @@ console.log('[Server] Employee routes mounted');
 app.use('/api/organization', organizationRoutes);
 console.log('[Server] Organization routes mounted at /api/organization');
 
-// Voice parse with Gemini→Groq→local fallback
-app.use('/api/voice', voiceRoutes);
-console.log('[Server] Voice parse route mounted at /api/voice/parse');
+// AI Description Expander
+app.post('/api/ai/expand-description', async (req: Request, res: Response) => {
+  const { title, description } = req.body;
+  const groqKey = process.env.GROQ_API_KEY;
+  if (!groqKey) return res.status(500).json({ error: 'GROQ_API_KEY not set' });
+  const prompt = description?.trim()
+    ? 'Expand this project description for an engineering team. 3-4 sentences. Original: ' + description
+    : 'Write a detailed project description for: ' + title + '. Include goals, features, and success criteria. 3-4 sentences.';
+  try {
+    const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + groqKey },
+      body: JSON.stringify({ model: 'llama-3.1-8b-instant', messages: [{ role: 'system', content: 'You are a senior PM. Write clear project descriptions. Return only the description.' }, { role: 'user', content: prompt }], max_tokens: 250, temperature: 0.7 })
+    }) as any;
+    if (groqRes.ok) {
+      const data = await groqRes.json() as any;
+      const expanded = data.choices?.[0]?.message?.content?.trim();
+      if (expanded) return res.json({ description: expanded });
+    }
+    res.status(500).json({ error: 'Failed' });
+  } catch(e) { res.status(500).json({ error: String(e) }); }
+});
+console.log('[Server] AI expand-description mounted');
 
 app.get('/api/debug-routes', (req, res) => {
   res.json({

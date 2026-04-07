@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { AutoAwesomeOutlined, SyncOutlined, DescriptionOutlined, CloudUploadOutlined, CloseOutlined, ErrorOutlineOutlined } from '@mui/icons-material';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input'; // <-- Import Input
@@ -20,6 +20,57 @@ interface PlanHeaderProps {
     thoughtLines: string[];
     handleAnalyze: () => void;
 }
+
+
+// AI Description Expander Component
+const ExpandButton: React.FC<{
+  projectTitle: string;
+  projectDescription: string;
+  setProjectDescription: (d: string) => void;
+}> = ({ projectTitle, projectDescription, setProjectDescription }) => {
+  const [loading, setLoading] = useState(false);
+
+  const handleExpand = async () => {
+    if (!projectTitle.trim() && !projectDescription.trim()) return;
+    setLoading(true);
+    try {
+      const res = await fetch('/api/ai/expand-description', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: projectTitle, description: projectDescription })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.description) setProjectDescription(data.description);
+      }
+    } catch(e) {
+      console.error('Expand failed:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const canExpand = projectTitle.trim().length > 0 || projectDescription.trim().length > 0;
+
+  return (
+    <button
+      type="button"
+      onClick={handleExpand}
+      disabled={loading || !canExpand}
+      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[#78716C] hover:text-[#0F766E] hover:bg-[#F0FDFA] transition-all disabled:opacity-40"
+      title="AI: Expand description"
+    >
+      {loading ? (
+        <span className="text-xs text-[#0F766E]">Expanding...</span>
+      ) : (
+        <>
+          <span className="text-sm text-[#0F766E]">✦</span>
+          <span className="text-xs font-light">Expand</span>
+        </>
+      )}
+    </button>
+  );
+};
 
 export const PlanHeader: React.FC<PlanHeaderProps> = ({
     projectTitle, setProjectTitle, projectDescription, setProjectDescription, 
@@ -79,6 +130,12 @@ export const PlanHeader: React.FC<PlanHeaderProps> = ({
                                 </label>
                             )}
                             
+                            {/* AI Expand Description */}
+                            <ExpandButton 
+                              projectTitle={projectTitle}
+                              projectDescription={projectDescription}
+                              setProjectDescription={setProjectDescription}
+                            />
                             {/* Voice Input Agent */}
                             <div className="flex-1" />
                             <VoiceInput 
