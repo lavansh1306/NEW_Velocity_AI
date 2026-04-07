@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import {
   Zap,
@@ -10,6 +10,7 @@ import {
   Bell,
   ChevronRight,
   LogOut,
+  Menu,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useAuth } from '@/contexts/AuthContext';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 
 const navItems = [
   { path: '/app/employee/dashboard', label: 'Dashboard', Icon: LayoutDashboard },
@@ -36,7 +39,9 @@ export function EmployeeLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { signOut, user, orgName } = useAuth();
+  const isMobile = useIsMobile();
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [showLogout, setShowLogout] = useState(false);
 
   const activeItem = navItems.find((item) =>
@@ -46,109 +51,127 @@ export function EmployeeLayout() {
   const displayName = user?.email?.split('@')[0] ?? 'Employee';
   const initials = displayName.slice(0, 2).toUpperCase();
 
-  return (
-    <div className="flex h-screen bg-[#F5F5F4] font-['Inter',sans-serif] overflow-hidden">
-      {/* Sidebar */}
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
+
+  const SidebarContent = ({ isMobileView = false }: { isMobileView?: boolean }) => (
+    <div className={`flex flex-col h-full py-6 bg-[#1C1917] ${!isMobileView ? 'border-r border-[#292524] shadow-2xl shadow-black/20' : ''}`}>
+      {/* Logo */}
       <div
-        className={`${collapsed ? 'w-[70px]' : 'w-[260px]'
-          } bg-[#1C1917] flex flex-col py-6 z-40 flex-shrink-0 transition-all duration-300 [transition-timing-function:cubic-bezier(0.25,1,0.5,1)] border-r border-[#292524] shadow-2xl shadow-black/20`}
+        className={`mb-8 px-4 flex items-center ${(collapsed && !isMobileView) ? 'justify-center' : 'gap-3 px-6'
+          }`}
       >
-        {/* Logo */}
-        <div
-          className={`mb-8 px-4 flex items-center ${collapsed ? 'justify-center' : 'gap-3 px-6'
-            }`}
+        <div className="bg-[#2DD4BF] rounded-lg p-1.5 flex-shrink-0 shadow-[0_0_15px_rgba(45,212,191,0.2)]">
+          <Zap className="h-5 w-5 text-[#1C1917]" strokeWidth={2.5} />
+        </div>
+        {(!collapsed || isMobileView) && (
+          <span className="text-white font-medium text-lg whitespace-nowrap overflow-hidden animate-in fade-in duration-300 tracking-tight">
+            Velocity AI
+          </span>
+        )}
+      </div>
+
+      {/* Nav Items */}
+      <div className="flex-1 w-full flex flex-col gap-1 px-4">
+        {navItems.map(({ path, label, Icon }) => {
+          const isActive = location.pathname.startsWith(path);
+          return (
+            <button
+              key={path}
+              onClick={() => {
+                if (!isMobileView && isActive) {
+                  setCollapsed(!collapsed);
+                }
+                navigate(path);
+                if (isMobileView) setMobileOpen(false);
+              }}
+              title={label}
+              className={`w-full relative px-3 py-3 flex items-center ${(collapsed && !isMobileView) ? 'justify-center' : 'gap-3'
+                } rounded-lg transition-all duration-200 outline-none ${isActive
+                  ? 'bg-[#292524] text-white'
+                  : 'text-[#A8A29E] hover:text-[#E7E5E4] hover:bg-[#292524]/50'
+                }`}
+            >
+              <Icon
+                className={`h-5 w-5 flex-shrink-0 transition-colors ${isActive
+                  ? 'text-[#2DD4BF]'
+                  : 'text-[#78716C] group-hover:text-[#D6D3D1]'
+                  }`}
+                strokeWidth={1.75}
+              />
+              {(!collapsed || isMobileView) && (
+                <span
+                  className={`text-sm whitespace-nowrap overflow-hidden animate-in fade-in duration-300 ${isActive ? 'font-medium' : 'font-normal'
+                    }`}
+                >
+                  {label}
+                </span>
+              )}
+              {isActive && (
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-[#2DD4BF] rounded-r-sm shadow-[0_0_10px_rgba(45,212,191,0.4)]" />
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Bottom: logout + user */}
+      <div className="w-full flex flex-col gap-1 px-4 mt-auto">
+        {/* Logout */}
+        <button
+          className={`w-full relative px-3 py-3 flex items-center ${(collapsed && !isMobileView) ? 'justify-center' : 'gap-3'
+            } rounded-lg text-[#F43F5E] hover:bg-[#F43F5E]/10 transition-colors`}
+          onClick={() => setShowLogout(true)}
+          title="Log Out"
         >
-          <div className="bg-[#2DD4BF] rounded-lg p-1.5 flex-shrink-0 shadow-[0_0_15px_rgba(45,212,191,0.2)]">
-            <Zap className="h-5 w-5 text-[#1C1917]" strokeWidth={2.5} />
-          </div>
-          {!collapsed && (
-            <span className="text-white font-medium text-lg whitespace-nowrap overflow-hidden animate-in fade-in duration-300 tracking-tight">
-              Velocity AI
+          <LogOut className="h-5 w-5 flex-shrink-0" strokeWidth={1.75} />
+          {(!collapsed || isMobileView) && (
+            <span className="text-sm font-normal whitespace-nowrap overflow-hidden animate-in fade-in duration-300">
+              Log Out
             </span>
           )}
-        </div>
+        </button>
 
-        {/* Nav Items */}
-        <div className="flex-1 w-full flex flex-col gap-1 px-4">
-          {navItems.map(({ path, label, Icon }) => {
-            const isActive = location.pathname.startsWith(path);
-            return (
-              <button
-                key={path}
-                onClick={() => {
-                  if (isActive) {
-                    setCollapsed(!collapsed);
-                  }
-                  navigate(path);
-                }}
-                title={label}
-                className={`w-full relative px-3 py-3 flex items-center ${collapsed ? 'justify-center' : 'gap-3'
-                  } rounded-lg transition-all duration-200 outline-none ${isActive
-                    ? 'bg-[#292524] text-white'
-                    : 'text-[#A8A29E] hover:text-[#E7E5E4] hover:bg-[#292524]/50'
-                  }`}
-              >
-                <Icon
-                  className={`h-5 w-5 flex-shrink-0 transition-colors ${isActive
-                      ? 'text-[#2DD4BF]'
-                      : 'text-[#78716C] group-hover:text-[#D6D3D1]'
-                    }`}
-                  strokeWidth={1.75}
-                />
-                {!collapsed && (
-                  <span
-                    className={`text-sm whitespace-nowrap overflow-hidden animate-in fade-in duration-300 ${isActive ? 'font-medium' : 'font-normal'
-                      }`}
-                  >
-                    {label}
-                  </span>
-                )}
-                {isActive && (
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-[#2DD4BF] rounded-r-sm shadow-[0_0_10px_rgba(45,212,191,0.4)]" />
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Bottom: logout + user */}
-        <div className="w-full flex flex-col gap-1 px-4 mt-auto">
-          {/* Logout */}
-          <button
-            className={`w-full relative px-3 py-3 flex items-center ${collapsed ? 'justify-center' : 'gap-3'
-              } rounded-lg text-[#F43F5E] hover:bg-[#F43F5E]/10 transition-colors`}
-            onClick={() => setShowLogout(true)}
-            title="Log Out"
-          >
-            <LogOut className="h-5 w-5 flex-shrink-0" strokeWidth={1.75} />
-            {!collapsed && (
-              <span className="text-sm font-normal whitespace-nowrap overflow-hidden animate-in fade-in duration-300">
-                Log Out
-              </span>
-            )}
-          </button>
-
-          {/* User chip */}
-          <div
-            className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'
-              } px-2 py-4 mt-2 border-t border-[#292524]`}
-          >
-            <div className="w-9 h-9 rounded-full bg-[#2DD4BF] flex items-center justify-center text-[#1C1917] font-medium text-xs flex-shrink-0 shadow-[0_0_10px_rgba(45,212,191,0.2)]">
-              {initials}
-            </div>
-            {!collapsed && (
-              <div className="flex flex-col whitespace-nowrap overflow-hidden animate-in fade-in duration-300">
-                <span className="text-xs font-medium text-[#E7E5E4]">
-                  {displayName}
-                </span>
-                {orgName && (
-                  <span className="text-[10px] text-[#A8A29E]">{orgName}</span>
-                )}
-              </div>
-            )}
+        {/* User chip */}
+        <div
+          className={`flex items-center ${(collapsed && !isMobileView) ? 'justify-center' : 'gap-3'
+            } px-2 py-4 mt-2 border-t border-[#292524]`}
+        >
+          <div className="w-9 h-9 rounded-full bg-[#2DD4BF] flex items-center justify-center text-[#1C1917] font-medium text-xs flex-shrink-0 shadow-[0_0_10px_rgba(45,212,191,0.2)]">
+            {initials}
           </div>
+          {(!collapsed || isMobileView) && (
+            <div className="flex flex-col whitespace-nowrap overflow-hidden animate-in fade-in duration-300">
+              <span className="text-xs font-medium text-[#E7E5E4]">
+                {displayName}
+              </span>
+              {orgName && (
+                <span className="text-[10px] text-[#A8A29E]">{orgName}</span>
+              )}
+            </div>
+          )}
         </div>
       </div>
+    </div>
+  );
+
+  return (
+    <div className="flex h-screen bg-[#F5F5F4] font-['Inter',sans-serif] overflow-hidden">
+      {/* Desktop Sidebar */}
+      <div
+        className={`hidden lg:flex flex-col ${collapsed ? 'w-[70px]' : 'w-[260px]'} transition-all duration-300 [transition-timing-function:cubic-bezier(0.25,1,0.5,1)] z-40 flex-shrink-0`}
+      >
+        <SidebarContent />
+      </div>
+
+      {/* Mobile Drawer */}
+      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+        <SheetContent side="left" className="p-0 border-none w-[280px]">
+          <SidebarContent isMobileView={true} />
+        </SheetContent>
+      </Sheet>
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0 bg-[#F5F5F4] relative">
@@ -162,19 +185,32 @@ export function EmployeeLayout() {
         />
 
         {/* Top Header */}
-        <div className="h-16 border-b border-[#E7E5E4] flex items-center justify-between px-8 bg-[#F5F5F4]/80 backdrop-blur-md sticky top-0 z-30 shadow-sm shadow-stone-200/50">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center text-sm text-[#78716C]">
+        <div className="h-16 border-b border-[#E7E5E4] flex items-center justify-between px-4 md:px-8 bg-[#F5F5F4]/80 backdrop-blur-md sticky top-0 z-30 shadow-sm shadow-stone-200/50">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="lg:hidden h-9 w-9 text-[#78716C]"
+              onClick={() => setMobileOpen(true)}
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+
+            <div className="hidden sm:flex items-center text-sm text-[#78716C]">
               <span className="font-normal">Velocity AI</span>
               <ChevronRight className="h-4 w-4 mx-2 text-[#D6D3D1]" strokeWidth={1.5} />
               <span className="text-[#1C1917] font-medium">
                 {activeItem?.label ?? 'Dashboard'}
               </span>
             </div>
+
+            <div className="sm:hidden text-sm font-medium text-[#1C1917]">
+              {activeItem?.label ?? 'Dashboard'}
+            </div>
           </div>
 
-          <div className="flex-1 max-w-xl mx-8">
-            <div className="relative group">
+          <div className="hidden md:flex flex-1 max-w-xl mx-8">
+            <div className="relative group w-full">
               <Search
                 className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#A8A29E] group-focus-within:text-[#1C1917] transition-colors"
                 strokeWidth={1.75}
@@ -186,7 +222,13 @@ export function EmployeeLayout() {
             </div>
           </div>
 
-          <div className="flex items-center gap-5">
+          <div className="flex items-center gap-2 md:gap-5">
+            <div className="md:hidden">
+              <Button variant="ghost" size="icon" className="h-9 w-9 text-[#78716C]">
+                <Search className="h-5 w-5" />
+              </Button>
+            </div>
+
             <button className="relative p-2 rounded-lg hover:bg-white text-[#78716C] transition-all hover:shadow-sm border border-transparent hover:border-[#E7E5E4]">
               <Bell className="h-5 w-5" strokeWidth={1.75} />
               <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-[#F43F5E] rounded-full border border-[#F5F5F4]" />
@@ -195,7 +237,7 @@ export function EmployeeLayout() {
         </div>
 
         {/* Page Content */}
-        <div className="flex-1 overflow-auto p-10 z-10">
+        <div className="flex-1 overflow-auto p-4 md:p-10 z-10">
           <Outlet />
         </div>
       </div>

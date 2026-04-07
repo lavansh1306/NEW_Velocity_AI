@@ -14,6 +14,7 @@ import { IncompleteSetupBanner } from './dashboard/IncompleteSetupBanner';
 import { ManagerEmptyDashboard } from './dashboard/ManagerEmptyDashboard';
 import { useSetupProgress } from '@/hooks/useSetupProgress';
 import { setupProgressService } from '@/services/setupProgressService';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 // Icons
 import CalendarToday from '@mui/icons-material/CalendarToday';
@@ -35,6 +36,7 @@ export const DashboardScreen = () => {
     const navigate = useNavigate();
     const { orgId, orgName } = useAuth();
     const { completedSteps, isLoading: setupLoading, fetchProgress } = useSetupProgress();
+    const isMobile = useIsMobile();
 
     // Fetch setup progress when org is available
     React.useEffect(() => {
@@ -62,10 +64,10 @@ export const DashboardScreen = () => {
         for (let i = 0; i < 7; i++) {
             const date = new Date(currentWeekStart);
             date.setDate(currentWeekStart.getDate() + i);
-            dates.push({ 
-                date, 
-                label: date.toLocaleDateString('en-US', { month: 'short', day: '2-digit' }), 
-                isToday: new Date().toDateString() === date.toDateString() 
+            dates.push({
+                date,
+                label: date.toLocaleDateString('en-US', { month: 'short', day: '2-digit' }),
+                isToday: new Date().toDateString() === date.toDateString()
             });
         }
         return dates;
@@ -87,11 +89,11 @@ export const DashboardScreen = () => {
 
     const displayGantt = useMemo(() => {
         if (!Array.isArray(gantt)) return [];
-        
+
         let filtered = gantt.map((member: any) => ({
-            ...member, 
-            tasks: ganttFilterProject === 'All' 
-                ? member.tasks 
+            ...member,
+            tasks: ganttFilterProject === 'All'
+                ? member.tasks
                 : member.tasks.filter((t: any) => t.project === ganttFilterProject)
         })).filter((m: any) => {
             if (ganttFilterProject === 'All') return true;
@@ -125,7 +127,7 @@ export const DashboardScreen = () => {
                         </div>
                     )}
                 </div>
-                <h3 className="text-4xl font-light text-[#1C1917] mt-1">{value !== undefined ? value : '--'}</h3>
+                <h3 className="text-2xl md:text-4xl font-light text-[#1C1917] mt-1">{value !== undefined ? value : '--'}</h3>
             </div>
             <div className="h-4 mt-2">
                 {sublabel && <p className="text-xs font-medium text-[#A8A29E]">{sublabel}</p>}
@@ -145,20 +147,20 @@ export const DashboardScreen = () => {
     }
 
     return (
-        <div className="p-8 relative max-w-[1600px] mx-auto bg-[#FAFAF9] min-h-screen">
+        <div className="p-4 md:p-8 relative max-w-[1600px] mx-auto bg-[#FAFAF9] min-h-screen">
 
             {/* Setup completion banner — shown when some steps are done but not all */}
             <IncompleteSetupBanner />
 
-            <div className="flex items-center justify-between mb-8">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
                 <div>
-                    <h2 className="text-3xl font-light text-[#1C1917]">Dashboard</h2>
-                    <p className="text-[#78716C] text-sm mt-1">Overview of your team's capacity and project health.</p>
+                    <h2 className="text-2xl md:text-3xl font-light text-[#1C1917]">Dashboard</h2>
+                    <p className="text-[#78716C] text-xs md:text-sm mt-1">Overview of your team's capacity and project health.</p>
                 </div>
-                <div className="flex items-center gap-3">
-                    <Button variant="outline" className="h-10 px-3 bg-white border-[#E7E5E4] rounded-lg shadow-sm hover:bg-[#F5F5F4]" onClick={() => refresh()}>
+                <div className="flex flex-wrap items-center gap-2 md:gap-3">
+                    <Button variant="outline" className="h-9 md:h-10 px-2 md:px-3 bg-white border-[#E7E5E4] rounded-lg shadow-sm hover:bg-[#F5F5F4]" onClick={() => refresh()}>
                         <RefreshCw className={`h-4 w-4 text-[#78716C] ${isLoading ? 'animate-spin' : ''}`} />
-                        <span className="ml-2 text-sm text-[#78716C] font-medium">Refresh</span>
+                        <span className="ml-1 md:ml-2 text-xs md:text-sm text-[#78716C] font-medium">Refresh</span>
                     </Button>
                     <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                         <div>
@@ -166,8 +168,8 @@ export const DashboardScreen = () => {
                                 setDateRangeParam(val);
                                 if (val === 'custom') setIsCalendarOpen(true);
                             }}>
-                                <SelectTrigger className="w-[160px] h-10 bg-white border-[#E7E5E4] rounded-lg shadow-sm font-medium text-sm text-[#1C1917]">
-                                    <CalendarToday style={{ fontSize: 16 }} className="mr-2 text-[#78716C]" />
+                                <SelectTrigger className="w-[130px] md:w-[160px] h-9 md:h-10 bg-white border-[#E7E5E4] rounded-lg shadow-sm font-medium text-xs md:text-sm text-[#1C1917]">
+                                    <CalendarToday style={{ fontSize: 16 }} className="mr-1 md:mr-2 text-[#78716C]" />
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent className="bg-white border-[#E7E5E4] rounded-lg">
@@ -178,10 +180,10 @@ export const DashboardScreen = () => {
                             </Select>
                         </div>
                         <PopoverContent className="w-auto p-4 bg-white shadow-xl rounded-2xl border-[#E7E5E4]" align="end">
-                            <Calendar mode="range" selected={tempCustomRange} onSelect={setTempCustomRange} numberOfMonths={2} className="mb-4" />
+                            <Calendar mode="range" selected={tempCustomRange} onSelect={setTempCustomRange} numberOfMonths={isMobile ? 1 : 2} className="mb-4" />
                             <div className="flex justify-end gap-2 pt-4 border-t border-[#E7E5E4]">
                                 <Button variant="ghost" onClick={() => setIsCalendarOpen(false)}>Cancel</Button>
-                                <Button 
+                                <Button
                                     className="bg-[#1C1917] text-white hover:bg-[#292524] rounded-lg"
                                     onClick={() => { setAppliedCustomRange(tempCustomRange); setIsCalendarOpen(false); }}
                                 >
@@ -190,17 +192,18 @@ export const DashboardScreen = () => {
                             </div>
                         </PopoverContent>
                     </Popover>
-                    <Button className="bg-[#1C1917] text-white h-10 px-4 rounded-lg shadow-sm font-medium hover:bg-[#292524]" onClick={() => navigate('/projects/create')}>
-                        <Add style={{ fontSize: 18 }} className="mr-1.5" /> New Project
+                    <Button className="bg-[#1C1917] text-white h-9 md:h-10 px-3 md:px-4 rounded-lg shadow-sm font-medium hover:bg-[#292524]" onClick={() => navigate('/projects/create')}>
+                        <Add style={{ fontSize: 18 }} className="mr-1 md:mr-1.5" /> 
+                        <span className="text-xs md:text-sm">New Project</span>
                     </Button>
                 </div>
             </div>
 
             <div className="grid grid-cols-12 gap-6">
-                
+
                 <div className="col-span-12 xl:col-span-10 space-y-6">
-                    
-                    <div className="grid grid-cols-4 gap-4">
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         {kpis.length > 0 ? (
                             kpis.map((kpi: any, i: number) => <KPICard key={i} {...kpi} />)
                         ) : (
@@ -210,9 +213,9 @@ export const DashboardScreen = () => {
 
                     <div className="bg-white border border-[#E7E5E4] rounded-2xl p-8 shadow-sm">
                         <div className="flex flex-col mb-6">
-                            <div className="flex justify-between items-center w-full">
-                                <h2 className="text-xl font-medium text-[#1C1917]">Team Capacity & Allocation</h2>
-                                <div className="flex items-center gap-3">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+                                <h2 className="text-lg md:text-xl font-medium text-[#1C1917]">Team Capacity & Allocation</h2>
+                                <div className="flex flex-wrap items-center gap-2 md:gap-3">
                                     <Select value={ganttFilterProject} onValueChange={setGanttFilterProject}>
                                         <SelectTrigger className="h-9 w-[120px] text-xs font-semibold bg-white border-[#E7E5E4] rounded-full shadow-sm text-[#78716C]">
                                             <SelectValue placeholder="Filter" />
@@ -244,7 +247,7 @@ export const DashboardScreen = () => {
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <div className="flex items-center gap-6 mt-6 mb-2 text-xs font-semibold text-[#78716C]">
                                 <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-[#0F766E]"></div> On Track</div>
                                 <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-[#EAB308]"></div> At Risk</div>
@@ -259,18 +262,18 @@ export const DashboardScreen = () => {
                                     <div className="flex flex-1 gap-2">
                                         {weekDays.map((day, i) => (
                                             <div key={i} className={`flex-1 text-center py-1 ${day.isToday ? 'text-[#0F766E] bg-[#F0FDFA] rounded-md font-bold' : ''}`}>
-                                                
+
                                                 {day.label}
                                             </div>
                                         ))}
                                     </div>
                                 </div>
-                                
+
                                 <div className="space-y-2">
                                     {displayGantt.length === 0 ? (
                                         <div className="text-center py-12 text-sm text-[#78716C]">
-                                            {ganttFilterProject === 'All' 
-                                                ? 'No team members found.' 
+                                            {ganttFilterProject === 'All'
+                                                ? 'No team members found.'
                                                 : 'No members allocated to this project.'}
                                         </div>
                                     ) : (
@@ -316,7 +319,7 @@ export const DashboardScreen = () => {
                                                                 const visibleStart = new Date(Math.max(tStart.getTime(), viewStart.getTime()));
                                                                 const visibleEnd = new Date(Math.min(tEnd.getTime(), viewEnd.getTime()));
                                                                 const msInDay = 1000 * 60 * 60 * 24;
-                                                                
+
                                                                 const offsetDays = Math.floor((visibleStart.getTime() - viewStart.getTime()) / msInDay);
                                                                 const durationDays = Math.floor((visibleEnd.getTime() - visibleStart.getTime()) / msInDay) + 1;
 
@@ -327,16 +330,16 @@ export const DashboardScreen = () => {
                                                                     <div
                                                                         key={vIdx}
                                                                         className={`absolute h-7 text-[11px] font-semibold flex items-center px-4 shadow-sm border cursor-pointer z-10 transition-all rounded-full
-                                                                        ${task.displayStatus === 'track' ? 'bg-[#F0FDFA] text-[#0F766E] border-[#CCFBF1]' : 
-                                                                          task.displayStatus === 'leave' ? 'bg-[#FAFAF9] text-[#78716C] border-[#E7E5E4]' : 
-                                                                          'bg-[#FFF7ED] text-[#C2410C] border-[#FFEDD5]'}
+                                                                        ${task.displayStatus === 'track' ? 'bg-[#F0FDFA] text-[#0F766E] border-[#CCFBF1]' :
+                                                                                task.displayStatus === 'leave' ? 'bg-[#FAFAF9] text-[#78716C] border-[#E7E5E4]' :
+                                                                                    'bg-[#FFF7ED] text-[#C2410C] border-[#FFEDD5]'}
                                                                         `}
-                                                                        style={{ 
-                                                                            left: `calc(${leftPercent}%)`, 
-                                                                            width: `calc(${widthPercent}%)`, 
+                                                                        style={{
+                                                                            left: `calc(${leftPercent}%)`,
+                                                                            width: `calc(${widthPercent}%)`,
                                                                             top: `${10 + vIdx * 36}px`,
                                                                             backgroundImage: task.displayStatus === 'leave' && task.status === 'pending'
-                                                                                ? 'linear-gradient(45deg, #f3f4f6 25%, transparent 25%, transparent 50%, #f3f4f6 50%, #f3f4f6 75%, transparent 75%, transparent)' 
+                                                                                ? 'linear-gradient(45deg, #f3f4f6 25%, transparent 25%, transparent 50%, #f3f4f6 50%, #f3f4f6 75%, transparent 75%, transparent)'
                                                                                 : 'none',
                                                                             backgroundSize: '10px 10px'
                                                                         }}
@@ -383,9 +386,9 @@ export const DashboardScreen = () => {
                                             <span className="text-[9px] font-bold text-[#A8A29E] uppercase tracking-wider mt-0.5">Remaining</span>
                                         </div>
                                         <div className={`px-4 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider
-                                            ${item.status === 'At Risk' ? 'bg-[#FEF2F2] text-[#DC2626]' : 
-                                              item.status === 'Active' ? 'bg-[#F0FDFA] text-[#0F766E]' : 
-                                              'bg-[#F1F5F9] text-[#64748B]'}`}>
+                                            ${item.status === 'At Risk' ? 'bg-[#FEF2F2] text-[#DC2626]' :
+                                                item.status === 'Active' ? 'bg-[#F0FDFA] text-[#0F766E]' :
+                                                    'bg-[#F1F5F9] text-[#64748B]'}`}>
                                             {item.status}
                                         </div>
                                         <ChevronRightIcon style={{ fontSize: 20 }} className="text-[#D6D3D1] group-hover:text-[#1C1917] transition-colors" />
@@ -402,7 +405,7 @@ export const DashboardScreen = () => {
                             <Sparkles className="text-[#0F766E]" size={16} />
                             <h2 className="text-sm font-semibold text-[#1C1917]">Insights</h2>
                         </div>
-                        
+
                         <div className="flex flex-col items-center justify-center py-6 text-center">
                             <Sparkles className="text-[#D6D3D1] mb-1" size={20} />
                             <p className="text-xs font-medium text-[#78716C] mb-1">No insights yet</p>
