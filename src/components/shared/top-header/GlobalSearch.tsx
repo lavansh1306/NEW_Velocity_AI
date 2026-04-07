@@ -13,6 +13,7 @@ export const GlobalSearch = () => {
     const [selectedIndex, setSelectedIndex] = useState(-1);
     const navigate = useNavigate();
     const containerRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         const handler = setTimeout(async () => {
