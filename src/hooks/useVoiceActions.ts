@@ -20,7 +20,7 @@ export const useVoiceActions = () => {
     startListening
   } = useVoice();
 
-  const handleVoiceCommand = async (transcript: string, currentPath: string) => {
+  const handleVoiceCommand = async (transcript: string, currentPath: string, context?: { currentProjectId?: string }) => {
     if (pendingConfirmation) {
       const text = transcript.toLowerCase();
       const isConfirmed = text.includes('yes') || text.includes('confirm') || text.includes('sure') || text.includes('ok');
@@ -43,7 +43,7 @@ export const useVoiceActions = () => {
     setProcessing(true);
     
     try {
-      const action = await geminiVoiceService.parseIntent(transcript, currentPath);
+      const action = await geminiVoiceService.parseIntent(transcript, currentPath, context);
       setProcessing(false);
       
       if (action.prompt) {
@@ -288,6 +288,58 @@ export const useVoiceActions = () => {
           speak('Something went wrong approving the leave.');
         }
         closeVoiceOverlay();
+        break;
+      }
+
+      // #27 Voice-triggered project health report
+      case 'project_report': {
+        const projectId = (action.params as any)?.projectId || context?.currentProjectId;
+        const projectName = (action.params as any)?.projectName || 'this project';
+        try {
+          if (!projectId) {
+            speak("Which project would you like a report on?");
+            break;
+          }
+          const { data: tasks } = await supabase
+            .from('tasks')
+            .select('id, name, status, estimated_hours, assignee_id, users(name)')
+            .eq('project_id', projectId);
+
+          if (!tasks || tasks.length === 0) {
+            speak(`I couldn't find any tasks for ${projectName}.`);
+            break;
+          }
+
+          const total = tasks.length;
+          const completed = tasks.filter((t: any) => t.status === 'completed').length;
+          const overdue = tasks.filter((t: any) => t.status === 'not_started').length;
+          const inProgress = tasks.filter((t: any) => t.status === 'in_progress').length;
+          const pct = Math.round((completed / total) * 100);
+
+          // Count assignee workload
+          const assigneeCounts: Record<string, { name: string; count: number }> = {};
+          tasks.forEach((t: any) => {
+            if (t.assignee_id && (t as any).users?.name) {
+              const name = (t as any).users.name;
+              if (!assigneeCounts[t.assignee_id]) assigneeCounts[t.assignee_id] = { name, count: 0 };
+              assigneeCounts[t.assignee_id].count++;
+            }
+          });
+          const overloaded = Object.values(assigneeCounts).filter(a => a.count > 3).map(a => a.name);
+
+          let report = `${projectName} is ${pct}% complete. ${completed} of ${total} tasks done. `;
+          if (overdue > 0) report += `${overdue} tasks not yet started. `;
+          if (inProgress > 0) report += `${inProgress} in progress. `;
+          if (overloaded.length > 0) report += `${overloaded.join(' and ')} ${overloaded.length === 1 ? 'is' : 'are'} overloaded. `;
+          if (pct < 30) report += 'The project may be at risk.';
+          else if (pct > 70) report += 'Looking good overall.';
+
+          speak(report);
+          toast.info(report);
+        } catch (e) {
+          console.error('[VoiceActions] project_report error:', e);
+          speak('Something went wrong generating the report.');
+        }
         break;
       }
 

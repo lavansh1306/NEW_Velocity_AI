@@ -16,7 +16,8 @@ Velocity AI helps engineering managers:
 - Monitor project health, timelines, and task completion
 - Sync with Jira and Google Workspace
 
-Current page: ${currentPath}
+Current page: ${currentPath}${currentProjectId ? `
+Active project ID: ${currentProjectId} — if user says "this project" or "assign this", use this ID.` : ''}
 
 ## ACTION TYPES
 1. navigate: { target: "/dashboard"|"/projects"|"/people"|"/plan"|"/leave"|"/settings" }
@@ -29,6 +30,7 @@ Current page: ${currentPath}
 8. gantt_query: Timeline questions. { query }
 9. resource_query: Capacity/workload questions. { query }
 10. approve_leave: Approve leave by name. { name }
+11. project_report: Generate health report for a project. { projectId, projectName }
 11. update_task: Update task status. { taskName, status: "completed"|"in_progress", hours: number }
 12. unknown: { prompt: "clarifying question" }
 
@@ -42,7 +44,7 @@ Current page: ${currentPath}
 {"type":"...","target":"","params":{"projectTitle":"","projectDescription":"","autoAnalyze":true,"name":"","email":"","role":"","taskName":"","query":""},"response":"","requiresConfirmation":false,"prompt":""}`;
 
 // ── Local rule-based fallback — zero API calls ───────────────────────────────
-function localParse(transcript: string): object {
+function localParse(transcript: string, currentProjectId?: string): object {
   const text = transcript.toLowerCase().trim();
 
   // Navigation
@@ -106,6 +108,13 @@ function localParse(transcript: string): object {
     return { type: 'resource_query', params: { query: transcript }, response: 'Checking team capacity.', provider: 'local' };
   }
 
+  // Project health report
+  if ((text.includes('report') || text.includes('health') || text.includes('status')) && (text.includes('project') || currentProjectId)) {
+    const nameMatch = transcript.match(/(?:report|health|status)(?:\s+(?:for|on|of))?\s+(?:the\s+)?([^?]+?)(?:\?|$)/i);
+    const projectName = nameMatch ? nameMatch[1].trim() : 'this project';
+    return { type: 'project_report', params: { projectId: currentProjectId, projectName }, response: `Generating health report for ${projectName}.`, provider: 'local' };
+  }
+
   // Update task status — "I finished X, took Y hours"
   const isTaskUpdate = text.includes('finished') || text.includes('completed') || text.includes('done with') || text.includes('took') || text.includes('spent');
   const hasTaskContext = text.includes('task') || text.includes('module') || text.includes('feature') || text.includes('ticket') || text.includes('issue') || text.split(/\s+/).length > 3;
@@ -117,6 +126,13 @@ function localParse(transcript: string): object {
     const taskMatch = transcript.match(/(?:finished|completed|done with)\s+(?:the\s+)?([^,\.]+?)(?:\s+(?:took|spent|,|\.|$))/i);
     const taskName = taskMatch ? taskMatch[1].trim() : transcript;
     return res.json({ type: 'update_task', params: { taskName, status: 'completed', hours }, response: hours ? `Got it, marking as done and logging ${hours} hours.` : 'Marking that as completed.', provider: 'local' });
+  }
+
+  // Project health report
+  if ((text.includes('report') || text.includes('health') || text.includes('status')) && (text.includes('project') || currentProjectId)) {
+    const nameMatch = transcript.match(/(?:report|health|status)(?:\s+(?:for|on|of))?\s+(?:the\s+)?([^?]+?)(?:\?|$)/i);
+    const projectName = nameMatch ? nameMatch[1].trim() : 'this project';
+    return { type: 'project_report', params: { projectId: currentProjectId, projectName }, response: `Generating health report for ${projectName}.`, provider: 'local' };
   }
 
   // Update task status — "I finished the auth module, took 6 hours"
@@ -141,7 +157,7 @@ function localParse(transcript: string): object {
 
 // ── Main voice parse endpoint ────────────────────────────────────────────────
 router.post('/parse', async (req: Request, res: Response) => {
-  const { transcript, currentPath = '/' } = req.body;
+  const { transcript, currentPath = '/', currentProjectId } = req.body;
 
   if (!transcript) {
     return res.status(400).json({ error: 'transcript is required' });
@@ -232,7 +248,7 @@ router.post('/parse', async (req: Request, res: Response) => {
 
   // ── 3. Local parser — always works ──────────────────────────────────────
   console.log('[VoiceParse] ✅ Local parser');
-  return res.json(localParse(transcript));
+  return res.json(localParse(transcript, currentProjectId));
 });
 
 export default router;

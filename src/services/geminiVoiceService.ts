@@ -33,7 +33,7 @@ class GeminiVoiceService {
     }
   }
 
-  async parseIntent(transcript: string, currentPath: string): Promise<VoiceAction> {
+  async parseIntent(transcript: string, currentPath: string, context?: { currentProjectId?: string }): Promise<VoiceAction> {
     // 1. Try Direct Command Parsing first (Fast Path, No LLM Latency)
     const directAction = this.parseDirectCommand(transcript);
     if (directAction) {
@@ -46,7 +46,7 @@ class GeminiVoiceService {
       const res = await fetch('/api/voice/parse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript, currentPath })
+        body: JSON.stringify({ transcript, currentPath, currentProjectId: context?.currentProjectId })
       });
       if (res.ok) {
         const data = await res.json() as VoiceAction & { provider?: string };
