@@ -10,17 +10,39 @@ export const useProjectPlanner = () => {
   const analyzeProject = async (description: string) => {
     setIsAnalyzing(true);
     try {
-      // Wake up logic
+      // Wake up logic with personality messages
+      const wakeMessages = [
+        'Waking up the AI...',
+        'Connecting to intelligence layer...',
+        'Almost ready...',
+        'Warming up the model...',
+        'Fetching your team data...',
+        'Loading project context...',
+        'Just a moment...',
+        'Still waking up...',
+        'Nearly there...',
+        'One more second...',
+      ];
       let awake = false;
       for(let i=0; i<10; i++) {
-        setStatus(`Waking server... ${i+1}`);
+        setStatus(wakeMessages[i] || 'Connecting...');
         if(await plannerApi.checkHealth()) { awake = true; break; }
         await new Promise(r => setTimeout(r, 2000));
       }
       
       if(!awake) throw new Error("Server timeout");
-      
-      setStatus('Analyzing...');
+
+      const analyzeMessages = [
+        'Analyzing your project description...',
+        'Breaking down tasks...',
+        'Estimating complexity and hours...',
+        'Matching skills to tasks...',
+        'Finalizing your project plan...',
+      ];
+      for (const msg of analyzeMessages) {
+        setStatus(msg);
+        await new Promise(r => setTimeout(r, 400));
+      }
       const data = await plannerApi.decompose(description);
       setTasks(data.suggested_tasks);
       toast.success('Done!');
