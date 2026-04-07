@@ -3,13 +3,24 @@ import { useVoice } from '@/contexts/VoiceContext';
 import { useVoiceActions } from '@/hooks/useVoiceActions';
 import { useLocation } from 'react-router-dom';
 import { Mic, MicOff, Loader2, Volume2, X } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 import gsap from 'gsap';
 
 export const VoiceAgent: React.FC = () => {
   const { isListening, status, lastTranscript, isTriggered, volumeLevel, pendingConfirmation, startListening, stopListening } = useVoice();
   const { handleVoiceCommand } = useVoiceActions();
   const location = useLocation();
+  const isMobile = useIsMobile();
   const orbRef = useRef<HTMLDivElement>(null);
+
+  const handleOrbClick = () => {
+    if (isMobile) {
+      window.dispatchEvent(new CustomEvent('velo-open-voice'));
+    } else {
+      if (isListening) stopListening();
+      else startListening();
+    }
+  };
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Handle command execution when voice recognition finishes
