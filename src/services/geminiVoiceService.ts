@@ -26,7 +26,7 @@ export interface VoiceAction {
   prompt?: string; // NEW: For multi-turn clarifying questions
 }
 
-class GeminiVoiceService {
+class GemmaVoiceService {
   private genAI: GoogleGenerativeAI | null = null;
   private model: any = null;
 
@@ -34,8 +34,8 @@ class GeminiVoiceService {
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
     if (apiKey) {
       this.genAI = new GoogleGenerativeAI(apiKey);
-      // Using Gemini 2.0 Flash for ultra-low latency and multimodal capabilities
-      this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+      // Using Gemma 4 31B IT for expert reasoning and multilingual support
+      this.model = this.genAI.getGenerativeModel({ model: 'gemma-4-31b-it' });
     }
   }
 
@@ -48,7 +48,7 @@ class GeminiVoiceService {
     }
 
     if (!this.model) {
-      console.warn('[Gemma4Voice] Gemini API not configured. Using Standard Mode.');
+      console.warn('[Gemma4Voice] Gemma 4 API not configured. Using Standard Mode.');
       return this.parseOfflineCommand(transcript) || { type: 'unknown', response: "Gemma 4 is unavailable and I couldn't match that command locally." };
     }
 
@@ -74,15 +74,14 @@ Current Page Context: ${currentPath}
 
 ## CORE RULES:
 - MESSY INPUTS: Clean up transcripts with fillers (um, uh, like). Identify intent even if colloquial.
-- HINGLISH: "dikhao", "set kardo", "khatam" etc. Map "dikhao" to navigate/search, "set kardo" to add/assign, "khatam" to status update if supported.
-- NO PREAMBLE: Return ONLY valid JSON. No markdown blocks.
-- DATES: Always normalize to YYYY-MM-DD.
+- HINGLISH: Map "kardo", "dikhao", "hatado", "kitane" to appropriate categories. "kitane" (how many) maps to "info".
+- NEVER deliberate: Provide exactly one JSON object. No drafts.
 
 JSON STRUCTURE:
 {
   "type": "navigate" | "create_project" | "add_team_member" | "delete_team_member" | "create_task" | "assign_task" | "info" | "gantt_query" | "resource_query" | "request_leave" | "approve_leave" | "unknown",
   "params": { ... },
-  "response": "A natural, helpful spoken response (e.g., 'Sure, I\\'ve added Sarah to the team!')",
+  "response": "A short natural spoken response.",
   "requiresConfirmation": boolean
 }
 `;
@@ -102,13 +101,28 @@ JSON STRUCTURE:
       ]) as any;
 
       const responseText = result.response.text();
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]) as VoiceAction;
+      const cleanedText = this.extractFirstJson(responseText);
+
+      try {
+        const action = JSON.parse(cleanedText);
+        // Normalize: handle 'action' instead of 'type' and consolidate fields
+        const normalizedAction: VoiceAction = {
+          type: action.type || action.action || 'unknown',
+          params: action.params || action.data || {},
+          response: action.response || action.answer || "I've handled that for you.",
+          requiresConfirmation: action.requiresConfirmation ?? false
+        };
+        
+        // Final normalization to lowercase
+        normalizedAction.type = normalizedAction.type.toLowerCase() as any;
+        
+        console.log('[Gemma4Voice] Normalized action:', normalizedAction);
+        return normalizedAction;
+      } catch (e) {
+        console.error('[Gemma4Voice] Failed to parse extracted JSON:', cleanedText);
+        // Fallback to offline
+        return this.parseOfflineCommand(transcript) || { type: 'unknown', response: "I'm having trouble understanding. Could you rephrase?" };
       }
-      
-      return { type: 'unknown', response: "I'm not sure how to help with that yet." };
     } catch (error: any) {
       if (error.message === 'Gemma 4 API Timeout') {
         console.warn('[Gemma4Voice] Gemma 4 request timed out. Falling back to Standard Mode.');
@@ -122,21 +136,14 @@ JSON STRUCTURE:
   async summarizeData(data: any, query: string): Promise<string> {
     if (!this.model) return this.summarizeDataLocally(data, query);
 
-    const prompt = `
-You are the "Voice Summary Layer" for Velocity AI. 
-The user asked: "${query}"
-Below is the raw JSON data related to their query. 
-Your job is to provide a BRIEF (1-2 sentences), professional, and spoken summary.
+    const prompt = `Rule: You are an API. OUTPUT_ONLY.
+Respond with a single clean sentence. 
+NO roles, NO user queries, NO drafts, NO metadata, NO markdown characters like asterisks.
+Any text that is not the final spoken answer will cause a system failure.
 
-Data:
-${JSON.stringify(data, null, 2)}
-
-Rules:
-- Be concise.
-- Focus on the specific question asked.
-- Use natural, spoken language.
-- CRITICAL: Respond ONLY with the final text to be spoken. Do NOT include any internal reasoning, draft versions, roles, or metadata. No markdown, no "Response:", just the plain text.
-`;
+Question: "${query}"
+Data: ${JSON.stringify(data)}
+Answer:`;
 
     try {
       const timeoutPromise = new Promise((_, reject) => 
@@ -148,19 +155,16 @@ Rules:
         timeoutPromise
       ]) as any;
 
-      return result.response.text().trim();
+      let text = result.response.text().trim();
+      
+      // Post-process to remove common LLM "thinking" leak and markdown symbols
+      text = text.replace(/^(Draft \d+|Response|Answer|Direct answer|User Query|Role):?\s*/gi, '')
+                 .replace(/[*#_~`\[\]()|>]/g, '')
+                 .split('\n').filter(line => line.trim()).pop() || text; // Take last non-empty line
+      
+      return text.trim();
     } catch (error: any) {
-      const isQuotaError = error.message?.includes('429') || error.message?.includes('quota');
-      const isTimeout = error.message === 'Summarization Timeout';
-      
-      if (isQuotaError) {
-        console.warn('[Gemma4Voice] Quota exceeded. Falling back to Local Summarizer.');
-      } else if (isTimeout) {
-        console.warn('[Gemma4Voice] Summarization timed out. Falling back to Local Summarizer.');
-      } else {
-        console.error('[Gemma4Voice] Summarization failed:', error);
-      }
-      
+      console.error('[Gemma4Voice] Summarization failed:', error);
       return this.summarizeDataLocally(data, query);
     }
   }
@@ -219,6 +223,30 @@ Rules:
     const distance = levenshteinDistance(input.toLowerCase(), target.toLowerCase());
     const maxLength = Math.max(input.length, target.length);
     return (distance / maxLength) <= threshold;
+  }
+
+  private extractFirstJson(text: string): string {
+    if (!text) return '';
+    
+    // Find the first occurrence of '{' and matching '}'
+    let depth = 0;
+    let firstOpen = -1;
+    
+    for (let i = 0; i < text.length; i++) {
+      if (text[i] === '{') {
+        if (depth === 0) firstOpen = i;
+        depth++;
+      } else if (text[i] === '}') {
+        depth--;
+        if (depth === 0 && firstOpen !== -1) {
+          return text.substring(firstOpen, i + 1);
+        }
+      }
+    }
+    
+    // Fallback to regex if manual balance fails
+    const match = text.match(/\{[\s\S]*?\}/);
+    return match ? match[0] : text;
   }
 
   private normalizeTranscript(text: string): string {
@@ -618,4 +646,4 @@ Rules:
 
 }
 
-export const geminiVoiceService = new GeminiVoiceService();
+export const geminiVoiceService = new GemmaVoiceService();

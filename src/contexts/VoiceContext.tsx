@@ -13,6 +13,7 @@ interface VoiceContextType {
   pendingConfirmation: VoiceAction | null;
   startListening: () => void;
   stopListening: () => void;
+  stopSpeaking: () => void;
   setProcessing: (processing: boolean) => void;
   clearTranscript: () => void;
   speak: (text: string) => void;
@@ -20,6 +21,7 @@ interface VoiceContextType {
   enqueueAction: (action: VoiceAction) => void;
   consumeAction: (type: string) => VoiceAction | null;
   setPendingConfirmation: (action: VoiceAction | null) => void;
+  cleanTextForSpeech: (text: string) => string;
 }
 
 const VoiceContext = createContext<VoiceContextType | undefined>(undefined);
@@ -41,6 +43,8 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const isTriggeredRef = useRef(false);
   const statusRef = useRef<VoiceStatus>('idle');
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isStartingRef = useRef(false); // NEW: Guard for async start()
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null); // NEW: Track speech audio
 
   const resetSilenceTimer = useCallback(() => {
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
@@ -84,6 +88,7 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       recognition.onstart = async () => {
         console.log('[VoiceContext] Speech recognition started');
         setIsListening(true);
+        isStartingRef.current = false;
         setStatus('listening');
         try {
           await setupAudioProcessing();
@@ -206,12 +211,16 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const startListening = useCallback(async () => {
-    if (isListening) return;
-
     try {
+      if (isListening || isStartingRef.current) {
+        console.log('[VoiceContext] Skip start: already listening or starting');
+        return;
+      }
+
       setLastTranscript('');
       setIsTriggered(true);
       setStatus('connecting');
+      isStartingRef.current = true;
       
       if (recognitionRef.current) {
         (window as any).isListeningIntent = true;
@@ -222,6 +231,7 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         throw new Error('Speech Recognition not supported in this browser.');
       }
     } catch (err) {
+      isStartingRef.current = false;
       console.error('[VoiceContext] Error starting speech recognition:', err);
       setStatus('error');
       toast.error(`Voice start failed: ${err instanceof Error ? err.message : 'unknown error'}`);
@@ -237,6 +247,23 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setIsListening(false);
     isListeningRef.current = false;
     setIsTriggered(false);
+    setStatus('idle');
+  }, []);
+
+  const stopSpeaking = useCallback(() => {
+    console.log('[VoiceContext] stopSpeaking called');
+    
+    // 1. Cancel browser speech
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+
+    // 2. Stop cloud audio
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current = null;
+    }
+
     setStatus('idle');
   }, []);
 
@@ -267,10 +294,21 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
     return null;
   }, [commandQueue]);
+  // Universal safety layer to prevent TTS from reading out markdown/metadata symbols
+  const cleanTextForSpeech = useCallback((input: string): string => {
+    if (!input) return '';
+    return input
+      .replace(/[*#_~`\[\]()|>]/g, '') // Remove markdown symbols
+      .replace(/https?:\/\/\S+/g, 'link') // Replace URLs with "link"
+      .replace(/\s+/g, ' ') // Normalize whitespace
+      .replace(/^\s*[-•]\s*/gm, '') // Remove bullet markers
+      .replace(/^(Draft \d+|Response|Answer|Direct answer|User Query|Role):?\s*/gi, '') // Remove LLM leak phrases
+      .trim();
+  }, []);
 
-  const speak = async (text: string) => {
-    console.log('[VoiceContext] speak called with:', text);
-    if (!text?.trim()) return;
+  const speak = useCallback(async (text: string) => {
+    const cleanedText = cleanTextForSpeech(text);
+    if (!cleanedText) return;
 
     const fallbackBrowserSpeak = () => {
       if (!('speechSynthesis' in window)) {
@@ -280,7 +318,7 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       const synth = window.speechSynthesis;
       const voices = synth.getVoices();
-      const utterance = new SpeechSynthesisUtterance(text);
+      const utterance = new SpeechSynthesisUtterance(cleanedText);
 
       const preferred =
         voices.find(v => /en-US|en_US/i.test(v.lang)) ||
@@ -323,7 +361,7 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const res = await fetch('/api/voice/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text })
+        body: JSON.stringify({ text: cleanedText })
       });
 
       if (!res.ok) {
@@ -336,6 +374,7 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
+      currentAudioRef.current = audio;
 
       audio.onplay = () => {
         console.log('[VoiceContext] audio playback started');
@@ -345,12 +384,14 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       audio.onended = () => {
         console.log('[VoiceContext] audio playback ended');
         URL.revokeObjectURL(url);
+        currentAudioRef.current = null;
         setStatus('idle');
       };
 
       audio.onerror = (e) => {
         console.error('[VoiceContext] audio playback error:', e);
         URL.revokeObjectURL(url);
+        currentAudioRef.current = null;
         fallbackBrowserSpeak();
       };
 
@@ -363,7 +404,7 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       console.error('[VoiceContext] speak failed:', e);
       fallbackBrowserSpeak();
     }
-  };
+  }, [cleanTextForSpeech]);
 
   return (
     <VoiceContext.Provider value={{ 
@@ -379,6 +420,7 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setProcessing,
       clearTranscript,
       speak,
+      stopSpeaking,
       enqueueAction,
       consumeAction,
       setPendingConfirmation

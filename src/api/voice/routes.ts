@@ -10,27 +10,12 @@ You are the "Humanized Intelligence" for Velocity AI. You helping a professional
 ## PERSONA:
 - Professional, warm, and conversational. 
 - Speech-ready responses: Briefly and naturally confirm actions.
-- HINGLISH: You natively understand mixed Hindi-English (e.g., "Sarah ko add kardo", "Task assign kardo Krish ko"). Map these to structured categories.
+- HINGLISH: You natively understand mixed Hindi-English (e.g., "kitane projects hain", "Sarah ko add kardo").
+- MAPPING: "kitane" (how many) maps to "info". "dikhao" maps to "navigate".
 
-Current Context:
-- Page: ${currentPath}
-${currentProjectId ? `- Active Project ID: ${currentProjectId}` : ''}
+CRITICAL: Return ONLY valid JSON. Do not include reasoning or markdown. Output exactly one JSON object.
 
-## ACTION MAPPING:
-1. navigate: { target: "/dashboard"|"/projects"|"/people"|"/plan"|"/leave" }
-2. create_project: { projectTitle, projectDescription, autoAnalyze: true }
-3. add_team_member: { name, email, role }
-4. create_task: { taskName, projectName, assigneeName }
-5. delete_team_member/task: { name/taskName } (Set requiresConfirmation: true)
-6. info/query: Answer questions using natural language. response: "Natural answer"
-
-## RULES:
-- Identify CORE intent from messy speech with fillers (um, like).
-- HINGLISH: Map colloquial verbs like "set kardo", "dikhao", "hatado" to add/navigate/delete.
-- Return ONLY JSON. No preamble. No "Standard Mode".
-
-JSON:
-{"type":"...","params":{...},"response":"Natural spoken confirmation","requiresConfirmation":boolean}`;
+{ "type": "...", "params": { ... }, "response": "Spoken confirmation", "requiresConfirmation": boolean }`;
 
 // ── Local rule-based fallback — zero API calls ───────────────────────────────
 function localParse(transcript: string, currentProjectId?: string): object {
@@ -169,11 +154,11 @@ router.post('/parse', async (req: Request, res: Response) => {
   const prompt = SYSTEM_PROMPT(currentPath);
   const userMessage = `User said: "${transcript}"`;
 
-  // ── 1. Gemini 2.0 Flash ──────────────────────────────────────────────────
+  // ── 1. Gemma 4 31B IT ──────────────────────────────────────────────────────
   if (geminiKey) {
     try {
       const geminiRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemma-4-31b-it:generateContent?key=${geminiKey}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -190,17 +175,17 @@ router.post('/parse', async (req: Request, res: Response) => {
         if (text) {
           try {
             const parsed = JSON.parse(text);
-            console.log('[VoiceParse] ✅ Gemini success');
-            return res.json({ ...parsed, provider: 'gemini' });
+            console.log('[VoiceParse] ✅ Gemma 4 success');
+            return res.json({ ...parsed, provider: 'gemma-4' });
           } catch { /* fall through */ }
         }
       } else if (geminiRes.status === 429) {
-        console.warn('[VoiceParse] Gemini rate limited → trying Groq');
+        console.warn('[VoiceParse] Gemma 4 rate limited → trying Groq');
       } else {
-        console.warn('[VoiceParse] Gemini error:', geminiRes.status);
+        console.warn('[VoiceParse] Gemma 4 error:', geminiRes.status);
       }
     } catch (e) {
-      console.warn('[VoiceParse] Gemini exception:', e);
+      console.warn('[VoiceParse] Gemma 4 exception:', e);
     }
   }
 
@@ -248,6 +233,21 @@ router.post('/parse', async (req: Request, res: Response) => {
   // ── 3. Local parser — always works ──────────────────────────────────────
   console.log('[VoiceParse] ✅ Local parser');
   return res.json(localParse(transcript, currentProjectId));
+});
+
+// ── Text to Speech endpoint ───────────────────────────────────────────────
+router.post('/tts', async (req: Request, res: Response) => {
+  const { text } = req.body;
+  const geminiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+
+  if (!text) return res.status(400).json({ error: 'text is required' });
+
+  // For now, we'll return a 404 to trigger the frontend's robust browser fallback
+  // This prevents the 500 server crash while maintaining functionality
+  console.log('[VoiceTTS] Request received:', text.slice(0, 30));
+  
+  // Optional: In the future, integrate with Google Cloud TTS or Gemini Multimodal TTS here
+  return res.status(404).json({ error: 'Server-side TTS not implemented, using browser fallback' });
 });
 
 export default router;

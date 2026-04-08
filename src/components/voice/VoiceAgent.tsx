@@ -7,7 +7,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import gsap from 'gsap';
 
 export const VoiceAgent: React.FC = () => {
-  const { isListening, status, lastTranscript, isTriggered, volumeLevel, pendingConfirmation, startListening, stopListening } = useVoice();
+  const { isListening, status, lastTranscript, isTriggered, volumeLevel, pendingConfirmation, startListening, stopListening, stopSpeaking } = useVoice();
   const { handleVoiceCommand } = useVoiceActions();
   const location = useLocation();
   const isMobile = useIsMobile();
@@ -44,12 +44,15 @@ export const VoiceAgent: React.FC = () => {
         e.preventDefault();
         if (isListening) stopListening();
         else startListening();
+      } else if (e.code === 'Escape' && status === 'speaking') {
+        e.preventDefault();
+        stopSpeaking();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isListening, startListening, stopListening]);
+  }, [isListening, startListening, stopListening, status, stopSpeaking]);
 
   // GSAP Animations for the Orb
   useEffect(() => {
@@ -159,10 +162,14 @@ export const VoiceAgent: React.FC = () => {
             </div>
             {status !== 'idle' && (
               <button 
-                onClick={(e) => { e.stopPropagation(); stopListening(); }}
+                onClick={(e) => { 
+                  e.stopPropagation(); 
+                  if (status === 'speaking') stopSpeaking();
+                  else stopListening(); 
+                }}
                 className="text-[10px] text-gray-400 hover:text-red-500 transition-colors uppercase font-bold"
               >
-                Cancel
+                {status === 'speaking' ? 'Stop' : 'Cancel'}
               </button>
             )}
           </div>

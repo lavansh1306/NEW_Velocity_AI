@@ -4,7 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently \"npm run dev:ui\" \"npm run api\"",
+    "dev:ui": "vite",
     "api": "node --import ./node_modules/tsx/dist/loader.mjs server.ts",
     "build": "vite build",
     "build:dev": "vite build --mode development",
@@ -104,6 +105,7 @@
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react-swc": "^3.11.0",
     "autoprefixer": "^10.4.24",
+    "concurrently": "^9.2.1",
     "eslint": "^8.57.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
