@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { getCurrentOrgId } from '@/lib/orgContext';
-import { pushApprovedTaskToLinear, logRejectedSuggestion } from '@/lib/linearDataService';
+import { approveAndPushToLinear, rejectAndLogML } from '@/lib/linearDataService';
 import { ArrowRight, RefreshCw, Check, Loader2, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -91,7 +91,7 @@ export const WorkloadRebalancer: React.FC = () => {
       setDismissed(prev => new Set([...prev, s.taskId]));
 
       // 2. Push to Linear + log ML training event (fire-and-forget)
-      pushApprovedTaskToLinear({
+      approveAndPushToLinear({
         taskId: s.taskId,
         taskName: s.taskName,
         taskDescription: s.reason,
@@ -121,7 +121,7 @@ export const WorkloadRebalancer: React.FC = () => {
     setDismissed(prev => new Set([...prev, s.taskId]));
 
     // Log reject signal for ML model (fire-and-forget)
-    logRejectedSuggestion({
+    rejectAndLogML({
       taskId: s.taskId,
       suggestedUserId: s.toId,
       skillMatchScore: 50,

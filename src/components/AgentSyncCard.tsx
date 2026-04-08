@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { getCurrentOrgId } from '@/lib/orgContext';
-import { pushApprovedTaskToLinear, logRejectedSuggestion } from '@/lib/linearDataService';
+import { approveAndPushToLinear, rejectAndLogML } from '@/lib/linearDataService';
 import { Zap, CheckCircle2, Clock, ChevronRight, ExternalLink, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -62,7 +62,7 @@ export const AgentSyncCard: React.FC = () => {
   const handlePushToLinear = async (task: SyncActivity) => {
     setPushingToLinear(task.id);
     try {
-      const result = await pushApprovedTaskToLinear({
+      const result = await approveAndPushToLinear({
         taskId: task.id,
         taskName: task.taskName,
         suggestedUserId: task.suggestedUserId,
