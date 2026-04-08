@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useJiraConnection } from '@/hooks/useJiraConnection';
+import { LinearConnect } from '@/components/linear/LinearConnect';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -83,6 +84,7 @@ const SettingsScreen = () => {
 
         setIntegrations([
           { name: 'Jira', description: 'Import projects and track tasks', connected: (jiraRes.data?.length ?? 0) > 0 },
+          { name: 'Linear', description: 'Push approved AI tasks directly into Linear as issues', connected: false },
           { name: 'Asana', description: 'Sync project management data', connected: false },
           { name: 'Slack', description: 'Get notifications and updates', connected: false },
           { name: 'Google Calendar', description: 'Sync team schedules', connected: false },
@@ -545,6 +547,8 @@ const SettingsScreen = () => {
                           </Button>
                         )}
                       </div>
+                    ) : integration.name === 'Linear' ? (
+                      <LinearConnect />
                     ) : (
                       !integration.connected && (
                         <Button className="bg-[#1C1917] text-white h-9 px-5 rounded-xl">Connect</Button>
