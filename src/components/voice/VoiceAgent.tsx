@@ -56,45 +56,62 @@ export const VoiceAgent: React.FC = () => {
     if (!orbRef.current) return;
 
     if (status === 'listening') {
-      // Dynamic scaling based on volumeLevel
+      // Warm emerald pulse
       const scale = 1.1 + (volumeLevel / 100);
       gsap.to(orbRef.current, {
         scale: scale,
         duration: 0.1,
         ease: "power2.out",
+        backgroundColor: "#10B981",
         boxShadow: `0 0 ${20 + volumeLevel/2}px rgba(16, 185, 129, ${0.4 + volumeLevel/200})`
       });
-    } else if (isTriggered) {
+    } else if (status === 'processing' || status === 'connecting') {
+      // Golden "Thinking" sequence
       gsap.to(orbRef.current, {
-        scale: 1.2,
-        duration: 0.5,
+        scale: 1.1,
+        duration: 0.8,
         repeat: -1,
         yoyo: true,
         ease: "sine.inOut",
-        boxShadow: "0 0 20px rgba(16, 185, 129, 0.6)"
+        backgroundColor: "#F59E0B",
+        boxShadow: "0 0 30px rgba(245, 158, 11, 0.5)"
       });
-    } else if (status === 'connecting' || status === 'processing') {
       gsap.to(orbRef.current, {
         rotation: 360,
         repeat: -1,
-        duration: 1,
+        duration: 2,
         ease: "none"
       });
     } else if (status === 'speaking') {
+      // Fluid blue waveform effect
       gsap.to(orbRef.current, {
-        scale: 1.1,
-        duration: 0.2,
+        scale: 1.15,
+        duration: 0.4,
         repeat: -1,
         yoyo: true,
         ease: "power1.inOut",
-        backgroundColor: "#3B82F6"
+        backgroundColor: "#3B82F6",
+        boxShadow: "0 0 25px rgba(59, 130, 246, 0.4)"
+      });
+    } else if (isTriggered) {
+      // Soft wake state
+      gsap.to(orbRef.current, {
+        scale: 1.05,
+        duration: 1,
+        repeat: -1,
+        yoyo: true,
+        ease: "sine.inOut",
+        backgroundColor: "#10B981",
+        boxShadow: "0 0 15px rgba(16, 185, 129, 0.3)"
       });
     } else {
+      // Idle state
       gsap.to(orbRef.current, {
         scale: 1,
         rotation: 0,
         duration: 0.5,
-        backgroundColor: status === 'error' ? '#EF4444' : '#9CA3AF' // red-500 for error, gray-400 for idle
+        backgroundColor: status === 'error' ? '#EF4444' : '#9CA3AF',
+        boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)"
       });
     }
   }, [status, isTriggered, volumeLevel]);
@@ -116,26 +133,38 @@ export const VoiceAgent: React.FC = () => {
       className="fixed bottom-6 right-6 z-[9999] flex flex-col items-end gap-3 pointer-events-none"
     >
       {/* Transcript Bubble */}
-      {(isTriggered || status !== 'idle') && lastTranscript && (
-        <div className="bg-white/80 backdrop-blur-md border border-gray-200 rounded-2xl p-4 shadow-xl max-w-xs animate-in fade-in slide-in-from-bottom-4 pointer-events-auto">
-          <p className="text-sm text-gray-800 font-medium italic">
-            "{status === 'processing' ? 'Processing with VeloAI...' : (lastTranscript || 'Listening...')}"
+      {(isTriggered || status !== 'idle') && (
+        <div className="bg-white/90 backdrop-blur-md border border-gray-200 rounded-2xl p-4 shadow-2xl max-w-xs animate-in fade-in slide-in-from-bottom-4 pointer-events-auto ring-1 ring-black/5">
+          <p className="text-sm text-gray-800 font-medium leading-relaxed">
+            {status === 'processing' ? (
+              <span className="flex items-center gap-2 text-amber-600">
+                <Loader2 className="h-3 w-3 animate-spin" /> Thinking...
+              </span>
+            ) : status === 'connecting' ? (
+              <span className="text-blue-500">Connecting...</span>
+            ) : (lastTranscript || (status === 'listening' ? 'Listening...' : 'Ready'))}
           </p>
-          <div className="flex items-center gap-2 mt-2">
-            <div className={`h-1.5 w-1.5 rounded-full ${
-              status === 'connecting' ? 'bg-blue-400 animate-pulse' :
-              status === 'listening' ? 'bg-emerald-500 animate-pulse' : 
-              status === 'processing' ? 'bg-amber-500 animate-bounce' : 
-              status === 'speaking' ? 'bg-blue-500' : 
-              status === 'error' ? 'bg-red-500' : 'bg-gray-400'
-            }`} />
-            <span className="text-[10px] uppercase tracking-wider text-gray-500 font-bold">
-              {status === 'connecting' ? 'Connecting...' :
-               status === 'listening' ? (pendingConfirmation ? 'Confirming...' : 'Listening...') : 
-               status === 'processing' ? 'Checking...' : 
-               status === 'speaking' ? 'Speaking...' : 
-               status === 'error' ? 'Mic Blocked' : 'Ready'}
-            </span>
+          <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-100">
+            <div className="flex items-center gap-2">
+              <div className={`h-1.5 w-1.5 rounded-full ${
+                status === 'connecting' ? 'bg-blue-400 animate-pulse' :
+                status === 'listening' ? 'bg-emerald-500 animate-pulse' : 
+                status === 'processing' ? 'bg-amber-500 animate-bounce' : 
+                status === 'speaking' ? 'bg-blue-500' : 
+                status === 'error' ? 'bg-red-500' : 'bg-gray-400'
+              }`} />
+              <span className="text-[10px] uppercase tracking-wider text-gray-500 font-bold">
+                {status}
+              </span>
+            </div>
+            {status !== 'idle' && (
+              <button 
+                onClick={(e) => { e.stopPropagation(); stopListening(); }}
+                className="text-[10px] text-gray-400 hover:text-red-500 transition-colors uppercase font-bold"
+              >
+                Cancel
+              </button>
+            )}
           </div>
         </div>
       )}

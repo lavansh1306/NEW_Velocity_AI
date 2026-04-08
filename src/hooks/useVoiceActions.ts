@@ -369,12 +369,14 @@ export const useVoiceActions = () => {
         break;
 
       case 'add_team_member':
-        const { name, email, role } = action.params || {};
-        if (currentPath !== '/people') {
+        const { name: mName, email: mEmail, role: mRole } = action.params || {};
+        if (currentPath === '/people' || currentPath === '/onboarding/team') {
+          window.dispatchEvent(new CustomEvent('velo-add-member', { 
+            detail: { name: mName, email: mEmail, role: mRole } 
+          }));
+        } else {
           enqueueAction(action);
           navigate('/people');
-        } else {
-          window.dispatchEvent(new CustomEvent('velo-add-member', { detail: { name, email, role } }));
         }
         break;
 

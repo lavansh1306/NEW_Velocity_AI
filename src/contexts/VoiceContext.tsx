@@ -40,6 +40,15 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const isListeningRef = useRef(false);
   const isTriggeredRef = useRef(false);
   const statusRef = useRef<VoiceStatus>('idle');
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const resetSilenceTimer = useCallback(() => {
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    silenceTimerRef.current = setTimeout(() => {
+      console.log('[VoiceContext] 5s silence reached. Shutting down.');
+      stopListening();
+    }, 5000); // 5 seconds of silence
+  }, []);
 
   useEffect(() => {
     isListeningRef.current = isListening;
@@ -67,8 +76,8 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (SpeechRecognition) {
       const recognition = new SpeechRecognition();
-      recognition.continuous = false; // Changed to false for better stability
-      recognition.interimResults = false; // Changed to false for better reliability
+      recognition.continuous = true; // Stay alive for the silence window
+      recognition.interimResults = true; // Needed to reset silence timer instantly
       recognition.lang = 'en-US';
       (window as any).isListeningIntent = false;
 
@@ -84,10 +93,22 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       };
 
       recognition.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        console.log('[VoiceContext] Final result received:', transcript);
-        setLastTranscript(transcript);
-        setStatus('idle'); // We've heard something, it's done for this batch
+        // Reset silence timer on any speech detection
+        resetSilenceTimer();
+        
+        let finalTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+          }
+        }
+
+        if (finalTranscript) {
+          console.log('[VoiceContext] Final result received:', finalTranscript);
+          setLastTranscript(finalTranscript);
+          // Don't set status to idle immediately if we're in continuous mode
+          // let the 5s timer handle the shutdown
+        }
       };
 
       recognition.onerror = (event: any) => {
@@ -107,6 +128,15 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       recognition.onend = () => {
         console.log('[VoiceContext] Speech recognition ended');
+        
+        // If it ended but we haven't reached silence timeout and isTriggered is true, restart
+        // This handles browser-level auto-timeouts while keeping our 5s logic alive
+        if (isTriggeredRef.current && statusRef.current !== 'idle') {
+          console.log('[VoiceContext] Browser timeout, restarting to maintain session...');
+          try { recognition.start(); } catch(e) {}
+          return;
+        }
+
         setIsListening(false);
         isListeningRef.current = false;
         (window as any).isListeningIntent = false;
@@ -186,6 +216,7 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (recognitionRef.current) {
         (window as any).isListeningIntent = true;
         recognitionRef.current.start();
+        resetSilenceTimer(); // Start the 5s countdown
         console.log('[VoiceContext] Native Speech Recognition starting');
       } else {
         throw new Error('Speech Recognition not supported in this browser.');
@@ -198,12 +229,14 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [isListening]);
 
   const stopListening = useCallback(() => {
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     if (recognitionRef.current) {
       (window as any).isListeningIntent = false;
-      recognitionRef.current.stop();
+      try { recognitionRef.current.stop(); } catch(e) {}
     }
     setIsListening(false);
     isListeningRef.current = false;
+    setIsTriggered(false);
     setStatus('idle');
   }, []);
 
