@@ -54,6 +54,7 @@ import leaveApprovalRoutes from "./src/api/leave-approval/routes.ts"
 import invitesRoutes from "./src/api/invites/routes.ts"
 import employeeRoutes from "./src/api/employee/routes.ts"
 import organizationRoutes from "./src/api/organization/routes.ts"
+import linearRoutes from "./src/api/linear/routes.ts"
 const app = express()
 
 console.log("typeof express:", typeof express)
@@ -224,6 +225,8 @@ console.log('[Server] Employee routes mounted');
 
 // ============ Organization Routes ============
 app.use('/api/organization', organizationRoutes);
+
+app.use('/api/linear', linearRoutes);
 console.log('[Server] Organization routes mounted at /api/organization');
 
 // AI Description Expander
