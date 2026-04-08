@@ -5,7 +5,7 @@
  * Modeled on src/lib/jiraDataService.ts
  */
 
-import { fetchLinearIssuesHybrid, getLinearStatus, pushTaskToLinear, logMLTrainingEvent } from './linearClient';
+import { fetchLinearIssuesHybrid, getLinearConnectionStatus, pushTaskToLinear, logMLTrainingEvent } from './linearClient';
 import type { LinearIssueFromDB } from './linearClient';
 import { getCurrentOrgId } from './orgContext';
 
@@ -80,7 +80,7 @@ export async function syncLinearData(): Promise<LinearDataState> {
 
     // Check connection status and fetch issues in parallel
     const [status, issuesResult] = await Promise.all([
-      getLinearStatus(),
+      getLinearConnectionStatus(),
       fetchLinearIssuesHybrid(),
     ]);
 
