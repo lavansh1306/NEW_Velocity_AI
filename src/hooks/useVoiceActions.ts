@@ -395,10 +395,17 @@ export const useVoiceActions = () => {
 
       case 'gantt_query':
       case 'resource_query':
-        const dashData = await getDashboardData();
-        const summary = await geminiVoiceService.summarizeData(dashData, action.params?.query || action.type.replace('_', ' '));
-        speak(summary);
-        toast.info(summary);
+        try {
+          const dashData = await getDashboardData();
+          const summary = await geminiVoiceService.summarizeData(dashData, action.params?.query || action.type.replace('_', ' '));
+          speak(summary);
+          toast.info(summary);
+        } catch (err) {
+          console.error('[VoiceActions] Data summary failed:', err);
+          speak("I'm having trouble accessing the project data right now. Please try again in a moment.");
+        } finally {
+          setProcessing(false);
+        }
         break;
 
       case 'request_leave':

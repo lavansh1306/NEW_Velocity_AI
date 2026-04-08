@@ -44,9 +44,10 @@ export const VoiceAgent: React.FC = () => {
         e.preventDefault();
         if (isListening) stopListening();
         else startListening();
-      } else if (e.code === 'Escape' && status === 'speaking') {
+      } else if (e.code === 'Escape') {
         e.preventDefault();
         stopSpeaking();
+        stopListening();
       }
     };
 
@@ -59,14 +60,15 @@ export const VoiceAgent: React.FC = () => {
     if (!orbRef.current) return;
 
     if (status === 'listening') {
-      // Warm emerald pulse
-      const scale = 1.1 + (volumeLevel / 100);
+      // Fast emerald pulse without volume jitter
       gsap.to(orbRef.current, {
-        scale: scale,
-        duration: 0.1,
-        ease: "power2.out",
+        scale: 1.15,
+        duration: 0.4,
+        repeat: -1,
+        yoyo: true,
+        ease: "sine.inOut",
         backgroundColor: "#10B981",
-        boxShadow: `0 0 ${20 + volumeLevel/2}px rgba(16, 185, 129, ${0.4 + volumeLevel/200})`
+        boxShadow: "0 0 25px rgba(16, 185, 129, 0.4)"
       });
     } else if (status === 'processing' || status === 'connecting') {
       // Golden "Thinking" sequence
@@ -86,7 +88,7 @@ export const VoiceAgent: React.FC = () => {
         ease: "none"
       });
     } else if (status === 'speaking') {
-      // Fluid blue waveform effect
+      // Constant blue pulse
       gsap.to(orbRef.current, {
         scale: 1.15,
         duration: 0.4,

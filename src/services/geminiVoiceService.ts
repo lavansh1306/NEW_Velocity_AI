@@ -74,16 +74,21 @@ Current Page Context: ${currentPath}
 
 ## CORE RULES:
 - MESSY INPUTS: Clean up transcripts with fillers (um, uh, like). Identify intent even if colloquial.
-- HINGLISH: Map "kardo", "dikhao", "hatado", "kitane" to appropriate categories. "kitane" (how many) maps to "info".
-- NEVER deliberate: Provide exactly one JSON object. No drafts.
+- HINGLISH: "kitane" (how many), "status kya hai", "dikhao" (show).
+- MAPPING: "status", "health", "how many", "kitane" -> resource_query.
+- NEVER deliberate: Output exactly one JSON object.
 
 JSON STRUCTURE:
 {
   "type": "navigate" | "create_project" | "add_team_member" | "delete_team_member" | "create_task" | "assign_task" | "info" | "gantt_query" | "resource_query" | "request_leave" | "approve_leave" | "unknown",
   "params": { ... },
-  "response": "A short natural spoken response.",
+  "response": "A short spoken response.",
   "requiresConfirmation": boolean
 }
+
+EXAMPLES:
+"What is the status?" -> { "type": "resource_query", "params": { "query": "status" }, "response": "Checking current status..." }
+"Kitane projects hai?" -> { "type": "resource_query", "params": { "query": "projects" }, "response": "Counting projects..." }
 `;
 
     try {
@@ -105,16 +110,12 @@ JSON STRUCTURE:
 
       try {
         const action = JSON.parse(cleanedText);
-        // Normalize: handle 'action' instead of 'type' and consolidate fields
         const normalizedAction: VoiceAction = {
-          type: action.type || action.action || 'unknown',
-          params: action.params || action.data || {},
-          response: action.response || action.answer || "I've handled that for you.",
+          type: (action.type || action.action || 'unknown').toLowerCase() as any,
+          params: action.params || action.data || action.parameters || {},
+          response: action.response || action.answer || action.message || action.info || action.text || "",
           requiresConfirmation: action.requiresConfirmation ?? false
         };
-        
-        // Final normalization to lowercase
-        normalizedAction.type = normalizedAction.type.toLowerCase() as any;
         
         console.log('[Gemma4Voice] Normalized action:', normalizedAction);
         return normalizedAction;
@@ -146,25 +147,33 @@ Data: ${JSON.stringify(data)}
 Answer:`;
 
     try {
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Summarization Timeout')), 20000)
-      );
-
-      const result = await Promise.race([
-        this.model.generateContent(prompt),
-        timeoutPromise
-      ]) as any;
-
-      let text = result.response.text().trim();
+      const result = await this.model.generateContent(prompt);
+      const text = result.response.text().trim();
       
-      // Post-process to remove common LLM "thinking" leak and markdown symbols
-      text = text.replace(/^(Draft \d+|Response|Answer|Direct answer|User Query|Role):?\s*/gi, '')
-                 .replace(/[*#_~`\[\]()|>]/g, '')
-                 .split('\n').filter(line => line.trim()).pop() || text; // Take last non-empty line
+      // AGGRESSIVE EXTRACTION: Find the actual spoken sentence
+      // 1. If 'Answer:' or 'Sentence:' exists, take everything after the LAST occurrence
+      const markers = [/Answer:\s*/gi, /Sentence:\s*/gi, /Response:\s*/gi];
+      let cleanText = text;
       
-      return text.trim();
-    } catch (error: any) {
-      console.error('[Gemma4Voice] Summarization failed:', error);
+      for (const marker of markers) {
+        const parts = text.split(marker);
+        if (parts.length > 1) {
+          cleanText = parts.pop() || cleanText;
+          break;
+        }
+      }
+
+      // 2. Final sanitization: Strip all rules, markers, and symbols
+      cleanText = cleanText
+        .replace(/Rule:.*$/gim, '')
+        .replace(/Constraint:.*$/gim, '')
+        .replace(/Question:.*$/gim, '')
+        .replace(/[*#_~`\[\]()|>]/g, '')
+        .trim();
+
+      return cleanText || this.summarizeDataLocally(data, query);
+    } catch (e) {
+      console.error('[GemmaVoice] Summarization failed, using local fallback:', e);
       return this.summarizeDataLocally(data, query);
     }
   }

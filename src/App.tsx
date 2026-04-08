@@ -47,7 +47,6 @@ import EmployeeProfile from "./pages/employee/EmployeeProfile";
 import { EmployeeTimeScreen } from "./pages/employee/EmployeeTimeScreen";
 import { VoiceProvider } from "@/contexts/VoiceContext";
 import { VoiceAgent } from "@/components/voice/VoiceAgent";
-import { GlobalVoiceCommander } from "@/components/voice/GlobalVoiceCommander";
 import AgentDashboard from "./pages/AgentDashboard";
 
 const queryClient = new QueryClient({
@@ -111,8 +110,6 @@ const App = () => (
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <VoiceProvider>
               <VoiceAgent />
-              {/* Global voice overlay — Ctrl+Space from anywhere in the app */}
-              <GlobalVoiceCommander />
               <OnboardingProvider>
               <Routes>
                 {/* 1. Public Marketing Routes */}

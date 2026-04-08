@@ -49,9 +49,9 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const resetSilenceTimer = useCallback(() => {
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     silenceTimerRef.current = setTimeout(() => {
-      console.log('[VoiceContext] 5s silence reached. Shutting down.');
+      console.log('[VoiceContext] 2.5s silence reached. Shutting down.');
       stopListening();
-    }, 5000); // 5 seconds of silence
+    }, 2500); // 2.5 seconds of silence
   }, []);
 
   useEffect(() => {
@@ -265,6 +265,7 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     setStatus('idle');
+    setIsTriggered(false);
   }, []);
 
   // handleToolCall is now deprecated in favor of useVoiceActions handling geminiVoiceService directly
@@ -276,6 +277,12 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setStatus(processing ? 'processing' : 'idle');
     if (!processing) {
       setIsTriggered(false);
+    } else {
+      // Safety timeout: automatically clear processing state after 10s if it hangs
+      setTimeout(() => {
+        setStatus(prev => prev === 'processing' ? 'idle' : prev);
+        setIsTriggered(prev => prev ? false : prev);
+      }, 10000);
     }
   };
 

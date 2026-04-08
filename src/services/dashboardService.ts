@@ -10,7 +10,10 @@ interface DashboardOptions {
 export const getDashboardData = async (options?: DashboardOptions) => {
     try {
         const orgId = getCurrentOrgId();
-        if (!orgId) throw new Error("No organization ID found");
+        // PRO-LEVEL VALIDATION: Ensure it's not null, 'undefined', or a malformed non-UUID string
+        if (!orgId || orgId === 'undefined' || orgId.length < 10) {
+            return { kpis: [], deadlines: [], gantt: [] };
+        }
 
         const { data: { user: authUser } } = await supabase.auth.getUser();
 

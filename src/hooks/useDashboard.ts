@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { DateRange } from 'react-day-picker';
 import { getDashboardData, getGlobalSearchResults, getNotifications } from '@/services/dashboardService';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 export const useDashboard = () => {
+    const { orgId } = useAuth();
     const [isLoading, setIsLoading] = useState(true);
     const [data, setData] = useState({ kpis: [], deadlines: [], gantt: [] });
     

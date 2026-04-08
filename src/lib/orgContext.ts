@@ -10,18 +10,25 @@
 let _currentOrgId: string | null = null;
 
 export function setCurrentOrgId(orgId: string | null) {
-  _currentOrgId = orgId;
-  if (orgId) {
+  // PRO-LEVEL VALIDATION: Ensure it's not null, 'undefined', or a malformed non-UUID string
+  if (orgId && orgId !== 'undefined' && orgId !== 'null' && orgId.length >= 10) {
+    _currentOrgId = orgId;
     localStorage.setItem('velocity_org_id', orgId);
   } else {
+    _currentOrgId = null;
     localStorage.removeItem('velocity_org_id');
   }
 }
 
 export function getCurrentOrgId(): string | null {
-  if (_currentOrgId) return _currentOrgId;
+  if (_currentOrgId && _currentOrgId !== 'undefined' && _currentOrgId !== 'null') return _currentOrgId;
   // Hydrate from localStorage on first access
-  _currentOrgId = localStorage.getItem('velocity_org_id');
+  const stored = localStorage.getItem('velocity_org_id');
+  if (stored === 'undefined' || stored === 'null' || !stored) {
+    _currentOrgId = null;
+    return null;
+  }
+  _currentOrgId = stored;
   return _currentOrgId;
 }
 
