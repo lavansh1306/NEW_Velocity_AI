@@ -348,7 +348,7 @@ export const useVoiceActions = () => {
 
           const matchedTask = findBestMatch(aTaskName, tasks, (t) => t.name);
           if (!matchedTask) {
-            speak(`I couldn't find a task named "${aTaskName}".`);
+            speak(`${aTaskName} doesn't exist.`);
             break;
           }
 
@@ -437,6 +437,38 @@ export const useVoiceActions = () => {
           navigate('/people');
         } else {
           window.dispatchEvent(new CustomEvent('velo-delete-member', { detail: { name: action.params?.name } }));
+        }
+        break;
+
+      case 'project_query':
+        const { projectQueryType } = action.params || {};
+        try {
+          if (!orgId) {
+            speak("I need your organization context to look up projects.");
+            break;
+          }
+          const { data: qProjs } = await supabase
+            .from('projects')
+            .select('name, created_at')
+            .eq('organization_id', orgId)
+            .order('created_at', { ascending: false });
+
+          if (!qProjs || qProjs.length === 0) {
+            speak("You don't have any projects yet.");
+            break;
+          }
+
+          if (projectQueryType === 'count') {
+            const count = qProjs.length;
+            speak(`${count}`);
+          } else if (projectQueryType === 'list') {
+            const names = qProjs.map(p => p.name).join(', ');
+            speak(`${names}`);
+          } else if (projectQueryType === 'latest') {
+            speak(`${qProjs[0].name}`);
+          }
+        } catch (err) {
+          console.error('[VoiceActions] Project query failed:', err);
         }
         break;
 

@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { levenshteinDistance, phoneticNormalize, findBestMatch } from '@/lib/utils';
 
 export interface VoiceAction {
-  type: 'navigate' | 'create_task' | 'assign_task' | 'update_task' | 'delete_task' | 'add_team_member' | 'delete_team_member' | 'create_project' | 'update_project' | 'delete_project' | 'request_leave' | 'get_leave_status' | 'approve_leave' | 'deny_leave' | 'search' | 'info' | 'gantt_query' | 'resource_query' | 'unknown';
+  type: 'navigate' | 'create_task' | 'assign_task' | 'update_task' | 'delete_task' | 'add_team_member' | 'delete_team_member' | 'create_project' | 'update_project' | 'delete_project' | 'request_leave' | 'get_leave_status' | 'approve_leave' | 'deny_leave' | 'search' | 'info' | 'gantt_query' | 'resource_query' | 'project_query' | 'unknown';
   target?: string;
   params?: {
     taskName?: string;
@@ -23,6 +23,7 @@ export interface VoiceAction {
     status?: string; // For marking tasks as done/incomplete
     newTitle?: string; // For renaming
     newDescription?: string;
+    projectQueryType?: 'count' | 'list' | 'latest';
   };
   response?: string;
   requiresConfirmation?: boolean; // NEW: Flag for high-risk actions
@@ -356,22 +357,20 @@ Rules:
       return { type: 'request_leave', params: { startDate: 'today', endDate: 'today', reason: 'Personal' }, response: `Standard Mode: I'll help you request leave.`, requiresConfirmation: true };
     }
 
-    // 4. Gantt/Resource Queries (Analytics)
-    if (text.includes('timeline') || text.includes('gantt') || text.includes('due date') || text.includes('deadline')) {
-      return {
-        type: 'gantt_query',
-        params: { query: text },
-        response: "Standard Mode: checking the project timeline for you."
-      };
+    // 4. Project Queries
+    if (text.includes('project') && (text.includes('how many') || text.includes('kitane') || text.includes('kitne') || text.includes('number of'))) {
+      return { type: 'project_query', params: { projectQueryType: 'count' }, response: "Checking total project count..." };
+    }
+    if (text.includes('project') && (text.includes('what are') || text.includes('list') || text.includes('show') || text.includes('name'))) {
+      if (!text.includes('count') && !text.includes('latest') && !text.includes('recent')) {
+        return { type: 'project_query', params: { projectQueryType: 'list' }, response: "Fetching project list..." };
+      }
+    }
+    if (text.includes('project') && (text.includes('latest') || text.includes('recent') || text.includes('newest'))) {
+      return { type: 'project_query', params: { projectQueryType: 'latest' }, response: "Finding the latest project..." };
     }
 
-    if (text.includes('who is busy') || text.includes('who has') || text.includes('workload') || text.includes('capacity') || text.includes('how many') || text.includes('kitane') || text.includes('kitne')) {
-      return {
-        type: 'resource_query',
-        params: { query: text },
-        response: "Standard Mode: I'll pull up that information for you."
-      };
-    }
+    // 5. Gantt/Resource Queries (Analytics)
 
     // 5. Help / Info Intent
     if (words.some(w => ['help', 'capabilities', 'commands', 'kya'].includes(w))) {
@@ -381,10 +380,22 @@ Rules:
       };
     }
 
-    // 6. Search
+    // 6. Search & Contextual Task Actions
     if (words[0] === 'search' || words[0] === 'find' || words[0] === 'look') {
       const query = text.replace(/search for|find|lookup|look for/i, '').trim();
       if (query) return { type: 'search', params: { query }, response: `Searching for "${query}".` };
+    }
+
+    // Contextual Assignment: "add xyz to task abc" or "switch task abc to xyz"
+    if (text.includes('to task')) {
+      const addMatch = text.match(/add\s+(.*?)\s+to\s+task\s+(.*)/i);
+      const switchMatch = text.match(/switch\s+task\s+(.*?)\s+to\s+(.*)/i);
+      if (addMatch) {
+         return { type: 'assign_task', params: { assigneeName: addMatch[1].trim(), taskName: addMatch[2].trim() }, response: `Assigning ${addMatch[1].trim()} to task ${addMatch[2].trim()}...` };
+      }
+      if (switchMatch) {
+         return { type: 'assign_task', params: { taskName: switchMatch[1].trim(), assigneeName: switchMatch[2].trim() }, response: `Switching task ${switchMatch[1].trim()} to ${switchMatch[2].trim()}...` };
+      }
     }
 
     return null;
