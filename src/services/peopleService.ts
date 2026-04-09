@@ -176,7 +176,7 @@ export const peopleService = {
             p_team_id: teamId,
             p_email: member.email,
             p_name: member.name,
-            p_role: member.role || 'member'
+            p_role: member.role || ''
         });
 
         if (rpcError) {

@@ -29,7 +29,7 @@ export interface VoiceAction {
   prompt?: string; // NEW: For multi-turn clarifying questions
 }
 
-class GemmaVoiceService {
+class GeminiVoiceService {
   private genAI: GoogleGenerativeAI | null = null;
   private model: any = null;
 
@@ -37,12 +37,12 @@ class GemmaVoiceService {
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
     if (apiKey) {
       this.genAI = new GoogleGenerativeAI(apiKey);
-      // Using Gemma 4 31B IT for expert reasoning and multilingual support
-      this.model = this.genAI.getGenerativeModel({ model: 'models/gemma-4-31b-it' });
+      // Using Gemma 4 31B IT for superior reasoning and larger context
+      this.model = this.genAI.getGenerativeModel({ model: 'gemma-4-31b-it' });
     }
   }
 
-  async parseIntent(transcript: string, currentPath: string, lastContext?: any): Promise<VoiceAction> {
+  async parseIntent(transcript: string, currentPath: string): Promise<VoiceAction> {
     // 1. Try Direct Command Parsing first (Fast Path, No LLM Latency)
     const directAction = this.parseOfflineCommand(transcript);
     if (directAction) {
@@ -51,61 +51,79 @@ class GemmaVoiceService {
     }
 
     if (!this.model) {
-      console.warn('[VoiceIntelligence] Engine not configured. Using local parser.');
-      return this.parseOfflineCommand(transcript) || { type: 'unknown', response: "I'm having trouble connecting to my brain. Let me try that again locally." };
+      console.warn('[Gemma4Voice] Gemini API not configured. Using Standard Mode.');
+      return this.parseOfflineCommand(transcript) || { type: 'unknown', response: "Gemma 4 is unavailable and I couldn't match that command locally." };
     }
 
     const systemPrompt = `
-You are the "Humanized Intelligence" for Velocity AI. You aren't just a parser; you're a helpful, professional colleague who simplifies project planning and team management.
+You are the "Refining Layer" for Velocity AI's voice interface.
+The fast local parser failed to match this transcript. Your job is to "rephrase" the messy transcript into a structured JSON command that the frontend can execute.
 
-## PERSONA & TONE:
-- Professional yet warm. Avoid robotic AI prefixes.
-- Speak like a real person. MANDATORY: Always provide a natural "response" string for the user to hear.
-- MULTILINGUAL (HINGLISH): Native understanding of mixed Hindi-English (e.g., "X ko add kardo").
+Current Page: ${currentPath}
 
-Current Page Context: ${currentPath}
-Last Interacted Object: ${lastContext ? JSON.stringify(lastContext) : 'None'}
+Action Categories & Parameters:
+1. General Commands (Accessible to All Users):
+   - navigate: { target: "/dashboard" | "/projects" | "/people" | "/plan" | "/settings" | "/leave" }
+   - search: { query: "string" }
+   - info: { response: "Natural spoken answer" } (For help/capabilities)
+   - gantt_query: { query: "string" } (Timeline checks)
+   - resource_query: { query: "string" } (Workload/capacity checks)
+   - get_leave_status: { query: "string" } (Checking own leave status)
 
-## CAPABILITIES (JSON MAPPING):
-1. [NAVIGATE] target: "/dashboard", "/projects", "/people", "/plan", "/leave"
-2. [CREATE_PROJECT] projectTitle, projectDescription, autoAnalyze: true
-3. [UPDATE_PROJECT] projectTitle (current or new), newTitle, newDescription
-4. [DELETE_PROJECT] projectTitle (REQUIRES confirmation)
-5. [ADD_TEAM_MEMBER] name, email, role
-6. [DELETE_TEAM_MEMBER] name (REQUIRES confirmation)
-7. [CREATE_TASK] taskName, projectName, assigneeName
-8. [UPDATE_TASK] taskName, status ("completed", "not_started"), newTitle, assigneeName
-9. [ASSIGN_TASK] taskName, assigneeName, fromAssigneeName
-10. [DELETE_TASK] taskName (REQUIRES confirmation)
-11. [INFO] General workspace questions or queries about health, status, metrics.
-12. [RESOURCE_QUERY] (for "health", "status", "projects count", "utilization").
+2. Manager/Admin Only Commands (RESTRICTED):
+   - approve_leave: { name: "string" } (Approve a pending request)
+   - deny_leave: { name: "string" } (Reject a pending request)
+   - add_team_member: { name: "string", email: "string", role: "string" } (Invite new members)
+   - delete_team_member: { name: "string" } (Remove members)
+   - create_project: { projectTitle: "string", projectDescription: "string", autoAnalyze: boolean } (Plan new work)
+   - update_project: { projectTitle: "string", newTitle: "string", newDescription: "string" } (Modify project)
+   - delete_project: { projectTitle: "string" } (Delete project)
+   - create_task: { taskName: "string", projectName: "string (optional)", assigneeName: "string (optional)" } (Create new work)
+   - assign_task: { taskName: "string", assigneeName: "string", fromAssigneeName: "string (optional)" } (Assign/switch task)
+   - update_task: { taskName: "string", status: "completed" | "not_started", newTitle: "string" } (Modify task status or name)
+   - delete_task: { taskName: "string" } (Delete an existing task)
 
-## CONTEXTUAL RULES:
-- If the user says "it", "that", or "this", refer to the 'Last Interacted Object'.
-- If the user says "mark it as done", map to [UPDATE_TASK] with status: "completed" for the last task.
-- If the user says "rename it to X", map to [UPDATE_TASK] or [UPDATE_PROJECT] with newTitle: "X".
+3. Employee Commands (Accessible to All):
+   - request_leave: { startDate: "string", endDate: "string", reason: "string", leaveType: "string" } (Apply for leave)
 
-## CORE RULES:
-- HINGLISH: "kitne" (how many), "status kya hai", "dikhao" (show).
-- NO BRANDING: NEVER mention "Gemini", "Gemma", or "AI". Just answer like a person.
-- NO HALLUCINATION: Never make up data or provide placeholder numbers (like "72%" or "General Tasks"). If data is missing or a parameter is unclear, ask the user for clarification.
-- NO MARKDOWN Symbols: Never use asterisks (*) or symbols in the "response" field.
+Rules:
+- REPHRASING: If the transcript is messy, extract the CORE intent.
+- DATE NORMALIZATION: Convert ANY date mentions like "15th April", "today", "tomorrow" into YYYY-MM-DD format.
+- EXTRACTION: Extract as much detail as possible (names, roles, emails, project titles).
+- Respond ONLY with valid JSON.
+- NO preamble or postamble.
 
-JSON STRUCTURE:
+JSON Structure:
 {
-  "type": "navigate" | "create_project" | "update_project" | "delete_project" | "add_team_member" | "delete_team_member" | "create_task" | "update_task" | "assign_task" | "delete_task" | "info" | "resource_query" | "request_leave" | "unknown",
-  "params": { ... },
-  "response": "A natural, helpful spoken response (Mandatory)",
-  "requiresConfirmation": boolean
+  "type": "navigate" | "create_project" | "update_project" | "delete_project" | "add_team_member" | "delete_team_member" | "create_task" | "update_task" | "assign_task" | "delete_task" | "search" | "info" | "gantt_query" | "resource_query" | "request_leave" | "approve_leave" | "deny_leave" | "unknown",
+  "target": "string (optional)",
+  "params": {
+    "projectTitle": "string",
+    "projectDescription": "string",
+    "autoAnalyze": boolean,
+    "name": "string",
+    "email": "string",
+    "role": "string",
+    "taskName": "string",
+    "projectName": "string",
+    "assigneeName": "string",
+    "fromAssigneeName": "string",
+    "query": "string",
+    "startDate": "YYYY-MM-DD",
+    "endDate": "YYYY-MM-DD",
+    "reason": "string",
+    "leaveType": "string",
+    "status": "string",
+    "newTitle": "string",
+    "newDescription": "string"
+  },
+  "response": "Brief spoken confirmation of what you extracted",
+  "requiresConfirmation": boolean,
+  "prompt": "Optional question for the user"
 }
-
-EXAMPLES:
-"What is the health score?" -> { "type": "resource_query", "params": { "query": "health" }, "response": "I'm checking the current health score for you." }
-"Kitane projects hai?" -> { "type": "resource_query", "params": { "query": "projects" }, "response": "Let me count the active projects for you." }
 `;
 
     try {
-      // Add a 10-second timeout to prevent getting stuck
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Gemma 4 API Timeout')), 30000)
       );
@@ -119,78 +137,55 @@ EXAMPLES:
       ]) as any;
 
       const responseText = result.response.text();
-      const cleanedText = this.extractFirstJson(responseText);
-
-      try {
-        const action = JSON.parse(cleanedText);
-        const normalizedAction: VoiceAction = {
-          type: (action.type || action.action || 'unknown').toLowerCase() as any,
-          params: action.params || action.data || action.parameters || {},
-          response: action.response || action.answer || action.message || action.info || action.text || "",
-          requiresConfirmation: action.requiresConfirmation ?? false
-        };
-        
-        console.log('[Gemma4Voice] Normalized action:', normalizedAction);
-        return normalizedAction;
-      } catch (e) {
-        console.error('[Gemma4Voice] Failed to parse extracted JSON:', cleanedText);
-        // Fallback to offline
-        return this.parseOfflineCommand(transcript) || { type: 'unknown', response: "I'm having trouble understanding. Could you rephrase?" };
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      
+      if (jsonMatch) {
+        try {
+          return JSON.parse(jsonMatch[0]) as VoiceAction;
+        } catch (parseError) {
+          console.error('[Gemma4Voice] JSON Parse Error:', parseError, 'Raw Match:', jsonMatch[0]);
+        }
       }
+      
+      return { type: 'unknown', response: "I'm not sure how to help with that yet." };
     } catch (error: any) {
-      if (error.message === 'Gemma 4 API Timeout') {
-        console.warn('[VoiceIntelligence] Request timed out. Falling back to local parser.');
-      } else {
-        console.error('[VoiceIntelligence] Intent parsing failed:', error);
-      }
-      const fallback = this.parseOfflineCommand(transcript);
-      if (fallback) return fallback;
-      return { type: 'unknown', response: "I'm having trouble connecting to my brain. Let me try that again locally." };
+      console.error('[Gemma4Voice] Intent parsing failed:', error);
+      return this.parseOfflineCommand(transcript) || { type: 'unknown', response: "Standard Mode couldn't match that command." };
     }
   }
 
   async summarizeData(data: any, query: string): Promise<string> {
     if (!this.model) return this.summarizeDataLocally(data, query);
 
-    // Minimize data before sending to avoid token confusion
-    const conciseData = {
-      kpis: data.kpis || [],
-      deadlineCount: data.deadlines?.length || 0,
-      nextDeadline: data.deadlines?.[0]?.project || 'None',
-      teamCount: data.gantt?.length || 0,
-    };
+    const prompt = `
+You are the "Voice Summary Layer" for Velocity AI. 
+The user asked: "${query}"
+Below is the raw JSON data related to their query. 
+Your job is to provide a BRIEF (1-2 sentences), professional, and spoken summary.
 
-    const prompt = `You are a helpful project manager colleague. 
-Summarize the following project data relative to the user's question: "${query}"
-Data: ${JSON.stringify(conciseData)}
+Data:
+${JSON.stringify(data, null, 2)}
 
-Answer in ONE natural, complete sentence for a human to hear. No markdown. No special symbols.
-Final Answer:`;
+Rules:
+- Be concise.
+- Focus on the specific question asked.
+- Use natural, spoken language.
+- Respond ONLY with the plain text to be spoken. No markdown, no prefixes.
+`;
 
     try {
-      const result = await this.model.generateContent(prompt);
-      const text = result.response.text().trim();
-      
-      // AGGRESSIVE EXTRACTION
-      let cleanText = text;
-      const markers = [/Final Answer:\s*/gi, /Answer:\s*/gi, /Response:\s*/gi];
-      for (const marker of markers) {
-        if (cleanText.match(marker)) {
-          cleanText = cleanText.split(marker).pop() || cleanText;
-          break;
-        }
-      }
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Summarization Timeout')), 20000)
+      );
 
-      // Final scrubbing: Remove any accidental prompt leakage or markdown
-      cleanText = cleanText
-        .replace(/^(Draft \d+|Final Answer|Response|Answer|User Query|Role|Question|Data):?\s*/gi, '')
-        .replace(/[*#_~`\[\]()|>]/g, '')
-        .split('\n')[0] // Only take the first line
-        .trim();
+      const result = await Promise.race([
+        this.model.generateContent(prompt),
+        timeoutPromise
+      ]) as any;
 
-      return cleanText || this.summarizeDataLocally(data, query);
-    } catch (e) {
-      console.error('[GemmaVoice] Summarization failed, using local fallback:', e);
+      return result.response.text().trim();
+    } catch (error: any) {
+      console.error('[Gemma4Voice] Summarization failed:', error);
       return this.summarizeDataLocally(data, query);
     }
   }
@@ -198,47 +193,30 @@ Final Answer:`;
   private summarizeDataLocally(data: any, query: string): string {
     const text = query.toLowerCase();
     
-    // 1. Dashboard Metrics / KPIs
+    if (data?.kpis && Array.isArray(data.kpis) && text.includes('project')) {
+      const activeProjects = data.kpis.find((k: any) => k.label.includes('ACTIVE PROJECTS'))?.value;
+      const atRisk = data.kpis.find((k: any) => k.label.includes('RISK'))?.value;
+      return `Standard Mode: You have ${activeProjects || 0} active projects. ${atRisk > 0 ? `Note that ${atRisk} projects are currently marked as at risk.` : 'Everything looks on track.'}`;
+    }
+
+    if (data?.gantt && Array.isArray(data.gantt) && (text.includes('who') || text.includes('team') || text.includes('member') || (text.includes('how many') && !text.includes('project')))) {
+      const count = data.gantt.length;
+      return `Standard Mode: You have ${count} active team members currently allocated to projects.`;
+    }
+
+    if (data?.deadlines && Array.isArray(data.deadlines) && (text.includes('when') || text.includes('deadline') || text.includes('due'))) {
+      if (data.deadlines.length === 0) return "Standard Mode: There are no upcoming deadlines in the next 30 days.";
+      const next = data.deadlines[0];
+      return `Standard Mode: Your next major deadline is for project ${next.project}, which is due in ${next.daysLeft} days.`;
+    }
+
     if (data?.kpis && Array.isArray(data.kpis)) {
       const activeProjects = data.kpis.find((k: any) => k.label.includes('ACTIVE PROJECTS'))?.value;
       const utilization = data.kpis.find((k: any) => k.label.includes('UTILIZATION'))?.value;
-      const capacity = data.kpis.find((k: any) => k.label.includes('CAPACITY'))?.value;
-      const atRisk = data.kpis.find((k: any) => k.label.includes('RISK'))?.value;
-      const healthScore = data.kpis.find((k: any) => k.label.includes('HEALTH') || k.label.includes('SCORE'))?.value;
-
-      if (text.includes('health') || text.includes('score')) {
-        if (!healthScore) return "I'm sorry, I couldn't find a current health score in the dashboard metrics.";
-        return `The current project health score is ${healthScore} out of 100. ${atRisk > 0 ? `I've flagged ${atRisk} projects at risk that need your attention.` : 'All projects are currently in a healthy state.'}`;
-      }
-
-      if (text.includes('project')) {
-        return `You have ${activeProjects || 0} active projects. ${atRisk > 0 ? `Note that ${atRisk} projects are currently marked as at risk.` : 'Everything looks on track.'}`;
-      }
-      
-      if (text.includes('utilization') || text.includes('busy') || text.includes('workload')) {
-        return `The current team utilization is ${utilization || '0%'}. The team is currently at ${capacity || 'optimal'} capacity.`;
-      }
-
-      if (text.includes('status')) {
-        if (!activeProjects && !utilization) return "I checked the dashboard, but there are no active projects or utilization metrics to report right now.";
-        return `We have ${activeProjects || 0} active projects. The overall team utilization is ${utilization || '0%'} and the health score is ${healthScore || 'unavailable'}.`;
-      }
+      return `Standard Mode: You have ${activeProjects || 0} active projects with a team utilization of ${utilization || '0%'}.`;
     }
 
-    // 2. Resource/Team Queries
-    if (data?.gantt && Array.isArray(data.gantt) && (text.includes('who') || text.includes('team') || text.includes('member') || (text.includes('how many') && !text.includes('project')))) {
-      const count = data.gantt.length;
-      return `You have ${count} active team members currently allocated across projects.`;
-    }
-
-    // 3. Deadlines
-    if (data?.deadlines && Array.isArray(data.deadlines) && (text.includes('when') || text.includes('deadline') || text.includes('due'))) {
-      if (data.deadlines.length === 0) return "There are no upcoming major deadlines in the next 30 days.";
-      const next = data.deadlines[0];
-      return `Your next major deadline is for project ${next.project}, which is due in ${next.daysLeft} days.`;
-    }
-
-    return "I found the dashboard data, but I couldn't identify the specific metric you're asking about. Would you like me to open the projects page?";
+    return "Standard Mode: I have the data here, but I'm unable to generate a detailed summary at the moment.";
   }
 
   private fuzzyMatch(input: string, target: string, threshold = 0.3): boolean {
@@ -248,33 +226,9 @@ Final Answer:`;
     return (distance / maxLength) <= threshold;
   }
 
-  private extractFirstJson(text: string): string {
-    if (!text) return '';
-    
-    // Find the first occurrence of '{' and matching '}'
-    let depth = 0;
-    let firstOpen = -1;
-    
-    for (let i = 0; i < text.length; i++) {
-      if (text[i] === '{') {
-        if (depth === 0) firstOpen = i;
-        depth++;
-      } else if (text[i] === '}') {
-        depth--;
-        if (depth === 0 && firstOpen !== -1) {
-          return text.substring(firstOpen, i + 1);
-        }
-      }
-    }
-    
-    // Fallback to regex if manual balance fails
-    const match = text.match(/\{[\s\S]*?\}/);
-    return match ? match[0] : text;
-  }
-
   private normalizeTranscript(text: string): string {
     return text.toLowerCase()
-      .replace(/^(hello|hi|hey|velocity|bot|ai|please|can you|could you|would you|um|uh|err|like|kindly|just)\s+/g, '')
+      .replace(/^(hello|hi|hey|velocity|hero|bot|ai|please|can you|could you|would you|um|uh|err|like|kindly|just)\s+/g, '')
       .replace(/\s+(um|uh|err|like|please|and|then|kindly|now)\s+/g, ' ')
       .replace(/[.,!?;:]+$/, '') 
       .trim();
@@ -292,152 +246,149 @@ Final Answer:`;
       'plan': '/plan', 'planner': '/plan', 'planning': '/plan',
       'settings': '/settings', 'config': '/settings',
       'ai': '/velocity-ai', 'velocity': '/velocity-ai',
-      'leave': '/leave', 'vacation': '/leave', 'time off': '/leave'
+      'leave': '/leave', 'vacation': '/leave'
     };
 
-    // Hinglish Mapping for Navigation
-    if (text.includes('dikhao') || text.includes('dikao') || text.includes('ley jao')) {
-      for (const [key, path] of Object.entries(navTargets)) {
-        if (text.includes(key)) return { type: 'navigate', target: path, response: `Bilkul, main aapko ${key} par le chalta hoon.` };
-      }
-    }
-
-    const isNav = text.includes('go') || text.includes('open') || text.includes('show') || text.includes('navigate') || text.includes('take me');
-    for (const [key, path] of Object.entries(navTargets)) {
-      if (text.includes(key) && (isNav || words.length === 1)) {
-        return { type: 'navigate', target: path, response: `Opening ${key} for you.` };
-      }
-    }
-
-    // 2. Project Creation
-    const projectKeywords = ['add project', 'create project', 'new project', 'plan project', 'start project', 'setup project'];
-    const isProjectCreate = projectKeywords.some(kw => text.includes(kw)) && !text.includes('task');
+    const isProjectCreate = words.some(w => ['project', 'plan'].includes(w)) && 
+                           words.some(w => ['create', 'add', 'new', 'start', 'setup'].includes(w)) && 
+                           !text.includes('task');
 
     if (isProjectCreate) {
+      let title = '';
+      let description = '';
       const nameMatch = text.match(/(?:named|called)\s+([^that|who|to|which|for]+)/i);
-      const title = nameMatch ? nameMatch[1].trim() : text.split('project').pop()?.trim() || '';
+      const doingMatch = text.match(/(?:that does|to do|for doing|which does|that is)\s+(.+)/i);
+      if (nameMatch) title = nameMatch[1].trim();
+      if (doingMatch) description = doingMatch[1].trim();
+      
+      if (!title) {
+        const projectPos = text.indexOf('project');
+        if (projectPos !== -1) {
+          const afterProject = text.slice(projectPos + 7).trim();
+          title = afterProject.split(/\s+(?:that|does|to|for|which|is)\s+/)[0];
+        }
+      }
+
       return {
         type: 'create_project',
-        params: { projectTitle: title, autoAnalyze: true },
+        params: { projectTitle: title, projectDescription: description, autoAnalyze: !!description },
         response: `Sure, I'll set up that plan for ${title || 'the project'}.`
       };
     }
 
-    // 3. Task Creation
-    const isTaskCommand = text.includes('task') || this.fuzzyMatch(words[0], 'add') || this.fuzzyMatch(words[0], 'create');
-    if (isTaskCommand && !isProjectCreate) {
-      const taskWithProjectRegex = /(?:add|create|new)\s+(?:a\s+|the\s+)?(?:task\s+)?(.*?)\s+(?:for|to|in)\s+(?:the\s+)?(.*?)(?:\s+project)?$/i;
-      const match = text.match(taskWithProjectRegex);
-      if (match) {
+    // Deletion specialization (Project/Task/Member)
+    const isDeleteCommand = words.some(w => ['delete', 'remove', 'fire', 'rid'].includes(w));
+    if (isDeleteCommand) {
+      if (text.includes('project')) {
+         const nameMatch = text.match(/(?:project)\s+([^that|who|to|which|for|please]+)/i);
+         return {
+           type: 'delete_project',
+           params: { projectTitle: nameMatch ? nameMatch[1].trim() : words[words.length-1] },
+           requiresConfirmation: true,
+           response: `Standard Mode: I'll help you delete that project.`
+         };
+      }
+      if (text.includes('task')) {
+        const deleteMatch = text.match(/(?:task)\s+(.*)/i);
         return {
-          type: 'create_task',
-          params: { taskName: match[1]?.trim(), projectName: match[2]?.trim() },
-          response: `Got it. Adding "${match[1]?.trim()}" to project "${match[2]?.trim()}".`
+          type: 'delete_task',
+          params: { taskName: deleteMatch ? deleteMatch[1]?.trim() : words[words.length-1] },
+          requiresConfirmation: true,
+          response: `Standard Mode: I'll help you delete that task.`
         };
       }
-      const simpleTaskRegex = /(?:add|create|new)\s+(?:a\s+|the\s+)?task\s+(.*)/i;
-      const simpleMatch = text.match(simpleTaskRegex);
-      if (simpleMatch) {
-        return {
-          type: 'create_task',
-          params: { taskName: simpleMatch[1]?.trim() },
-          response: `Adding task "${simpleMatch[1]?.trim()}" to your active list.`
-        };
-      }
-    }
-
-    // 4. Team Management (Add/Remove)
-    const isTeamCommand = text.includes('member') || text.includes('team') || text.includes('person') || text.includes('add') || text.includes('invite') || text.includes('remove');
-    if (isTeamCommand) {
-      const roleMapping: Record<string, string> = {
-        'frontend': 'Frontend Developer', 'backend': 'Backend Developer', 'fullstack': 'Full Stack Developer',
-        'designer': 'Designer', 'manager': 'Product Manager', 'qa': 'QA Engineer'
-      };
-      const isAdd = text.includes('add') || text.includes('invite') || text.includes('onboard') || text.includes('kardo');
-      const isRemove = text.includes('remove') || text.includes('delete') || text.includes('fire');
-
-      if (isAdd) {
-        let role = 'Team Member';
-        for (const [key, val] of Object.entries(roleMapping)) {
-          if (text.includes(key)) { role = val; break; }
-        }
-        const email = text.split(/\s+/).find(w => w.includes('@')) || '';
-        const nameMatch = text.match(/(?:add|invite|onboard)\s+(?:member\s+)?([^as|for|with|@]+)/i);
-        const name = nameMatch ? nameMatch[1].trim() : 'New Member';
-        return {
-          type: 'add_team_member',
-          params: { name: name.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '), email, role },
-          response: `Sure, I'll add ${name} as a ${role} for you.`
-        };
-      }
-
-      if (isRemove) {
-        const isTask = text.includes('task');
-        const isProject = text.includes('project') && !isTask;
-        
-        if (isProject) {
-          const nameMatch = text.match(/(?:remove|delete|fire)\s+(?:project\s+)?([^from|please|the]+)/i);
-          const name = nameMatch ? nameMatch[1].trim() : 'project';
-          return {
-            type: 'delete_project',
-            params: { projectTitle: name },
-            response: `I'll help you delete the project ${name}.`,
-            requiresConfirmation: true
-          };
-        }
-
-        if (isTask) {
-           const nameMatch = text.match(/(?:remove|delete|fire)\s+(?:task\s+)?([^from|please|the]+)/i);
-           const name = nameMatch ? nameMatch[1].trim() : 'task';
-           return {
-             type: 'delete_task',
-             params: { taskName: name },
-             response: `I'll help you remove the task "${name}".`,
-             requiresConfirmation: true
-           };
-        }
-
-        const nameMatch = text.match(/(?:remove|delete|fire)\s+(?:member\s+)?([^from|please|the]+)/i);
-        const name = nameMatch ? nameMatch[1].trim() : 'member';
+      // Member
+      const noise = ['delete', 'remove', 'fire', 'member', 'team', 'person', 'from', 'the', 'named', 'called', 'please'];
+      const nameWords = words.filter(w => !noise.includes(w));
+      if (nameWords.length > 0) {
         return {
           type: 'delete_team_member',
-          params: { name: name.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') },
-          response: `I'll help you remove ${name} from the team.`,
-          requiresConfirmation: true
+          params: { name: nameWords.join(' ') },
+          requiresConfirmation: true,
+          response: `Standard Mode: I'll help you remove ${nameWords[0]} from the team.`
         };
       }
     }
 
-    // 5. Analytics (Hinglish Supported)
-    if (text.includes('kitane') || text.includes('kitne') || text.includes('how many')) {
-      if (text.includes('project')) return { type: 'resource_query', params: { query: 'projects' }, response: "Checking total projects..." };
-      if (text.includes('member') || text.includes('log')) return { type: 'resource_query', params: { query: 'team' }, response: "Checking team count..." };
-      return { type: 'resource_query', params: { query: text }, response: "I'll pull up those numbers for you." };
+    const navVerbs = ['go', 'open', 'show', 'navigate', 'take', 'view', 'switch', 'move', 'jump', 'goto', 'visit'];
+    const bestNavMatch = findBestMatch(words[words.length - 1], Object.keys(navTargets), (s) => s);
+    if (bestNavMatch && (navVerbs.some(v => text.includes(v)) || words.length === 1)) {
+      return { type: 'navigate', target: navTargets[bestNavMatch], response: `Opening ${bestNavMatch}.` };
     }
 
-    if (text.includes('status kya hai') || text.includes('kya chal raha hai') || text.includes('what is the status') || text.includes('health') || text.includes('score')) {
-      const isHealth = text.includes('health') || text.includes('score');
-      return { 
-        type: 'resource_query', 
-        params: { query: isHealth ? 'health' : 'status' }, 
-        response: isHealth ? "I'm pulling up the project health report for you." : "Checking your current status and metrics now." 
+    // Task Creation
+    if (text.includes('task') && words.some(w => ['add', 'create', 'new'].includes(w))) {
+      const match = text.match(/(?:add|create|new)\s+(?:task\s+)?(.*?)\s+(?:for|to|in)\s+(.*?)(?:\s+project)?$/i);
+      if (match) {
+        return { type: 'create_task', params: { taskName: match[1]?.trim(), projectName: match[2]?.trim() }, response: `Adding task "${match[1]?.trim()}" to project "${match[2]?.trim()}".` };
+      }
+      const simpleMatch = text.match(/(?:add|create|new)\s+(?:task\s+)(.*)/i);
+      if (simpleMatch) {
+         return { type: 'create_task', params: { taskName: simpleMatch[1]?.trim() }, response: `Adding task "${simpleMatch[1]?.trim()}" for you.` };
+      }
+    }
+
+    // Task Assignment
+    if (words.some(w => ['assign', 'switch', 'change'].includes(w)) && text.includes('task')) {
+      const switchMatch = text.match(/(?:switch|change).*?task\s+(.*?)\s+from\s+(.*?)\s+to\s+(.*)/i);
+      if (switchMatch) return { type: 'assign_task', params: { taskName: switchMatch[1]?.trim(), fromAssigneeName: switchMatch[2]?.trim(), assigneeName: switchMatch[3]?.trim() }, response: `Updating assignment for "${switchMatch[1]?.trim()}".` };
+      const assignMatch = text.match(/assign.*?task\s+(.*?)\s+to\s+(.*)/i);
+      if (assignMatch) return { type: 'assign_task', params: { taskName: assignMatch[1]?.trim(), assigneeName: assignMatch[2]?.trim() }, response: `Assigning "${assignMatch[1]?.trim()}" to ${assignMatch[2]?.trim()}.` };
+    }
+
+    // Team Member Invite
+    if (words.some(w => ['add', 'invite', 'new'].includes(w)) && (text.includes('member') || text.includes('team') || text.includes('@'))) {
+      const email = words.find(w => w.includes('@')) || '';
+      const nameWords = words.filter(w => !['add', 'invite', 'new', 'team', 'member', 'for', 'as', 'email', 'with'].includes(w) && !w.includes('@'));
+      const name = nameWords.join(' ').trim() || (email ? email.split('@')[0] : 'New Member');
+      return { type: 'add_team_member', params: { name: name, email: email, role: 'Team Member' }, response: `Sure, I'll add ${name} to the team.` };
+    }
+
+    // Leave Management
+    if (words.some(w => ['leave', 'vacation', 'off', 'sick'].includes(w))) {
+      if (text.includes('status') || text.includes('when')) return { type: 'get_leave_status', params: { query: text }, response: "Checking leave status..." };
+      const isApprove = words.some(w => ['approve', 'confirm', 'allow'].includes(w));
+      const isDeny = words.some(w => ['deny', 'reject', 'cancel'].includes(w));
+      if (isApprove || isDeny) {
+         const nameWords = words.filter(w => !['leave', 'vacation', 'off', 'sick', 'approve', 'confirm', 'allow', 'deny', 'reject', 'cancel', 'for', 'request'].includes(w));
+         return { type: isApprove ? 'approve_leave' : 'deny_leave', params: { name: nameWords.join(' ') }, response: `Standard Mode: Handling leave for ${nameWords[0] || 'them'}.`, requiresConfirmation: true };
+      }
+      return { type: 'request_leave', params: { startDate: 'today', endDate: 'today', reason: 'Personal' }, response: `Standard Mode: I'll help you request leave.`, requiresConfirmation: true };
+    }
+
+    // 4. Gantt/Resource Queries (Analytics)
+    if (text.includes('timeline') || text.includes('gantt') || text.includes('due date') || text.includes('deadline')) {
+      return {
+        type: 'gantt_query',
+        params: { query: text },
+        response: "Standard Mode: checking the project timeline for you."
       };
     }
 
-    // 6. Multi-turn Clarification (Local)
-    if (words.length < 3) {
-      if (this.fuzzyMatch(words[0], 'add') || this.fuzzyMatch(words[0], 'create')) {
-        return { type: 'unknown', response: "Kise add ya create karna hai? Task ya team member?", prompt: "What would you like to add? A task, project, or team member?" };
-      }
-      if (this.fuzzyMatch(words[0], 'delete') || this.fuzzyMatch(words[0], 'remove')) {
-        return { type: 'unknown', response: "Kise remove karna hai?", prompt: "Who or what should I remove?" };
-      }
+    if (text.includes('who is busy') || text.includes('who has') || text.includes('workload') || text.includes('capacity') || text.includes('how many') || text.includes('kitane') || text.includes('kitne')) {
+      return {
+        type: 'resource_query',
+        params: { query: text },
+        response: "Standard Mode: I'll pull up that information for you."
+      };
     }
 
-    // If no high-confidence offline match, return null to trigger LLM fallback
+    // 5. Help / Info Intent
+    if (words.some(w => ['help', 'capabilities', 'commands', 'kya'].includes(w))) {
+      return {
+        type: 'info',
+        response: "Standard Mode: I can help you navigate, add tasks, manage team members, or plan new projects. Try saying 'Go to dashboard', 'Add task X', or 'How many projects?'."
+      };
+    }
+
+    // 6. Search
+    if (words[0] === 'search' || words[0] === 'find' || words[0] === 'look') {
+      const query = text.replace(/search for|find|lookup|look for/i, '').trim();
+      if (query) return { type: 'search', params: { query }, response: `Searching for "${query}".` };
+    }
+
     return null;
   }
-
 }
 
-export const geminiVoiceService = new GemmaVoiceService();
+export const geminiVoiceService = new GeminiVoiceService();
