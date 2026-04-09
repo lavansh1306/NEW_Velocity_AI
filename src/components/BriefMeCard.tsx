@@ -349,7 +349,9 @@ export const BriefMeCard: React.FC = () => {
               AI Recommendations
             </p>
           </div>
-          <p className="text-sm text-gray-700 leading-relaxed">{fullBriefing}</p>
+          <div className="max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+            <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{fullBriefing}</p>
+          </div>
         </div>
       )}
     </div>

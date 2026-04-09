@@ -10,7 +10,7 @@ import {
   getCurrentOrgRole,
   getCurrentOrgName,
 } from '@/lib/orgContext';
-import { ML_ENGINE_URL, VOICE_AGENT_URL } from '@/lib/api-config';
+import { ML_ENGINE_URL, ML_ENGINE_URL_2 } from '@/lib/api-config';
 
 interface AuthContextType {
   user: User | null;
@@ -41,12 +41,12 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
  */
 const prewarmServices = () => {
   if (ML_ENGINE_URL) {
-    fetch(`${ML_ENGINE_URL}/`, { method: 'GET' }).catch(() => {});
-    console.log('[Auth] Pre-warming ML engine...');
+    fetch(`${ML_ENGINE_URL}/`, { method: 'GET' }).catch(() => { });
+    console.log('[Auth] Pre-warming ML engine 1...');
   }
-  if (VOICE_AGENT_URL) {
-    fetch(`${VOICE_AGENT_URL}/`, { method: 'GET' }).catch(() => {});
-    console.log('[Auth] Pre-warming voice agent...');
+  if (ML_ENGINE_URL_2) {
+    fetch(`${ML_ENGINE_URL_2}/`, { method: 'GET' }).catch(() => { });
+    console.log('[Auth] Pre-warming ML engine 2...');
   }
 };
 

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { ingestionApi } from '@/api/ingestionApi';
 import { AITaskSuggestionsBoard } from './AITaskSuggestionsBoard';
-import { VOICE_AGENT_URL } from '@/lib/api-config';
+import { ML_ENGINE_URL_2 } from '@/lib/api-config';
 
 interface IngestionControlProps {
   projectId?: string | null;
@@ -28,10 +28,10 @@ export const IngestionControl = ({ projectId, userId }: IngestionControlProps) =
     }
     setLoadingMeet(true);
     try {
-      if (!VOICE_AGENT_URL) {
+      if (!ML_ENGINE_URL_2) {
         throw new Error('Voice Agent URL is not configured.');
       }
-      const response = await fetch(`${VOICE_AGENT_URL}/sync-latest-meet?user_id=${userId}&project_id=${projectId}`, {
+      const response = await fetch(`${ML_ENGINE_URL_2}/sync-latest-meet?user_id=${userId}&project_id=${projectId}`, {
         method: 'POST',
       });
       
@@ -80,10 +80,10 @@ export const IngestionControl = ({ projectId, userId }: IngestionControlProps) =
     }
     setLoadingEmail(true);
     try {
-      if (!VOICE_AGENT_URL) {
+      if (!ML_ENGINE_URL_2) {
         throw new Error('Voice Agent URL is not configured.');
       }
-      const response = await fetch(`${VOICE_AGENT_URL}/sync-latest-email?user_id=${userId}&project_id=${projectId}`, {
+      const response = await fetch(`${ML_ENGINE_URL_2}/sync-latest-email?user_id=${userId}&project_id=${projectId}`, {
         method: 'POST',
       });
       
@@ -130,7 +130,7 @@ export const IngestionControl = ({ projectId, userId }: IngestionControlProps) =
   };
 
   const handleReconnect = () => {
-    if (!VOICE_AGENT_URL) {
+    if (!ML_ENGINE_URL_2) {
       toast({
         title: "Configuration Error",
         description: "Voice Agent URL is not configured.",
@@ -138,7 +138,7 @@ export const IngestionControl = ({ projectId, userId }: IngestionControlProps) =
       });
       return;
     }
-    window.location.href = `${VOICE_AGENT_URL}/auth/google/login?user_id=${userId}`;
+    window.location.href = `${ML_ENGINE_URL_2}/auth/google/login?user_id=${userId}`;
   };
 
   return (

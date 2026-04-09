@@ -11,6 +11,7 @@ interface VoiceContextType {
   isTriggered: boolean;
   commandQueue: VoiceAction[];
   pendingConfirmation: VoiceAction | null;
+  lastInteractedEntity: { id: string; type: 'task' | 'project' | 'member'; name: string } | null;
   startListening: () => void;
   stopListening: () => void;
   stopSpeaking: () => void;
@@ -21,6 +22,7 @@ interface VoiceContextType {
   enqueueAction: (action: VoiceAction) => void;
   consumeAction: (type: string) => VoiceAction | null;
   setPendingConfirmation: (action: VoiceAction | null) => void;
+  setLastInteractedEntity: (entity: { id: string; type: 'task' | 'project' | 'member'; name: string } | null) => void;
   cleanTextForSpeech: (text: string) => string;
 }
 
@@ -34,6 +36,7 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [volumeLevel, setVolumeLevel] = useState(0); 
   const [commandQueue, setCommandQueue] = useState<VoiceAction[]>([]);
   const [pendingConfirmation, setPendingConfirmation] = useState<VoiceAction | null>(null);
+  const [lastInteractedEntity, setLastInteractedEntity] = useState<{ id: string; type: 'task' | 'project' | 'member'; name: string } | null>(null);
   const recognitionRef = useRef<any>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -49,9 +52,9 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const resetSilenceTimer = useCallback(() => {
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     silenceTimerRef.current = setTimeout(() => {
-      console.log('[VoiceContext] 2.5s silence reached. Shutting down.');
+      console.log('[VoiceContext] 3s silence reached. Shutting down.');
       stopListening();
-    }, 2500); // 2.5 seconds of silence
+    }, 3000); // 3 seconds of silence
   }, []);
 
   useEffect(() => {
@@ -98,6 +101,12 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       };
 
       recognition.onresult = (event: any) => {
+        // AGGRESSIVE SAFETY: Ignore results while already processing or speaking to prevent feedback loops
+        if (statusRef.current === 'speaking' || statusRef.current === 'processing') {
+          console.log('[VoiceContext] Ignoring result during speaking/processing');
+          return;
+        }
+
         // Reset silence timer on any speech detection
         resetSilenceTimer();
         
@@ -246,7 +255,6 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
     setIsListening(false);
     isListeningRef.current = false;
-    setIsTriggered(false);
     setStatus('idle');
   }, []);
 
@@ -277,12 +285,13 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setStatus(processing ? 'processing' : 'idle');
     if (!processing) {
       setIsTriggered(false);
+      setLastTranscript(''); // Clear after processing
     } else {
-      // Safety timeout: automatically clear processing state after 10s if it hangs
+      // Safety timeout: automatically clear processing state after 15s if it hangs
       setTimeout(() => {
         setStatus(prev => prev === 'processing' ? 'idle' : prev);
         setIsTriggered(prev => prev ? false : prev);
-      }, 10000);
+      }, 15000);
     }
   };
 
@@ -317,99 +326,51 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const cleanedText = cleanTextForSpeech(text);
     if (!cleanedText) return;
 
-    const fallbackBrowserSpeak = () => {
-      if (!('speechSynthesis' in window)) {
-        setStatus('idle');
-        return;
-      }
+    // MANDATORY USER CHOICE: Use browser native speech prioritized
+    if (!('speechSynthesis' in window)) {
+      console.warn('[VoiceContext] Speech synthesis not supported');
+      setStatus('idle');
+      return;
+    }
 
-      const synth = window.speechSynthesis;
-      const voices = synth.getVoices();
-      const utterance = new SpeechSynthesisUtterance(cleanedText);
+    const synth = window.speechSynthesis;
+    const voices = synth.getVoices();
+    const utterance = new SpeechSynthesisUtterance(cleanedText);
 
-      const preferred =
-        voices.find(v => /en-US|en_US/i.test(v.lang)) ||
-        voices.find(v => /en/i.test(v.lang)) ||
-        voices[0];
+    // Human-like voice selection
+    const preferred =
+      voices.find(v => /en-US|en_US/i.test(v.lang) && /female|samantha|google/i.test(v.name)) ||
+      voices.find(v => /en-US|en_US/i.test(v.lang)) ||
+      voices.find(v => /en/i.test(v.lang)) ||
+      voices[0];
 
-      if (preferred) utterance.voice = preferred;
-      utterance.lang = preferred?.lang || 'en-US';
-      utterance.volume = 1;
-      utterance.rate = 1;
-      utterance.pitch = 1;
+    if (preferred) utterance.voice = preferred;
+    utterance.lang = preferred?.lang || 'en-US';
+    utterance.volume = 1;
+    utterance.rate = 1;
+    utterance.pitch = 1;
 
-      utterance.onstart = () => {
-        console.log('[VoiceContext] browser fallback speech started');
-        setStatus('speaking');
-      };
+    utterance.onstart = () => {
+      console.log('[VoiceContext] Native browser speech started');
+      setStatus('speaking');
+    };
 
-      utterance.onend = () => {
-        console.log('[VoiceContext] browser fallback speech ended');
-        setStatus('idle');
-      };
+    utterance.onend = () => {
+      console.log('[VoiceContext] Native browser speech ended');
+      setStatus('idle');
+    };
 
-      utterance.onerror = (e) => {
-        console.error('[VoiceContext] browser fallback speech error:', e);
-        setStatus('idle');
-      };
-
-      try {
-        synth.cancel();
-        setTimeout(() => synth.speak(utterance), 50);
-      } catch (err) {
-        console.error('[VoiceContext] browser fallback speak failed:', err);
-        setStatus('idle');
-      }
+    utterance.onerror = (e) => {
+      console.error('[VoiceContext] Native browser speech error:', e);
+      setStatus('idle');
     };
 
     try {
-      setStatus('speaking');
-
-      const res = await fetch('/api/voice/tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: cleanedText })
-      });
-
-      if (!res.ok) {
-        const errText = await res.text();
-        console.error('[VoiceContext] /api/voice/tts failed:', errText);
-        fallbackBrowserSpeak();
-        return;
-      }
-
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      currentAudioRef.current = audio;
-
-      audio.onplay = () => {
-        console.log('[VoiceContext] audio playback started');
-        setStatus('speaking');
-      };
-
-      audio.onended = () => {
-        console.log('[VoiceContext] audio playback ended');
-        URL.revokeObjectURL(url);
-        currentAudioRef.current = null;
-        setStatus('idle');
-      };
-
-      audio.onerror = (e) => {
-        console.error('[VoiceContext] audio playback error:', e);
-        URL.revokeObjectURL(url);
-        currentAudioRef.current = null;
-        fallbackBrowserSpeak();
-      };
-
-      audio.play().catch((e) => {
-        console.error('[VoiceContext] audio play failed:', e);
-        URL.revokeObjectURL(url);
-        fallbackBrowserSpeak();
-      });
-    } catch (e) {
-      console.error('[VoiceContext] speak failed:', e);
-      fallbackBrowserSpeak();
+      synth.cancel(); // Stop current speech
+      setTimeout(() => synth.speak(utterance), 50);
+    } catch (err) {
+      console.error('[VoiceContext] Browser speak failed:', err);
+      setStatus('idle');
     }
   }, [cleanTextForSpeech]);
 
@@ -422,6 +383,7 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       volumeLevel,
       commandQueue,
       pendingConfirmation,
+      lastInteractedEntity,
       startListening, 
       stopListening,
       setProcessing,
@@ -430,7 +392,9 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       stopSpeaking,
       enqueueAction,
       consumeAction,
-      setPendingConfirmation
+      setPendingConfirmation,
+      setLastInteractedEntity,
+      cleanTextForSpeech
     }}>
       {children}
     </VoiceContext.Provider>

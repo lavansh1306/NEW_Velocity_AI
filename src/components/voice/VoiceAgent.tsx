@@ -25,9 +25,11 @@ export const VoiceAgent: React.FC = () => {
 
   // Handle command execution when voice recognition finishes
   useEffect(() => {
-    // If we transition from listening/processing to idle and have a transcript, execute it
-    if (!isListening && isTriggered && lastTranscript && status === 'idle') {
-      console.log('[VoiceAgent] Recognition finished, processing transcript:', lastTranscript);
+    // IMPORTANT: We process the command if recognition has stopped (isListening=false)
+    // AND we were previously triggered (isTriggered=true)
+    // AND we have a transcript to handle.
+    if (!isListening && isTriggered && lastTranscript && (status === 'idle' || status === 'speaking')) {
+      console.log('[VoiceAgent] Processing final transcript:', lastTranscript);
       handleVoiceCommand(lastTranscript, location.pathname);
     }
     
@@ -35,7 +37,7 @@ export const VoiceAgent: React.FC = () => {
     if (!isListening && isTriggered && !lastTranscript && status === 'idle') {
       stopListening();
     }
-  }, [isListening, isTriggered, lastTranscript, status, stopListening, handleVoiceCommand, location.pathname]);
+  }, [isListening, isTriggered, lastTranscript, status, handleVoiceCommand, location.pathname]);
 
   // Keyboard shortcut Ctrl + Space
   useEffect(() => {
@@ -71,7 +73,7 @@ export const VoiceAgent: React.FC = () => {
         boxShadow: "0 0 25px rgba(16, 185, 129, 0.4)"
       });
     } else if (status === 'processing' || status === 'connecting') {
-      // Golden "Thinking" sequence
+      // Professional Golden Pulse
       gsap.to(orbRef.current, {
         scale: 1.1,
         duration: 0.8,
@@ -79,13 +81,7 @@ export const VoiceAgent: React.FC = () => {
         yoyo: true,
         ease: "sine.inOut",
         backgroundColor: "#F59E0B",
-        boxShadow: "0 0 30px rgba(245, 158, 11, 0.5)"
-      });
-      gsap.to(orbRef.current, {
-        rotation: 360,
-        repeat: -1,
-        duration: 2,
-        ease: "none"
+        boxShadow: "0 0 30px rgba(245, 158, 11, 0.6)"
       });
     } else if (status === 'speaking') {
       // Constant blue pulse
@@ -140,15 +136,17 @@ export const VoiceAgent: React.FC = () => {
       {/* Transcript Bubble */}
       {(isTriggered || status !== 'idle') && (
         <div className="bg-white/90 backdrop-blur-md border border-gray-200 rounded-2xl p-4 shadow-2xl max-w-xs animate-in fade-in slide-in-from-bottom-4 pointer-events-auto ring-1 ring-black/5">
-          <p className="text-sm text-gray-800 font-medium leading-relaxed">
-            {status === 'processing' ? (
-              <span className="flex items-center gap-2 text-amber-600">
-                <Loader2 className="h-3 w-3 animate-spin" /> Thinking...
-              </span>
-            ) : status === 'connecting' ? (
-              <span className="text-blue-500">Connecting...</span>
-            ) : (lastTranscript || (status === 'listening' ? 'Listening...' : 'Ready'))}
-          </p>
+          <div className="max-h-48 overflow-y-auto pr-1">
+            <p className="text-sm text-gray-800 font-medium leading-relaxed">
+              {status === 'processing' ? (
+                <span className="flex items-center gap-2 text-amber-600">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Thinking...
+                </span>
+              ) : status === 'connecting' ? (
+                <span className="text-blue-500">Connecting...</span>
+              ) : (lastTranscript || (status === 'listening' ? 'Listening...' : 'Ready'))}
+            </p>
+          </div>
           <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-100">
             <div className="flex items-center gap-2">
               <div className={`h-1.5 w-1.5 rounded-full ${
@@ -188,6 +186,7 @@ export const VoiceAgent: React.FC = () => {
           onClick={handleOrbClick}
           className={`w-14 h-14 rounded-full flex items-center justify-center cursor-pointer shadow-lg transition-colors border-2 border-white/50 backdrop-blur-sm
             ${isListening ? 'bg-emerald-500' : 'bg-gray-400 opacity-50 hover:opacity-100'}
+            ${status === 'error' ? 'animate-pulse bg-red-500 opacity-100' : ''}
           `}
         >
           {status === 'connecting' || status === 'processing' ? (

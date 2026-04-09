@@ -15,36 +15,9 @@ import cors from "cors"
 import fetch from "node-fetch"
 import { createClient } from '@supabase/supabase-js';
 import session from "express-session"
-import { WebSocketServer, WebSocket } from "ws"
 import http from "http"
 
-// Initialize Redis store asynchronously
-let redisStore: any = null;
-
-async function initializeRedis() {
-  try {
-    if (!process.env.REDIS_URL && !(process.env.REDIS_HOST && process.env.REDIS_PORT)) {
-      console.log('[Server] No Redis config found, using memory store');
-      return;
-    }
-
-    const redis = await import('redis');
-    const { default: RedisStore } = await import('connect-redis');
-    
-    const redisClient = redis.createClient({
-      url: process.env.REDIS_URL || `redis://:${process.env.REDIS_PASSWORD}@${process.env.REDIS_HOST}:${process.env.REDIS_PORT}`,
-    });
-    
-    redisClient.on('error', (err: any) => console.error('[Redis] Error:', err));
-    redisClient.on('connect', () => console.log('[Redis] Connected'));
-    
-    await redisClient.connect();
-    redisStore = new RedisStore({ client: redisClient, prefix: 'velocity-session:' });
-    console.log('[Server] Redis session store initialized');
-  } catch (err) {
-    console.log('[Server] Redis initialization failed, using memory store:', err instanceof Error ? err.message : String(err));
-  }
-}
+// REDIS REMOVED AS PER USER REQUEST - USING STATELESS SERVERLESS PATTERN
 
 // Static imports
 import jiraRoutes from "./src/api/jira/routes.js"
@@ -83,8 +56,9 @@ app.use(cors({
 
 app.use(express.json())
 
-// Session middleware for OAuth flows (Jira)
-const sessionConfig: any = {
+// Session middleware - Modified to use memory store for serverless compatibility
+// NOTE: For true production serverless, sessions should be handled via JWT/Supabase
+app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-secret-change-in-prod',
   resave: true,
   saveUninitialized: true,
@@ -96,45 +70,17 @@ const sessionConfig: any = {
     maxAge: 24 * 60 * 60 * 1000,
     domain: process.env.NODE_ENV === 'production' ? '.joinvelocity.co' : undefined
   }
-};
-
-if (redisStore) {
-  sessionConfig.store = redisStore;
-}
-
-app.use(session(sessionConfig))
+}))
 
 const PORT = Number(process.env.API_PORT || 4000)
-const NODE_ENV = process.env.NODE_ENV || 'development'
-
-// ============ JIRA Configuration ============
-const DOMAIN = process.env.JIRA_DOMAIN
-const EMAIL = process.env.JIRA_EMAIL
-const API_TOKEN = process.env.JIRA_API_TOKEN
-const PROJECT_KEY = process.env.JIRA_PROJECT_KEY
-
-const isJiraConfigReady = DOMAIN && EMAIL && API_TOKEN && PROJECT_KEY
-
-// ============ Supabase DB Test ============
-async function testSupabaseConnection() {
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_ANON_KEY;
-  if (!supabaseUrl || !supabaseKey) return;
-  try {
-    const client = createClient(supabaseUrl, supabaseKey);
-    const { count, error } = await client.from('organizations').select('*', { count: 'exact', head: true });
-    if (!error) console.log('[DB] ✓ Supabase connected. Organizations count:', count);
-  } catch (e) {}
-}
-testSupabaseConnection();
 
 // ============ API Routes ============
 app.get("/health", (_req: Request, res: Response) => {
   res.json({ 
     status: "ok", 
     timestamp: new Date().toISOString(), 
-    jiraConfigured: isJiraConfigReady, 
-    apiPort: PORT 
+    apiPort: PORT,
+    mode: process.env.VERCEL ? 'serverless' : 'standalone'
   })
 })
 
@@ -164,27 +110,17 @@ app.post('/api/ai/expand-description', async (req: Request, res: Response) => {
     }) as any;
     if (groqRes.ok) {
       const data = await groqRes.json() as any;
-      const expanded = data.choices?.[0]?.message?.content?.trim();
+      const rawText = data.choices?.[0]?.message?.content?.trim() || '';
+      
+      const expanded = rawText
+        .replace(/^(Draft \d+|Final Answer|Response|Answer|User Query|Role|Question|Data|Prompt|Senior PM):?\s*/gi, '')
+        .replace(/[*#_~`\[\]()|>]/g, '')
+        .trim();
+        
       if (expanded) return res.json({ description: expanded });
     }
     res.status(500).json({ error: 'Failed' });
   } catch(e) { res.status(500).json({ error: String(e) }); }
-});
-
-app.get('/api/debug-routes', (req, res) => {
-  res.json({
-    mounted: [
-      '/api/jira',
-      '/api/auth',
-      '/api/deployed',
-      '/api/leave-approval',
-      '/api/invites',
-      '/api/employee',
-      '/api/organization',
-      '/api/linear',
-      '/api/voice'
-    ]
-  });
 });
 
 app.post('/api/waitlist', async (req: Request, res: Response) => {
@@ -209,53 +145,18 @@ app.use((req: Request, res: Response) => {
     res.status(404).json({ error: 'API endpoint not found' })
     return
   }
-  res.status(200).send('SPA fallback - would serve index.html')
+  // In serverless mode, we don't serve static files from express
+  res.status(200).send('API Entry Point')
 });
 
 export default app;
 
-// Start server after initializing Redis only if not running as a Vercel Function
-if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
-  ;(async () => {
-    try {
-      await initializeRedis();
-      const server = http.createServer(app);
-      const wss = new WebSocketServer({ noServer: true });
-
-      server.on('upgrade', (request, socket, head) => {
-        const { pathname } = new URL(request.url || '', `http://${request.headers.host}`);
-        if (pathname === '/api/voice-live') {
-          wss.handleUpgrade(request, socket, head, (ws) => {
-            wss.emit('connection', ws, request);
-          });
-        } else {
-          socket.destroy();
-        }
-      });
-
-      wss.on('connection', (ws: WebSocket) => {
-        console.log('[VoiceProxy] Client connected');
-        const apiKey = process.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
-        if (!apiKey) {
-          ws.close(1011, 'API Key missing');
-          return;
-        }
-        const geminiUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${apiKey}`;
-        const geminiSocket = new WebSocket(geminiUrl);
-        geminiSocket.on('message', (data) => { if (ws.readyState === WebSocket.OPEN) ws.send(data); });
-        ws.on('message', (data) => { if (geminiSocket.readyState === WebSocket.OPEN) geminiSocket.send(data); });
-        const cleanup = () => { if (geminiSocket.readyState === WebSocket.OPEN) geminiSocket.close(); if (ws.readyState === WebSocket.OPEN) ws.close(); };
-        ws.on('close', cleanup);
-        geminiSocket.on('close', cleanup);
-      });
-
-      server.listen(PORT, '0.0.0.0', () => {
-        console.log(`API server listening on http://localhost:${PORT}`)
-      })
-    } catch (error) {
-      process.exit(1);
-    }
-  })();
+// Decorator: Only start listener if not in serverless environment OR Vite middleware mode
+if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL && !process.env.VITE) {
+  const server = http.createServer(app);
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`[Standalone] API server listening on http://localhost:${PORT}`)
+  })
 }
 
 process.on('uncaughtException', (err) => { console.error('Uncaught Exception:', err); })

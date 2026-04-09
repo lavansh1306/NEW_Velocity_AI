@@ -7,6 +7,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { useLeaveManagementData } from './useLeaveManagementData';
+import { getCurrentOrgId, getCurrentOrgRole } from '@/lib/orgContext';
+import { peopleService } from '../services/peopleService';
 
 export const useVoiceActions = () => {
   const navigate = useNavigate();
@@ -17,7 +19,9 @@ export const useVoiceActions = () => {
     pendingConfirmation, 
     setPendingConfirmation,
     startListening,
-    status 
+    status,
+    lastInteractedEntity,
+    setLastInteractedEntity 
   } = useVoice();
   const { orgId, orgRole, user: authUser } = useAuth();
   const { leaves, balances, leaveTypes, addLeaveRequest, updateLeaveStatus } = useLeaveManagementData();
@@ -52,11 +56,7 @@ export const useVoiceActions = () => {
     setProcessing(true);
     
     try {
-      const action = await geminiVoiceService.parseIntent(transcript, currentPath);
-      
-      if (action.response?.includes("Standard Mode") || action.response?.includes("Standard command")) {
-        toast.info("Gemini is currently limited. Using Standard Mode.");
-      }
+      const action = await geminiVoiceService.parseIntent(transcript, currentPath, lastInteractedEntity);
       
       if (action.prompt) {
         speak(action.prompt);
@@ -99,12 +99,18 @@ export const useVoiceActions = () => {
       'add_team_member', 
       'delete_team_member', 
       'create_project', 
+      'update_project',
+      'delete_project',
       'create_task',
       'assign_task',
+      'update_task',
       'delete_task'
     ];
 
-    const isManager = orgRole === 'admin' || orgRole === 'manager';
+    // 1. Resolve effective organization context
+    const currentOrgId = orgId || getCurrentOrgId();
+    const currentOrgRole = orgRole || getCurrentOrgRole();
+    const isManager = currentOrgRole === 'admin' || currentOrgRole === 'manager';
 
     if (restrictedActions.includes(action.type) && !isManager) {
       const msg = "I'm sorry, that action is restricted to managers and administrators.";
@@ -112,6 +118,20 @@ export const useVoiceActions = () => {
       toast.error(msg);
       return;
     }
+
+    if (!currentOrgId && restrictedActions.includes(action.type)) {
+      const msg = "I'm having trouble identifying your organization. Please refresh the page.";
+      speak(msg);
+      toast.error(msg);
+      return;
+    }
+
+    // Helper to validate UUIDs before sending to Supabase
+    const isValidUUID = (id: any) => {
+      if (!id || typeof id !== 'string') return false;
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      return uuidRegex.test(id);
+    };
 
     switch (action.type) {
       case 'navigate':
@@ -130,16 +150,102 @@ export const useVoiceActions = () => {
             autoAnalyze: autoAnalyze 
           } 
         });
+        setLastInteractedEntity({ id: 'pending', type: 'project', name: projectTitle || 'New Project' });
+        break;
+
+      case 'update_project':
+        const { projectTitle: upTitle, newTitle, newDescription } = action.params || {};
+        try {
+          if (!currentOrgId) {
+            speak("I can't access project details without your organization context. Please refresh the page.");
+            break;
+          }
+
+          // Resolve which project to update (context vs named)
+          let targetProjId = null;
+          let targetProjName = '';
+
+          if (upTitle) {
+            const { data: projs, error: fetchErr } = await supabase.from('projects').select('id, name').eq('organization_id', currentOrgId);
+            if (fetchErr) throw fetchErr;
+            const match = findBestMatch(upTitle, projs || [], (p) => p.name);
+            if (match) { targetProjId = match.id; targetProjName = match.name; }
+          } else if (lastInteractedEntity?.type === 'project' && isValidUUID(lastInteractedEntity.id)) {
+            targetProjId = lastInteractedEntity.id;
+            targetProjName = lastInteractedEntity.name;
+          }
+
+          if (!targetProjId) {
+            speak("I'm not sure which project you want to update. Could you specify the name?");
+            break;
+          }
+
+          const updates: any = {};
+          if (newTitle) updates.name = newTitle;
+          if (newDescription) updates.description = newDescription;
+
+          const { error: upErr } = await supabase.from('projects').update(updates).eq('id', targetProjId);
+          if (upErr) throw upErr;
+
+          const upMsg = `Successfully updated project "${targetProjName}".`;
+          speak(upMsg);
+          toast.success(upMsg);
+          setLastInteractedEntity({ id: targetProjId, type: 'project', name: newTitle || targetProjName });
+          window.dispatchEvent(new CustomEvent('velo-refresh-data'));
+        } catch (err) {
+          console.error('[VoiceActions] Project update failed:', err);
+          speak("I couldn't update the project details right now.");
+        }
+        break;
+
+      case 'delete_project':
+        const { projectTitle: dpTitle } = action.params || {};
+        try {
+           let dProjId = null;
+           let dProjName = '';
+
+           if (dpTitle) {
+             const { data: projs, error: fetchErr } = await supabase.from('projects').select('id, name').eq('organization_id', currentOrgId);
+             if (fetchErr) throw fetchErr;
+             const match = findBestMatch(dpTitle, projs || [], (p) => p.name);
+             if (match) { dProjId = match.id; dProjName = match.name; }
+           } else if (lastInteractedEntity?.type === 'project' && isValidUUID(lastInteractedEntity.id)) {
+             dProjId = lastInteractedEntity.id;
+             dProjName = lastInteractedEntity.name;
+           }
+
+           if (!dProjId) {
+             speak("Which project should I delete?");
+             break;
+           }
+
+           // Deletions are confirmation-guarded by handleVoiceCommand loop
+           const { error: dErr } = await supabase.from('projects').delete().eq('id', dProjId);
+           if (dErr) throw dErr;
+
+           const dMsg = `Deleted project "${dProjName}" successfully.`;
+           speak(dMsg);
+           toast.success(dMsg);
+           setLastInteractedEntity(null);
+           window.dispatchEvent(new CustomEvent('velo-refresh-data'));
+        } catch (err) {
+          console.error('[VoiceActions] Project deletion failed:', err);
+          speak("I ran into an issue deleting that project.");
+        }
         break;
       
       case 'create_task':
         const { taskName: tName, projectName: pName, assigneeName: cAssigneeName } = action.params || {};
-        const nameToUse = tName || 'New Task';
+        
+        if (!tName) {
+          speak("I'm sorry, I couldn't catch the name for the task. What should I call it?");
+          break;
+        }
         
         try {
           const projectMatch = currentPath.match(/\/projects\/([a-f0-9-]{36})/i);
           let targetProjectId = projectMatch ? projectMatch[1] : null;
-          let targetOrgId = orgId;
+          let targetOrgId = currentOrgId;
 
           // Resolve Target Organization context
           if (targetProjectId) {
@@ -167,14 +273,8 @@ export const useVoiceActions = () => {
               targetProjectId = matched.id;
               targetProjectName = matched.name;
             } else {
-              speak(`Project ${pName} doesn't exist. I'll create it for you.`);
-              const { data: newProj, error: createError } = await supabase
-                .from('projects')
-                .insert({ organization_id: targetOrgId, name: pName, status: 'active', source: 'internal' })
-                .select().single();
-              if (createError) throw createError;
-              targetProjectId = newProj.id;
-              targetProjectName = newProj.name;
+              speak(`I couldn't find a project named ${pName}. Which project should I add this task to?`);
+              break;
             }
           } else if (!targetProjectId) {
             if (projects && projects.length > 0) {
@@ -182,14 +282,8 @@ export const useVoiceActions = () => {
               targetProjectId = sorted[0].id;
               targetProjectName = sorted[0].name;
             } else {
-              speak("Creating a default project for your new task.");
-              const { data: newProj, error: createError } = await supabase
-                .from('projects')
-                .insert({ organization_id: targetOrgId, name: 'General Tasks', status: 'active' })
-                .select().single();
-              if (createError) throw createError;
-              targetProjectId = newProj.id;
-              targetProjectName = newProj.name;
+              speak("I couldn't find an active project to add this task to. Please specify a project name.");
+              break;
             }
           }
 
@@ -207,24 +301,85 @@ export const useVoiceActions = () => {
             }
           }
 
-          const { error: insertError } = await supabase
+          const { data: newTasks, error: insertError } = await supabase
             .from('tasks')
             .insert({
               project_id: targetProjectId,
-              name: nameToUse,
+              name: tName,
               status: 'not_started',
               estimated_hours: 4,
               assignee_id: assigneeId
-            });
+            })
+            .select();
 
           if (insertError) throw insertError;
-          const msg = `Done! Added task "${nameToUse}" to ${targetProjectName || 'project'}${cAssigneeName && assigneeId ? ` and assigned it to ${cAssigneeName}` : ""}.`;
+          const msg = `Done! Added task "${tName}" to ${targetProjectName || 'project'}${cAssigneeName && assigneeId ? ` and assigned it to ${cAssigneeName}` : ""}.`;
           speak(msg);
           toast.success(msg);
+          
+          if (newTasks && newTasks[0]) {
+            setLastInteractedEntity({ id: newTasks[0].id, type: 'task', name: tName });
+          }
+          
           window.dispatchEvent(new CustomEvent('velo-refresh-data'));
         } catch (err: any) {
           console.error('[VoiceActions] Smart task creation failed:', err);
           speak("I encountered an error while setting up that task.");
+        }
+        break;
+
+      case 'update_task':
+        const { taskName: uTaskName, status: uStatus, newTitle: uNewTitle, assigneeName: uAssigneeName } = action.params || {};
+        try {
+          const projectMatch = currentPath.match(/\/projects\/([a-f0-9-]{36})/i);
+          let pId = projectMatch ? projectMatch[1] : null;
+          
+          if (!pId && lastInteractedEntity?.type === 'task' && isValidUUID(lastInteractedEntity.id)) {
+             const { data: t } = await supabase.from('tasks').select('project_id').eq('id', lastInteractedEntity.id).single();
+             if (t) pId = t.project_id;
+          }
+
+          if (!pId) {
+            speak("I'm not sure which project's task you're referring to. Please open a project first.");
+            break;
+          }
+
+          const { data: tasks } = await supabase.from('tasks').select('id, name, assignee_id').eq('project_id', pId);
+          let targetTask = null;
+
+          if (uTaskName) {
+            targetTask = findBestMatch(uTaskName, tasks || [], (t) => t.name);
+          } else if (lastInteractedEntity?.type === 'task') {
+            targetTask = tasks?.find(t => t.id === lastInteractedEntity.id);
+          }
+
+          if (!targetTask) {
+            speak(`I couldn't find the task "${uTaskName || 'you mentioned'}" in this project.`);
+            break;
+          }
+
+          const updates: any = {};
+          if (uStatus) updates.status = uStatus === 'completed' ? 'completed' : 'not_started';
+          if (uNewTitle) updates.name = uNewTitle;
+          
+          if (uAssigneeName) {
+            const { data: members, error: mErr } = await supabase.from('users').select('id, name').eq('organization_id', currentOrgId);
+            if (mErr) throw mErr;
+            const match = findBestMatch(uAssigneeName, members || [], (m) => m.name || "");
+            if (match) updates.assignee_id = match.id;
+          }
+
+          const { error: taskUpErr } = await supabase.from('tasks').update(updates).eq('id', targetTask.id);
+          if (taskUpErr) throw taskUpErr;
+
+          const successMsg = `Updated task "${uNewTitle || targetTask.name}" successfully.`;
+          speak(successMsg);
+          toast.success(successMsg);
+          setLastInteractedEntity({ id: targetTask.id, type: 'task', name: uNewTitle || targetTask.name });
+          window.dispatchEvent(new CustomEvent('velo-refresh-data'));
+        } catch (err) {
+          console.error('[VoiceActions] Task update failed:', err);
+          speak("I couldn't update that task. Please check the dashboard.");
         }
         break;
 
@@ -238,19 +393,19 @@ export const useVoiceActions = () => {
         try {
           const projectMatch = currentPath.match(/\/projects\/([a-f0-9-]{36})/i);
           let targetId = projectMatch ? projectMatch[1] : null;
-          let targetOrgId = orgId;
+          let targetOrgId = currentOrgId;
 
           // 1. Resolve Project and Org ID (Prioritize current project)
           if (targetId) {
              const { data: proj } = await supabase.from('projects').select('organization_id').eq('id', targetId).single();
              if (proj) targetOrgId = proj.organization_id;
-          } else {
+           } else {
             // Fallback: Use user's primary org and find most recent project
-            if (orgId) {
+            if (currentOrgId) {
               const { data: recentProj } = await supabase
                 .from('projects')
                 .select('id, name, organization_id')
-                .eq('organization_id', orgId)
+                .eq('organization_id', currentOrgId)
                 .eq('status', 'active')
                 .order('updated_at', { ascending: false })
                 .limit(1)
@@ -307,6 +462,7 @@ export const useVoiceActions = () => {
           const successMsg = `Done! Assigned "${matchedTask.name}" to ${matchedMember.name}.`;
           speak(successMsg);
           toast.success(successMsg);
+          setLastInteractedEntity({ id: matchedTask.id, type: 'task', name: matchedTask.name });
           window.dispatchEvent(new CustomEvent('velo-refresh-data'));
         } catch (err: any) {
           console.error('[VoiceActions] Task assignment failed:', err);
@@ -325,11 +481,11 @@ export const useVoiceActions = () => {
           const projectMatch = currentPath.match(/\/projects\/([a-f0-9-]{36})/i);
           let targetId = projectMatch ? projectMatch[1] : null;
 
-          if (!targetId && orgId) {
+          if (!targetId && currentOrgId) {
              const { data: recentProj } = await supabase
               .from('projects')
               .select('id, name')
-              .eq('organization_id', orgId)
+              .eq('organization_id', currentOrgId)
               .eq('status', 'active')
               .order('updated_at', { ascending: false })
               .limit(1)
@@ -360,6 +516,7 @@ export const useVoiceActions = () => {
           const successMsg = `Successfully deleted task "${matchedTask.name}".`;
           speak(successMsg);
           toast.success(successMsg);
+          setLastInteractedEntity(null);
           window.dispatchEvent(new CustomEvent('velo-refresh-data'));
 
         } catch (err: any) {
@@ -370,22 +527,61 @@ export const useVoiceActions = () => {
 
       case 'add_team_member':
         const { name: mName, email: mEmail, role: mRole } = action.params || {};
-        if (currentPath === '/people' || currentPath === '/onboarding/team') {
-          window.dispatchEvent(new CustomEvent('velo-add-member', { 
-            detail: { name: mName, email: mEmail, role: mRole } 
-          }));
-        } else {
-          enqueueAction(action);
-          navigate('/people');
+        if (!mName || !mEmail) {
+          speak(`I need both a name and an email address to add a team member. ${!mName ? "What is the name?" : "What is the email?"}`);
+          break;
+        }
+        try {
+          // Resolve team context (grab first team in org)
+          const { data: teams } = await supabase.from('teams').select('id').eq('organization_id', currentOrgId).limit(1);
+          if (!teams || teams.length === 0) {
+            speak("I couldn't find a team to add members to. Please create a team first.");
+            break;
+          }
+          
+          await peopleService.addTeamMember(currentOrgId, teams[0].id, {
+            name: mName,
+            email: mEmail,
+            role: mRole || 'Team Member'
+          });
+          
+          const addMsg = `Successfully added ${mName} to the team.`;
+          speak(addMsg);
+          toast.success(addMsg);
+          window.dispatchEvent(new CustomEvent('velo-refresh-data'));
+        } catch (err) {
+          console.error('[VoiceActions] Direct employee add failed:', err);
+          speak("I couldn't add the team member right now. Please check your permissions.");
         }
         break;
 
       case 'delete_team_member':
-        if (currentPath !== '/people') {
-          enqueueAction(action);
-          navigate('/people');
-        } else {
-          window.dispatchEvent(new CustomEvent('velo-delete-member', { detail: { name: action.params?.name } }));
+        const { name: rName } = action.params || {};
+        if (!rName) {
+           speak("Whose account should I remove from the team?");
+           break;
+        }
+        try {
+          const members = await peopleService.fetchAllTeamMembers(currentOrgId);
+          const match = findBestMatch(rName, members, (m) => m.name);
+          
+          if (!match) {
+            speak(`I couldn't find a team member named ${rName}.`);
+            break;
+          }
+
+          // Execution loop handles confirmation via setPendingConfirmation in handleVoiceCommand
+          // The manual logic uses RPC for soft delete
+          const { error: delErr } = await supabase.rpc('soft_delete_user', { target_user_id: match.id });
+          if (delErr) throw delErr;
+
+          const delMsg = `Removed ${match.name} from the team successfully.`;
+          speak(delMsg);
+          toast.success(delMsg);
+          window.dispatchEvent(new CustomEvent('velo-refresh-data'));
+        } catch (err) {
+          console.error('[VoiceActions] Direct employee delete failed:', err);
+          speak("I ran into an issue removing that team member.");
         }
         break;
 
@@ -396,6 +592,7 @@ export const useVoiceActions = () => {
       case 'gantt_query':
       case 'resource_query':
         try {
+          speak("Sure, let me check that for you.");
           const dashData = await getDashboardData();
           const summary = await geminiVoiceService.summarizeData(dashData, action.params?.query || action.type.replace('_', ' '));
           speak(summary);

@@ -25,15 +25,28 @@ export const getDashboardData = async (options?: DashboardOptions) => {
             .eq('id', orgId)
             .single();
 
-        const { data: projects } = await supabase.from('projects').select('*').eq('organization_id', orgId);
-        const { data: allTasks } = await supabase.from('tasks').select('*').in('project_id', projects?.map(p => p.id) || []);
+        const projectsData = await supabase.from('projects').select('*').eq('organization_id', orgId);
+        const projects = projectsData.data || [];
+        
+        const projectIds = projects.map(p => p.id);
+        const { data: allTasks } = projectIds.length > 0 
+            ? await supabase.from('tasks').select('*').in('project_id', projectIds)
+            : { data: [] };
+
         const { data: teams } = await supabase.from('teams').select('*').eq('organization_id', orgId);
-        const { data: teamMembers } = await supabase.from('team_members').select('*').in('team_id', teams?.map(t => t.id) || []).eq('status', 'active');
-        const { data: users } = await supabase
-            .from('users')
-            .select('*')
-            .in('id', teamMembers?.map(m => m.user_id).filter(Boolean) || [])
-            .eq('is_active', true);
+        const teamIds = (teams || []).map(t => t.id);
+        const { data: teamMembers } = teamIds.length > 0
+            ? await supabase.from('team_members').select('*').in('team_id', teamIds).eq('status', 'active')
+            : { data: [] };
+
+        const activeUserIdsFromMembers = (teamMembers || []).map(m => m.user_id).filter(Boolean) as string[];
+        const { data: users } = activeUserIdsFromMembers.length > 0
+            ? await supabase
+                .from('users')
+                .select('*')
+                .in('id', activeUserIdsFromMembers)
+                .eq('is_active', true)
+            : { data: [] };
         
         // Filter teamMembers to only those who have an ACTIVE user entry
         const activeUserIdsSet = new Set(users?.map(u => u.id) || []);
@@ -48,10 +61,13 @@ export const getDashboardData = async (options?: DashboardOptions) => {
             myProjectIds = allocations?.map(a => a.project_id) || [];
         }
 
-        const { data: leaves } = await supabase
-            .from('leave_requests')
-            .select('*, leave_types(name)')
-            .in('user_id', users?.map(u => u.id) || []);
+        const userIdsForLeaves = users?.map(u => u.id) || [];
+        const { data: leaves } = userIdsForLeaves.length > 0
+            ? await supabase
+                .from('leave_requests')
+                .select('*, leave_types(name)')
+                .in('user_id', userIdsForLeaves)
+            : { data: [] };
 
         const today = new Date();
         today.setHours(0, 0, 0, 0);
