@@ -12,9 +12,14 @@ interface HiringPrediction {
   urgency: 'high' | 'medium' | 'low';
 }
 
-export const PredictiveHiring: React.FC = () => {
+interface PredictiveHiringProps {
+  tasks: any[];
+  users: any[];
+}
+
+export const PredictiveHiring: React.FC<PredictiveHiringProps> = ({ tasks, users }) => {
   const [predictions, setPredictions] = useState<HiringPrediction[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [generatingJD, setGeneratingJD] = useState<string | null>(null);
   const [jobDescriptions, setJobDescriptions] = useState<Record<string, string>>({});
 
@@ -28,80 +33,65 @@ export const PredictiveHiring: React.FC = () => {
   };
 
   useEffect(() => {
-    const load = async () => {
-      const orgId = getCurrentOrgId();
-      if (!orgId) return;
-      try {
-        const threeMonthsAgo = new Date();
-        threeMonthsAgo.setDate(threeMonthsAgo.getDate() - 90);
+    if (!tasks || tasks.length === 0) return;
 
-        const { data: tasks } = await supabase
-          .from('tasks')
-          .select('name, status, assignee_id, created_at')
-          .gte('created_at', threeMonthsAgo.toISOString());
+    try {
+      const threeMonthsAgo = new Date();
+      threeMonthsAgo.setDate(threeMonthsAgo.getDate() - 90);
 
-        const { data: users } = await supabase
-          .from('users')
-          .select('id')
-          .eq('organization_id', orgId);
+      const recentTasks = tasks.filter(t => new Date(t.created_at) >= threeMonthsAgo);
+      if (!recentTasks.length) return;
 
-        if (!tasks?.length) return;
+      // Count skill demand from task names
+      const skillDemand: Record<string, number> = {};
+      recentTasks.forEach(t => {
+        const name = (t.name || '').toLowerCase();
+        Object.entries(SKILL_KEYWORDS).forEach(([role, kws]) => {
+          if (kws.some(kw => name.includes(kw))) {
+            skillDemand[role] = (skillDemand[role] || 0) + 1;
+          }
+        });
+      });
 
-        // Count skill demand from task names
-        const skillDemand: Record<string, number> = {};
-        tasks.forEach(t => {
-          const name = (t.name || '').toLowerCase();
-          Object.entries(SKILL_KEYWORDS).forEach(([role, kws]) => {
-            if (kws.some(kw => name.includes(kw))) {
-              skillDemand[role] = (skillDemand[role] || 0) + 1;
-            }
+      // Count unassigned tasks per skill
+      const unassigned = recentTasks.filter(t => !t.assignee_id);
+      const unassignedDemand: Record<string, number> = {};
+      unassigned.forEach(t => {
+        const name = (t.name || '').toLowerCase();
+        Object.entries(SKILL_KEYWORDS).forEach(([role, kws]) => {
+          if (kws.some(kw => name.includes(kw))) {
+            unassignedDemand[role] = (unassignedDemand[role] || 0) + 1;
+          }
+        });
+      });
+
+      // Predict hiring needs
+      const teamSize = users?.length || 1;
+      const preds: HiringPrediction[] = [];
+
+      Object.entries(skillDemand)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .forEach(([role, count]) => {
+          const unassignedCount = unassignedDemand[role] || 0;
+          const demandPerPerson = count / teamSize;
+          const urgency = unassignedCount > 5 ? 'high' : demandPerPerson > 3 ? 'medium' : 'low';
+          const quarter = urgency === 'high' ? 'Q2 2026' : urgency === 'medium' ? 'Q3 2026' : 'Q4 2026';
+
+          preds.push({
+            role,
+            quarter,
+            reason: `${count} related tasks in last 90 days, ${unassignedCount} currently unassigned`,
+            skills: SKILL_KEYWORDS[role].slice(0, 4),
+            urgency,
           });
         });
 
-        // Count unassigned tasks per skill
-        const unassigned = tasks.filter(t => !t.assignee_id);
-        const unassignedDemand: Record<string, number> = {};
-        unassigned.forEach(t => {
-          const name = (t.name || '').toLowerCase();
-          Object.entries(SKILL_KEYWORDS).forEach(([role, kws]) => {
-            if (kws.some(kw => name.includes(kw))) {
-              unassignedDemand[role] = (unassignedDemand[role] || 0) + 1;
-            }
-          });
-        });
-
-        // Predict hiring needs
-        const teamSize = users?.length || 1;
-        const growthRate = tasks.length / 90; // tasks per day
-        const preds: HiringPrediction[] = [];
-
-        Object.entries(skillDemand)
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 3)
-          .forEach(([role, count]) => {
-            const unassignedCount = unassignedDemand[role] || 0;
-            const demandPerPerson = count / teamSize;
-            const urgency = unassignedCount > 5 ? 'high' : demandPerPerson > 3 ? 'medium' : 'low';
-            const quarter = urgency === 'high' ? 'Q2 2026' : urgency === 'medium' ? 'Q3 2026' : 'Q4 2026';
-
-            preds.push({
-              role,
-              quarter,
-              reason: `${count} related tasks in last 90 days, ${unassignedCount} currently unassigned`,
-              skills: SKILL_KEYWORDS[role].slice(0, 4),
-              urgency,
-            });
-          });
-
-        setPredictions(preds);
-      } catch (e) {
-        console.error('PredictiveHiring error:', e);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, []);
+      setPredictions(preds);
+    } catch (e) {
+      console.error('PredictiveHiring calculation error:', e);
+    }
+  }, [tasks, users]);
 
   const handleGenerateJD = async (role: string, skills: string[]) => {
     setGeneratingJD(role);

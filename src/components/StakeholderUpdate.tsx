@@ -7,25 +7,16 @@ import { toast } from 'sonner';
 interface StakeholderUpdateProps {
   projectId?: string;
   projectName?: string;
+  projectsList?: any[];
 }
 
-export const StakeholderUpdate: React.FC<StakeholderUpdateProps> = ({ projectId, projectName }) => {
+export const StakeholderUpdate: React.FC<StakeholderUpdateProps> = ({ projectId, projectName, projectsList }) => {
   const [loading, setLoading] = useState(false);
   const [update, setUpdate] = useState('');
-  const [projects, setProjects] = useState<any[]>([]);
   const [selectedProject, setSelectedProject] = useState(projectId || '');
   const [showProjects, setShowProjects] = useState(!projectId);
 
-  const loadProjects = async () => {
-    const orgId = getCurrentOrgId();
-    if (!orgId) return;
-    const { data } = await supabase.from('projects').select('id, name').eq('organization_id', orgId).eq('status', 'active');
-    setProjects(data || []);
-  };
-
-  React.useEffect(() => {
-    if (!projectId) loadProjects();
-  }, []);
+  const projects = projectsList || [];
 
   const handleGenerate = async () => {
     const pid = selectedProject || projectId;

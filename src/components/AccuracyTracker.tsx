@@ -1,7 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
-import { getCurrentOrgId } from '@/lib/orgContext';
 import { Target } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 interface AccuracyStats {
   totalSuggestions: number;
@@ -12,57 +10,47 @@ interface AccuracyStats {
   trend: 'up' | 'down' | 'flat';
 }
 
-export const AccuracyTracker: React.FC = () => {
+interface AccuracyTrackerProps {
+  suggestions: any[];
+}
+
+export const AccuracyTracker: React.FC<AccuracyTrackerProps> = ({ suggestions }) => {
   const [stats, setStats] = useState<AccuracyStats | null>(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const load = async () => {
-      const orgId = getCurrentOrgId();
-      if (!orgId) return;
-      try {
-        const twoWeeksAgo = new Date();
-        twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
-        const oneWeekAgo = new Date();
-        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    if (!suggestions || suggestions.length === 0) return;
 
-        const { data: all } = await supabase
-          .from('ai_task_suggestions')
-          .select('status, created_at')
-          .gte('created_at', twoWeeksAgo.toISOString());
+    const twoWeeksAgo = new Date();
+    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 
-        if (!all?.length) return;
+    const all = suggestions.filter(s => new Date(s.created_at) >= twoWeeksAgo);
+    if (!all.length) return;
 
-        const approved = all.filter(s => s.status === 'approved').length;
-        const rejected = all.filter(s => s.status === 'rejected').length;
-        const total = approved + rejected;
-        const approvalRate = total > 0 ? Math.round((approved / total) * 100) : 0;
+    const approved = all.filter(s => s.status === 'approved').length;
+    const rejected = all.filter(s => s.status === 'rejected').length;
+    const total = approved + rejected;
+    const approvalRate = total > 0 ? Math.round((approved / total) * 100) : 0;
 
-        // This week vs last week
-        const thisWeek = all.filter(s => new Date(s.created_at) >= oneWeekAgo);
-        const lastWeek = all.filter(s => new Date(s.created_at) < oneWeekAgo);
+    // This week vs last week
+    const thisWeek = all.filter(s => new Date(s.created_at) >= oneWeekAgo);
+    const lastWeek = all.filter(s => new Date(s.created_at) < oneWeekAgo);
 
-        const thisWeekApproved = thisWeek.filter(s => s.status === 'approved').length;
-        const thisWeekTotal = thisWeek.filter(s => s.status === 'approved' || s.status === 'rejected').length;
-        const thisWeekRate = thisWeekTotal > 0 ? Math.round((thisWeekApproved / thisWeekTotal) * 100) : 0;
+    const thisWeekApproved = thisWeek.filter(s => s.status === 'approved').length;
+    const thisWeekTotal = thisWeek.filter(s => s.status === 'approved' || s.status === 'rejected').length;
+    const thisWeekRate = thisWeekTotal > 0 ? Math.round((thisWeekApproved / thisWeekTotal) * 100) : 0;
 
-        const lastWeekApproved = lastWeek.filter(s => s.status === 'approved').length;
-        const lastWeekTotal = lastWeek.filter(s => s.status === 'approved' || s.status === 'rejected').length;
-        const lastWeekRate = lastWeekTotal > 0 ? Math.round((lastWeekApproved / lastWeekTotal) * 100) : 0;
+    const lastWeekApproved = lastWeek.filter(s => s.status === 'approved').length;
+    const lastWeekTotal = lastWeek.filter(s => s.status === 'approved' || s.status === 'rejected').length;
+    const lastWeekRate = lastWeekTotal > 0 ? Math.round((lastWeekApproved / lastWeekTotal) * 100) : 0;
 
-        const trend = thisWeekRate > lastWeekRate + 5 ? 'up' : thisWeekRate < lastWeekRate - 5 ? 'down' : 'flat';
+    const trend = thisWeekRate > lastWeekRate + 5 ? 'up' : thisWeekRate < lastWeekRate - 5 ? 'down' : 'flat';
 
-        setStats({ totalSuggestions: all.length, approvedCount: approved, rejectedCount: rejected, approvalRate, thisWeekRate, trend });
-      } catch (e) {
-        console.error('AccuracyTracker error:', e);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, []);
+    setStats({ totalSuggestions: all.length, approvedCount: approved, rejectedCount: rejected, approvalRate, thisWeekRate, trend });
+  }, [suggestions]);
 
-  if (loading || !stats || stats.totalSuggestions < 3) return null;
+  if (!stats || stats.totalSuggestions < 3) return null;
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5">

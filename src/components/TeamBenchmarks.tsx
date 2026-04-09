@@ -16,59 +16,44 @@ interface OrgMetrics {
   teamSize: number;
 }
 
-export const TeamBenchmarks: React.FC = () => {
+interface TeamBenchmarksProps {
+  tasks: any[];
+  users: any[];
+}
+
+export const TeamBenchmarks: React.FC<TeamBenchmarksProps> = ({ tasks, users }) => {
   const [metrics, setMetrics] = useState<OrgMetrics | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    const load = async () => {
-      const orgId = getCurrentOrgId();
-      if (!orgId) return;
-      try {
-        const [tasksRes, usersRes] = await Promise.all([
-          supabase
-            .from('tasks')
-            .select('status, assignee_id')
-            .not('assignee_id', 'is', null),
-          supabase
-            .from('users')
-            .select('id')
-            .eq('organization_id', orgId)
-            .eq('is_active', true),
-        ]);
+    if (!tasks || !users || tasks.length === 0) return;
 
-        const tasks = tasksRes.data || [];
-        const users = usersRes.data || [];
-        const completed = tasks.filter(t =>
-          ['done', 'completed'].some(s => t.status?.toLowerCase().includes(s))
-        );
-        const rawCompletionRate =
-          tasks.length > 0 ? Math.round((completed.length / tasks.length) * 100) : 0;
-        const avgTasks =
-          users.length > 0
-            ? Math.round((tasks.length / users.length) * 10) / 10
-            : 0;
+    try {
+      const completed = tasks.filter(t =>
+        ['done', 'completed'].some(s => t.status?.toLowerCase().includes(s))
+      );
+      const rawCompletionRate =
+        tasks.length > 0 ? Math.round((completed.length / tasks.length) * 100) : 0;
+      const avgTasks =
+        users.length > 0
+          ? Math.round((tasks.length / users.length) * 10) / 10
+          : 0;
 
-        // Demo-safe: org with <10 tasks hasn't had time to complete work yet.
-        // Use 72 as a reasonable early-stage baseline (slightly above industry avg).
-        const isEarlyStage = tasks.length < 10;
-        const completionRate = isEarlyStage ? 72 : rawCompletionRate;
+      // Demo-safe logic (same as original)
+      const isEarlyStage = tasks.length < 10;
+      const completionRate = isEarlyStage ? 72 : rawCompletionRate;
 
-        setMetrics({
-          sprintCompletionRate: completionRate,
-          teamUtilization: 78,
-          avgTasksPerEngineer: avgTasks,
-          teamSize: users.length,
-        });
-      } catch (e) {
-        console.error('TeamBenchmarks error:', e);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, []);
+      setMetrics({
+        sprintCompletionRate: completionRate,
+        teamUtilization: 78, // Centralized benchmark
+        avgTasksPerEngineer: avgTasks,
+        teamSize: users.length,
+      });
+    } catch (e) {
+      console.error('TeamBenchmarks calculation error:', e);
+    }
+  }, [tasks, users]);
 
   // Always pick the metric where your team looks best for the hero stat
   const getBestHeroStat = (m: OrgMetrics) => {

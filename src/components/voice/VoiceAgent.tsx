@@ -61,15 +61,22 @@ export const VoiceAgent: React.FC = () => {
   useEffect(() => {
     if (!orbRef.current) return;
 
+    let animFrame: number;
+    const animateVolume = () => {
+      if (status === 'listening' && volumeLevel.current !== undefined) {
+        const scale = 1.1 + (volumeLevel.current / 100);
+        gsap.to(orbRef.current, {
+          scale: scale,
+          duration: 0.1,
+          ease: "power2.out",
+          boxShadow: `0 0 ${20 + volumeLevel.current / 2}px rgba(16, 185, 129, ${0.4 + volumeLevel.current / 200})`
+        });
+        animFrame = requestAnimationFrame(animateVolume);
+      }
+    };
+
     if (status === 'listening') {
-      // Dynamic scaling based on volumeLevel
-      const scale = 1.1 + (volumeLevel / 100);
-      gsap.to(orbRef.current, {
-        scale: scale,
-        duration: 0.1,
-        ease: "power2.out",
-        boxShadow: `0 0 ${20 + volumeLevel/2}px rgba(16, 185, 129, ${0.4 + volumeLevel/200})`
-      });
+      animateVolume();
     } else if (isTriggered) {
       gsap.to(orbRef.current, {
         scale: 1.2,
@@ -106,6 +113,9 @@ export const VoiceAgent: React.FC = () => {
         backgroundColor: status === 'error' ? '#EF4444' : '#9CA3AF' // red-500 for error, gray-400 for idle
       });
     }
+    return () => {
+      if (animFrame) cancelAnimationFrame(animFrame);
+    };
   }, [status, isTriggered, volumeLevel]);
 
   // Initial animation on mount

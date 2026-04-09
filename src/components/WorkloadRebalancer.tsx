@@ -17,70 +17,59 @@ interface RebalanceSuggestion {
   reason: string;
 }
 
-export const WorkloadRebalancer: React.FC = () => {
+interface WorkloadRebalancerProps {
+  tasks: any[];
+}
+
+export const WorkloadRebalancer: React.FC<WorkloadRebalancerProps> = ({ tasks }) => {
   const [suggestions, setSuggestions] = useState<RebalanceSuggestion[]>([]);
-  const [loading, setLoading] = useState(true);
   const [applying, setApplying] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [pushedToLinear, setPushedToLinear] = useState<Set<string>>(new Set());
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    if (!tasks || tasks.length === 0) return;
 
-  const load = async () => {
-    setLoading(true);
-    const orgId = getCurrentOrgId();
-    if (!orgId) return;
-    try {
-      const { data: tasks } = await supabase
-        .from('tasks')
-        .select('id, name, assignee_id, estimated_hours, users(name)')
-        .neq('status', 'completed')
-        .not('assignee_id', 'is', null);
+    const activeTasks = tasks.filter(t => t.status !== 'completed' && t.assignee_id);
+    if (!activeTasks.length) return;
 
-      if (!tasks?.length) return;
+    const memberTasks: Record<string, { name: string; tasks: any[]; totalHours: number }> = {};
+    activeTasks.forEach((t: any) => {
+      const uid = t.assignee_id;
+      const name = t.users?.name || 'Unknown';
+      if (!memberTasks[uid]) memberTasks[uid] = { name, tasks: [], totalHours: 0 };
+      memberTasks[uid].tasks.push(t);
+      memberTasks[uid].totalHours += t.estimated_hours || 0;
+    });
 
-      const memberTasks: Record<string, { name: string; tasks: any[]; totalHours: number }> = {};
-      tasks.forEach((t: any) => {
-        const uid = t.assignee_id;
-        const name = t.users?.name || 'Unknown';
-        if (!memberTasks[uid]) memberTasks[uid] = { name, tasks: [], totalHours: 0 };
-        memberTasks[uid].tasks.push(t);
-        memberTasks[uid].totalHours += t.estimated_hours || 0;
+    const entries = Object.entries(memberTasks);
+    if (entries.length < 2) return;
+
+    const sorted = entries.sort((a, b) => b[1].tasks.length - a[1].tasks.length);
+    const overloaded = sorted.filter(([, v]) => v.tasks.length >= 6);
+    const underloaded = sorted.filter(([, v]) => v.tasks.length <= 3);
+
+    const suggs: RebalanceSuggestion[] = [];
+    overloaded.forEach(([fromId, fromData]) => {
+      const target = underloaded.find(([toId]) => toId !== fromId);
+      if (!target) return;
+      const [toId, toData] = target;
+      const taskToMove = fromData.tasks[fromData.tasks.length - 1];
+      suggs.push({
+        taskId: taskToMove.id,
+        taskName: taskToMove.name,
+        fromId,
+        fromName: fromData.name,
+        fromTasks: fromData.tasks.length,
+        toId,
+        toName: toData.name,
+        toTasks: toData.tasks.length,
+        reason: `${fromData.name} has ${fromData.tasks.length} tasks, ${toData.name} has only ${toData.tasks.length}`,
       });
+    });
 
-      const entries = Object.entries(memberTasks);
-      if (entries.length < 2) return;
-
-      const sorted = entries.sort((a, b) => b[1].tasks.length - a[1].tasks.length);
-      const overloaded = sorted.filter(([, v]) => v.tasks.length >= 6);
-      const underloaded = sorted.filter(([, v]) => v.tasks.length <= 3);
-
-      const suggs: RebalanceSuggestion[] = [];
-      overloaded.forEach(([fromId, fromData]) => {
-        const target = underloaded.find(([toId]) => toId !== fromId);
-        if (!target) return;
-        const [toId, toData] = target;
-        const taskToMove = fromData.tasks[fromData.tasks.length - 1];
-        suggs.push({
-          taskId: taskToMove.id,
-          taskName: taskToMove.name,
-          fromId,
-          fromName: fromData.name,
-          fromTasks: fromData.tasks.length,
-          toId,
-          toName: toData.name,
-          toTasks: toData.tasks.length,
-          reason: `${fromData.name} has ${fromData.tasks.length} tasks, ${toData.name} has only ${toData.tasks.length}`,
-        });
-      });
-
-      setSuggestions(suggs.slice(0, 3));
-    } catch (e) {
-      console.error('WorkloadRebalancer error:', e);
-    } finally {
-      setLoading(false);
-    }
-  };
+    setSuggestions(suggs.slice(0, 3));
+  }, [tasks]);
 
   const handleAccept = async (s: RebalanceSuggestion) => {
     setApplying(s.taskId);

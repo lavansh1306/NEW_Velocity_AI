@@ -18,7 +18,7 @@ interface VoiceContextType {
   setProcessing: (processing: boolean) => void;
   clearTranscript: () => void;
   speak: (text: string) => void;
-  volumeLevel: number; // NEW: Voice activity level
+  volumeLevel: React.RefObject<number>; // CHANGED: Changed from number to RefObject to prevent re-renders
   enqueueAction: (action: VoiceAction) => void;
   consumeAction: (type: string) => VoiceAction | null;
   setPendingConfirmation: (action: VoiceAction | null) => void;
@@ -33,7 +33,7 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [status, setStatus] = useState<VoiceStatus>('idle');
   const [lastTranscript, setLastTranscript] = useState('');
   const [isTriggered, setIsTriggered] = useState(false);
-  const [volumeLevel, setVolumeLevel] = useState(0); 
+  const volumeLevelRef = useRef(0); 
   const [commandQueue, setCommandQueue] = useState<VoiceAction[]>([]);
   const [pendingConfirmation, setPendingConfirmation] = useState<VoiceAction | null>(null);
   const [lastInteractedEntity, setLastInteractedEntity] = useState<{ id: string; type: 'task' | 'project' | 'member'; name: string } | null>(null);
@@ -204,12 +204,12 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         // Simple average for volume level
         const sum = dataArray.reduce((acc, v) => acc + v, 0);
         const avg = sum / dataArray.length;
-        setVolumeLevel(avg);
+        volumeLevelRef.current = avg;
         
         if (isListeningRef.current || isTriggeredRef.current) {
           requestAnimationFrame(updateVolume);
         } else {
-          setVolumeLevel(0);
+          volumeLevelRef.current = 0;
         }
       };
       
@@ -380,7 +380,7 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       status, 
       lastTranscript, 
       isTriggered, 
-      volumeLevel,
+      volumeLevel: volumeLevelRef,
       commandQueue,
       pendingConfirmation,
       lastInteractedEntity,

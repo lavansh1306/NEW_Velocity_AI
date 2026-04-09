@@ -27,28 +27,49 @@ interface AgentStats {
 export default function AgentDashboard() {
   const [stats, setStats] = useState<AgentStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [projects, setProjects] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [leaves, setLeaves] = useState<any[]>([]);
 
-  useEffect(() => {
     const load = async () => {
       const orgId = getCurrentOrgId();
       if (!orgId) return;
 
       try {
-        const { data: suggestions } = await supabase
-          .from('ai_task_suggestions')
-          .select('id, status, suggested_user_id, created_at, users(name)')
-          .order('created_at', { ascending: false });
+        setLoading(true);
+        // Centralized fetch for everything needed by dashboard sub-components
+        const [suggestionsRes, tasksRes, projectsRes, usersRes, leavesRes] = await Promise.all([
+          supabase.from('ai_task_suggestions').select('id, status, suggested_user_id, created_at, users(name)').order('created_at', { ascending: false }),
+          supabase.from('tasks').select('id, name, assignee_id, estimated_hours, actual_hours, status, created_at, project_id, users(name)'),
+          supabase.from('projects').select('id, name, status, updated_at, organization_id').eq('organization_id', orgId).limit(20),
+          supabase.from('users').select('id, name, email, role, capacity_hours_per_week').eq('organization_id', orgId),
+          supabase.from('leave_requests').select('id, created_at, updated_at, status, user_id').eq('organization_id', orgId).neq('status', 'pending')
+        ]);
 
-        const all = suggestions || [];
-        const approved = all.filter(s => s.status === 'approved').length;
-        const pending = all.filter(s => s.status === 'pending').length;
+        const allSugg = suggestionsRes.data || [];
+        const allTasks = tasksRes.data || [];
+        const allProjects = projectsRes.data || [];
+        const allUsers = usersRes.data || [];
+        const allLeaves = leavesRes.data || [];
+
+        setSuggestions(allSugg);
+        setTasks(allTasks);
+        setProjects(allProjects);
+        setUsers(allUsers);
+        setLeaves(allLeaves);
+
+        // Calculate parent stats
+        const approved = allSugg.filter(s => s.status === 'approved').length;
+        const pending = allSugg.filter(s => s.status === 'pending').length;
 
         const weekAgo = new Date();
         weekAgo.setDate(weekAgo.getDate() - 7);
-        const thisWeek = all.filter(s => new Date(s.created_at) > weekAgo).length;
+        const thisWeek = allSugg.filter(s => new Date(s.created_at) > weekAgo).length;
 
         const memberCounts: Record<string, { name: string; count: number }> = {};
-        all.forEach(s => {
+        allSugg.forEach(s => {
           if (s.suggested_user_id && (s as any).users?.name) {
             const name = (s as any).users.name;
             if (!memberCounts[s.suggested_user_id]) {
@@ -61,10 +82,10 @@ export default function AgentDashboard() {
           .sort((a, b) => b.count - a.count)
           .slice(0, 5);
 
-        const lastSync = all.length > 0 ? all[0].created_at : null;
+        const lastSync = allSugg.length > 0 ? allSugg[0].created_at : null;
 
         setStats({
-          totalSuggestions: all.length,
+          totalSuggestions: allSugg.length,
           approvedSuggestions: approved,
           pendingSuggestions: pending,
           lastSyncedAt: lastSync,
@@ -78,7 +99,6 @@ export default function AgentDashboard() {
       }
     };
     load();
-  }, []);
 
   if (loading)
     return (
@@ -238,17 +258,17 @@ export default function AgentDashboard() {
 
         {/* AI Accuracy Tracker */}
         <div className="mt-6">
-          <AccuracyTracker />
+          <AccuracyTracker suggestions={suggestions} />
         </div>
 
         {/* Workload Rebalancer */}
         <div className="mt-6">
-          <WorkloadRebalancer />
+          <WorkloadRebalancer tasks={tasks} />
         </div>
 
         {/* Stakeholder Update Generator */}
         <div className="mt-6">
-          <StakeholderUpdate />
+          <StakeholderUpdate projectsList={projects} />
         </div>
 
         {/* Scope Estimator — standalone */}
@@ -263,27 +283,33 @@ export default function AgentDashboard() {
 
         {/* Risk Heatmap */}
         <div className="mt-6">
-          <RiskHeatmap />
+          <RiskHeatmap tasks={tasks} projects={projects} />
         </div>
 
         {/* Predictive Hiring */}
         <div className="mt-6">
-          <PredictiveHiring />
+          <PredictiveHiring tasks={tasks} users={users} />
         </div>
 
         {/* Team DNA Report */}
         <div className="mt-6">
-          <TeamDNAReport />
+          <TeamDNAReport tasks={tasks} users={users} />
         </div>
 
         {/* Team Benchmarks */}
-        <div className="mt-6">
-          <TeamBenchmarks />
+        <div className="mt-8">
+          <TeamBenchmarks tasks={tasks} users={users} />
         </div>
 
         {/* Manager Report Card */}
         <div className="mt-6">
-          <ManagerReportCard />
+          <ManagerReportCard 
+            tasks={tasks} 
+            users={users} 
+            projects={projects} 
+            suggestions={suggestions}
+            leaves={leaves}
+          />
         </div>
 
         {/* Engineer Skill Graph */}
@@ -295,7 +321,7 @@ export default function AgentDashboard() {
               — built from completed task history
             </span>
           </div>
-          <SkillGraph />
+          <SkillGraph tasks={tasks} />
         </div>
       </div>
     </VelocityAISidebar>

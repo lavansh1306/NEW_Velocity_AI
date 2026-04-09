@@ -188,11 +188,11 @@ async function fetchJiraData() {
 }
 
 // --- NEW REDESIGNED DASHBOARD COMPONENT ---
-const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
+const ModernDashboard = ({ jiraIssues, jiraLoading }: { jiraIssues: any[], jiraLoading: boolean }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
   const [csvLoading, setCsvLoading] = useState(true);
-  const { issues: jiraIssues, loading: jiraLoading } = useJiraData();
+  // jiraIssues and jiraLoading passed from parent
   const [capacityBreakdown, setCapacityBreakdown] = useState<any>(null);
   const [fromDate, setFromDate] = useState({ month: '01', year: '2025' });
   const [toDate, setToDate] = useState({ month: '03', year: '2025' });
@@ -702,13 +702,13 @@ export default function VelocityAI() {
   const [jiraConnected, setJiraConnectionState] = useState<boolean>(() => {
     return getJiraConnected();
   });
-  const [jiraData, setJiraData] = useState<any>(null);
   const [jiraAuthStatus, setJiraAuthStatus] = useState<boolean>(false);
   const [authCheckDone, setAuthCheckDone] = useState(false);
 
   // NEW: Jira sync loading state
   const [jiraSyncLoading, setJiraSyncLoading] = useState(false);
   const [jiraSyncProgress, setJiraSyncProgress] = useState(0);
+  const { issues: jiraIssues, loading: jiraLoading, refetch: refetchJira } = useJiraData();
   const [jiraCheckComplete, setJiraCheckComplete] = useState(false);
 
   // Check for tab query parameter on mount
@@ -757,7 +757,7 @@ export default function VelocityAI() {
                   setJiraSyncLoading(false);
                   // Instead of reloading, re-fetch Jira data to trigger state update
                   setJiraAuthStatus(true);
-                  if (fetchJiraData) fetchJiraData();
+                   refetchJira();
                 }, 500);
               }, 500);
             }
@@ -830,18 +830,7 @@ export default function VelocityAI() {
     }
   }, [authLoading, authCheckDone]); // Remove user/jiraAuthStatus to prevent re-triggering on state changes
 
-  useEffect(() => {
-    fetchJiraData().then(data => {
-      if (data) {
-        setJiraData(data);
-        setJiraConnectionState(true);
-        console.log('Jira connected with data:', data);
-      }
-    }).catch(err => {
-      console.error('Failed to fetch Jira data:', err);
-      // Don't block dashboard - continue without Jira data
-    });
-  }, []);
+  // fetchJiraData removed - redundant with useJiraData hook
 
   useEffect(() => {
     setJiraConnected(jiraConnected);
@@ -899,7 +888,7 @@ export default function VelocityAI() {
             `}</style>
 
         <div className="tab-transition">
-          {activeTab === 'dashboard' && <ModernDashboard jiraData={jiraData} />}
+          {activeTab === 'dashboard' && <ModernDashboard jiraIssues={jiraIssues} jiraLoading={jiraLoading} />}
           {activeTab === 'projects' && <Projects />}
           {activeTab === 'people' && <PeopleCapacityScreen />}
           {activeTab === 'stc' && <StandardTimeCatalogTab />}

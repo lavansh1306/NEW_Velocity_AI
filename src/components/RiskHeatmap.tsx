@@ -1,6 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
-import { getCurrentOrgId } from '@/lib/orgContext';
 import { useNavigate } from 'react-router-dom';
 
 interface HeatmapCell {
@@ -13,73 +11,63 @@ interface HeatmapCell {
   status: 'healthy' | 'busy' | 'overloaded' | 'idle';
 }
 
-export const RiskHeatmap: React.FC = () => {
+interface RiskHeatmapProps {
+  tasks: any[];
+  projects: any[];
+}
+
+export const RiskHeatmap: React.FC<RiskHeatmapProps> = ({ tasks, projects }) => {
   const [cells, setCells] = useState<HeatmapCell[]>([]);
   const [members, setMembers] = useState<string[]>([]);
-  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
-  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const load = async () => {
-      const orgId = getCurrentOrgId();
-      if (!orgId) return;
-      try {
-        const [projRes, tasksRes] = await Promise.all([
-          supabase.from('projects').select('id, name').eq('organization_id', orgId).eq('status', 'active').limit(8),
-          supabase.from('tasks').select('assignee_id, project_id, estimated_hours, status, users(name)').neq('status', 'completed').not('assignee_id', 'is', null),
-        ]);
+    if (!tasks || !projects || projects.length === 0) return;
 
-        const projectList = projRes.data || [];
-        const tasks = tasksRes.data || [];
+    try {
+      // Build member list from tasks
+      const memberMap: Record<string, string> = {};
+      tasks.forEach((t: any) => {
+        if (t.assignee_id && t.users?.name) {
+          memberMap[t.assignee_id] = t.users.name;
+        }
+      });
+      const memberList = Object.entries(memberMap).map(([id, name]) => ({ id, name }));
 
-        // Build member list
-        const memberMap: Record<string, string> = {};
-        tasks.forEach((t: any) => {
-          if (t.assignee_id && t.users?.name) memberMap[t.assignee_id] = t.users.name;
-        });
-        const memberList = Object.entries(memberMap).map(([id, name]) => ({ id, name }));
+      // Build heatmap cells
+      const heatCells: HeatmapCell[] = [];
+      memberList.forEach(member => {
+        projects.forEach(project => {
+          const memberTasks = tasks.filter((t: any) =>
+            t.assignee_id === member.id && t.project_id === project.id && t.status !== 'completed'
+          );
+          const hours = memberTasks.reduce((s: number, t: any) => s + (t.estimated_hours || 0), 0);
+          const count = memberTasks.length;
 
-        // Build heatmap cells
-        const heatCells: HeatmapCell[] = [];
-        memberList.forEach(member => {
-          projectList.forEach(project => {
-            const memberTasks = tasks.filter((t: any) =>
-              t.assignee_id === member.id && t.project_id === project.id
-            );
-            const hours = memberTasks.reduce((s: number, t: any) => s + (t.estimated_hours || 0), 0);
-            const count = memberTasks.length;
+          let status: HeatmapCell['status'] = 'idle';
+          if (count >= 6 || hours >= 30) status = 'overloaded';
+          else if (count >= 3 || hours >= 15) status = 'busy';
+          else if (count >= 1) status = 'healthy';
 
-            let status: HeatmapCell['status'] = 'idle';
-            if (count >= 6 || hours >= 30) status = 'overloaded';
-            else if (count >= 3 || hours >= 15) status = 'busy';
-            else if (count >= 1) status = 'healthy';
-
-            heatCells.push({
-              memberId: member.id,
-              memberName: member.name,
-              projectId: project.id,
-              projectName: project.name,
-              taskCount: count,
-              hoursAllocated: hours,
-              status,
-            });
+          heatCells.push({
+            memberId: member.id,
+            memberName: member.name,
+            projectId: project.id,
+            projectName: project.name,
+            taskCount: count,
+            hoursAllocated: hours,
+            status,
           });
         });
+      });
 
-        setMembers(memberList.map(m => m.name));
-        setProjects(projectList);
-        setCells(heatCells);
-      } catch (e) {
-        console.error('RiskHeatmap error:', e);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, []);
+      setMembers(memberList.map(m => m.name));
+      setCells(heatCells);
+    } catch (e) {
+      console.error('RiskHeatmap calculation error:', e);
+    }
+  }, [tasks, projects]);
 
-  if (loading) return <div className="h-32 flex items-center justify-center text-sm text-gray-400">Loading heatmap...</div>;
   if (members.length === 0 || projects.length === 0) return null;
 
   const colors = {
