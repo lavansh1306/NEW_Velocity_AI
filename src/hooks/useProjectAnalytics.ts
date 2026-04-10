@@ -224,247 +224,264 @@ export function useProjectAnalytics(projectId: string | undefined) {
     setTeamMembers(finalMembers);
   }, []);
 
-  useEffect(() => {
-    if (!projectId || !user) return;
+  const fetchAndSubscribe = useCallback(async () => {
+    setLoading(true);
+    setError(null);
 
-    const fetchAndSubscribe = async () => {
-      setLoading(true);
-      setError(null);
+    try {
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(projectId || "");
+      let projData: any = null;
+      let isInternal = false;
 
-      try {
-        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(projectId);
-        let projData: any = null;
-        let isInternal = false;
+      // 1. Fetch Project
+      const { data: internalProj } = await supabase.from('projects').select('*').eq('id', projectId).single();
 
-        // 1. Fetch Project
-        const { data: internalProj } = await supabase.from('projects').select('*').eq('id', projectId).single();
-
-        if (internalProj) {
-          projData = {
-            id: internalProj.id,
-            key: internalProj.id.substring(0, 5).toUpperCase(),
-            name: internalProj.name,
-            created_at: internalProj.created_at,
-            team_id: internalProj.team_id,
-            organization_id: internalProj.organization_id
-          };
-          isInternal = true;
-        } else {
-          const { data: jiraProj } = await supabase.from('jira_projects').select('*').eq(isUUID ? 'id' : 'project_key', projectId).single();
-          if (jiraProj) {
-            projData = { id: jiraProj.id, key: jiraProj.project_key, name: jiraProj.name, created_at: jiraProj.created_at };
-          }
+      if (internalProj) {
+        projData = {
+          id: internalProj.id,
+          key: internalProj.id.substring(0, 5).toUpperCase(),
+          name: internalProj.name,
+          created_at: internalProj.created_at,
+          team_id: internalProj.team_id,
+          organization_id: internalProj.organization_id
+        };
+        isInternal = true;
+      } else {
+        const { data: jiraProj } = await supabase.from('jira_projects').select('*').eq(isUUID ? 'id' : 'project_key', projectId).single();
+        if (jiraProj) {
+          projData = { id: jiraProj.id, key: jiraProj.project_key, name: jiraProj.name, created_at: jiraProj.created_at };
         }
+      }
 
-        if (!projData) throw new Error("Project not found.");
-        setProject(projData);
+      if (!projData) throw new Error("Project not found.");
+      setProject(projData);
 
-        let initialIssues: JiraIssue[] = [];
-        let cleanupFn: (() => void) | null = null;
-        let allTeamMembers: any[] = [];
+      let initialIssues: JiraIssue[] = [];
+      let cleanupFn: (() => void) | null = null;
+      let allTeamMembers: any[] = [];
 
-        if (isInternal) {
-          // --- THE FIX: FETCH ENTIRE ORG DICTIONARY ---
-          const { data: allOrgUsers } = await supabase
-            .from('users')
-            .select('id, name, email, role, capacity_hours_per_week')
-            .eq('organization_id', projData.organization_id);
+      if (isInternal) {
+        // --- THE FIX: FETCH ENTIRE ORG DICTIONARY ---
+        const { data: allOrgUsers } = await supabase
+          .from('users')
+          .select('id, name, email, role, capacity_hours_per_week')
+          .eq('organization_id', projData.organization_id);
 
-          // Create a bulletproof dictionary to look up names
-          const orgUsersMap = new Map(allOrgUsers?.map(u => [u.id, u]) || []);
+        // Create a bulletproof dictionary to look up names
+        const orgUsersMap = new Map(allOrgUsers?.map(u => [u.id, u]) || []);
 
-          // --- FETCH TEAM MEMBERS OR FALLBACK ---
-          let fetchedAllocatedMembers: AllocatedTeamMember[] = [];
-          
-          // First try project_team_allocations
-          const { data: allocations } = await supabase
-            .from('project_team_allocations')
-            .select('id, user_id, allocation_percentage, start_date, end_date, users(id, name, email, is_active)')
-            .eq('project_id', projData.id);
+        // --- FETCH TEAM MEMBERS OR FALLBACK ---
+        let fetchedAllocatedMembers: AllocatedTeamMember[] = [];
+        
+        // First try project_team_allocations
+        const { data: allocations } = await supabase
+          .from('project_team_allocations')
+          .select('id, user_id, allocation_percentage, start_date, end_date, users(id, name, email, is_active)')
+          .eq('project_id', projData.id);
 
-          if (allocations && allocations.length > 0) {
-            fetchedAllocatedMembers = allocations
-              .filter((a: any) => a.users && a.users.is_active !== false)
-              .map((a: any) => ({
-                id: a.id,
-                user_id: a.user_id,
-                name: a.users?.name || 'Unknown',
-                email: a.users?.email,
-                role: 'Team Member',
-                allocated_hours: Math.round((40 * a.allocation_percentage) / 100),
-                start_date: a.start_date,
-                end_date: a.end_date,
-                allocation_percentage: a.allocation_percentage
+        if (allocations && allocations.length > 0) {
+          fetchedAllocatedMembers = allocations
+            .filter((a: any) => a.users && a.users.is_active !== false)
+            .map((a: any) => ({
+              id: a.id,
+              user_id: a.user_id,
+              name: a.users?.name || 'Unknown',
+              email: a.users?.email,
+              role: 'Team Member',
+              allocated_hours: Math.round((40 * a.allocation_percentage) / 100),
+              start_date: a.start_date,
+              end_date: a.end_date,
+              allocation_percentage: a.allocation_percentage
+            }));
+        }
+        
+        // Fallback to team_members if no allocations found
+        if (fetchedAllocatedMembers.length === 0 && projData.team_id) {
+          const { data: memberEntries } = await supabase
+            .from('team_members')
+            .select('id, user_id, role, status, users(id, name, email, role, capacity_hours_per_week, is_active)')
+            .eq('team_id', projData.team_id)
+            .eq('status', 'active');
+
+          if (memberEntries && memberEntries.length > 0) {
+            fetchedAllocatedMembers = memberEntries
+              .filter((m: any) => m.users && m.users.is_active !== false)
+              .map((m: any) => ({
+                id: m.id, user_id: m.user_id, name: m.users?.name || 'Unknown',
+                email: m.users?.email, role: m.role || m.users?.role || 'Team Member',
+                allocated_hours: m.users?.capacity_hours_per_week || 40,
+                start_date: projData.created_at, end_date: new Date(Date.now() + 2592000000).toISOString(),
+                allocation_percentage: 100
               }));
           }
-          
-          // Fallback to team_members if no allocations found
-          if (fetchedAllocatedMembers.length === 0 && projData.team_id) {
-            const { data: memberEntries } = await supabase
-              .from('team_members')
-              .select('id, user_id, role, status, users(id, name, email, role, capacity_hours_per_week, is_active)')
-              .eq('team_id', projData.team_id)
-              .eq('status', 'active');
-
-            if (memberEntries && memberEntries.length > 0) {
-              fetchedAllocatedMembers = memberEntries
-                .filter((m: any) => m.users && m.users.is_active !== false)
-                .map((m: any) => ({
-                  id: m.id, user_id: m.user_id, name: m.users?.name || 'Unknown',
-                  email: m.users?.email, role: m.role || m.users?.role || 'Team Member',
-                  allocated_hours: m.users?.capacity_hours_per_week || 40,
-                  start_date: projData.created_at, end_date: new Date(Date.now() + 2592000000).toISOString(),
-                  allocation_percentage: 100
-                }));
-            }
-          }
-
-          // --- FETCH AND MAP TASKS USING BULLETPROOF DICTIONARY ---
-          const { data: tasksData, error: tasksError } = await supabase.from('tasks').select('*').eq('project_id', projData.id);
-          if (tasksError) throw new Error(`Could not load tasks: ${tasksError.message}`);
-
-          // Fetch assignees (users) for the tasks
-          const assigneeIds = Array.from(new Set((tasksData || []).map(t => t.assignee_id).filter(Boolean)));
-          console.log('🔍 Assignee IDs found:', assigneeIds);
-          
-          let assigneeMap = new Map<string, any>();
-
-          if (assigneeIds.length > 0) {
-            const { data: users, error: usersError } = await supabase
-              .from('users')
-              .select('id, name, email, role')
-              .in('id', assigneeIds);
-
-            console.log('👥 Users fetched:', users?.length, 'Error:', usersError);
-            if (users) {
-              assigneeMap = new Map(users.map(u => [u.id, u]));
-            }
-          }
-
-          setAllocatedTeamMembers(fetchedAllocatedMembers);
-
-          initialIssues = (tasksData || []).map(t => {
-            const assignedUser = orgUsersMap.get(t.assignee_id); // Look up directly from org dictionary
-            return {
-              id: t.id,
-              issue_key: `TASK-${t.id.substring(0, 4)}`,
-              issue_type: 'Task',
-              summary: t.name,
-              status: t.status || 'not_started',
-              assignee: assignedUser?.name || 'Unassigned', // Will ALWAYS resolve if ID exists
-              time_spent_seconds: (t.actual_hours || 0) * 3600,
-              original_estimate_seconds: (t.estimated_hours || 0) * 3600,
-              created_date: t.created_at,
-              start_date: t.start_date || null,
-              due_date: t.due_date || null
-            };
-          });
-          
-          console.log('📋 Initial issues mapped:', initialIssues.map(i => ({ key: i.issue_key, assignee: i.assignee })));
-          
-          // Also fetch team members from the team to show team size
-          if (projData.team_id) {
-            const { data: tmData, error: tmError } = await supabase
-              .from('team_members')
-              .select('id, user_id, status, users(id, name, email, role, is_active)')
-              .eq('team_id', projData.team_id)
-              .eq('status', 'active');
-              
-            console.log('👫 Team members fetched from team_members table:', tmData?.length, 'Error:', tmError);
-            if (tmData && tmData.length > 0) {
-              allTeamMembers = tmData
-                .filter((tm: any) => tm.users && tm.users.is_active !== false)
-                .map((tm: any) => ({
-                  id: tm.user_id,
-                  user_id: tm.user_id,
-                  name: tm.users?.name || 'Unknown',
-                  email: tm.users?.email,
-                  role: tm.users?.role || 'Team Member'
-                }));
-            }
-          }
-          
-          // Removed fallback to organization members to ensure only team members are shown
-          console.log('📊 Total team members available:', allTeamMembers.length, allTeamMembers.map((m: any) => m.name));
-
-          // --- REALTIME SUBSCRIPTION ---
-          const taskSubscription = supabase
-            .channel(`tasks:${projData.id}`)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks', filter: `project_id=eq.${projData.id}` }, 
-              async () => {
-                const { data: updatedTasks } = await supabase.from('tasks').select('*').eq('project_id', projData.id);
-                const updatedIssues = (updatedTasks || []).map(t => {
-                  const assignedUser = orgUsersMap.get(t.assignee_id); // Reuse dictionary
-                  return {
-                    id: t.id,
-                    issue_key: `TASK-${t.id.substring(0, 4)}`,
-                    issue_type: 'Task',
-                    summary: t.name,
-                    status: t.status || 'not_started',
-                    assignee: assignedUser?.name || 'Unassigned',
-                    time_spent_seconds: (t.actual_hours || 0) * 3600,
-                    original_estimate_seconds: (t.estimated_hours || 0) * 3600,
-                    created_date: t.created_at,
-                    start_date: t.start_date || null,
-                    due_date: t.due_date || null
-                  };
-                });
-
-                console.log('🎯 Mapped issues with assignees:', updatedIssues.map(i => ({ key: i.issue_key, assignee: i.assignee })));
-
-                setIssues(updatedIssues);
-                calculateMetrics(updatedIssues, projData, allTeamMembers);
-              }
-            ).subscribe();
-
-          cleanupFn = () => taskSubscription.unsubscribe();
-
-        } else {
-          // JIRA Logic remains identical
-          const { data: issuesData } = await supabase.from('jira_issues').select('*').eq('jira_project_id', projData.id);
-          initialIssues = issuesData || [];
-
-          // Subscribe to realtime Jira issue updates
-          const issueSubscription = supabase
-            .channel(`jira_issues:${projData.id}`)
-            .on(
-              'postgres_changes',
-              {
-                event: '*',
-                schema: 'public',
-                table: 'jira_issues',
-                filter: `jira_project_id=eq.${projData.id}`
-              },
-              async (payload) => {
-                console.log('Jira issue update:', payload);
-                // Refetch issues
-                const { data: updatedIssues } = await supabase
-                  .from('jira_issues')
-                  .select('*')
-                  .eq('jira_project_id', projData.id);
-
-                const updated = updatedIssues || [];
-                setIssues(updated);
-                calculateMetrics(updated, projData, allTeamMembers);
-              }
-            ).subscribe();
-          cleanupFn = () => issueSubscription.unsubscribe();
         }
 
-        setIssues(initialIssues);
-        calculateMetrics(initialIssues, projData, allTeamMembers);
+        // --- FETCH AND MAP TASKS USING BULLETPROOF DICTIONARY ---
+        const { data: tasksData, error: tasksError } = await supabase.from('tasks').select('*').eq('project_id', projData.id);
+        if (tasksError) throw new Error(`Could not load tasks: ${tasksError.message}`);
 
-        // Return cleanup function
-        return cleanupFn;
-      } catch (err: any) {
-        setError(err.message || 'Failed to load project analytics');
-      } finally {
-        setLoading(false);
+        // Fetch assignees (users) for the tasks
+        const assigneeIds = Array.from(new Set((tasksData || []).map(t => t.assignee_id).filter(Boolean)));
+        console.log('🔍 Assignee IDs found:', assigneeIds);
+        
+        let assigneeMap = new Map<string, any>();
+
+        if (assigneeIds.length > 0) {
+          const { data: users, error: usersError } = await supabase
+            .from('users')
+            .select('id, name, email, role')
+            .in('id', assigneeIds);
+
+          console.log('👥 Users fetched:', users?.length, 'Error:', usersError);
+          if (users) {
+            assigneeMap = new Map(users.map(u => [u.id, u]));
+          }
+        }
+
+        setAllocatedTeamMembers(fetchedAllocatedMembers);
+
+        initialIssues = (tasksData || []).map(t => {
+          const assignedUser = orgUsersMap.get(t.assignee_id); // Look up directly from org dictionary
+          return {
+            id: t.id,
+            issue_key: `TASK-${t.id.substring(0, 4)}`,
+            issue_type: 'Task',
+            summary: t.name,
+            status: t.status || 'not_started',
+            assignee: assignedUser?.name || 'Unassigned', // Will ALWAYS resolve if ID exists
+            time_spent_seconds: (t.actual_hours || 0) * 3600,
+            original_estimate_seconds: (t.estimated_hours || 0) * 3600,
+            created_date: t.created_at,
+            start_date: t.start_date || null,
+            due_date: t.due_date || null
+          };
+        });
+        
+        console.log('📋 Initial issues mapped:', initialIssues.map(i => ({ key: i.issue_key, assignee: i.assignee })));
+        
+        // Also fetch team members from the team to show team size
+        if (projData.team_id) {
+          const { data: tmData, error: tmError } = await supabase
+            .from('team_members')
+            .select('id, user_id, status, users(id, name, email, role, is_active)')
+            .eq('team_id', projData.team_id)
+            .eq('status', 'active');
+            
+          console.log('👫 Team members fetched from team_members table:', tmData?.length, 'Error:', tmError);
+          if (tmData && tmData.length > 0) {
+            allTeamMembers = tmData
+              .filter((tm: any) => tm.users && tm.users.is_active !== false)
+              .map((tm: any) => ({
+                id: tm.user_id,
+                user_id: tm.user_id,
+                name: tm.users?.name || 'Unknown',
+                email: tm.users?.email,
+                role: tm.users?.role || 'Team Member'
+              }));
+          }
+        }
+        
+        // Removed fallback to organization members to ensure only team members are shown
+        console.log('📊 Total team members available:', allTeamMembers.length, allTeamMembers.map((m: any) => m.name));
+
+        // --- REALTIME SUBSCRIPTION ---
+        const taskSubscription = supabase
+          .channel(`tasks:${projData.id}`)
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks', filter: `project_id=eq.${projData.id}` }, 
+            async () => {
+              const { data: updatedTasks } = await supabase.from('tasks').select('*').eq('project_id', projData.id);
+              const updatedIssues = (updatedTasks || []).map(t => {
+                const assignedUser = orgUsersMap.get(t.assignee_id); // Reuse dictionary
+                return {
+                  id: t.id,
+                  issue_key: `TASK-${t.id.substring(0, 4)}`,
+                  issue_type: 'Task',
+                  summary: t.name,
+                  status: t.status || 'not_started',
+                  assignee: assignedUser?.name || 'Unassigned',
+                  time_spent_seconds: (t.actual_hours || 0) * 3600,
+                  original_estimate_seconds: (t.estimated_hours || 0) * 3600,
+                  created_date: t.created_at,
+                  start_date: t.start_date || null,
+                  due_date: t.due_date || null
+                };
+              });
+
+              console.log('🎯 Mapped issues with assignees:', updatedIssues.map(i => ({ key: i.issue_key, assignee: i.assignee })));
+
+              setIssues(updatedIssues);
+              calculateMetrics(updatedIssues, projData, allTeamMembers);
+            }
+          ).subscribe();
+
+        cleanupFn = () => taskSubscription.unsubscribe();
+
+      } else {
+        // JIRA Logic remains identical
+        const { data: issuesData } = await supabase.from('jira_issues').select('*').eq('jira_project_id', projData.id);
+        initialIssues = issuesData || [];
+
+        // Subscribe to realtime Jira issue updates
+        const issueSubscription = supabase
+          .channel(`jira_issues:${projData.id}`)
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'jira_issues',
+              filter: `jira_project_id=eq.${projData.id}`
+            },
+            async (payload) => {
+              console.log('Jira issue update:', payload);
+              // Refetch issues
+              const { data: updatedIssues } = await supabase
+                .from('jira_issues')
+                .select('*')
+                .eq('jira_project_id', projData.id);
+
+              const updated = updatedIssues || [];
+              setIssues(updated);
+              calculateMetrics(updated, projData, allTeamMembers);
+            }
+          ).subscribe();
+        cleanupFn = () => issueSubscription.unsubscribe();
+      }
+
+      setIssues(initialIssues);
+      calculateMetrics(initialIssues, projData, allTeamMembers);
+
+      // Return cleanup function
+      return cleanupFn;
+    } catch (err: any) {
+      setError(err.message || 'Failed to load project analytics');
+    } finally {
+      setLoading(false);
+    }
+  }, [projectId, user, calculateMetrics]);
+
+  useEffect(() => {
+    if (!projectId || !user) return;
+    
+    let isMounted = true;
+    let cleanup: (() => void) | void;
+
+    const run = async () => {
+      const cleanupFn = await fetchAndSubscribe();
+      if (!isMounted && cleanupFn) {
+        cleanupFn();
+      } else {
+        cleanup = cleanupFn;
       }
     };
 
-    fetchAndSubscribe();
-  }, [projectId, user, calculateMetrics, refreshSignal]);
+    run();
+
+    return () => {
+      isMounted = false;
+      if (cleanup) cleanup();
+    };
+  }, [projectId, user, fetchAndSubscribe, refreshSignal]);
 
   return { loading, error, project, issues, metrics, teamMembers, allocatedTeamMembers, refetch };
 }

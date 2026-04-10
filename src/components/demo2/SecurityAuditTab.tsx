@@ -99,6 +99,19 @@ export default function SecurityAuditTab({ onJiraConnectionChange }: SecurityAud
       lastSync: '1 minute ago',
       events: ['meeting.created', 'meeting.duration', 'email.sent']
     },
+    linear: {
+      name: 'Linear',
+      status: 'pending' as const,
+      scope: ['issues.read', 'projects.read'],
+      accessLevel: 'read-write' as const,
+      lastVerified: '',
+      id: 'linear',
+      icon: 'L',
+      bgColor: 'bg-[#5E6AD2]',
+      connected: false,
+      lastSync: '',
+      events: ['issue.created', 'issue.updated'],
+    },
   });
 
   const handleToggleIntegration = (id: string) => {

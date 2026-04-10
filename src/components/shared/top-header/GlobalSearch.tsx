@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Search, Briefcase, Users, CheckSquare, ChevronRight } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useNavigate } from 'react-router-dom';
-
 import { searchService, type SearchResult } from '@/services/searchService';
+import { useIsMobile } from '@/hooks/use-mobile';
+
 
 export const GlobalSearch = () => {
     const [query, setQuery] = useState('');
@@ -11,6 +12,7 @@ export const GlobalSearch = () => {
     const [results, setResults] = useState<SearchResult[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [selectedIndex, setSelectedIndex] = useState(-1);
+    const isMobile = useIsMobile();
     const navigate = useNavigate();
     const containerRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -64,7 +66,7 @@ export const GlobalSearch = () => {
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (!isOpen || results.length === 0) return;
-        
+
         if (e.key === 'ArrowDown') {
             e.preventDefault();
             setSelectedIndex(prev => (prev < results.length - 1 ? prev + 1 : prev));
@@ -85,7 +87,7 @@ export const GlobalSearch = () => {
     };
 
     return (
-        <div ref={containerRef} className="flex-1 max-w-xl mx-8 relative">
+        <div ref={containerRef} className="flex-1 w-full max-w-xl relative">
             <div className="relative group">
                 <Search
                     className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#A8A29E] group-focus-within:text-[#191919] transition-colors"
@@ -96,10 +98,10 @@ export const GlobalSearch = () => {
                     onChange={(e) => setQuery(e.target.value)}
                     onKeyDown={handleKeyDown}
                     ref={inputRef}
-                    placeholder="Search projects, people, tasks... (press /)"
+                    placeholder={isMobile ? "Search..." : "Search projects, people, tasks... (press /)"}
                     className="pl-10 h-10 bg-white border border-[#E7E5E4] rounded-lg text-sm focus:bg-white focus:border-[#2DD4BF] focus:ring-1 focus:ring-[#2DD4BF]/20 focus:shadow-sm transition-all placeholder:text-[#D6D3D1] font-light shadow-sm"
                 />
-                <button 
+                <button
                     onClick={() => { if (query.length > 1) setIsOpen(true); }}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 hover:bg-[#F5F5F4] rounded-md transition-colors"
                 >
@@ -108,7 +110,7 @@ export const GlobalSearch = () => {
             </div>
 
             {isOpen && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-[#E7E5E4] rounded-xl shadow-xl shadow-stone-200/50 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className={`absolute top-full ${isMobile ? '-right-4 w-[calc(100vw-32px)]' : 'left-0 right-0'} mt-2 bg-white border border-[#E7E5E4] rounded-xl shadow-xl shadow-stone-200/50 z-[100] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200`}>
                     <div className="p-2">
                         {isLoading ? (
                             <div className="p-8 text-center">
@@ -116,7 +118,7 @@ export const GlobalSearch = () => {
                                 <p className="text-sm text-[#A8A29E]">Searching...</p>
                             </div>
                         ) : results.length > 0 ? (
-                            <div className="flex flex-col gap-1">
+                            <div className="flex flex-col gap-1 max-h-[60vh] overflow-y-auto">
                                 {results.map((result, idx) => (
                                     <button
                                         key={`${result.type}-${result.id}`}
@@ -142,14 +144,16 @@ export const GlobalSearch = () => {
                             </div>
                         )}
                     </div>
-                    <div className="p-3 bg-[#FAFAF9] border-t border-[#F5F5F4] flex items-center justify-between">
-                        <span className="text-[10px] text-[#A8A29E] font-medium uppercase tracking-widest">Global Search</span>
-                        <div className="flex gap-2">
-                            <span className="px-1.5 py-0.5 rounded border border-[#E7E5E4] text-[9px] text-[#78716C] bg-white">ESC to close</span>
-                            <span className="px-1.5 py-0.5 rounded border border-[#E7E5E4] text-[9px] text-[#78716C] bg-white">↕ to navigate</span>
-                            <span className="px-1.5 py-0.5 rounded border border-[#E7E5E4] text-[9px] text-[#78716C] bg-white">↵ to select</span>
+                    {!isMobile && (
+                        <div className="p-3 bg-[#FAFAF9] border-t border-[#F5F5F4] flex items-center justify-between">
+                            <span className="text-[10px] text-[#A8A29E] font-medium uppercase tracking-widest">Global Search</span>
+                            <div className="flex gap-2">
+                                <span className="px-1.5 py-0.5 rounded border border-[#E7E5E4] text-[9px] text-[#78716C] bg-white">ESC to close</span>
+                                <span className="px-1.5 py-0.5 rounded border border-[#E7E5E4] text-[9px] text-[#78716C] bg-white">↕ to navigate</span>
+                                <span className="px-1.5 py-0.5 rounded border border-[#E7E5E4] text-[9px] text-[#78716C] bg-white">↵ to select</span>
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             )}
         </div>

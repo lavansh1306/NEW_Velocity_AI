@@ -21,7 +21,7 @@ export const TimelineRow: React.FC<TimelineRowProps> = ({ task, position, column
   return (
     <div className="flex gap-4 mb-4 items-center">
       {/* Task Info - Left Column */}
-      <div className="w-64 flex-shrink-0">
+      <div className="w-32 md:w-64 flex-shrink-0">
         <div className="space-y-1">
           <p className="text-sm font-medium text-gray-900 truncate" title={task.name}>
             {task.name}

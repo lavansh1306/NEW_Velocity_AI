@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "api": "node --import ./node_modules/tsx/dist/loader.mjs server.ts",
+    "api": "tsx server.ts",
+    "dev:serverless": "vercel dev",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
@@ -51,7 +52,6 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/papaparse": "^5.5.2",
-    "@types/ws": "^8.18.1",
     "@vercel/analytics": "^1.6.1",
     "chart.js": "^4.5.1",
     "chartjs-adapter-date-fns": "^3.0.0",
@@ -91,7 +91,6 @@
     "ts-node": "^1.7.1",
     "tsx": "^4.21.0",
     "vaul": "^0.9.9",
-    "ws": "^8.20.0",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.1/xlsx-0.20.1.tgz",
     "zod": "^3.25.76"
   },
@@ -104,6 +103,7 @@
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react-swc": "^3.11.0",
     "autoprefixer": "^10.4.24",
+    "concurrently": "^9.2.1",
     "eslint": "^8.57.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",

@@ -8,82 +8,62 @@ interface EngineerSkills {
   skills: { skill: string; count: number; confidence: number }[];
 }
 
-export const SkillGraph: React.FC = () => {
+interface SkillGraphProps {
+  tasks: any[];
+}
+
+export const SkillGraph: React.FC<SkillGraphProps> = ({ tasks }) => {
   const [engineers, setEngineers] = useState<EngineerSkills[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const load = async () => {
-      const orgId = getCurrentOrgId();
-      if (!orgId) return;
+    if (!tasks || tasks.length === 0) return;
 
-      try {
-        // Get completed tasks with their names — infer skills from task names
-        const { data: tasks } = await supabase
-          .from('tasks')
-          .select('assignee_id, name, status, users(name)')
-          .eq('status', 'completed')
-          .not('assignee_id', 'is', null);
+    try {
+      // Filter for completed tasks
+      const completedTasks = tasks.filter(t => t.status === 'completed' && t.assignee_id);
+      if (!completedTasks.length) return;
 
-        if (!tasks) return;
+      const userSkillCounts: Record<string, { name: string; skills: Record<string, number> }> = {};
 
-        // Skill keywords to detect from task names
-        const SKILL_KEYWORDS: Record<string, string[]> = {
-          'React': ['react', 'component', 'frontend', 'ui', 'ux'],
-          'Python': ['python', 'script', 'backend', 'api', 'endpoint'],
-          'Database': ['database', 'sql', 'query', 'migration', 'schema', 'supabase'],
-          'Testing': ['test', 'spec', 'unit test', 'e2e', 'qa'],
-          'DevOps': ['deploy', 'ci', 'cd', 'docker', 'infrastructure', 'pipeline'],
-          'Design': ['design', 'figma', 'wireframe', 'prototype', 'ux'],
-          'Mobile': ['ios', 'android', 'mobile', 'react native', 'flutter'],
-          'Auth': ['auth', 'login', 'oauth', 'jwt', 'security'],
-          'Performance': ['performance', 'optimiz', 'speed', 'cache', 'load'],
-        };
+      completedTasks.forEach((task: any) => {
+        const uid = task.assignee_id;
+        const name = (task.users as any)?.name || 'Unknown';
+        const taskName = (task.name || '').toLowerCase();
 
-        const userSkillCounts: Record<string, { name: string; skills: Record<string, number> }> = {};
+        if (!userSkillCounts[uid]) userSkillCounts[uid] = { name, skills: {} };
 
-        tasks.forEach((task: any) => {
-          const uid = task.assignee_id;
-          const name = (task.users as any)?.name || 'Unknown';
-          const taskName = (task.name || '').toLowerCase();
-
-          if (!userSkillCounts[uid]) userSkillCounts[uid] = { name, skills: {} };
-
-          Object.entries(SKILL_KEYWORDS).forEach(([skill, keywords]) => {
-            if (keywords.some(kw => taskName.includes(kw))) {
-              userSkillCounts[uid].skills[skill] = (userSkillCounts[uid].skills[skill] || 0) + 1;
-            }
-          });
+        Object.entries(SKILL_KEYWORDS).forEach(([skill, keywords]) => {
+          if (keywords.some(kw => taskName.includes(kw))) {
+            userSkillCounts[uid].skills[skill] = (userSkillCounts[uid].skills[skill] || 0) + 1;
+          }
         });
+      });
 
-        const result: EngineerSkills[] = Object.entries(userSkillCounts)
-          .map(([uid, data]) => {
-            const maxCount = Math.max(...Object.values(data.skills), 1);
-            return {
-              userId: uid,
-              name: data.name,
-              skills: Object.entries(data.skills)
-                .filter(([, count]) => count > 0)
-                .sort((a, b) => b[1] - a[1])
-                .slice(0, 5)
-                .map(([skill, count]) => ({
-                  skill,
-                  count,
-                  confidence: Math.min(Math.round((count / maxCount) * 100), 100),
-                })),
-            };
-          })
-          .filter(e => e.skills.length > 0);
+      const result: EngineerSkills[] = Object.entries(userSkillCounts)
+        .map(([uid, data]) => {
+          const maxCount = Math.max(...Object.values(data.skills), 1);
+          return {
+            userId: uid,
+            name: data.name,
+            skills: Object.entries(data.skills)
+              .filter(([, count]) => count > 0)
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 5)
+              .map(([skill, count]) => ({
+                skill,
+                count,
+                confidence: Math.min(Math.round((count / maxCount) * 100), 100),
+              })),
+          };
+        })
+        .filter(e => e.skills.length > 0);
 
-        setEngineers(result);
-      } catch (e) {
-        console.error('SkillGraph error:', e);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, []);
+      setEngineers(result);
+    } catch (e) {
+      console.error('SkillGraph calculation error:', e);
+    }
+  }, [tasks]);
 
   if (loading) return (
     <div className="p-6 text-center text-sm text-gray-400">Loading skill data...</div>

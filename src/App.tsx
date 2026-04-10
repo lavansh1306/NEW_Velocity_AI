@@ -47,7 +47,7 @@ import EmployeeProfile from "./pages/employee/EmployeeProfile";
 import { EmployeeTimeScreen } from "./pages/employee/EmployeeTimeScreen";
 import { VoiceProvider } from "@/contexts/VoiceContext";
 import { VoiceAgent } from "@/components/voice/VoiceAgent";
-import { GlobalVoiceCommander } from "@/components/voice/GlobalVoiceCommander";
+import AgentDashboard from "./pages/AgentDashboard";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -110,8 +110,6 @@ const App = () => (
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <VoiceProvider>
               <VoiceAgent />
-              {/* Global voice overlay — Ctrl+Space from anywhere in the app */}
-              <GlobalVoiceCommander />
               <OnboardingProvider>
               <Routes>
                 {/* 1. Public Marketing Routes */}
@@ -150,6 +148,7 @@ const App = () => (
                 {/* 5. Main Protected Dashboard Routes */}
                 <Route path="/dashboard" element={<ProtectedRoute><ManagerRoute><Dashboard /></ManagerRoute></ProtectedRoute>} />
                 <Route path="/velocity-ai" element={<ProtectedRoute><ManagerRoute><VelocityAI /></ManagerRoute></ProtectedRoute>} />
+                <Route path="/agent" element={<ProtectedRoute><ManagerRoute><AgentDashboard /></ManagerRoute></ProtectedRoute>} />
                 <Route path="/people" element={<ProtectedRoute><ManagerRoute><People /></ManagerRoute></ProtectedRoute>} />
                 <Route path="/plan" element={<ProtectedRoute><ManagerRoute><Plan /></ManagerRoute></ProtectedRoute>} />
                 <Route path="/allocate-team" element={<ProtectedRoute><ManagerRoute><AllocateTeamScreen /></ManagerRoute></ProtectedRoute>} />

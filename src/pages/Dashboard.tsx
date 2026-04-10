@@ -6,6 +6,8 @@ import { BurnoutWarning } from '@/components/BurnoutWarning';
 import { BriefMeCard } from '@/components/BriefMeCard';
 import { DeadlineRiskPredictor } from '@/components/DeadlineRiskPredictor';
 import { MoodPulseWidget } from '@/components/MoodPulse';
+import { TeamBenchmarks } from '@/components/TeamBenchmarks';
+import { ManagerReportCard } from '@/components/ManagerReportCard';
 import { VelocityAISidebar } from '@/components/dashboard/VelocityAISidebar';
 
 const DashboardPage = () => {
@@ -18,6 +20,8 @@ const DashboardPage = () => {
         <AgentSyncCard />
         <BurnoutWarning />
         <DeadlineRiskPredictor />
+        <TeamBenchmarks />
+        <ManagerReportCard />
         <MoodPulseWidget />
         <DashboardScreen />
       </div>

@@ -1,6 +1,7 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { useVoice } from '@/contexts/VoiceContext';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, X, Plus, Loader2 } from 'lucide-react';
+import { ChevronLeft, X, Plus, Loader2, Mic, MicOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useOnboarding } from '@/contexts/OnboardingContext';
@@ -39,59 +40,39 @@ export default function OnboardingTeam() {
   const [csvInputMode, setCSVInputMode] = useState<'upload' | 'paste'>('upload');
   const [importModal, setImportModal] = useState<'paste' | 'jira' | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isVoiceListening, setIsVoiceListening] = useState(false);
-  const [voiceStatus, setVoiceStatus] = useState('');
-  const voiceRecognitionRef = useRef<any>(null);
+  const { isListening, status, startListening, stopListening } = useVoice();
 
-  const startVoiceAddMember = () => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) { setVoiceStatus('Voice not supported'); return; }
-    const recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.lang = 'en-US';
-    voiceRecognitionRef.current = recognition;
-
-    recognition.onstart = () => { setIsVoiceListening(true); setVoiceStatus('Listening...'); };
-
-    recognition.onresult = async (event: any) => {
-      const transcript = event.results[0][0].transcript;
-      setVoiceStatus('Processing...');
-      setIsVoiceListening(false);
-
-      try {
-        const res = await fetch('/api/voice/parse', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ transcript, currentPath: '/onboarding/team' })
-        });
-        if (res.ok) {
-          const action = await res.json();
-          if (action.type === 'add_team_member' && action.params) {
-            const { name, email, role } = action.params;
-            const newMember = {
-              name: name || '',
-              email: email || '',
-              role: role || 'Engineer',
-              type: 'employee',
-              skills: getSkillsForRole(role || 'Engineer')
-            };
-            setMembers(prev => [...prev, newMember]);
-            setVoiceStatus(`Added ${name || 'member'} as ${role || 'Engineer'}`);
-          } else {
-            setVoiceStatus('Try: "Add Sarah as frontend developer"');
-          }
+  // Handle voice actions via event delegation
+  useEffect(() => {
+    const handleAddVoiceMember = (e: any) => {
+      const { name, email, role } = e.detail;
+      console.log('[OnboardingTeam] Voice member addition:', { name, email, role });
+      
+      const newMember = {
+        name: name || '',
+        email: email || '',
+        role: role || 'Engineer',
+        type: 'employee',
+        skills: getSkillsForRole(role || 'Engineer')
+      };
+      
+      setMembers(prev => {
+        // Find if there's an empty row to replace, otherwise append
+        const emptyIdx = prev.findIndex(m => !m.name && !m.email);
+        if (emptyIdx !== -1) {
+          const updated = [...prev];
+          updated[emptyIdx] = newMember;
+          return updated;
         }
-      } catch (e) {
-        setVoiceStatus('Could not process, try again');
-      }
-      setTimeout(() => setVoiceStatus(''), 3000);
+        return [...prev, newMember];
+      });
+      
+      toast.success(`Added ${name || 'new member'}!`);
     };
 
-    recognition.onerror = () => { setIsVoiceListening(false); setVoiceStatus('Could not hear you'); setTimeout(() => setVoiceStatus(''), 3000); };
-    recognition.onend = () => setIsVoiceListening(false);
-    recognition.start();
-  };
+    window.addEventListener('velo-add-member', handleAddVoiceMember);
+    return () => window.removeEventListener('velo-add-member', handleAddVoiceMember);
+  }, []);
 
   const addMember = () => {
     setMembers([...members, { name: '', email: '', role: 'Engineer', type: 'employee', skills: getSkillsForRole('Engineer') }]);
@@ -309,20 +290,22 @@ David Lee,david@example.com,Frontend Developer`;
         {/* Voice Add Member */}
         <div className="flex flex-col items-center mb-8">
           <button
-            onClick={isVoiceListening ? () => voiceRecognitionRef.current?.stop() : startVoiceAddMember}
+            onClick={isListening ? stopListening : startListening}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition-all ${
-              isVoiceListening
+              isListening
                 ? 'bg-red-50 border-2 border-red-300 text-red-600 animate-pulse'
                 : 'bg-teal-50 border-2 border-teal-200 text-teal-700 hover:bg-teal-100'
             }`}
           >
-            {isVoiceListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-            {isVoiceListening ? 'Stop' : 'Add member by voice'}
+            {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+            {isListening ? 'Stop Listening' : 'Add member by voice'}
           </button>
-          {voiceStatus
-            ? <p className="text-xs text-[#78716C] mt-2">{voiceStatus}</p>
-            : <p className="text-xs text-[#A8A29E] mt-2">Say: "Add Sarah as frontend developer"</p>
-          }
+          <p className="text-xs text-[#78716C] mt-2">
+            {status === 'listening' ? 'Listening...' : 
+             status === 'processing' ? 'Thinking...' : 
+             status === 'speaking' ? 'Speaking...' : 
+             'Try: "Add Sarah as frontend developer"'}
+          </p>
         </div>
 
         {/* Table */}
