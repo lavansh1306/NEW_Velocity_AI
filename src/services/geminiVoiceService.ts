@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { levenshteinDistance, phoneticNormalize, findBestMatch } from '@/lib/utils';
 
 export interface VoiceAction {
-  type: 'navigate' | 'create_task' | 'assign_task' | 'update_task' | 'delete_task' | 'add_team_member' | 'delete_team_member' | 'create_project' | 'update_project' | 'delete_project' | 'request_leave' | 'get_leave_status' | 'approve_leave' | 'deny_leave' | 'search' | 'info' | 'gantt_query' | 'resource_query' | 'project_query' | 'unknown';
+  type: 'navigate' | 'create_task' | 'assign_task' | 'update_task' | 'delete_task' | 'add_team_member' | 'delete_team_member' | 'create_project' | 'update_project' | 'delete_project' | 'request_leave' | 'get_leave_status' | 'approve_leave' | 'deny_leave' | 'search' | 'info' | 'gantt_query' | 'resource_query' | 'project_query' | 'accept_suggestion' | 'dismiss_suggestion' | 'push_to_linear' | 'verify_skill' | 'logout' | 'update_preferences' | 'unknown';
   target?: string;
   params?: {
     taskName?: string;
@@ -20,9 +20,13 @@ export interface VoiceAction {
     endDate?: string;
     leaveType?: string;
     reason?: string;
-    status?: string; // For marking tasks as done/incomplete
+    status?: string; // For marking tasks/projects as done/incomplete
     newTitle?: string; // For renaming
     newDescription?: string;
+    estimatedHours?: number; // For task duration
+    theme?: 'light' | 'dark'; // For UI preferences
+    skill?: string; // For skill verification/tagging
+    utilizationPercent?: number; // For member updates
     projectQueryType?: 'count' | 'list' | 'latest';
   };
   response?: string;
@@ -116,7 +120,11 @@ JSON Structure:
     "leaveType": "string",
     "status": "string",
     "newTitle": "string",
-    "newDescription": "string"
+    "newDescription": "string",
+    "estimatedHours": number,
+    "theme": "light" | "dark",
+    "skill": "string",
+    "utilizationPercent": number
   },
   "response": "Brief spoken confirmation of what you extracted",
   "requiresConfirmation": boolean,
@@ -229,8 +237,8 @@ Rules:
 
   private normalizeTranscript(text: string): string {
     return text.toLowerCase()
-      .replace(/^(hello|hi|hey|velocity|hero|bot|ai|please|can you|could you|would you|um|uh|err|like|kindly|just|shukriya|dhanyawad|zara|ek|baat|hai|hain|ki|ka|ko|se)\s+/g, '')
-      .replace(/\s+(um|uh|err|like|please|and|then|kindly|now|hai|hain|ki|ka|ko|se|zara|achha|theek)\s+/g, ' ')
+      .replace(/^(hello|hi|hey|velocity|hero|bot|ai|please|can you|could you|would you|um|uh|err|like|kindly|just|shukriya|dhanyawad|zara|ek|baat|hai|hain|ki|ka|ko|se|sun|suno)\s+/g, '')
+      .replace(/\s+(um|uh|err|like|please|and|then|kindly|now|hai|hain|ki|ka|ko|se|zara|achha|theek|kar|karo|kara|karne)\s+/g, ' ')
       .replace(/[.,!?;:]+$/, '') 
       .trim();
   }
@@ -249,6 +257,17 @@ Rules:
       'ai': '/velocity-ai', 'velocity': '/velocity-ai',
       'leave': '/leave', 'vacation': '/leave'
     };
+    
+    // 1.5. Theme & User Preferences
+    if (words.some(w => ['dark', 'light', 'kala', 'safed', 'theme', 'mode'].includes(w))) {
+      if (text.includes('dark') || text.includes('kala')) return { type: 'update_preferences', params: { theme: 'dark' }, response: "Kala rang, dark mode on kar raha hoon." };
+      if (text.includes('light') || text.includes('safed')) return { type: 'update_preferences', params: { theme: 'light' }, response: "Safed rang, light mode on kar raha hoon." };
+    }
+
+    // 1.6. Logout
+    if (words.some(w => ['logout', 'signout', 'exit'].includes(w)) || (text.includes('band') && text.includes('account')) || text.includes('nikal jao')) {
+      return { type: 'logout', requiresConfirmation: true, response: "Theek hai, main aapko sign out kar raha hoon. Kya aap sure hain?" };
+    }
 
     const isProjectCreate = (words.some(w => ['project', 'plan', 'planning'].includes(w)) || text.includes('naya project')) && 
                            (words.some(w => ['create', 'add', 'new', 'start', 'setup', 'banao', 'shuru'].includes(w))) && 
@@ -318,14 +337,29 @@ Rules:
     }
 
     // Task Creation
-    if ((text.includes('task') || text.includes('kaam')) && (words.some(w => ['add', 'create', 'new', 'banao', 'daalo'].includes(w)))) {
-      const match = text.match(/(?:add|create|new|banao|daalo)\s+(?:task|kaam)?\s+(.*?)\s+(?:for|to|in|mein|pe)\s+(.*?)(?:\s+project)?$/i);
-      if (match) {
-        return { type: 'create_task', params: { taskName: match[1]?.trim(), projectName: match[2]?.trim() }, response: `Task "${match[1]?.trim()}" ko project "${match[2]?.trim()}" mein add kar raha hoon.` };
+    const taskVerbs = ['add', 'create', 'new', 'banao', 'daalo', 'kardo', 'shuru', 'lagao', 'add kardo', 'add kar do'];
+    const isTaskCommand = (text.includes('task') || text.includes('kaam')) && 
+                         (words.some(w => taskVerbs.includes(w)) || text.includes('add kardo') || text.includes('add kar do'));
+    
+    if (isTaskCommand) {
+      // Pattern 1: Name + Verb + Project (Hinglish: "Database setup task Fintech project mein add kardo")
+      const match1 = text.match(/(.*?)\s+(?:task|kaam)?\s*(?:add kardo|add kar do|add|create|banao|daalo|kardo|shuru|lagao)\s+(?:to|in|mein|pe|on|for)?\s*(?:project)?\s+(.*)/i);
+      if (match1 && match1[1].trim() && match1[2].trim()) {
+         return { type: 'create_task', params: { taskName: match1[1].trim(), projectName: match1[2].trim() }, response: `Task "${match1[1].trim()}" ko project "${match1[2].trim()}" mein add kar raha hoon.` };
       }
-      const simpleMatch = text.match(/(?:add|create|new|banao|daalo)\s+(?:task|kaam\s+)(.*)/i);
-      if (simpleMatch) {
-         return { type: 'create_task', params: { taskName: simpleMatch[1]?.trim() }, response: `Aapka task "${simpleMatch[1]?.trim()}" bana raha hoon.` };
+
+      // Pattern 2: Verb + Name + Project (Standard: "Add task fix login to Velo project")
+      const match2 = text.match(/(?:add kardo|add kar do|add|create|new|banao|daalo|shuru|lagao|kardo)\s+(?:task|kaam)?\s+(.*?)\s+(?:for|to|in|mein|pe|on)\s+(.*?)(?:\s+project)?$/i);
+      if (match2) {
+        return { type: 'create_task', params: { taskName: match2[1]?.trim(), projectName: match2[2]?.trim() }, response: `Task "${match2[1]?.trim()}" ko project "${match2[2]?.trim()}" mein add kar raha hoon.` };
+      }
+      
+      // Pattern 3: Simple match (Verb + Name or Name + Verb)
+      const simpleMatch = text.match(/(?:add kardo|add kar do|add|create|new|banao|daalo|shuru|lagao|kardo)\s+(?:task|kaam\s+)?(.*)/i) || 
+                          text.match(/(.*?)\s+(?:task|kaam\s+)?(?:add kardo|add kar do|add|create|new|banao|daalo|shuru|lagao|kardo)/i);
+      if (simpleMatch && simpleMatch[1]?.trim()) {
+         const name = simpleMatch[1].trim();
+         return { type: 'create_task', params: { taskName: name }, response: `Aapka task "${name}" bana raha hoon.` };
       }
     }
 
@@ -337,26 +371,57 @@ Rules:
       if (assignMatch) return { type: 'assign_task', params: { taskName: assignMatch[1]?.trim(), assigneeName: assignMatch[2]?.trim() }, response: `"${assignMatch[1]?.trim()}" ko ${assignMatch[2]?.trim()} ko assign kar raha hoon.` };
     }
 
-    // Task Completion Hinglish
-    if ((text.includes('task') || text.includes('kaam')) && (text.includes('complete') || text.includes('khatam') || text.includes('ho gaya') || text.includes('pura'))) {
-      const taskMatch = text.match(/(.*?)\s+(?:complete|khatam|ho gaya|pura)/i);
-      const name = taskMatch ? taskMatch[1].replace(/task|kaam/g, '').trim() : '';
-      if (name) {
-        return { type: 'update_task', params: { taskName: name, status: 'completed' }, response: `Theek hai, task ${name} ko complete mark kar raha hoon.` };
+    // Task & Project Completion
+    if (text.includes('complete') || text.includes('khatam') || text.includes('ho gaya') || text.includes('pura') || text.includes('finish') || text.includes('done')) {
+      const isProject = text.includes('project') || text.includes('yojana');
+      const nameMatch = text.match(/(?:project|task|kaam)?\s*(.*?)\s+(?:complete|khatam|ho gaya|pura|finish|done)/i) || 
+                        text.match(/(?:complete|khatam|ho gaya|pura|finish|done)\s+(?:project|task|kaam)?\s*(.*)/i);
+      const name = nameMatch ? nameMatch[1].trim() : '';
+      if (isProject) {
+        return { type: 'update_project', params: { projectTitle: name, status: 'completed' }, response: `Theek hai, project "${name}" ko completed mark kar raha hoon.` };
       }
+      return { type: 'update_task', params: { taskName: name, status: 'completed' }, response: `Task "${name}" complete ho gaya hai.` };
     }
 
-    // Team Member Invite
-    if (words.some(w => ['add', 'invite', 'new', 'banao', 'shamil'].includes(w)) || text.includes('add kardo') || text.includes('ko add')) {
+    // Task Duration / Estimated Hours
+    if ((text.includes('task') || text.includes('kaam')) && (text.includes('hour') || text.includes('ghante') || text.includes('ghanta') || text.includes('duration'))) {
+       const hourMatch = text.match(/(\d+)\s*(?:hour|ghante|ghanta)/i);
+       const nameMatch = text.match(/(?:duration|hours?|ghante|ghanta)\s+(?:for|mein|ko|of)?\s*(.*?)\s+(?:to|pe|is|be)?\s*\d+/i) || 
+                         text.match(/(.*?)\s+(?:task|kaam|mein|ko|for)?\s*(?:\d+)\s*(?:hour|ghante|ghanta)/i);
+       if (hourMatch) {
+         return { 
+           type: 'update_task', 
+           params: { 
+             taskName: nameMatch ? nameMatch[1].replace(/task|kaam/g, '').trim() : 'this task', 
+             estimatedHours: parseInt(hourMatch[1]) 
+           }, 
+           response: `Theek hai, task ke liye ${hourMatch[1]} ghante set kar raha hoon.` 
+         };
+       }
+    }
+
+    // Team Member & Utilization
+    const isMemberAdd = (words.some(w => ['add', 'invite', 'new', 'banao', 'shamil'].includes(w)) || text.includes('add kardo') || text.includes('ko add')) &&
+                        !text.includes('task') && !text.includes('kaam');
+
+    if (isMemberAdd || text.includes('member') || text.includes('role') || text.includes('utilization') || text.includes('usage')) {
       const email = words.find(w => w.includes('@')) || '';
+      const utilizationMatch = text.match(/(\d+)(?:%|percent)/i);
+      const utilization = utilizationMatch ? parseInt(utilizationMatch[1]) : undefined;
+      
       const roleMatch = text.match(/as\s+(.*)/i) || text.match(/role\s+(.*)/i);
-      const role = roleMatch ? roleMatch[1].trim() : 'Team Member';
+      const role = roleMatch ? roleMatch[1].trim() : (utilization ? undefined : 'Team Member');
       
-      const noise = ['add', 'invite', 'new', 'team', 'member', 'for', 'as', 'email', 'with', 'ko', 'kardo', 'hain', 'ki', 'role'];
-      const nameWords = words.filter(w => !noise.includes(w) && !w.includes('@') && !role.toLowerCase().includes(w));
-      const name = nameWords.join(' ').trim() || (email ? email.split('@')[0] : 'New Member');
+      const noise = ['add', 'invite', 'new', 'team', 'member', 'for', 'as', 'email', 'with', 'ko', 'kardo', 'hain', 'ki', 'role', 'task', 'kaam', 'a', 'an', 'the', 'is', 'ko', 'utilization', 'percent', 'pe'];
+      const nameWords = words.filter(w => !noise.includes(w) && !w.includes('@') && (!role || !role.toLowerCase().includes(w)) && (!utilizationMatch || !w.includes(utilizationMatch[1])));
+      const name = nameWords.join(' ').trim();
       
-      return { type: 'add_team_member', params: { name: name, email: email, role: role }, response: `Theek hai, main ${name} ko ${role} ke roop mein add kar raha hoon.` };
+      if (utilization && name) {
+        return { type: 'add_team_member', params: { name: name, utilizationPercent: utilization }, response: `${name} ki utilization ${utilization}% set kar raha hoon.` };
+      }
+      if (isMemberAdd || email || name) {
+        return { type: 'add_team_member', params: { name: name || 'New Member', email: email, role: role || 'Team Member' }, response: `Theek hai, ${name || 'member'} ko add kar raha hoon.` };
+      }
     }
 
     // Leave Management
@@ -371,7 +436,45 @@ Rules:
       return { type: 'request_leave', params: { startDate: 'today', endDate: 'today', reason: 'Personal' }, response: `Main chutti request karne mein madad karta hoon.`, requiresConfirmation: true };
     }
 
-    // 4. Project Queries
+    // Suggestion Acceptance / Dismissal
+    if (words.some(w => ['suggestion', 'rebalance', 'recommendation'].includes(w)) || text.includes('man lo') || text.includes('theek hai') || text.includes('hatao') || text.includes('approve suggestion')) {
+       const isAccept = words.some(w => ['accept', 'approve', 'yes', 'confirm', 'man lo', 'thik', 'theek', 'kardo'].includes(w));
+       const isDismiss = words.some(w => ['dismiss', 'reject', 'no', 'cancel', 'hatao', 'nikalo', 'ignore'].includes(w));
+       
+       const taskMatch = text.match(/(.*?)\s+(?:ka|ki|of|for)?\s*(?:suggestion|recommendation|task)/i) || 
+                         text.match(/(?:suggestion|recommendation|task)\s+(?:for|of|named)?\s*(.*)/i);
+       const name = taskMatch ? taskMatch[1].split(/\s+(?:accept|approve|dismiss|reject|theek|kardo|hatao)/)[0].trim() : '';
+
+       if (isAccept) return { type: 'accept_suggestion', params: { taskName: name }, response: "Suggestion approve kar raha hoon." };
+       if (isDismiss) return { type: 'dismiss_suggestion', params: { taskName: name }, response: "Suggestion hata raha hoon." };
+    }
+
+    // Linear Sync
+    if (text.includes('linear') || text.includes('sync') || text.includes('push')) {
+       const taskMatch = text.match(/(?:linear|sync|push)\s+(?:pe|to|on|mein)?\s*(?:daalo|daal|kardo|kar do|push|sync|submit|add)?\s*(.*)/i) ||
+                         text.match(/(.*?)\s+(?:ko|to|pe)?\s*linear/i) || 
+                         text.match(/(?:task|kaam)?\s*(.*?)\s*(?:ko|to|pe)?\s*linear/i);
+       const taskName = taskMatch ? taskMatch[1].replace(/task|kaam/g, '').trim() : '';
+       return { 
+         type: 'push_to_linear', 
+         params: { taskName }, 
+         requiresConfirmation: true,
+         response: `Task ${taskName} ko Linear pe push kar raha hoon.` 
+       };
+    }
+
+    // Skill Verification
+    if (text.includes('skill') || text.includes('hunar') || text.includes('verify')) {
+       const vMatch = text.match(/(.*?)\s+(?:verify|kardo|verify kardo)\s+(.*?)\s*(?:ka|ki|ko|for|of)?$/i) ||
+                      text.match(/(?:verify|verify kardo)\s+(.*?)\s+(?:for|ko|ka|ki)?\s*(.*)/i);
+       if (vMatch) {
+         return { 
+           type: 'verify_skill', 
+           params: { skill: vMatch[1].trim(), name: vMatch[2].trim() },
+           response: `${vMatch[2].trim()} ka ${vMatch[1].trim()} skill verify kar raha hoon.`
+         };
+       }
+    }
     if (text.includes('project') && (text.includes('how many') || text.includes('kitane') || text.includes('kitne') || text.includes('number of'))) {
       return { type: 'project_query', params: { projectQueryType: 'count' }, response: "Checking total project count..." };
     }
