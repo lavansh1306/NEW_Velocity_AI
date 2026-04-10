@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useVoice } from '@/contexts/VoiceContext';
 import { geminiVoiceService, VoiceAction } from '@/services/geminiVoiceService';
 import { findBestMatch } from '@/lib/utils';
+import { approveAndPushToLinear, rejectAndLogML } from '@/lib/linearDataService';
 import { getDashboardData } from '@/services/dashboardService';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -104,7 +105,11 @@ export const useVoiceActions = () => {
       'create_task',
       'update_task',
       'assign_task',
-      'delete_task'
+      'delete_task',
+      'push_to_linear',
+      'accept_suggestion',
+      'dismiss_suggestion',
+      'verify_skill'
     ];
 
     const isManager = orgRole === 'admin' || orgRole === 'manager';
@@ -143,7 +148,7 @@ export const useVoiceActions = () => {
         break;
 
       case 'update_project':
-        const { projectTitle: upTitle, newTitle, newDescription } = action.params || {};
+        const { projectTitle: upTitle, newTitle, newDescription, status: pStatus } = action.params || {};
         try {
           if (!orgId) {
             speak("I need your organization context to update projects.");
@@ -155,6 +160,7 @@ export const useVoiceActions = () => {
             const updates: any = {};
             if (newTitle) updates.name = newTitle;
             if (newDescription) updates.description = newDescription;
+            if (pStatus) updates.status = pStatus === 'completed' ? 'completed' : 'active';
             await supabase.from('projects').update(updates).eq('id', match.id);
             speak(`Successfully updated project "${match.name}".`);
             window.dispatchEvent(new CustomEvent('velo-refresh-data'));
@@ -277,7 +283,7 @@ export const useVoiceActions = () => {
         break;
 
       case 'update_task':
-        const { taskName: uTaskName, status: uStatus, newTitle: uNewTitle } = action.params || {};
+        const { taskName: uTaskName, status: uStatus, newTitle: uNewTitle, estimatedHours } = action.params || {};
         try {
           const projectMatch = currentPath.match(/\/projects\/([a-f0-9-]{36})/i);
           if (!projectMatch) {
@@ -290,6 +296,7 @@ export const useVoiceActions = () => {
             const updates: any = {};
             if (uStatus) updates.status = uStatus === 'completed' ? 'completed' : 'not_started';
             if (uNewTitle) updates.name = uNewTitle;
+            if (estimatedHours) updates.estimated_hours = estimatedHours;
             await supabase.from('tasks').update(updates).eq('id', match.id);
             speak(`Updated task "${match.name}".`);
             window.dispatchEvent(new CustomEvent('velo-refresh-data'));
@@ -422,12 +429,111 @@ export const useVoiceActions = () => {
         break;
 
       case 'add_team_member':
-        const { name, email, role } = action.params || {};
+        const { name, email, role, utilizationPercent } = action.params || {};
         if (currentPath !== '/people') {
           enqueueAction(action);
           navigate('/people');
         } else {
-          window.dispatchEvent(new CustomEvent('velo-add-member', { detail: { name, email, role } }));
+          // Calculate capacity if utilization provided (default 40h/week)
+          let capacity = undefined;
+          if (utilizationPercent) capacity = (utilizationPercent / 100) * 40;
+          window.dispatchEvent(new CustomEvent('velo-add-member', { detail: { name, email, role, capacity } }));
+        }
+        break;
+
+      case 'logout':
+        await supabase.auth.signOut();
+        navigate('/login');
+        speak("You have been signed out.");
+        break;
+
+      case 'update_preferences':
+        const { theme } = action.params || {};
+        if (theme === 'dark') {
+          document.documentElement.classList.add('dark');
+          speak("Dark mode enabled.");
+        } else if (theme === 'light') {
+          document.documentElement.classList.remove('dark');
+          speak("Light mode enabled.");
+        }
+        break;
+
+      case 'push_to_linear':
+        const { taskName: lTaskName } = action.params || {};
+        try {
+          const { data: suggs } = await supabase
+            .from('ai_task_suggestions')
+            .select('*')
+            .eq('status', 'pending');
+          
+          const lMatch = findBestMatch(lTaskName || '', suggs || [], (s) => s.task_name);
+          if (lMatch) {
+            const res = await approveAndPushToLinear({
+              taskId: lMatch.id,
+              taskName: lMatch.task_name,
+              suggestedUserId: lMatch.suggested_user_id,
+              skillMatchScore: 80,
+              workloadAtTime: 50
+            });
+            if (res.success) {
+              await supabase.from('ai_task_suggestions').update({ status: 'approved' }).eq('id', lMatch.id);
+              speak(`Successfully pushed "${lMatch.task_name}" to Linear.`);
+              window.dispatchEvent(new CustomEvent('velo-refresh-data'));
+            } else {
+              speak("I couldn't push that task to Linear. Please check your connection.");
+            }
+          } else {
+            speak("I couldn't find a matching pending task for Linear.");
+          }
+        } catch (err) {
+          console.error('[VoiceActions] Linear push failed:', err);
+        }
+        break;
+
+      case 'accept_suggestion':
+      case 'dismiss_suggestion':
+        const { taskName: sTaskName } = action.params || {};
+        try {
+          const { data: recs } = await supabase.from('ai_task_suggestions').select('*').eq('status', 'pending');
+          const sMatch = findBestMatch(sTaskName || '', recs || [], (r) => r.task_name);
+          
+          if (sMatch) {
+            if (action.type === 'accept_suggestion') {
+              await supabase.from('tasks').update({ assignee_id: sMatch.suggested_user_id }).eq('id', sMatch.id);
+              await supabase.from('ai_task_suggestions').update({ status: 'approved' }).eq('id', sMatch.id);
+              speak(`Accepted suggestion for "${sMatch.task_name}".`);
+            } else {
+              await supabase.from('ai_task_suggestions').update({ status: 'rejected' }).eq('id', sMatch.id);
+              await rejectAndLogML({ taskId: sMatch.id, suggestedUserId: sMatch.suggested_user_id, skillMatchScore: 50, workloadAtTime: 50 });
+              speak(`Dismissed suggestion for "${sMatch.task_name}".`);
+            }
+            window.dispatchEvent(new CustomEvent('velo-refresh-data'));
+          } else {
+            speak("I couldn't find that suggestion.");
+          }
+        } catch (err) {
+          console.error('[VoiceActions] Suggestion action failed:', err);
+        }
+        break;
+
+      case 'verify_skill':
+        const { name: vName, skill: vSkill } = action.params || {};
+        try {
+          const { data: vMembers } = await supabase.from('users').select('id, name');
+          const vMatch = findBestMatch(vName || '', vMembers || [], (m) => m.name);
+          if (vMatch && vSkill) {
+             // In Velocity, skills are often derived or in user_skills table
+             const { error: vErr } = await supabase
+               .from('user_skills')
+               .update({ source: 'manual', confidence_score: 1.0 })
+               .eq('user_id', vMatch.id)
+               .ilike('skill_name', vSkill);
+             
+             if (vErr) throw vErr;
+             speak(`Verified ${vSkill} for ${vMatch.name}.`);
+          }
+        } catch (err) {
+          console.error('[VoiceActions] Skill verification failed:', err);
         }
         break;
 
