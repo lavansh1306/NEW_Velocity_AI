@@ -210,4 +210,70 @@ router.post('/tts', async (req: Request, res: Response) => {
   return res.status(404).json({ error: 'Server-side TTS not implemented, using browser fallback' });
 });
 
+// ── Text to Normalization (Vector Search) ──────────────────────────────
+router.post('/normalize', async (req: Request, res: Response) => {
+  const { transcript } = req.body;
+  if (!transcript) return res.status(400).json({ error: 'transcript is required' });
+
+  const geminiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+  const supabaseUrl = process.env.VITE_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY;
+
+  if (!geminiKey || !supabaseUrl || !supabaseKey) {
+    console.warn('[VoiceNormalize] Missing API keys, skipping vector correction');
+    return res.json({ normalized: transcript, corrected: false });
+  }
+
+  try {
+    // 1. Generate Embedding for the transcript
+    const embedRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${geminiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'models/text-embedding-004',
+          content: { parts: [{ text: transcript }] }
+        })
+      }
+    ) as any;
+
+    if (!embedRes.ok) throw new Error(`Embedding failed: ${embedRes.status}`);
+    const embedData = await embedRes.json() as any;
+    const embedding = embedData.embedding.values;
+
+    // 2. Query Supabase for closest canonical terms
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const { data: matches, error } = await supabase.rpc('match_voice_term', {
+      query_embedding: embedding,
+      match_threshold: 0.8, // High threshold for precision
+      match_count: 3
+    });
+
+    if (error) throw error;
+
+    if (matches && matches.length > 0) {
+      const bestMatch = matches[0];
+      console.log(`[VoiceNormalize] Found match: "${bestMatch.canonical_term}" with similarity ${bestMatch.similarity}`);
+      
+      // If the similarity is very high, we can trust the whole phrase or just key terms
+      // For this implementation, we return the best canonical term if it's a strong match
+      return res.json({ 
+        normalized: bestMatch.canonical_term, 
+        original: transcript,
+        corrected: true,
+        similarity: bestMatch.similarity
+      });
+    }
+
+    return res.json({ normalized: transcript, corrected: false });
+  } catch (error) {
+    console.error('[VoiceNormalize] Error:', error);
+    return res.json({ normalized: transcript, corrected: false, error: String(error) });
+  }
+});
+
 export default router;
+
