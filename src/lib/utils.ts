@@ -80,3 +80,53 @@ export function findBestMatch<T>(
 
   return bestMatch;
 }
+
+/**
+ * Robustly extracts JSON from a string that may contain preamble or markdown blocks.
+ * Prioritizes the last valid JSON object found in the text.
+ */
+export function extractJSON<T>(text: string): T | null {
+  if (!text) return null;
+  
+  // 1. Attempt to find specific markdown code blocks first
+  const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (codeBlockMatch) {
+    try {
+      const parsed = JSON.parse(codeBlockMatch[1].trim());
+      if (typeof parsed === 'object' && parsed !== null) return parsed as T;
+    } catch (e) {}
+  }
+
+  // 2. Brute-force heuristic: Find every potential { ... } pair and try to parse
+  // We prioritize the last successful parse of a substantial object.
+  let bestCandidate: T | null = null;
+  const startIndices: number[] = [];
+  
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === '{') {
+      startIndices.push(i);
+    } else if (text[i] === '}') {
+      // Try to match with all previous '{' starting from the most recent
+      for (let j = startIndices.length - 1; j >= 0; j--) {
+        const start = startIndices[j];
+        const candidate = text.substring(start, i + 1);
+        try {
+          const parsed = JSON.parse(candidate);
+          if (typeof parsed === 'object' && parsed !== null) {
+            // Check if this is a "better" candidate (e.g., has common voice action keys)
+            const keys = Object.keys(parsed);
+            if (keys.includes('type') || keys.includes('response') || keys.includes('params')) {
+              bestCandidate = parsed as T;
+              // If we found a high-quality candidate that's at the end of the string, we can stop
+              if (i > text.length * 0.8) break; 
+            } else if (!bestCandidate) {
+              bestCandidate = parsed as T;
+            }
+          }
+        } catch (e) {}
+      }
+    }
+  }
+
+  return bestCandidate;
+}

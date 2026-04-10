@@ -5,22 +5,52 @@ import { createClient } from '@supabase/supabase-js';
 
 const router = express.Router();
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY || '';
-const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
-
 const SYSTEM_PROMPT = (currentPath: string) => `
 You are the "Velocity AI Core Intelligence". You are a high-performance system designed to manage engineering projects and teams.
 
 ## PERSONA:
 - Direct, efficient, and technical. MANDATORY: Always provide a precise "response" string for the user to hear.
+- RESPONSE LANGUAGE: Always respond in English, regardless of the input language (Hindi, Hinglish, or English).
 - Speech-ready responses: Briefly and precisely confirm actions.
 - HINGLISH: You natively understand mixed Hindi-English.
 - MAPPING: "kitane" (how many) maps to "RESOURCE_QUERY". "health/score/status" maps to "RESOURCE_QUERY".
 
-CRITICAL: Return ONLY valid JSON. Do not include reasoning or markdown. Output exactly one JSON object.
+CRITICAL: Return ONLY valid JSON. Do not include reasoning, explanations, or markdown. Output exactly one JSON object.
+DO NOT include "Candidate:", "Technical Analysis:", or any conversational preambles. If you include non-JSON text, the parsing layer will fail.
 
 { "type": "navigate" | "create_project" | "add_team_member" | "delete_team_member" | "create_task" | "assign_task" | "info" | "resource_query" | "request_leave" | "unknown", "params": { "query": "status" | "health" | "projects" }, "response": "Spoken confirmation (Mandatory)", "requiresConfirmation": boolean }`;
+
+/**
+ * Robustly extracts JSON from a string that may contain preamble or markdown blocks.
+ */
+function extractJSON(text: string): any {
+  if (!text) return null;
+  const match = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (match) {
+    try { return JSON.parse(match[1].trim()); } catch (e) {}
+  }
+  
+  // Try to find the last valid JSON object
+  const startIndices: number[] = [];
+  let bestCandidate: any = null;
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === '{') startIndices.push(i);
+    else if (text[i] === '}') {
+      for (let j = startIndices.length - 1; j >= 0; j--) {
+        const start = startIndices[j];
+        const candidate = text.substring(start, i + 1);
+        try {
+          const parsed = JSON.parse(candidate);
+          if (typeof parsed === 'object' && parsed !== null) {
+            if (parsed.type || parsed.response) { bestCandidate = parsed; break; }
+            if (!bestCandidate) bestCandidate = parsed;
+          }
+        } catch (e) {}
+      }
+    }
+  }
+  return bestCandidate;
+}
 
 // ── Local rule-based fallback — zero API calls ───────────────────────────────
 function localParse(transcript: string, currentProjectId?: string): object {
@@ -39,7 +69,7 @@ function localParse(transcript: string, currentProjectId?: string): object {
   // Hinglish Navigation
   if (text.includes('dikhao') || text.includes('dikao') || text.includes('ley jao')) {
     for (const [key, path] of Object.entries(navMap)) {
-      if (text.includes(key)) return { type: 'navigate', target: path, response: `Bilkul, main aapko ${key} par le chalta hoon.` };
+      if (text.includes(key)) return { type: 'navigate', target: path, response: `Sure, let me take you to ${key}.` };
     }
   }
 
@@ -136,18 +166,14 @@ router.post('/parse', async (req: Request, res: Response) => {
         const data = await geminiRes.json() as any;
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
         if (text) {
-          try {
-            const parsed = JSON.parse(text);
-            console.log('[VoiceParse] ✅ Gemma 4 success');
+          const parsed = extractJSON(text);
+          if (parsed) {
+            console.log('[VoiceParse] ✅ Gemini success (extracted)');
             return res.json({ ...parsed, provider: 'gemma-4' });
-          } catch { /* fall through */ }
+          }
         }
       } else {
         console.warn('[VoiceParse] Gemma 4 error response:', geminiRes.status);
-        if (geminiRes.status === 400) {
-           const errBody = await geminiRes.text();
-           console.error('[VoiceParse] 400 Detail:', errBody);
-        }
       }
     } catch (e) {
       console.warn('[VoiceParse] Gemma 4 exception:', e);
@@ -179,11 +205,11 @@ router.post('/parse', async (req: Request, res: Response) => {
         const data = await groqRes.json() as any;
         const text = data.choices?.[0]?.message?.content;
         if (text) {
-          try {
-            const parsed = JSON.parse(text);
-            console.log('[VoiceParse] ✅ Groq success');
+          const parsed = extractJSON(text);
+          if (parsed) {
+            console.log('[VoiceParse] ✅ Groq success (extracted)');
             return res.json({ ...parsed, provider: 'groq' });
-          } catch { /* fall through */ }
+          }
         }
       } else if (groqRes.status === 429) {
         console.warn('[VoiceParse] Groq rate limited → using local parser');
@@ -203,33 +229,27 @@ router.post('/parse', async (req: Request, res: Response) => {
 // ── Text to Speech endpoint ───────────────────────────────────────────────
 router.post('/tts', async (req: Request, res: Response) => {
   const { text } = req.body;
-  const geminiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
-
   if (!text) return res.status(400).json({ error: 'text is required' });
-
-  // For now, we'll return a 404 to trigger the frontend's robust browser fallback
-  // This prevents the 500 server crash while maintaining functionality
   console.log('[VoiceTTS] Request received:', text.slice(0, 30));
-  
-  // Optional: In the future, integrate with Google Cloud TTS or Gemini Multimodal TTS here
   return res.status(404).json({ error: 'Server-side TTS not implemented, using browser fallback' });
 });
 
 // ── Text to Normalization (Vector Search) ──────────────────────────────
 router.post('/normalize', async (req: Request, res: Response) => {
-  const { transcript } = req.body;
-  if (!transcript) return res.status(400).json({ error: 'transcript is required' });
-
-  const geminiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
-
-  if (!geminiKey || !supabase) {
-    console.warn('[VoiceNormalize] Missing API keys or Supabase client, skipping vector correction');
-    return res.json({ normalized: transcript, corrected: false, reason: 'unconfigured' });
-  }
-
   try {
-    // 1. Generate Embedding for the transcript
-    // Using text-embedding-004 (768 dimensions)
+    const { transcript } = req.body;
+    if (!transcript) return res.json({ normalized: transcript, corrected: false });
+
+    const geminiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY || '';
+
+    if (!geminiKey || !supabaseUrl || !supabaseKey) {
+      console.warn('[VoiceNormalize] Config missing, skipping');
+      return res.json({ normalized: transcript, corrected: false });
+    }
+
+    // 1. Generate Embedding
     const embedRes = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${geminiKey}`,
       {
@@ -244,52 +264,39 @@ router.post('/normalize', async (req: Request, res: Response) => {
     ) as any;
 
     if (!embedRes.ok) {
-      console.error('[VoiceNormalize] Embedding API failed:', embedRes.status);
-      return res.json({ normalized: transcript, corrected: false, reason: 'embedding_failed' });
+       console.warn('[VoiceNormalize] Embedding failed');
+       return res.json({ normalized: transcript, corrected: false });
     }
     
     const embedData = await embedRes.json() as any;
     const embedding = embedData.embedding?.values;
+    if (!embedding) return res.json({ normalized: transcript, corrected: false });
 
-    if (!embedding) {
-      return res.json({ normalized: transcript, corrected: false, reason: 'no_embedding_values' });
-    }
-
-    // 2. Query Supabase for closest canonical terms
+    // 2. Query Supabase
+    const supabase = createClient(supabaseUrl, supabaseKey);
     const { data: matches, error } = await supabase.rpc('match_voice_term', {
       query_embedding: embedding,
-      match_threshold: 0.8, // High threshold for precision
+      match_threshold: 0.8,
       match_count: 3
     });
 
-    if (error) {
-       console.error('[VoiceNormalize] Supabase RPC Error:', error);
-       return res.json({ normalized: transcript, corrected: false, error: error.message });
+    if (error || !matches || matches.length === 0) {
+      return res.json({ normalized: transcript, corrected: false });
     }
 
-    if (matches && matches.length > 0) {
-      const bestMatch = matches[0];
-      console.log(`[VoiceNormalize] Found match: "${bestMatch.canonical_term}" with similarity ${bestMatch.similarity}`);
-      
-      return res.json({ 
-        normalized: bestMatch.canonical_term, 
-        original: transcript,
-        corrected: true,
-        similarity: bestMatch.similarity
-      });
-    }
-
-    return res.json({ normalized: transcript, corrected: false });
-  } catch (error) {
-    console.error('[VoiceNormalize] Critical Error:', error);
-    // Explicitly return a success status with corrected: false to prevent frontend breakage
+    const bestMatch = matches[0];
     return res.json({ 
-      normalized: transcript, 
-      corrected: false, 
-      error: error instanceof Error ? error.message : String(error) 
+      normalized: bestMatch.canonical_term, 
+      original: transcript,
+      corrected: true,
+      similarity: bestMatch.similarity
     });
+
+  } catch (error) {
+    console.error('[VoiceNormalize] Handler Error:', error);
+    // CRITICAL: Always return a valid JSON success even on internal error
+    return res.json({ normalized: (req.body?.transcript || ''), corrected: false });
   }
 });
 
 export default router;
-
