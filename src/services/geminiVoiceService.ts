@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { levenshteinDistance, phoneticNormalize, findBestMatch } from '@/lib/utils';
+import { voiceCorrectionService } from './voiceCorrectionService';
 
 export interface VoiceAction {
   type: 'navigate' | 'create_task' | 'assign_task' | 'update_task' | 'delete_task' | 'add_team_member' | 'delete_team_member' | 'create_project' | 'update_project' | 'delete_project' | 'request_leave' | 'get_leave_status' | 'approve_leave' | 'deny_leave' | 'search' | 'info' | 'gantt_query' | 'resource_query' | 'project_query' | 'accept_suggestion' | 'dismiss_suggestion' | 'push_to_linear' | 'verify_skill' | 'logout' | 'update_preferences' | 'unknown';
@@ -48,16 +49,40 @@ class GeminiVoiceService {
   }
 
   async parseIntent(transcript: string, currentPath: string): Promise<VoiceAction> {
-    // 1. Try Direct Command Parsing first (Fast Path, No LLM Latency)
-    const directAction = this.parseOfflineCommand(transcript);
-    if (directAction) {
-      console.log('[Gemma4Voice] Using Offline Command:', directAction);
-      return directAction;
+    console.log('[GeminiVoice] Parsing:', transcript);
+    
+    // 1. Try Direct Command Parsing first (Zero Latency)
+    let action = this.parseOfflineCommand(transcript);
+    if (action) {
+      console.log('[GeminiVoice] Standard Mode match:', action.type);
+      return action;
+    }
+
+    // 2. NEW: Semantic Normalization (Correction Layer)
+    // This handles mishearings like "kidney" -> "kitney" via serverless vector search
+    try {
+      const normalized = await voiceCorrectionService.normalize(transcript);
+      if (normalized.corrected) {
+        action = this.parseOfflineCommand(normalized.normalized);
+        if (action) {
+          console.log('[GeminiVoice] Correction match:', action.type, 'Original:', transcript, 'Normalized:', normalized.normalized);
+          // Append a small note to the response so the user knows it was corrected
+          if (action.response) {
+            action.response = `${action.response} (Normalized from "${transcript}")`;
+          }
+          return action;
+        }
+      }
+    } catch (err) {
+      console.warn('[GeminiVoice] Correction layer error:', err);
     }
 
     if (!this.model) {
-      console.warn('[Gemma4Voice] Gemini API not configured. Using Standard Mode.');
-      return this.parseOfflineCommand(transcript) || { type: 'unknown', response: "Gemma 4 is unavailable and I couldn't match that command locally." };
+      console.warn('[GeminiVoice] Gemini API not configured. Falling back to simple match.');
+      return this.parseOfflineCommand(transcript) || { 
+        type: 'unknown', 
+        response: "Gemma 4 is offline and I couldn't match that command locally." 
+      };
     }
 
     const systemPrompt = `
@@ -265,7 +290,9 @@ Rules:
     }
 
     // 1.6. Logout
-    if (words.some(w => ['logout', 'signout', 'exit'].includes(w)) || (text.includes('band') && text.includes('account')) || text.includes('nikal jao')) {
+    if (words.some(w => ['logout', 'signout', 'exit'].includes(w)) || 
+        text.includes('log out') || text.includes('sign out') ||
+        (text.includes('band') && text.includes('account')) || text.includes('nikal jao')) {
       return { type: 'logout', requiresConfirmation: true, response: "Theek hai, main aapko sign out kar raha hoon. Kya aap sure hain?" };
     }
 
