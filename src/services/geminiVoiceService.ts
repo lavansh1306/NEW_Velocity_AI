@@ -171,13 +171,22 @@ JSON Structure:
       ]) as any;
 
       const responseText = result.response.text();
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      // Improved JSON extraction: find the first { and the match its CLOSING }
+      // This is more robust than a greedy match if the model includes multiple technical blocks
+      const firstCurly = responseText.indexOf('{');
+      const lastCurly = responseText.lastIndexOf('}');
       
-      if (jsonMatch) {
+      if (firstCurly !== -1 && lastCurly !== -1 && lastCurly > firstCurly) {
+        const jsonCandidate = responseText.substring(firstCurly, lastCurly + 1);
         try {
-          return JSON.parse(jsonMatch[0]) as VoiceAction;
+          return JSON.parse(jsonCandidate) as VoiceAction;
         } catch (parseError) {
-          console.error('[Gemma4Voice] JSON Parse Error:', parseError, 'Raw Match:', jsonMatch[0]);
+          console.error('[GeminiVoice] JSON Parse Error:', parseError, 'Candidate:', jsonCandidate);
+          // Fallback to greedy regex if direct substring fails
+          const greedyMatch = responseText.match(/\{[\s\S]*\}/);
+          if (greedyMatch) {
+            try { return JSON.parse(greedyMatch[0]); } catch(e) {}
+          }
         }
       }
       
@@ -262,8 +271,12 @@ Rules:
 
   private normalizeTranscript(text: string): string {
     return text.toLowerCase()
+      // Remove common start/filler words
       .replace(/^(hello|hi|hey|velocity|hero|bot|ai|please|can you|could you|would you|um|uh|err|like|kindly|just|shukriya|dhanyawad|zara|ek|baat|hai|hain|ki|ka|ko|se|sun|suno)\s+/g, '')
+      // Remove middle fillers
       .replace(/\s+(um|uh|err|like|please|and|then|kindly|now|hai|hain|ki|ka|ko|se|zara|achha|theek|kar|karo|kara|karne)\s+/g, ' ')
+      // NEW: Remove common Hinglish markers at the end of strings
+      .replace(/\s+(hai|hain|kardo|kar do|kar|dena|do|hai|hain|ki|ka|ko|se|zara|banao|dikhado|dikhao)$/g, '')
       .replace(/[.,!?;:]+$/, '') 
       .trim();
   }
@@ -502,8 +515,12 @@ Rules:
          };
        }
     }
-    if (text.includes('project') && (text.includes('how many') || text.includes('kitane') || text.includes('kitne') || text.includes('number of'))) {
-      return { type: 'project_query', params: { projectQueryType: 'count' }, response: "Checking total project count..." };
+    // 4. Analytics: Project Query (kitne project)
+    const isCountQuery = text.includes('how many') || text.includes('kitane') || text.includes('kitne') || text.includes('number of') || text.includes('count');
+    if (isCountQuery) {
+      if (text.includes('project') || words.length === 1) { // Default to projects if it's the only word
+        return { type: 'project_query', params: { projectQueryType: 'count' }, response: "Checking total project count..." };
+      }
     }
     if (text.includes('project') && (text.includes('what are') || text.includes('list') || text.includes('show') || text.includes('name'))) {
       if (!text.includes('count') && !text.includes('latest') && !text.includes('recent')) {
