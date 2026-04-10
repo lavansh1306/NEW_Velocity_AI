@@ -11,11 +11,11 @@ import fetch from 'node-fetch';
 dotenv.config();
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_KEY || !GEMINI_API_KEY) {
-  console.error('Missing environment variables. Ensure VITE_SUPABASE_URL, SUPABASE_SERVICE_KEY, and GEMINI_API_KEY are set.');
+  console.error('Missing environment variables. Ensure VITE_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, and GEMINI_API_KEY are set.');
   process.exit(1);
 }
 
@@ -37,13 +37,14 @@ const TERMS = [
 ];
 
 async function getEmbedding(text: string) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${GEMINI_API_KEY}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${GEMINI_API_KEY}`;
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'models/text-embedding-004',
-      content: { parts: [{ text }] }
+      model: 'models/gemini-embedding-001',
+      content: { parts: [{ text }] },
+      outputDimensionality: 768
     })
   });
 
@@ -61,14 +62,26 @@ async function seed() {
 
   for (const item of TERMS) {
     try {
+      // Check if already exists to avoid conflict errors
+      const { data: existing } = await supabase
+        .from('voice_thesaurus')
+        .select('id')
+        .eq('canonical_term', item.term)
+        .maybeSingle();
+
+      if (existing) {
+        console.log(`Skipping "${item.term}" - already exists.`);
+        continue;
+      }
+
       console.log(`Generating embedding for "${item.term}"...`);
       const embedding = await getEmbedding(item.term);
 
-      const { error } = await supabase.from('voice_thesaurus').upsert({
+      const { error } = await supabase.from('voice_thesaurus').insert({
         canonical_term: item.term,
         category: item.category,
         embedding: embedding
-      }, { onConflict: 'canonical_term' });
+      });
 
       if (error) throw error;
       console.log(`Successfully seeded: ${item.term}`);

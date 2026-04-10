@@ -4,9 +4,9 @@ create extension if not exists vector;
 -- Create a table for the voice thesaurus / semantic glossary
 create table if not exists public.voice_thesaurus (
   id uuid primary key default gen_random_uuid(),
-  canonical_term text not null,
+  canonical_term text not null unique,
   category text, -- e.g. 'quantity', 'action', 'entity'
-  embedding vector(768), -- For Google Gemini text-embedding-004
+  embedding vector(768), -- For Google Gemini
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 

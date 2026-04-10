@@ -1,8 +1,13 @@
 import express from 'express';
 import type { Request, Response } from 'express';
 import fetch from 'node-fetch';
+import { createClient } from '@supabase/supabase-js';
 
 const router = express.Router();
+
+const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY || '';
+const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
 
 const SYSTEM_PROMPT = (currentPath: string) => `
 You are the "Velocity AI Core Intelligence". You are a high-performance system designed to manage engineering projects and teams.
@@ -216,50 +221,56 @@ router.post('/normalize', async (req: Request, res: Response) => {
   if (!transcript) return res.status(400).json({ error: 'transcript is required' });
 
   const geminiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
-  const supabaseUrl = process.env.VITE_SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY;
 
-  if (!geminiKey || !supabaseUrl || !supabaseKey) {
-    console.warn('[VoiceNormalize] Missing API keys, skipping vector correction');
-    return res.json({ normalized: transcript, corrected: false });
+  if (!geminiKey || !supabase) {
+    console.warn('[VoiceNormalize] Missing API keys or Supabase client, skipping vector correction');
+    return res.json({ normalized: transcript, corrected: false, reason: 'unconfigured' });
   }
 
   try {
     // 1. Generate Embedding for the transcript
+    // Using text-embedding-004 (768 dimensions)
     const embedRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${geminiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${geminiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'models/text-embedding-004',
-          content: { parts: [{ text: transcript }] }
+          model: 'models/gemini-embedding-001',
+          content: { parts: [{ text: transcript }] },
+          outputDimensionality: 768
         })
       }
     ) as any;
 
-    if (!embedRes.ok) throw new Error(`Embedding failed: ${embedRes.status}`);
+    if (!embedRes.ok) {
+      console.error('[VoiceNormalize] Embedding API failed:', embedRes.status);
+      return res.json({ normalized: transcript, corrected: false, reason: 'embedding_failed' });
+    }
+    
     const embedData = await embedRes.json() as any;
-    const embedding = embedData.embedding.values;
+    const embedding = embedData.embedding?.values;
+
+    if (!embedding) {
+      return res.json({ normalized: transcript, corrected: false, reason: 'no_embedding_values' });
+    }
 
     // 2. Query Supabase for closest canonical terms
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
     const { data: matches, error } = await supabase.rpc('match_voice_term', {
       query_embedding: embedding,
       match_threshold: 0.8, // High threshold for precision
       match_count: 3
     });
 
-    if (error) throw error;
+    if (error) {
+       console.error('[VoiceNormalize] Supabase RPC Error:', error);
+       return res.json({ normalized: transcript, corrected: false, error: error.message });
+    }
 
     if (matches && matches.length > 0) {
       const bestMatch = matches[0];
       console.log(`[VoiceNormalize] Found match: "${bestMatch.canonical_term}" with similarity ${bestMatch.similarity}`);
       
-      // If the similarity is very high, we can trust the whole phrase or just key terms
-      // For this implementation, we return the best canonical term if it's a strong match
       return res.json({ 
         normalized: bestMatch.canonical_term, 
         original: transcript,
@@ -270,8 +281,13 @@ router.post('/normalize', async (req: Request, res: Response) => {
 
     return res.json({ normalized: transcript, corrected: false });
   } catch (error) {
-    console.error('[VoiceNormalize] Error:', error);
-    return res.json({ normalized: transcript, corrected: false, error: String(error) });
+    console.error('[VoiceNormalize] Critical Error:', error);
+    // Explicitly return a success status with corrected: false to prevent frontend breakage
+    return res.json({ 
+      normalized: transcript, 
+      corrected: false, 
+      error: error instanceof Error ? error.message : String(error) 
+    });
   }
 });
 

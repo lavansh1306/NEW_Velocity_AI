@@ -290,7 +290,9 @@ Rules:
     }
 
     // 1.6. Logout
-    if (words.some(w => ['logout', 'signout', 'exit'].includes(w)) || (text.includes('band') && text.includes('account')) || text.includes('nikal jao')) {
+    if (words.some(w => ['logout', 'signout', 'exit'].includes(w)) || 
+        text.includes('log out') || text.includes('sign out') ||
+        (text.includes('band') && text.includes('account')) || text.includes('nikal jao')) {
       return { type: 'logout', requiresConfirmation: true, response: "Theek hai, main aapko sign out kar raha hoon. Kya aap sure hain?" };
     }
 
