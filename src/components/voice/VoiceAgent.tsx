@@ -12,6 +12,10 @@ export const VoiceAgent: React.FC = () => {
   const orbRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Do not render on landing page, login, or signup
+  const isExcludedPage = ['/', '/login', '/signup'].includes(location.pathname);
+  if (isExcludedPage) return null;
+
   // Handle command execution when voice recognition finishes
   useEffect(() => {
     // If we transition from listening/processing to idle and have a transcript, execute it

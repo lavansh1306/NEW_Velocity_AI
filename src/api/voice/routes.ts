@@ -10,13 +10,47 @@ You are the "Velocity AI Core Intelligence". You are a high-performance system d
 
 ## PERSONA:
 - Direct, efficient, and technical. MANDATORY: Always provide a precise "response" string for the user to hear.
+- RESPONSE LANGUAGE: Always respond in English, regardless of the input language (Hindi, Hinglish, or English).
 - Speech-ready responses: Briefly and precisely confirm actions.
 - HINGLISH: You natively understand mixed Hindi-English.
 - MAPPING: "kitane" (how many) maps to "RESOURCE_QUERY". "health/score/status" maps to "RESOURCE_QUERY".
 
-CRITICAL: Return ONLY valid JSON. Do not include reasoning or markdown. Output exactly one JSON object.
+CRITICAL: Return ONLY valid JSON. Do not include reasoning, explanations, or markdown. Output exactly one JSON object.
+DO NOT include "Candidate:", "Technical Analysis:", or any conversational preambles. If you include non-JSON text, the parsing layer will fail.
 
 { "type": "navigate" | "create_project" | "add_team_member" | "delete_team_member" | "create_task" | "assign_task" | "info" | "resource_query" | "request_leave" | "unknown", "params": { "query": "status" | "health" | "projects" }, "response": "Spoken confirmation (Mandatory)", "requiresConfirmation": boolean }`;
+
+/**
+ * Robustly extracts JSON from a string that may contain preamble or markdown blocks.
+ */
+function extractJSON(text: string): any {
+  if (!text) return null;
+  const match = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (match) {
+    try { return JSON.parse(match[1].trim()); } catch (e) {}
+  }
+  
+  // Try to find the last valid JSON object
+  const startIndices: number[] = [];
+  let bestCandidate: any = null;
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === '{') startIndices.push(i);
+    else if (text[i] === '}') {
+      for (let j = startIndices.length - 1; j >= 0; j--) {
+        const start = startIndices[j];
+        const candidate = text.substring(start, i + 1);
+        try {
+          const parsed = JSON.parse(candidate);
+          if (typeof parsed === 'object' && parsed !== null) {
+            if (parsed.type || parsed.response) { bestCandidate = parsed; break; }
+            if (!bestCandidate) bestCandidate = parsed;
+          }
+        } catch (e) {}
+      }
+    }
+  }
+  return bestCandidate;
+}
 
 // ── Local rule-based fallback — zero API calls ───────────────────────────────
 function localParse(transcript: string, currentProjectId?: string): object {
@@ -35,7 +69,7 @@ function localParse(transcript: string, currentProjectId?: string): object {
   // Hinglish Navigation
   if (text.includes('dikhao') || text.includes('dikao') || text.includes('ley jao')) {
     for (const [key, path] of Object.entries(navMap)) {
-      if (text.includes(key)) return { type: 'navigate', target: path, response: `Bilkul, main aapko ${key} par le chalta hoon.` };
+      if (text.includes(key)) return { type: 'navigate', target: path, response: `Sure, let me take you to ${key}.` };
     }
   }
 
@@ -132,11 +166,11 @@ router.post('/parse', async (req: Request, res: Response) => {
         const data = await geminiRes.json() as any;
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
         if (text) {
-          try {
-            const parsed = JSON.parse(text);
-            console.log('[VoiceParse] ✅ Gemma 4 success');
+          const parsed = extractJSON(text);
+          if (parsed) {
+            console.log('[VoiceParse] ✅ Gemini success (extracted)');
             return res.json({ ...parsed, provider: 'gemma-4' });
-          } catch { /* fall through */ }
+          }
         }
       } else {
         console.warn('[VoiceParse] Gemma 4 error response:', geminiRes.status);
@@ -171,11 +205,11 @@ router.post('/parse', async (req: Request, res: Response) => {
         const data = await groqRes.json() as any;
         const text = data.choices?.[0]?.message?.content;
         if (text) {
-          try {
-            const parsed = JSON.parse(text);
-            console.log('[VoiceParse] ✅ Groq success');
+          const parsed = extractJSON(text);
+          if (parsed) {
+            console.log('[VoiceParse] ✅ Groq success (extracted)');
             return res.json({ ...parsed, provider: 'groq' });
-          } catch { /* fall through */ }
+          }
         }
       } else if (groqRes.status === 429) {
         console.warn('[VoiceParse] Groq rate limited → using local parser');
