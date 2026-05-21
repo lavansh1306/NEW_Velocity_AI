@@ -70,6 +70,102 @@ It is built as a React + Vite frontend with an Express API layer (deployed as Ve
 
 ---
 
+## Architecture (high-level)
+
+```mermaid
+flowchart LR
+  U[User Browser] --> FE[React + Vite SPA]
+  FE --> API[Express API - server.ts]
+  API --> SB[Supabase - Auth + Postgres]
+  API --> JIRA[Jira Cloud OAuth + APIs]
+  API --> LIN[Linear OAuth + APIs]
+  API --> MLM[ML Engine on Render]
+  API --> LLM[Gemini/Groq APIs]
+
+  subgraph Vercel
+    FE
+    API
+    VFN[api/index.ts + api/ml.ts serverless entry]
+  end
+
+  FE -. routes .-> VFN
+  VFN --> API
+```
+
+---
+
+## User-side workflow (end-user journey)
+
+### 1) Entry points (Login / Sign up)
+- **Login page** supports:
+  - Continue with **Google**
+  - Continue with **Jira**
+  - Continue with **email + password**
+- **Sign-up page** supports:
+  - Continue with **Google**
+  - Continue with **Jira**
+  - **Email sign-up** (name, email, password)
+
+### 2) First-time path after authentication
+- If user has no org/team mapping yet, app routes to onboarding.
+- User chooses:
+  - **Create a new team/workspace**, or
+  - **Join existing team** via invite code.
+
+### 3) Join existing team path
+- User enters invite code in onboarding join screen.
+- Team/org preview is shown for valid code.
+- On success, user is routed to employee dashboard flow.
+
+### 4) Employee workflow (member user)
+- Open employee dashboard (`/app/employee/dashboard`).
+- Work with:
+  - My Projects
+  - Project detail updates
+  - Time + leave tab
+  - Profile and preferences
+- Employee APIs used include:
+  - leave requests/types/balances
+  - timesheets submit/upsert
+  - task status/blocker updates
+
+---
+
+## Admin/manager workflow (workspace owner journey)
+
+### 1) Authentication and start
+- Admin can login/sign up via Google, Jira, or email/password.
+- If not attached to org: routed to onboarding mode selection.
+
+### 2) Create workspace path
+- **Onboarding Welcome**:
+  - enter organization name
+  - enter first team name
+  - optional voice-assisted fill for org/team info
+- **Onboarding Team**:
+  - add members manually
+  - import members (CSV / paste / Jira import option)
+  - assign role + skills
+- Continue onboarding settings/holidays and complete setup.
+
+### 3) Day-to-day admin operations
+- Manager dashboard and AI dashboard:
+  - project health, risk, capacity, burn/bottleneck indicators
+  - AI recommendations and sync cards
+- Project planning:
+  - create project brief
+  - decompose work with planner agent
+  - allocate team
+- Integrations:
+  - connect/switch Jira site, sync projects/issues
+  - optionally connect Linear and push approved tasks
+- Governance:
+  - organization settings
+  - team invite regeneration
+  - leave approval workflows (weighted scoring agent)
+
+---
+
 ## AI agents used and their responsibilities
 
 | Agent / AI module | Where | Purpose |
