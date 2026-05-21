@@ -63,7 +63,9 @@ It is built as a React + Vite frontend with an Express API layer (deployed as Ve
 ### ML/AI backend services used by this repo
 - **Python ML engine (Render):** `https://python-ml-engine-xlwh.onrender.com`
   - proxied in production via `/api/ml/*`
-- Secondary endpoint is configured via `VITE_LLM_URL2` (present in environment config; purpose is currently not fully documented in this repo).
+- **Secondary agent/ingestion service endpoint (`VITE_LLM_URL2`)**:
+  - used by ingestion/auth flows (for example `src/components/projects/IngestionControl.tsx` and `src/api/ingestionApi.ts`)
+  - configured in `.env.production` as `https://velocity-agent.onrender.com`
 
 ### Data/auth backend
 - **Supabase** (Postgres + auth + storage logic used across routes/services).
