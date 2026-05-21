@@ -13,7 +13,7 @@ It is built as a React + Vite frontend with an Express API layer (deployed as Ve
 ## What this project does
 
 ### 1) Organization and user workflows
-- Authentication via Supabase auth.
+- Authentication via Supabase Auth.
 - Organization onboarding, team setup, invite-code join flow.
 - Role-based UI routing (manager/admin vs employee views).
 
@@ -29,7 +29,7 @@ It is built as a React + Vite frontend with an Express API layer (deployed as Ve
 - Log ML training events tied to approve/reject decisions.
 
 ### 4) AI and agent-assisted features
-- **Project Planner Agent**: decomposes project descriptions into tasks (Gemma model; ML fallback).
+- **Project Planner Agent**: decomposes project descriptions into tasks (Google Gemma `gemma-4-31b-it`; ML fallback).
 - **Voice Agent**: parses commands, supports navigation/actions/query intents with local + LLM fallback.
 - **Leave Approval Agent**: weighted-scoring decision engine for leave approvals.
 - **Smart Progress Agent**: updates progress from EOD-style report text using weighted scope completion.
@@ -63,7 +63,7 @@ It is built as a React + Vite frontend with an Express API layer (deployed as Ve
 ### ML/AI backend services used by this repo
 - **Python ML engine (Render):** `https://python-ml-engine-xlwh.onrender.com`
   - proxied in production via `/api/ml/*`
-- Additional configured external URL (`VITE_LLM_URL2`) appears intended for another agent service.
+- Secondary endpoint is configured via `VITE_LLM_URL2` (present in environment config; purpose is currently not fully documented in this repo).
 
 ### Data/auth backend
 - **Supabase** (Postgres + auth + storage logic used across routes/services).
@@ -168,14 +168,24 @@ flowchart LR
 
 ## AI agents used and their responsibilities
 
-| Agent / AI module | Where | Purpose |
-|---|---|---|
-| Voice Agent | `src/components/voice/VoiceAgent.tsx`, `src/services/geminiVoiceService.ts`, `src/api/voice/routes.ts` | Voice command UX, intent parsing, navigation/actions, fallback local parsing |
-| Project Planner Agent | `src/services/gemmaPlannerService.ts`, `src/components/PlanMyProjectScreen.tsx` | Task decomposition from project brief |
-| Leave Approval Agent | `src/lib/leaveApprovalAgent.ts`, `src/api/leave-approval/routes.ts` | Weighted leave approval decisions and summary |
-| Smart Progress Agent | `src/components/smart-progress/ProgressAgent.ts` | EOD text → progress updates on scoped tasks |
-| Project Insight Engine | `src/components/projects/insights/*` | Risk detection, recommendations, optional LLM summarization |
-| ML Engine Client | `src/services/mlService.ts`, `api/ml.ts` | Availability/bottleneck/capacity calls to external Python service |
+- **Voice Agent**
+  - **Where:** `src/components/voice/VoiceAgent.tsx`, `src/services/geminiVoiceService.ts`, `src/api/voice/routes.ts`
+  - **Purpose:** Voice command UX, intent parsing, navigation/actions, fallback local parsing
+- **Project Planner Agent**
+  - **Where:** `src/services/gemmaPlannerService.ts`, `src/components/PlanMyProjectScreen.tsx`
+  - **Purpose:** Task decomposition from project brief
+- **Leave Approval Agent**
+  - **Where:** `src/lib/leaveApprovalAgent.ts`, `src/api/leave-approval/routes.ts`
+  - **Purpose:** Weighted leave approval decisions and summary
+- **Smart Progress Agent**
+  - **Where:** `src/components/smart-progress/ProgressAgent.ts`
+  - **Purpose:** EOD text → progress updates on scoped tasks
+- **Project Insight Engine**
+  - **Where:** `src/components/projects/insights/*`
+  - **Purpose:** Risk detection, recommendations, optional LLM summarization
+- **ML Engine Client**
+  - **Where:** `src/services/mlService.ts`, `api/ml.ts`
+  - **Purpose:** Availability/bottleneck/capacity calls to external Python service
 
 ---
 
